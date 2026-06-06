@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
+import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
 
@@ -219,6 +220,131 @@ tags:
 
       completer.complete();
       await tester.pumpAndSettle();
+    });
+  });
+
+  group('TagConfig', () {
+    test('TagConfig.fromJson parses domains and methods', () {
+      final json = {
+        'domains': [
+          {
+            'id': 'work',
+            'name': '工作',
+            'description': '职业任务',
+            'order': 0,
+            'topics': [
+              {
+                'id': 'work-task',
+                'name': '任务执行',
+                'order': 0,
+              }
+            ],
+          }
+        ],
+        'methods': [
+          {
+            'id': 'reflect',
+            'name': '反思',
+            'order': 0,
+          }
+        ],
+      };
+
+      final config = TagConfig.fromJson(json);
+      expect(config.domains, hasLength(1));
+      expect(config.domains[0].id, 'work');
+      expect(config.domains[0].name, '工作');
+      expect(config.domains[0].description, '职业任务');
+      expect(config.domains[0].order, 0);
+      expect(config.domains[0].topics, hasLength(1));
+
+      expect(config.methods, hasLength(1));
+      expect(config.methods[0].id, 'reflect');
+      expect(config.methods[0].name, '反思');
+      expect(config.methods[0].order, 0);
+    });
+
+    test('TagTopic.fromJson handles missing description', () {
+      final json = {
+        'id': 'work-task',
+        'name': '任务执行',
+        'order': 0,
+      };
+      final topic = TagTopic.fromJson(json);
+      expect(topic.id, 'work-task');
+      expect(topic.name, '任务执行');
+      expect(topic.description, isNull);
+    });
+
+    test('TagMethod.fromJson handles missing description', () {
+      final json = {
+        'id': 'remember',
+        'name': '回忆',
+        'order': 3,
+      };
+      final method = TagMethod.fromJson(json);
+      expect(method.id, 'remember');
+      expect(method.name, '回忆');
+      expect(method.description, isNull);
+    });
+
+    test('TagConfig.fromJson handles missing domains and methods', () {
+      final config = TagConfig.fromJson({});
+      expect(config.domains, isEmpty);
+      expect(config.methods, isEmpty);
+    });
+
+    test('TagDomain.fromJson handles missing topics', () {
+      final json = {
+        'id': 'work',
+        'name': '工作',
+        'order': 0,
+      };
+      final domain = TagDomain.fromJson(json);
+      expect(domain.topics, isEmpty);
+    });
+
+    test('TagConfig.fromJson handles missing id/name/order safely', () {
+      final json = {
+        'domains': [
+          {
+            'topics': [{}],
+          }
+        ],
+        'methods': [{}],
+      };
+      final config = TagConfig.fromJson(json);
+      expect(config.domains[0].id, '');
+      expect(config.domains[0].name, '');
+      expect(config.domains[0].order, 0);
+      expect(config.domains[0].topics[0].id, '');
+      expect(config.domains[0].topics[0].order, 0);
+      expect(config.methods[0].id, '');
+    });
+
+    test('TagConfig.toJson preserves basic structure', () {
+      final config = TagConfig(
+        domains: [
+          TagDomain(
+            id: 'work',
+            name: '工作',
+            description: 'desc',
+            order: 0,
+            topics: [
+              TagTopic(id: 't1', name: '主题1', order: 0),
+            ],
+          ),
+        ],
+        methods: [
+          TagMethod(id: 'm1', name: '方法1', order: 0),
+        ],
+      );
+      final json = config.toJson();
+      expect(json['domains'], isA<List>());
+      expect(json['methods'], isA<List>());
+      expect(json['domains'][0]['name'], '工作');
+      expect(json['domains'][0]['topics'][0]['name'], '主题1');
+      expect(json['methods'][0]['name'], '方法1');
     });
   });
 }

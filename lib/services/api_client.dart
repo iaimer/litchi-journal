@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 
 import '../models/diary_entry.dart';
+import '../models/tag_config.dart';
 import 'api_config.dart';
 
 class ApiClient {
@@ -100,11 +101,26 @@ class ApiClient {
       body: jsonEncode({
         'date': dateStr,
         'content': content,
+        'tags': <String>[],
         'time': formatTime(DateTime.now()),
         'operationId': generateUuidV4(),
       }),
     );
     return response.statusCode == 200;
+  }
+
+  Future<TagConfig> fetchTagConfig() async {
+    final response = await _http.get(
+      Uri.parse('$_baseUrl/api/v1/settings/tags'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('获取标签配置失败 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return TagConfig.fromJson(json);
   }
 
   void dispose() {

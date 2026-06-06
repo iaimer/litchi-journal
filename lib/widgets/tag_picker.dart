@@ -22,6 +22,7 @@ class _TagPickerState extends State<TagPicker> {
   TagDomain? _selectedDomain;
   TagTopic? _selectedTopic;
   TagMethod? _selectedMethod;
+  bool _expanded = false;
 
   @override
   void initState() {
@@ -43,6 +44,7 @@ class _TagPickerState extends State<TagPicker> {
       _selectedDomain = null;
       _selectedTopic = null;
       _selectedMethod = null;
+      _expanded = false;
       return;
     }
 
@@ -111,39 +113,66 @@ class _TagPickerState extends State<TagPicker> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tags = _buildTags();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildSelectedPills(theme),
-        const SizedBox(height: 8),
-        _buildDomainRow(theme),
-        if (_selectedDomain != null) ...[
+        _buildCollapsedBar(theme, tags),
+        if (_expanded) ...[
           const SizedBox(height: 4),
-          _buildTopicRow(theme),
+          _buildDomainRow(theme),
+          if (_selectedDomain != null) ...[
+            const SizedBox(height: 4),
+            _buildTopicRow(theme),
+          ],
+          const SizedBox(height: 4),
+          _buildMethodRow(theme),
         ],
-        const SizedBox(height: 4),
-        _buildMethodRow(theme),
       ],
     );
   }
 
-  Widget _buildSelectedPills(ThemeData theme) {
-    final tags = _buildTags();
-    if (tags.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      children: tags.map((name) {
-        return Chip(
-          label: Text(name, style: const TextStyle(fontSize: 12)),
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.compact,
-          backgroundColor: theme.colorScheme.primary.withAlpha(25),
-          side: BorderSide.none,
-        );
-      }).toList(growable: false),
+  Widget _buildCollapsedBar(ThemeData theme, List<String> tags) {
+    return Row(
+      children: [
+        if (tags.isNotEmpty)
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: tags.map((name) {
+                return Chip(
+                  label: Text(name, style: const TextStyle(fontSize: 12)),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor:
+                      theme.colorScheme.primary.withAlpha(25),
+                  side: BorderSide.none,
+                );
+              }).toList(growable: false),
+            ),
+          )
+        else
+          const Spacer(),
+        TextButton.icon(
+          onPressed: () => setState(() => _expanded = !_expanded),
+          icon: Icon(
+            _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+            size: 16,
+          ),
+          label: Text(
+            _expanded ? '收起' : '🏷️ 标签',
+            style: const TextStyle(fontSize: 12),
+          ),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            foregroundColor: theme.colorScheme.onSurface.withAlpha(150),
+          ),
+        ),
+      ],
     );
   }
 

@@ -142,10 +142,15 @@ tags:
     Widget buildComposer({
       required Future<void> Function(String, List<String>) onSubmit,
       TagConfig? tagConfig,
+      String? tagHint,
     }) {
       return MaterialApp(
         home: Scaffold(
-          body: QuickNoteComposer(onSubmit: onSubmit, tagConfig: tagConfig),
+          body: QuickNoteComposer(
+            onSubmit: onSubmit,
+            tagConfig: tagConfig,
+            tagHint: tagHint,
+          ),
         ),
       );
     }
@@ -259,6 +264,8 @@ tags:
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
 
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
       await tester.tap(find.text('任务执行').last);
@@ -280,6 +287,8 @@ tags:
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
 
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
       await tester.tap(find.text('任务执行').last);
@@ -288,7 +297,6 @@ tags:
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
-      // After success, selected pills should be gone
       expect(find.byType(Chip), findsNothing);
     });
 
@@ -304,6 +312,8 @@ tags:
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
 
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
       await tester.tap(find.text('任务执行').last);
@@ -315,6 +325,16 @@ tags:
       // Tags should still be visible as pills
       expect(find.text('工作'), findsWidgets);
       expect(find.text('任务执行'), findsWidgets);
+    });
+
+    testWidgets('shows tagHint when tagConfig is null',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        tagHint: '标签暂不可用',
+      ));
+
+      expect(find.text('标签暂不可用'), findsOneWidget);
     });
   });
 
@@ -532,21 +552,35 @@ tags:
       );
     }
 
-    testWidgets('shows domain names', (WidgetTester tester) async {
-      await tester.pumpWidget(buildPicker(onChanged: (_) {}));
-      expect(find.text('工作'), findsOneWidget);
-      expect(find.text('生活'), findsOneWidget);
-    });
-
-    testWidgets('shows topics after tapping domain',
+    testWidgets('defaults to collapsed state',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildPicker(onChanged: (_) {}));
-      expect(find.text('任务执行'), findsNothing);
+      // Chips hidden by default
+      expect(find.byType(ChoiceChip), findsNothing);
+      expect(find.text('🏷️ 标签'), findsOneWidget);
+    });
 
-      await tester.tap(find.text('工作'));
+    testWidgets('expands chips when toggle tapped',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildPicker(onChanged: (_) {}));
+
+      await tester.tap(find.text('🏷️ 标签'));
       await tester.pump();
+
+      expect(find.byType(ChoiceChip), findsWidgets);
+      expect(find.text('工作'), findsWidgets);
+    });
+
+    testWidgets('shows topics after expanding and tapping domain',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildPicker(onChanged: (_) {}));
+
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pump();
+      await tester.tap(find.text('工作').last);
+      await tester.pump();
+
       expect(find.text('任务执行'), findsOneWidget);
-      expect(find.text('沟通协作'), findsOneWidget);
     });
 
     testWidgets('onChanged outputs domain and topic when selected',
@@ -556,11 +590,13 @@ tags:
         onChanged: (tags) => output = tags,
       ));
 
-      await tester.tap(find.text('工作'));
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pump();
+      await tester.tap(find.text('工作').last);
       await tester.pump();
       expect(output, ['工作']);
 
-      await tester.tap(find.text('任务执行'));
+      await tester.tap(find.text('任务执行').last);
       await tester.pump();
       expect(output, ['工作', '任务执行']);
     });
@@ -572,6 +608,8 @@ tags:
         onChanged: (tags) => output = tags,
       ));
 
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
       await tester.tap(find.text('任务执行').last);
@@ -593,27 +631,73 @@ tags:
         onChanged: (tags) => output = tags,
       ));
 
-      await tester.tap(find.text('工作'));
+      await tester.tap(find.text('🏷️ 标签'));
       await tester.pump();
-      await tester.tap(find.text('任务执行'));
+      await tester.tap(find.text('工作').last);
+      await tester.pump();
+      await tester.tap(find.text('任务执行').last);
       await tester.pump();
       expect(output, ['工作', '任务执行']);
 
-      await tester.tap(find.text('生活'));
+      await tester.tap(find.text('生活').last);
       await tester.pump();
       expect(output, ['生活']);
     });
 
-    testWidgets('initialTags restores selection',
+    testWidgets('selected pills visible in collapsed state',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildPicker(
         initialTags: ['生活', '健康管理', '回忆'],
         onChanged: (_) {},
       ));
 
+      // Pills visible even in collapsed state
       expect(find.text('生活'), findsWidgets);
       expect(find.text('健康管理'), findsAtLeastNWidgets(1));
       expect(find.text('回忆'), findsAtLeastNWidgets(1));
+
+      // Chips not visible
+      expect(find.byType(ChoiceChip), findsNothing);
+    });
+
+    testWidgets('collapses when initialTags cleared externally',
+        (WidgetTester tester) async {
+      List<String> tags = ['工作', '任务执行'];
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return TagPicker(
+                tagConfig: testConfig,
+                initialTags: tags,
+                onChanged: (_) {},
+              );
+            },
+          ),
+        ),
+      ));
+
+      // Expand and verify chips visible
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pump();
+      expect(find.byType(ChoiceChip), findsWidgets);
+
+      // Now clear tags by rebuilding with empty list
+      tags = [];
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: TagPicker(
+            tagConfig: testConfig,
+            initialTags: tags,
+            onChanged: (_) {},
+          ),
+        ),
+      ));
+
+      // Should be collapsed again
+      expect(find.byType(ChoiceChip), findsNothing);
+      expect(find.text('🏷️ 标签'), findsOneWidget);
     });
   });
 }

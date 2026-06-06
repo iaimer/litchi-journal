@@ -23,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _error;
   TagConfig? _tagConfig;
+  bool _tagConfigFailed = false;
 
   @override
   void initState() {
@@ -36,9 +37,13 @@ class _HomeScreenState extends State<HomeScreen> {
       final repo = TagRepository(apiClient: widget.apiClient);
       final config = await repo.loadTagConfig();
       if (!mounted) return;
-      setState(() => _tagConfig = config);
+      setState(() {
+        _tagConfig = config;
+        _tagConfigFailed = false;
+      });
     } catch (_) {
-      // 标签配置加载失败不阻塞主页
+      if (!mounted) return;
+      setState(() => _tagConfigFailed = true);
     }
   }
 
@@ -64,6 +69,18 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _loadDiarySilently() async {
+    try {
+      final diary = await widget.apiClient.getDiary(DateTime.now());
+      if (!mounted) return;
+      setState(() => _diary = diary);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已保存，但刷新失败')));
+    }
+  }
+
   Future<void> _handleQuickNoteSubmit(
       String content, List<String> tags) async {
     final success = await widget.apiClient.appendQuickNote(
@@ -73,7 +90,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (!success) throw Exception('保存失败');
     if (!mounted) return;
-    await _loadDiary();
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已保存')));
+    _loadDiarySilently();
   }
 
   String _todayString() {
@@ -132,6 +151,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       QuickNoteComposer(
                         onSubmit: _handleQuickNoteSubmit,
                         tagConfig: _tagConfig,
+                        tagHint:
+                            _tagConfigFailed ? '标签暂不可用' : null,
                       ),
                     ],
                   ),

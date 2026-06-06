@@ -6,11 +6,13 @@ import 'tag_picker.dart';
 class QuickNoteComposer extends StatefulWidget {
   final Future<void> Function(String content, List<String> tags) onSubmit;
   final TagConfig? tagConfig;
+  final String? tagHint;
 
   const QuickNoteComposer({
     super.key,
     required this.onSubmit,
     this.tagConfig,
+    this.tagHint,
   });
 
   @override
@@ -92,6 +94,19 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
             onChanged: (tags) {
               setState(() => _selectedTags = tags);
             },
+          ),
+        ] else if (widget.tagHint != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            widget.tagHint!,
+            style: TextStyle(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withAlpha(100),
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
           ),
         ],
         const SizedBox(height: 12),

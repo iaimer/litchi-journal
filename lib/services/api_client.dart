@@ -93,17 +93,17 @@ class ApiClient {
     return null;
   }
 
-  Future<bool> appendQuickNote(
+  Future<bool> _appendToSection(
+    String section,
     DateTime date,
-    String content, {
-    List<String> tags = const [],
-  }) async {
-    final dateStr = formatDate(date);
+    String content,
+    List<String> tags,
+  ) async {
     final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/quick-note'),
+      Uri.parse('$_baseUrl/api/v1/diary/$section'),
       headers: _headers,
       body: jsonEncode({
-        'date': dateStr,
+        'date': formatDate(date),
         'content': content,
         'tags': tags,
         'time': formatTime(DateTime.now()),
@@ -111,6 +111,38 @@ class ApiClient {
       }),
     );
     return response.statusCode == 200;
+  }
+
+  Future<bool> appendQuickNote(
+    DateTime date,
+    String content, {
+    List<String> tags = const [],
+  }) {
+    return _appendToSection('quick-note', date, content, tags);
+  }
+
+  Future<bool> appendReflection(
+    DateTime date,
+    String content, {
+    List<String> tags = const [],
+  }) {
+    return _appendToSection('reflection', date, content, tags);
+  }
+
+  Future<bool> appendHappiness(
+    DateTime date,
+    String content, {
+    List<String> tags = const [],
+  }) {
+    return _appendToSection('happiness', date, content, tags);
+  }
+
+  Future<bool> appendAnxiety(
+    DateTime date,
+    String content, {
+    List<String> tags = const [],
+  }) {
+    return _appendToSection('anxiety', date, content, tags);
   }
 
   Future<TagConfig> fetchTagConfig() async {

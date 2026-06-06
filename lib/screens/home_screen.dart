@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/diary_entry.dart';
+import '../models/tag_config.dart';
 import '../services/api_client.dart';
+import '../services/tag_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/quick_note_composer.dart';
@@ -20,11 +22,24 @@ class _HomeScreenState extends State<HomeScreen> {
   DiaryEntry? _diary;
   bool _loading = true;
   String? _error;
+  TagConfig? _tagConfig;
 
   @override
   void initState() {
     super.initState();
     _loadDiary();
+    _loadTagConfig();
+  }
+
+  Future<void> _loadTagConfig() async {
+    try {
+      final repo = TagRepository(apiClient: widget.apiClient);
+      final config = await repo.loadTagConfig();
+      if (!mounted) return;
+      setState(() => _tagConfig = config);
+    } catch (_) {
+      // 标签配置加载失败不阻塞主页
+    }
   }
 
   Future<void> _loadDiary() async {
@@ -49,9 +64,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _handleQuickNoteSubmit(String content) async {
-    final success =
-        await widget.apiClient.appendQuickNote(DateTime.now(), content);
+  Future<void> _handleQuickNoteSubmit(
+      String content, List<String> tags) async {
+    final success = await widget.apiClient.appendQuickNote(
+      DateTime.now(),
+      content,
+      tags: tags,
+    );
     if (!success) throw Exception('保存失败');
     if (!mounted) return;
     await _loadDiary();
@@ -112,6 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       QuickNoteComposer(
                         onSubmit: _handleQuickNoteSubmit,
+                        tagConfig: _tagConfig,
                       ),
                     ],
                   ),

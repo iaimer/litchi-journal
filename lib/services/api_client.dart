@@ -93,7 +93,11 @@ class ApiClient {
     return null;
   }
 
-  Future<bool> appendQuickNote(DateTime date, String content) async {
+  Future<bool> appendQuickNote(
+    DateTime date,
+    String content, {
+    List<String> tags = const [],
+  }) async {
     final dateStr = formatDate(date);
     final response = await _http.post(
       Uri.parse('$_baseUrl/api/v1/diary/quick-note'),
@@ -101,7 +105,7 @@ class ApiClient {
       body: jsonEncode({
         'date': dateStr,
         'content': content,
-        'tags': <String>[],
+        'tags': tags,
         'time': formatTime(DateTime.now()),
         'operationId': generateUuidV4(),
       }),

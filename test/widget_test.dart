@@ -11,6 +11,24 @@ import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 
+TagConfig _testTagConfig() {
+  return TagConfig(
+    domains: [
+      TagDomain(
+        id: 'work',
+        name: '工作',
+        order: 0,
+        topics: [
+          TagTopic(id: 'work-task', name: '任务执行', order: 0),
+        ],
+      ),
+    ],
+    methods: [
+      TagMethod(id: 'reflect', name: '反思', order: 0),
+    ],
+  );
+}
+
 void main() {
   test('DiaryEntry.fromJson parses valid data', () {
     final json = {
@@ -122,11 +140,12 @@ tags:
 
   group('QuickNoteComposer', () {
     Widget buildComposer({
-      required Future<void> Function(String) onSubmit,
+      required Future<void> Function(String, List<String>) onSubmit,
+      TagConfig? tagConfig,
     }) {
       return MaterialApp(
         home: Scaffold(
-          body: QuickNoteComposer(onSubmit: onSubmit),
+          body: QuickNoteComposer(onSubmit: onSubmit, tagConfig: tagConfig),
         ),
       );
     }
@@ -134,7 +153,7 @@ tags:
     testWidgets('button is disabled when input is empty',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildComposer(
-        onSubmit: (_) async {},
+        onSubmit: (_, _) async {},
       ));
 
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
@@ -144,7 +163,7 @@ tags:
     testWidgets('button is enabled when input is not empty',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildComposer(
-        onSubmit: (_) async {},
+        onSubmit: (_, _) async {},
       ));
 
       await tester.enterText(find.byType(TextField), 'hello');
@@ -154,12 +173,14 @@ tags:
       expect(button.onPressed, isNotNull);
     });
 
-    testWidgets('calls onSubmit with content when tapped',
+    testWidgets('calls onSubmit with content and empty tags when no tagConfig',
         (WidgetTester tester) async {
-      String? submitted;
+      String? submittedContent;
+      List<String>? submittedTags;
       await tester.pumpWidget(buildComposer(
-        onSubmit: (content) async {
-          submitted = content;
+        onSubmit: (content, tags) async {
+          submittedContent = content;
+          submittedTags = tags;
         },
       ));
 
@@ -168,13 +189,14 @@ tags:
       await tester.tap(find.byType(ElevatedButton));
       await tester.pump();
 
-      expect(submitted, 'hello');
+      expect(submittedContent, 'hello');
+      expect(submittedTags, isEmpty);
     });
 
     testWidgets('clears input on successful submit',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildComposer(
-        onSubmit: (_) async {},
+        onSubmit: (_, _) async {},
       ));
 
       await tester.enterText(find.byType(TextField), 'hello');
@@ -189,7 +211,7 @@ tags:
     testWidgets('preserves input and shows error on failure',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildComposer(
-        onSubmit: (_) async {
+        onSubmit: (_, _) async {
           throw Exception('fail');
         },
       ));
@@ -209,7 +231,7 @@ tags:
         (WidgetTester tester) async {
       final completer = Completer<void>();
       await tester.pumpWidget(buildComposer(
-        onSubmit: (_) => completer.future,
+        onSubmit: (_, _) => completer.future,
       ));
 
       await tester.enterText(find.byType(TextField), 'hello');
@@ -222,6 +244,77 @@ tags:
 
       completer.complete();
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('submits tags when selected via tagConfig',
+        (WidgetTester tester) async {
+      List<String>? submittedTags;
+      await tester.pumpWidget(buildComposer(
+        tagConfig: _testTagConfig(),
+        onSubmit: (_, tags) async {
+          submittedTags = tags;
+        },
+      ));
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+
+      await tester.tap(find.text('工作').last);
+      await tester.pump();
+      await tester.tap(find.text('任务执行').last);
+      await tester.pump();
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pump();
+
+      expect(submittedTags, ['工作', '任务执行']);
+    });
+
+    testWidgets('clears tags on successful submit',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        tagConfig: _testTagConfig(),
+        onSubmit: (_, _) async {},
+      ));
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+
+      await tester.tap(find.text('工作').last);
+      await tester.pump();
+      await tester.tap(find.text('任务执行').last);
+      await tester.pump();
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      // After success, selected pills should be gone
+      expect(find.byType(Chip), findsNothing);
+    });
+
+    testWidgets('preserves tags on failed submit',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        tagConfig: _testTagConfig(),
+        onSubmit: (_, _) async {
+          throw Exception('fail');
+        },
+      ));
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+
+      await tester.tap(find.text('工作').last);
+      await tester.pump();
+      await tester.tap(find.text('任务执行').last);
+      await tester.pump();
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      // Tags should still be visible as pills
+      expect(find.text('工作'), findsWidgets);
+      expect(find.text('任务执行'), findsWidgets);
     });
   });
 

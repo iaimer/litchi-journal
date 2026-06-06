@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 
-class QuickNoteComposer extends StatefulWidget {
-  final Future<void> Function(String content) onSubmit;
+import '../models/tag_config.dart';
+import 'tag_picker.dart';
 
-  const QuickNoteComposer({super.key, required this.onSubmit});
+class QuickNoteComposer extends StatefulWidget {
+  final Future<void> Function(String content, List<String> tags) onSubmit;
+  final TagConfig? tagConfig;
+
+  const QuickNoteComposer({
+    super.key,
+    required this.onSubmit,
+    this.tagConfig,
+  });
 
   @override
   State<QuickNoteComposer> createState() => _QuickNoteComposerState();
@@ -11,6 +19,7 @@ class QuickNoteComposer extends StatefulWidget {
 
 class _QuickNoteComposerState extends State<QuickNoteComposer> {
   final _controller = TextEditingController();
+  List<String> _selectedTags = [];
   bool _saving = false;
   String? _error;
 
@@ -43,9 +52,10 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
     });
 
     try {
-      await widget.onSubmit(content);
+      await widget.onSubmit(content, _selectedTags);
       if (!mounted) return;
       _controller.clear();
+      setState(() => _selectedTags = []);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -60,6 +70,8 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final tagConfig = widget.tagConfig;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -72,6 +84,16 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
           maxLines: 3,
           enabled: !_saving,
         ),
+        if (tagConfig != null) ...[
+          const SizedBox(height: 10),
+          TagPicker(
+            tagConfig: tagConfig,
+            initialTags: _selectedTags,
+            onChanged: (tags) {
+              setState(() => _selectedTags = tags);
+            },
+          ),
+        ],
         const SizedBox(height: 12),
         if (_error != null)
           Padding(

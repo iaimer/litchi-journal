@@ -39,7 +39,12 @@ class _TagPickerState extends State<TagPicker> {
 
   void _restoreInitialTags() {
     final tags = widget.initialTags;
-    if (tags.isEmpty) return;
+    if (tags.isEmpty) {
+      _selectedDomain = null;
+      _selectedTopic = null;
+      _selectedMethod = null;
+      return;
+    }
 
     final domainName = tags.first;
     final domain = widget.tagConfig.domains

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
+import '../theme/app_theme.dart';
+import 'section_card.dart';
+
 final _calloutStart = RegExp(r'^>\s*\[!(\w+)\]\s*(.*)$');
 final _checkboxLine = RegExp(r'^-\s*\[([ xX])\]\s*(.*)$');
 final _timelineLine = RegExp(r'^-\s*\*\*(\d{2}:\d{2})\*\*\s*(.*)$');
@@ -248,24 +251,34 @@ class DiaryMarkdownView extends StatelessWidget {
     }
 
     for (final section in sections) {
-      if (section.hasCollapsibleCallout) {
-        widgets.add(_buildSectionHeader(context, section.title));
-        widgets.add(_buildCollapsedCallout(context, section));
-        continue;
-      }
       if (section.isEffectivelyEmpty) continue;
 
-      widgets.add(_buildSectionHeader(context, section.title));
+      final sectionWidgets = <Widget>[];
 
-      for (int i = 0; i < section.blocks.length; i++) {
-        final block = section.blocks[i];
-        if (block.kind == _Kind.section) {
-          if (_subSectionHasContent(section.blocks, i)) {
-            widgets.add(_buildSubSectionHeader(context, block.title!));
+      if (section.hasCollapsibleCallout) {
+        sectionWidgets.add(_buildCollapsedCallout(context, section));
+      } else {
+        for (int i = 0; i < section.blocks.length; i++) {
+          final block = section.blocks[i];
+          if (block.kind == _Kind.section) {
+            if (_subSectionHasContent(section.blocks, i)) {
+              sectionWidgets
+                  .add(_buildSubSectionHeader(context, block.title!));
+            }
+          } else {
+            _buildBlock(context, block, sectionWidgets);
           }
-        } else {
-          _buildBlock(context, block, widgets);
         }
+      }
+
+      if (sectionWidgets.isNotEmpty) {
+        widgets.add(
+          SectionCard(
+            title: section.title,
+            accentColor: AppColors.primary,
+            children: sectionWidgets,
+          ),
+        );
       }
     }
 
@@ -319,19 +332,6 @@ class DiaryMarkdownView extends StatelessWidget {
       default:
         break;
     }
-  }
-
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 8),
-      child: Text(
-        title,
-        style: theme.textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
   }
 
   Widget _buildSubSectionHeader(BuildContext context, String title) {

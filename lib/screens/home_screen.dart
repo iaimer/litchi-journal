@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/diary_entry.dart';
 import '../services/api_client.dart';
+import '../theme/app_theme.dart';
 import '../widgets/diary_markdown_view.dart';
+import '../widgets/section_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -82,30 +84,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('荔枝日记')),
+      backgroundColor: AppColors.background,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadDiary,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
+                  const SizedBox(height: 16),
                   Text(
                     _todayString(),
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: theme.textTheme.headlineLarge,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
+                  const SizedBox(height: 4),
+                  const Text(
                     '已连接服务器',
-                    style: TextStyle(color: Colors.green[600], fontSize: 12),
+                    style: TextStyle(
+                      color: AppColors.success,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   if (_error != null) ...[
                     Text(
                       _error!,
                       style:
-                          TextStyle(color: Theme.of(context).colorScheme.error),
+                          TextStyle(color: theme.colorScheme.error),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -114,36 +122,38 @@ class _HomeScreenState extends State<HomeScreen> {
                   ] else ...[
                     const Text(
                       '今日还没有日记内容',
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                   ],
                   const SizedBox(height: 32),
-                  const Divider(),
+                  SectionCard(
+                    title: '快速记录',
+                    children: [
+                      TextField(
+                        controller: _quickNoteController,
+                        decoration: const InputDecoration(
+                          hintText: '写点什么...',
+                        ),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton(
+                          onPressed: _saving ? null : _saveQuickNote,
+                          child: _saving
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('保存'),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 16),
-                  const Text(
-                    '快速记录',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _quickNoteController,
-                    decoration: const InputDecoration(
-                      hintText: '写点什么...',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: _saving ? null : _saveQuickNote,
-                    child: _saving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('保存'),
-                  ),
                 ],
               ),
             ),

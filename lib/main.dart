@@ -4,6 +4,7 @@ import 'services/api_config.dart';
 import 'services/api_client.dart';
 import 'screens/setup_screen.dart';
 import 'screens/home_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const LitchiJournalApp());
@@ -16,10 +17,7 @@ class LitchiJournalApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '荔枝日记',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.pink),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
       home: const AppEntry(),
     );
   }

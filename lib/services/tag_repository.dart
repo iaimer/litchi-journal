@@ -1,4 +1,5 @@
 import 'dart:convert';
+// ignore_for_file: prefer_initializing_formals
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 

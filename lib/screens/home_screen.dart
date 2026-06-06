@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/diary_entry.dart';
 import '../services/api_client.dart';
+import '../widgets/diary_markdown_view.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -109,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                   ],
                   if (_diary != null && _diary!.raw.isNotEmpty) ...[
-                    Text(_diary!.raw, style: const TextStyle(fontSize: 16)),
+                    DiaryMarkdownView(markdown: _diary!.raw),
                   ] else ...[
                     const Text(
                       '今日还没有日记内容',

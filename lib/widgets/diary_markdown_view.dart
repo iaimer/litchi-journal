@@ -7,8 +7,8 @@ final _timelineLine = RegExp(r'^-\s*\*\*(\d{2}:\d{2})\*\*\s*(.*)$');
 final _sectionHeader = RegExp(r'^#{2,3}\s+(.*)$');
 final _mainTitle = RegExp(r'^#\s+.*$');
 final _htmlComment = RegExp(r'^<!--.*-->$');
-final _tagPattern = RegExp(r'#(\S+)');
-final _questionHint = RegExp(r'[？?]|吗[？?]?$');
+final _tagPattern = RegExp(r'#(\w+)');
+final _questionHint = RegExp(r'[？?]$|吗[？?]?$');
 final _horizontalRule = RegExp(r'^[-*_]{3,}$');
 
 const _templateTimelineText = '内容 #标签';
@@ -36,19 +36,20 @@ class DiaryMarkdownView extends StatelessWidget {
 
   List<String> _stripYaml(String raw) {
     final lines = raw.split('\n');
+    final firstContent = lines.indexWhere((l) => l.trim().isNotEmpty);
+    if (firstContent == -1 || lines[firstContent].trim() != '---') {
+      return lines;
+    }
     final result = <String>[];
-    var inYaml = false;
-    var yamlCount = 0;
-
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (trimmed == '---' && yamlCount < 2) {
-        inYaml = !inYaml;
-        yamlCount++;
+    var inYaml = true;
+    for (int i = firstContent + 1; i < lines.length; i++) {
+      final trimmed = lines[i].trim();
+      if (inYaml && trimmed == '---') {
+        inYaml = false;
         continue;
       }
       if (!inYaml) {
-        result.add(line);
+        result.add(lines[i]);
       }
     }
     return result;
@@ -170,6 +171,9 @@ class DiaryMarkdownView extends StatelessWidget {
       while (i < lines.length) {
         final nextTrimmed = lines[i].trim();
         if (nextTrimmed.isEmpty || _isPlaceholder(nextTrimmed)) {
+          if (nextTrimmed.isEmpty) {
+            mdLines.add(lines[i]);
+          }
           i++;
           continue;
         }
@@ -238,7 +242,9 @@ class DiaryMarkdownView extends StatelessWidget {
     final widgets = <Widget>[];
 
     for (final block in preamble) {
-      _buildBlock(context, block, widgets);
+      if (_blockHasRealContent(block)) {
+        _buildBlock(context, block, widgets);
+      }
     }
 
     for (final section in sections) {
@@ -515,27 +521,44 @@ class DiaryMarkdownView extends StatelessWidget {
   }
 
   (IconData, Color, Color) _calloutStyle(ThemeData theme, String type) {
+    final isDark = theme.brightness == Brightness.dark;
     switch (type) {
       case 'quote':
-        return (Icons.format_quote, Colors.grey.shade700, Colors.grey.shade50);
+        return (Icons.format_quote,
+            isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+            isDark ? Colors.grey.shade800.withAlpha(100) : Colors.grey.shade50);
       case 'tip':
-        return (Icons.lightbulb_outline, Colors.teal.shade700, Colors.teal.shade50);
+        return (Icons.lightbulb_outline,
+            isDark ? Colors.teal.shade200 : Colors.teal.shade700,
+            isDark ? Colors.teal.shade800.withAlpha(100) : Colors.teal.shade50);
       case 'note':
       case 'info':
-        return (Icons.info_outline, Colors.blue.shade700, Colors.blue.shade50);
+        return (Icons.info_outline,
+            isDark ? Colors.blue.shade200 : Colors.blue.shade700,
+            isDark ? Colors.blue.shade800.withAlpha(100) : Colors.blue.shade50);
       case 'warning':
       case 'caution':
-        return (Icons.warning_amber_rounded, Colors.orange.shade700, Colors.orange.shade50);
+        return (Icons.warning_amber_rounded,
+            isDark ? Colors.orange.shade200 : Colors.orange.shade700,
+            isDark ? Colors.orange.shade800.withAlpha(100) : Colors.orange.shade50);
       case 'danger':
       case 'error':
-        return (Icons.error_outline, Colors.red.shade700, Colors.red.shade50);
+        return (Icons.error_outline,
+            isDark ? Colors.red.shade200 : Colors.red.shade700,
+            isDark ? Colors.red.shade800.withAlpha(100) : Colors.red.shade50);
       case 'success':
       case 'done':
-        return (Icons.check_circle_outline, Colors.green.shade700, Colors.green.shade50);
+        return (Icons.check_circle_outline,
+            isDark ? Colors.green.shade200 : Colors.green.shade700,
+            isDark ? Colors.green.shade800.withAlpha(100) : Colors.green.shade50);
       case 'example':
-        return (Icons.code, Colors.purple.shade700, Colors.purple.shade50);
+        return (Icons.code,
+            isDark ? Colors.purple.shade200 : Colors.purple.shade700,
+            isDark ? Colors.purple.shade800.withAlpha(100) : Colors.purple.shade50);
       default:
-        return (Icons.info_outline, Colors.blue.shade700, Colors.blue.shade50);
+        return (Icons.info_outline,
+            isDark ? Colors.blue.shade200 : Colors.blue.shade700,
+            isDark ? Colors.blue.shade800.withAlpha(100) : Colors.blue.shade50);
     }
   }
 }

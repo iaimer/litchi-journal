@@ -9,6 +9,7 @@ import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
+import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 
 void main() {
   test('DiaryEntry.fromJson parses valid data', () {
@@ -390,6 +391,136 @@ tags:
       expect(restored.methods, hasLength(2));
       expect(restored.methods[0].description, '对自身行为和思考的回顾');
       expect(restored.methods[1].description, isNull);
+    });
+  });
+
+  group('TagPicker', () {
+    final testConfig = TagConfig(
+      domains: [
+        TagDomain(
+          id: 'work',
+          name: '工作',
+          order: 0,
+          topics: [
+            TagTopic(id: 'work-task', name: '任务执行', order: 0),
+            TagTopic(id: 'work-collab', name: '沟通协作', order: 1),
+          ],
+        ),
+        TagDomain(
+          id: 'life',
+          name: '生活',
+          order: 1,
+          topics: [
+            TagTopic(id: 'life-health', name: '健康管理', order: 0),
+            TagTopic(id: 'life-daily', name: '日常记录', order: 1),
+          ],
+        ),
+      ],
+      methods: [
+        TagMethod(id: 'reflect', name: '反思', order: 0),
+        TagMethod(id: 'remember', name: '回忆', order: 1),
+      ],
+    );
+
+    Widget buildPicker({
+      List<String> initialTags = const [],
+      required ValueChanged<List<String>> onChanged,
+    }) {
+      return MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: TagPicker(
+              tagConfig: testConfig,
+              initialTags: initialTags,
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('shows domain names', (WidgetTester tester) async {
+      await tester.pumpWidget(buildPicker(onChanged: (_) {}));
+      expect(find.text('工作'), findsOneWidget);
+      expect(find.text('生活'), findsOneWidget);
+    });
+
+    testWidgets('shows topics after tapping domain',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildPicker(onChanged: (_) {}));
+      expect(find.text('任务执行'), findsNothing);
+
+      await tester.tap(find.text('工作'));
+      await tester.pump();
+      expect(find.text('任务执行'), findsOneWidget);
+      expect(find.text('沟通协作'), findsOneWidget);
+    });
+
+    testWidgets('onChanged outputs domain and topic when selected',
+        (WidgetTester tester) async {
+      List<String>? output;
+      await tester.pumpWidget(buildPicker(
+        onChanged: (tags) => output = tags,
+      ));
+
+      await tester.tap(find.text('工作'));
+      await tester.pump();
+      expect(output, ['工作']);
+
+      await tester.tap(find.text('任务执行'));
+      await tester.pump();
+      expect(output, ['工作', '任务执行']);
+    });
+
+    testWidgets('onChanged outputs method when toggled',
+        (WidgetTester tester) async {
+      List<String>? output;
+      await tester.pumpWidget(buildPicker(
+        onChanged: (tags) => output = tags,
+      ));
+
+      await tester.tap(find.text('工作').last);
+      await tester.pump();
+      await tester.tap(find.text('任务执行').last);
+      await tester.pump();
+
+      await tester.tap(find.text('反思').last);
+      await tester.pump();
+      expect(output, ['工作', '任务执行', '反思']);
+
+      await tester.tap(find.text('反思').last);
+      await tester.pump();
+      expect(output, ['工作', '任务执行']);
+    });
+
+    testWidgets('switching domain clears topic',
+        (WidgetTester tester) async {
+      List<String>? output;
+      await tester.pumpWidget(buildPicker(
+        onChanged: (tags) => output = tags,
+      ));
+
+      await tester.tap(find.text('工作'));
+      await tester.pump();
+      await tester.tap(find.text('任务执行'));
+      await tester.pump();
+      expect(output, ['工作', '任务执行']);
+
+      await tester.tap(find.text('生活'));
+      await tester.pump();
+      expect(output, ['生活']);
+    });
+
+    testWidgets('initialTags restores selection',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildPicker(
+        initialTags: ['生活', '健康管理', '回忆'],
+        onChanged: (_) {},
+      ));
+
+      expect(find.text('生活'), findsWidgets);
+      expect(find.text('健康管理'), findsAtLeastNWidgets(1));
+      expect(find.text('回忆'), findsAtLeastNWidgets(1));
     });
   });
 }

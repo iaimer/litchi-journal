@@ -1,0 +1,261 @@
+import 'package:flutter/material.dart';
+
+import '../models/tag_config.dart';
+
+class TagPicker extends StatefulWidget {
+  final TagConfig tagConfig;
+  final List<String> initialTags;
+  final ValueChanged<List<String>> onChanged;
+
+  const TagPicker({
+    super.key,
+    required this.tagConfig,
+    this.initialTags = const [],
+    required this.onChanged,
+  });
+
+  @override
+  State<TagPicker> createState() => _TagPickerState();
+}
+
+class _TagPickerState extends State<TagPicker> {
+  TagDomain? _selectedDomain;
+  TagTopic? _selectedTopic;
+  TagMethod? _selectedMethod;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreInitialTags();
+  }
+
+  @override
+  void didUpdateWidget(covariant TagPicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTags != widget.initialTags) {
+      _restoreInitialTags();
+    }
+  }
+
+  void _restoreInitialTags() {
+    final tags = widget.initialTags;
+    if (tags.isEmpty) return;
+
+    final domainName = tags.first;
+    final domain = widget.tagConfig.domains
+        .where((d) => d.name == domainName)
+        .firstOrNull;
+    if (domain == null) return;
+
+    _selectedDomain = domain;
+
+    if (tags.length > 1) {
+      final topicName = tags[1];
+      final topic =
+          domain.topics.where((t) => t.name == topicName).firstOrNull;
+      _selectedTopic = topic;
+    }
+
+    if (tags.length > 2) {
+      final methodName = tags[2];
+      final method = widget.tagConfig.methods
+          .where((m) => m.name == methodName)
+          .firstOrNull;
+      _selectedMethod = method;
+    }
+  }
+
+  List<String> _buildTags() {
+    final result = <String>[];
+    if (_selectedDomain != null) result.add(_selectedDomain!.name);
+    if (_selectedTopic != null) result.add(_selectedTopic!.name);
+    if (_selectedMethod != null) result.add(_selectedMethod!.name);
+    return result;
+  }
+
+  void _emit() {
+    widget.onChanged(_buildTags());
+  }
+
+  void _selectDomain(TagDomain domain) {
+    if (_selectedDomain?.id == domain.id) return;
+    setState(() {
+      _selectedDomain = domain;
+      _selectedTopic = null;
+    });
+    _emit();
+  }
+
+  void _selectTopic(TagTopic topic) {
+    if (_selectedTopic?.id == topic.id) return;
+    setState(() => _selectedTopic = topic);
+    _emit();
+  }
+
+  void _toggleMethod(TagMethod method) {
+    setState(() {
+      if (_selectedMethod?.id == method.id) {
+        _selectedMethod = null;
+      } else {
+        _selectedMethod = method;
+      }
+    });
+    _emit();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildSelectedPills(theme),
+        const SizedBox(height: 8),
+        _buildDomainRow(theme),
+        if (_selectedDomain != null) ...[
+          const SizedBox(height: 4),
+          _buildTopicRow(theme),
+        ],
+        const SizedBox(height: 4),
+        _buildMethodRow(theme),
+      ],
+    );
+  }
+
+  Widget _buildSelectedPills(ThemeData theme) {
+    final tags = _buildTags();
+    if (tags.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: tags.map((name) {
+        return Chip(
+          label: Text(name, style: const TextStyle(fontSize: 12)),
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+          backgroundColor: theme.colorScheme.primary.withAlpha(25),
+          side: BorderSide.none,
+        );
+      }).toList(growable: false),
+    );
+  }
+
+  Widget _buildDomainRow(ThemeData theme) {
+    final domains = widget.tagConfig.domains;
+
+    return _buildChipRow(
+      theme: theme,
+      label: '领域',
+      items: domains.map((d) => _ChipItem(id: d.id, name: d.name)).toList(),
+      selectedId: _selectedDomain?.id,
+      onSelected: (id) {
+        final domain = domains.firstWhere((d) => d.id == id);
+        _selectDomain(domain);
+      },
+    );
+  }
+
+  Widget _buildTopicRow(ThemeData theme) {
+    final domain = _selectedDomain!;
+    final topics = domain.topics;
+
+    return _buildChipRow(
+      theme: theme,
+      label: '主题',
+      items: topics.map((t) => _ChipItem(id: t.id, name: t.name)).toList(),
+      selectedId: _selectedTopic?.id,
+      onSelected: (id) {
+        final topic = topics.firstWhere((t) => t.id == id);
+        _selectTopic(topic);
+      },
+    );
+  }
+
+  Widget _buildMethodRow(ThemeData theme) {
+    final methods = widget.tagConfig.methods;
+
+    return _buildChipRow(
+      theme: theme,
+      label: '方法',
+      hint: '可选',
+      items: methods.map((m) => _ChipItem(id: m.id, name: m.name)).toList(),
+      selectedId: _selectedMethod?.id,
+      onSelected: (id) {
+        final method = methods.firstWhere((m) => m.id == id);
+        _toggleMethod(method);
+      },
+    );
+  }
+
+  Widget _buildChipRow({
+    required ThemeData theme,
+    required String label,
+    String? hint,
+    required List<_ChipItem> items,
+    required String? selectedId,
+    required ValueChanged<String> onSelected,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 36,
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withAlpha(150),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              if (hint != null && selectedId == null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: DefaultTextStyle(
+                    style: theme.textTheme.bodySmall!.copyWith(
+                      color: theme.colorScheme.onSurface.withAlpha(100),
+                      fontStyle: FontStyle.italic,
+                    ),
+                    child: Text(hint),
+                  ),
+                ),
+              ...items.map((item) {
+                final selected = selectedId == item.id;
+                return ChoiceChip(
+                  label: Text(
+                    item.name,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: selected
+                          ? theme.colorScheme.onPrimary
+                          : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  selected: selected,
+                  onSelected: (_) => onSelected(item.id),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  selectedColor: theme.colorScheme.primary,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  side: const BorderSide(color: Colors.transparent),
+                );
+              }),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChipItem {
+  final String id;
+  final String name;
+  const _ChipItem({required this.id, required this.name});
+}

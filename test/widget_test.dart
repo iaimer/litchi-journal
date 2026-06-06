@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -345,6 +346,50 @@ tags:
       expect(json['domains'][0]['name'], '工作');
       expect(json['domains'][0]['topics'][0]['name'], '主题1');
       expect(json['methods'][0]['name'], '方法1');
+    });
+
+    test('cache round-trip preserves nested data', () {
+      final original = TagConfig(
+        domains: [
+          TagDomain(
+            id: 'work',
+            name: '工作',
+            description: '职业任务和职场活动',
+            order: 2,
+            topics: [
+              TagTopic(
+                  id: 'work-task',
+                  name: '任务执行',
+                  description: '具体任务完成',
+                  order: 0),
+              TagTopic(id: 'work-collab', name: '沟通协作', order: 1),
+            ],
+          ),
+        ],
+        methods: [
+          TagMethod(
+              id: 'reflect',
+              name: '反思',
+              description: '对自身行为和思考的回顾',
+              order: 0),
+          TagMethod(id: 'remember', name: '回忆', order: 3),
+        ],
+      );
+
+      final jsonString = jsonEncode(original.toJson());
+      final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
+      final restored = TagConfig.fromJson(decoded);
+
+      expect(restored.domains, hasLength(1));
+      expect(restored.domains[0].id, 'work');
+      expect(restored.domains[0].description, '职业任务和职场活动');
+      expect(restored.domains[0].topics, hasLength(2));
+      expect(restored.domains[0].topics[0].description, '具体任务完成');
+      expect(restored.domains[0].topics[1].description, isNull);
+
+      expect(restored.methods, hasLength(2));
+      expect(restored.methods[0].description, '对自身行为和思考的回顾');
+      expect(restored.methods[1].description, isNull);
     });
   });
 }

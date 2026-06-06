@@ -1,8 +1,12 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
+import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
 
 void main() {
   test('DiaryEntry.fromJson parses valid data', () {
@@ -111,5 +115,110 @@ tags:
 
     final review = document.sections.whereType<ReviewSection>().single;
     expect(review.isEmpty, isFalse);
+  });
+
+  group('QuickNoteComposer', () {
+    Widget buildComposer({
+      required Future<void> Function(String) onSubmit,
+    }) {
+      return MaterialApp(
+        home: Scaffold(
+          body: QuickNoteComposer(onSubmit: onSubmit),
+        ),
+      );
+    }
+
+    testWidgets('button is disabled when input is empty',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_) async {},
+      ));
+
+      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.onPressed, isNull);
+    });
+
+    testWidgets('button is enabled when input is not empty',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_) async {},
+      ));
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+
+      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.onPressed, isNotNull);
+    });
+
+    testWidgets('calls onSubmit with content when tapped',
+        (WidgetTester tester) async {
+      String? submitted;
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (content) async {
+          submitted = content;
+        },
+      ));
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pump();
+
+      expect(submitted, 'hello');
+    });
+
+    testWidgets('clears input on successful submit',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_) async {},
+      ));
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.controller?.text, isEmpty);
+    });
+
+    testWidgets('preserves input and shows error on failure',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_) async {
+          throw Exception('fail');
+        },
+      ));
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.controller?.text, 'hello');
+
+      expect(find.text('保存失败，请重试'), findsOneWidget);
+    });
+
+    testWidgets('button is disabled while saving',
+        (WidgetTester tester) async {
+      final completer = Completer<void>();
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_) => completer.future,
+      ));
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pump();
+
+      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.onPressed, isNull);
+
+      completer.complete();
+      await tester.pumpAndSettle();
+    });
   });
 }

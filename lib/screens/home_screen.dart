@@ -4,6 +4,7 @@ import '../models/diary_entry.dart';
 import '../services/api_client.dart';
 import '../theme/app_theme.dart';
 import '../widgets/diary_markdown_view.dart';
+import '../widgets/quick_note_composer.dart';
 import '../widgets/section_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,19 +20,11 @@ class _HomeScreenState extends State<HomeScreen> {
   DiaryEntry? _diary;
   bool _loading = true;
   String? _error;
-  final _quickNoteController = TextEditingController();
-  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _loadDiary();
-  }
-
-  @override
-  void dispose() {
-    _quickNoteController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadDiary() async {
@@ -56,24 +49,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _saveQuickNote() async {
-    final content = _quickNoteController.text.trim();
-    if (content.isEmpty) return;
-
-    setState(() => _saving = true);
-
-    try {
-      await widget.apiClient.appendQuickNote(DateTime.now(), content);
-      if (!mounted) return;
-      _quickNoteController.clear();
-      await _loadDiary();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _saving = false;
-        _error = '保存失败';
-      });
-    }
+  Future<void> _handleQuickNoteSubmit(String content) async {
+    final success =
+        await widget.apiClient.appendQuickNote(DateTime.now(), content);
+    if (!success) throw Exception('保存失败');
+    if (!mounted) return;
+    await _loadDiary();
   }
 
   String _todayString() {
@@ -129,27 +110,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   SectionCard(
                     title: '快速记录',
                     children: [
-                      TextField(
-                        controller: _quickNoteController,
-                        decoration: const InputDecoration(
-                          hintText: '写点什么...',
-                        ),
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: ElevatedButton(
-                          onPressed: _saving ? null : _saveQuickNote,
-                          child: _saving
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Text('保存'),
-                        ),
+                      QuickNoteComposer(
+                        onSubmit: _handleQuickNoteSubmit,
                       ),
                     ],
                   ),

@@ -39,6 +39,12 @@ class ApiClient {
     return '$y-$m-$d';
   }
 
+  static String formatTime(DateTime date) {
+    final h = date.hour.toString().padLeft(2, '0');
+    final min = date.minute.toString().padLeft(2, '0');
+    return '$h:$min';
+  }
+
   static String generateUuidV4() {
     final random = Random.secure();
     final bytes = List<int>.generate(16, (_) => random.nextInt(256));
@@ -94,6 +100,7 @@ class ApiClient {
       body: jsonEncode({
         'date': dateStr,
         'content': content,
+        'time': formatTime(DateTime.now()),
         'operationId': generateUuidV4(),
       }),
     );

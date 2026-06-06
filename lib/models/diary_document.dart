@@ -50,6 +50,10 @@ class AnxietySection extends DiarySection {
   const AnxietySection({required super.title, required super.contents});
 }
 
+class HappinessSection extends DiarySection {
+  const HappinessSection({required super.title, required super.contents});
+}
+
 class ReviewSection extends DiarySection {
   const ReviewSection({required super.title, required super.contents});
 }

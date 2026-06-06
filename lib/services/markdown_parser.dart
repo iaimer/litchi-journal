@@ -229,6 +229,9 @@ class _DraftSection {
     if (title.contains('焦虑')) {
       return AnxietySection(title: title, contents: contents);
     }
+    if (title.contains('小确幸')) {
+      return HappinessSection(title: title, contents: contents);
+    }
     if (title.contains('每日复盘')) {
       return ReviewSection(title: title, contents: contents);
     }

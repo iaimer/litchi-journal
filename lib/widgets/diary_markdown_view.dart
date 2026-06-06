@@ -48,6 +48,8 @@ class DiaryMarkdownView extends StatelessWidget {
         return QuickNoteTimeline(section: section);
       case AnxietySection():
         return AnxietyCard(section: section);
+      case HappinessSection():
+        return GenericSectionCard(section: section);
       case ReviewSection():
         return ReviewCard(section: section);
       default:

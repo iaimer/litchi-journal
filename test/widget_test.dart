@@ -138,6 +138,43 @@ tags:
     expect(review.isEmpty, isFalse);
   });
 
+  test('MarkdownParser recognizes happiness section', () {
+    const markdown = '''
+---
+---
+
+# 🌟 今天
+> [!quote] 每日一言
+
+---
+## 🏃 习惯打卡
+
+---
+## ✨ 每日小确幸
+> **09:30** 喝到一杯好咖啡 #生活 #日常记录
+> **14:00** 发现一只可爱的小猫 #生活
+>
+
+---
+## 📸 影像记录
+''';
+
+    final document = const MarkdownParser().parse(markdown);
+    final happiness =
+        document.sections.whereType<HappinessSection>().single;
+
+    expect(happiness.isEmpty, isFalse);
+    expect(happiness.contents, hasLength(1));
+
+    final block = happiness.contents[0] as MarkdownContent;
+    expect(block.text, contains('09:30'));
+    expect(block.text, contains('喝到一杯好咖啡'));
+    expect(block.text, contains('#生活'));
+    expect(block.text, contains('#日常记录'));
+    expect(block.text, contains('14:00'));
+    expect(block.text, contains('可爱的小猫'));
+  });
+
   group('QuickNoteComposer', () {
     Widget buildComposer({
       required Future<void> Function(String, List<String>) onSubmit,

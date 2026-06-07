@@ -9,6 +9,7 @@ import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/draft_repository.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
+import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
@@ -25,6 +26,34 @@ TagConfig _testTagConfig() {
         id: 'work',
         name: '工作',
         order: 0,
+        topics: [
+          TagTopic(id: 'work-task', name: '任务执行', order: 0),
+        ],
+      ),
+    ],
+    methods: [
+      TagMethod(id: 'reflect', name: '反思', order: 0),
+    ],
+  );
+}
+
+TagConfig _polishTagConfig() {
+  return TagConfig(
+    domains: [
+      TagDomain(
+        id: 'parenting',
+        name: '亲子',
+        order: 0,
+        topics: [
+          TagTopic(id: 'p-bonding', name: '陪伴互动', order: 0),
+          TagTopic(id: 'p-comm', name: '亲子沟通', order: 1),
+          TagTopic(id: 'p-relation', name: '关系连接', order: 2),
+        ],
+      ),
+      TagDomain(
+        id: 'work',
+        name: '工作',
+        order: 1,
         topics: [
           TagTopic(id: 'work-task', name: '任务执行', order: 0),
         ],
@@ -1997,6 +2026,114 @@ tags:
         entryType: EntryType.quickNote,
       );
       expect(draft, isNull);
+    });
+  });
+
+  group('PolishResultParser', () {
+    final config = _polishTagConfig();
+    const parser = PolishResultParser();
+
+    test('extracts Chinese tags and removes them from content', () {
+      final result = parser.parse(
+        '今天小宝表达了自己的边界。 #亲子 #亲子沟通 #反思',
+        config,
+      );
+
+      expect(result.content, '今天小宝表达了自己的边界。');
+      expect(result.tags, ['亲子', '亲子沟通', '反思']);
+    });
+
+    test('filters unknown tags, keeps known tags', () {
+      final result = parser.parse(
+        '正文。 #未知标签 #不存在',
+        config,
+      );
+
+      expect(result.content, '正文。 #未知标签 #不存在');
+      expect(result.tags, isEmpty);
+    });
+
+    test('returns empty tags when domain present but no matching topic', () {
+      final result = parser.parse(
+        '正文。 #亲子 #反思',
+        config,
+      );
+
+      expect(result.content, '正文。');
+      expect(result.tags, isEmpty);
+    });
+
+    test('returns domain and topic without method', () {
+      final result = parser.parse(
+        '正文。 #亲子 #亲子沟通',
+        config,
+      );
+
+      expect(result.content, '正文。');
+      expect(result.tags, ['亲子', '亲子沟通']);
+    });
+
+    test('keeps first domain, ignores topic not belonging to it', () {
+      final result = parser.parse(
+        '正文。 #工作 #亲子沟通',
+        config,
+      );
+
+      // 工作 is first domain, 亲子沟通 does not belong to 工作
+      expect(result.content, '正文。');
+      expect(result.tags, isEmpty);
+    });
+
+    test('keeps first domain, ignores topic belonging to later domain', () {
+      final result = parser.parse(
+        '正文。 #亲子 #工作 #任务执行 #反思',
+        config,
+      );
+
+      // 亲子 is first domain, 任务执行 belongs to 工作, ignored
+      expect(result.content, '正文。');
+      expect(result.tags, isEmpty);
+    });
+
+    test('keeps first topic, first method for the selected domain', () {
+      final result = parser.parse(
+        '正文。 #亲子 #亲子沟通 #陪伴互动 #反思',
+        config,
+      );
+
+      // 亲子沟通 is first topic, 陪伴互动 ignored
+      expect(result.content, '正文。');
+      expect(result.tags, ['亲子', '亲子沟通', '反思']);
+    });
+
+    test('cleans 润色后 prefix from content', () {
+      final result = parser.parse(
+        '润色后：今天小宝表达了边界。 #亲子 #亲子沟通',
+        config,
+      );
+
+      expect(result.content, '今天小宝表达了边界。');
+      expect(result.tags, ['亲子', '亲子沟通']);
+    });
+
+    test('returns content and empty tags when no tags present', () {
+      final result = parser.parse(
+        '这是一段普通的正文。',
+        config,
+      );
+
+      expect(result.content, '这是一段普通的正文。');
+      expect(result.tags, isEmpty);
+    });
+
+    test('empty TagConfig returns empty tags', () {
+      final result = parser.parse(
+        '#工作 #任务执行',
+        const TagConfig(domains: [], methods: []),
+      );
+
+      expect(result.content, '#工作 #任务执行');
+      expect(result.tags, isEmpty);
     });
   });
 }

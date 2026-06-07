@@ -26,6 +26,7 @@ import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/habit_card.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
+import 'package:litchi_journal_flutter/widgets/review_card.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 
 TagConfig _testTagConfig() {
@@ -4077,6 +4078,68 @@ tags:
       ));
 
       expect(find.byIcon(Icons.more_horiz), findsNothing);
+    });
+
+    testWidgets('ReviewCard shows delete button via GenericSectionCard',
+        (tester) async {
+      final section = ReviewSection(
+        title: '💡 觉察与迭代',
+        contents: [
+          TimelineContent(
+            time: '10:00',
+            text: '觉察内容',
+            tags: ['#反思'],
+            rawLine: '- **10:00** 觉察内容 #反思',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ReviewCard(
+            section: section,
+            onTimelineDelete: (_) async {},
+          ),
+        ),
+      ));
+
+      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    });
+
+    testWidgets(
+        'ReviewCard delete passes rawLine with section reflection',
+        (tester) async {
+      String? passedRawLine;
+      final section = ReviewSection(
+        title: '💡 觉察与迭代',
+        contents: [
+          TimelineContent(
+            time: '10:00',
+            text: '觉察内容',
+            tags: ['#反思'],
+            rawLine: '- **10:00** 觉察内容 #反思',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ReviewCard(
+            section: section,
+            onTimelineDelete: (rawLine) async {
+              passedRawLine = rawLine;
+            },
+          ),
+        ),
+      ));
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(passedRawLine, '- **10:00** 觉察内容 #反思');
     });
   });
 }

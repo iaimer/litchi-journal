@@ -5,6 +5,7 @@ import '../models/tag_config.dart';
 import '../services/api_client.dart';
 import '../services/tag_repository.dart';
 import '../theme/app_theme.dart';
+import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/entry_type_selector.dart';
@@ -177,14 +178,23 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                       ),
                       const SizedBox(height: 10),
-                      QuickNoteComposer(
-                        onSubmit: _handleEntrySubmit,
-                        tagConfig: _tagConfig,
-                        tagHint:
-                            _tagConfigFailed ? '标签暂不可用' : null,
-                        placeholder:
-                            _selectedEntryType.placeholder,
-                      ),
+                      if (_selectedEntryType == EntryType.anxiety)
+                        AnxietyComposer(
+                          onSubmit: _handleEntrySubmit,
+                          onClose: () {
+                            setState(
+                                () => _selectedEntryType = EntryType.quickNote);
+                          },
+                        )
+                      else
+                        QuickNoteComposer(
+                          onSubmit: _handleEntrySubmit,
+                          tagConfig: _tagConfig,
+                          tagHint:
+                              _tagConfigFailed ? '标签暂不可用' : null,
+                          placeholder:
+                              _selectedEntryType.placeholder,
+                        ),
                     ],
                   ),
                   const SizedBox(height: 16),

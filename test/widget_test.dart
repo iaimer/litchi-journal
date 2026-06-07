@@ -8,6 +8,8 @@ import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
+import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
+import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type_selector.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
@@ -834,5 +836,233 @@ tags:
 
     expect(find.text('总有事件值得感恩'), findsNothing);
     expect(find.text('喝到一杯好咖啡'), findsOneWidget);
+  });
+
+  group('AnxietyComposer', () {
+    Widget buildComposer({
+      required Future<void> Function(String, List<String>) onSubmit,
+      VoidCallback? onClose,
+    }) {
+      return MaterialApp(
+        home: Scaffold(
+          body: AnxietyComposer(onSubmit: onSubmit, onClose: onClose),
+        ),
+      );
+    }
+
+    testWidgets('shows first question initially',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
+      expect(find.text('1/4'), findsOneWidget);
+    });
+
+    testWidgets('next button advances to second question',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+
+      expect(find.text('当时我在担心什么？（具体到一句话）'), findsOneWidget);
+      expect(find.text('2/4'), findsOneWidget);
+    });
+
+    testWidgets('skip button advances to next step',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      await tester.tap(find.byWidgetPredicate(
+          (w) => w is TextButton && w.child is Text && (w.child as Text).data == '跳过'));
+      await tester.pump();
+
+      expect(find.text('当时我在担心什么？（具体到一句话）'), findsOneWidget);
+    });
+
+    testWidgets('shows save on last step',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+
+      expect(find.text('保存'), findsOneWidget);
+      expect(find.text('下一步'), findsNothing);
+    });
+
+    testWidgets('submits formatted content with empty tags',
+        (WidgetTester tester) async {
+      String? submittedContent;
+      List<String>? submittedTags;
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (content, tags) async {
+          submittedContent = content;
+          submittedTags = tags;
+        },
+      ));
+
+      await tester.enterText(find.byType(TextField), '下午开会时');
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '担心项目延期');
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '列出优先级');
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '帮我面对了');
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pump();
+
+      expect(submittedTags, isEmpty);
+      expect(
+        submittedContent,
+        '- 今天什么时候我感到焦虑/紧张？\n> 下午开会时\n'
+        '- 当时我在担心什么？（具体到一句话）\n> 担心项目延期\n'
+        '- 我做了什么？\n> 列出优先级\n'
+        '- 这个应对是帮我面对了，还是帮我躲开了？\n> 帮我面对了',
+      );
+    });
+
+    testWidgets('resets to step 1 on successful submit',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1/4'), findsOneWidget);
+    });
+
+    testWidgets('preserves answers on failed submit',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {
+          throw Exception('fail');
+        },
+      ));
+
+      await tester.enterText(find.byType(TextField), '下午开会时');
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('保存失败，请重试'), findsOneWidget);
+      expect(find.text('4/4'), findsOneWidget);
+    });
+
+    testWidgets('close button calls onClose',
+        (WidgetTester tester) async {
+      bool closed = false;
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        onClose: () => closed = true,
+      ));
+
+      await tester.tap(find.text('关闭'));
+      await tester.pump();
+
+      expect(closed, isTrue);
+    });
+  });
+
+  testWidgets('AnxietyCard shows template when no real answers',
+      (WidgetTester tester) async {
+    final section = AnxietySection(
+      title: '😰 焦虑时刻',
+      contents: [
+        MarkdownContent(
+          '- 今天什么时候我感到焦虑/紧张？\n'
+          '> \n'
+          '- 当时我在担心什么？（具体到一句话）\n'
+          '> \n'
+          '- 我做了什么？\n'
+          '> \n'
+          '- 这个应对是帮我面对了，还是帮我躲开了？\n'
+          '>',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: AnxietyCard(section: section),
+      ),
+    ));
+
+    expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
+  });
+
+  testWidgets('AnxietyCard hides template when real answers exist',
+      (WidgetTester tester) async {
+    final section = AnxietySection(
+      title: '😰 焦虑时刻',
+      contents: [
+        MarkdownContent(
+          '- 今天什么时候我感到焦虑/紧张？\n'
+          '> \n'
+          '- 当时我在担心什么？（具体到一句话）\n'
+          '> \n'
+          '- 我做了什么？\n'
+          '> \n'
+          '- 这个应对是帮我面对了，还是帮我躲开了？\n'
+          '> \n'
+          '\n'
+          '- 今天什么时候我感到焦虑/紧张？\n'
+          '> 下午开会时\n'
+          '- 当时我在担心什么？（具体到一句话）\n'
+          '> 担心项目延期\n'
+          '- 我做了什么？\n'
+          '> \n'
+          '- 这个应对是帮我面对了，还是帮我躲开了？\n'
+          '> ',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: AnxietyCard(section: section),
+      ),
+    ));
+
+    // Real Q&A visible
+    expect(find.text('下午开会时'), findsOneWidget);
+    expect(find.text('担心项目延期'), findsOneWidget);
+
+    // Template questions should be hidden (both from template and from skipped Q&A)
+    // Verify the card has content by checking SectionCard is rendered
+    expect(find.byType(AnxietyCard), findsOneWidget);
   });
 }

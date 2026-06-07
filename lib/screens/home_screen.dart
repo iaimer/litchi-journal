@@ -156,6 +156,25 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<String> _handleAnxietyPolish(String content) async {
+    final aiRepo = AIConfigRepository();
+    final aiConfig = await aiRepo.loadAIConfig();
+
+    if (!aiConfig.isUsable) {
+      throw Exception('请先在设置中启用并配置 AI 润色');
+    }
+
+    final service = PolisherService();
+    try {
+      return await service.polishPlainText(
+        content: content,
+        config: aiConfig,
+      );
+    } finally {
+      service.dispose();
+    }
+  }
+
   Future<void> _handleEntrySubmit(
       String content, List<String> tags) async {
     final success = await _appendEntry(
@@ -254,6 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (_selectedEntryType == EntryType.anxiety)
                         AnxietyComposer(
                           onSubmit: _handleEntrySubmit,
+                          onPolish: _handleAnxietyPolish,
                           date: DateTime.now(),
                           draftRepository: _draftRepository,
                           onClose: () {

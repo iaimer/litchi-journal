@@ -1325,6 +1325,7 @@ tags:
 
     Widget buildComposer({
       required Future<void> Function(String, List<String>) onSubmit,
+      Future<String> Function(String)? onPolish,
       VoidCallback? onClose,
       DateTime? date,
       DraftRepository? draftRepository,
@@ -1333,6 +1334,7 @@ tags:
         home: Scaffold(
           body: AnxietyComposer(
             onSubmit: onSubmit,
+            onPolish: onPolish,
             onClose: onClose,
             date: date,
             draftRepository: draftRepository,
@@ -1663,6 +1665,176 @@ tags:
 
       expect(submitted, contains('new'));
       expect(submitted, isNot(contains('old')));
+    });
+
+    testWidgets('polish button disabled when answer empty',
+        (tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        onPolish: (_) async => 'ok',
+      ));
+
+      expect(find.text('润色当前回答'), findsOneWidget);
+
+      final button = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, '润色当前回答'),
+      );
+      expect(button.onPressed, isNull);
+    });
+
+    testWidgets('polish button calls onPolish when answer not empty',
+        (tester) async {
+      String? polished;
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        onPolish: (content) async {
+          polished = content;
+          return '润色后';
+        },
+      ));
+
+      await tester.enterText(find.byType(TextField), '原始回答');
+      await tester.pump();
+
+      final button = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, '润色当前回答'),
+      );
+      expect(button.onPressed, isNotNull);
+
+      await tester.tap(find.widgetWithText(
+          OutlinedButton, '润色当前回答'));
+      await tester.pump();
+
+      expect(polished, '原始回答');
+    });
+
+    testWidgets(
+        'polish success updates only current TextField and saves draft',
+        (tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        onPolish: (_) async => '润色后的回答',
+        draftRepository: repo,
+        date: DateTime(2026, 6, 7),
+      ));
+
+      await tester.enterText(find.byType(TextField), '原始回答');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(
+          OutlinedButton, '润色当前回答'));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField))
+            .controller
+            ?.text,
+        '润色后的回答',
+      );
+
+      final draft = await repo.loadAnxietyDraft(
+          date: DateTime(2026, 6, 7));
+      expect(draft, isNotNull);
+      expect(draft!.answers[0], '润色后的回答');
+    });
+
+    testWidgets('polish failure preserves original answer',
+        (tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        onPolish: (_) async => throw Exception('网络错误'),
+      ));
+
+      await tester.enterText(find.byType(TextField), '原始回答');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(
+          OutlinedButton, '润色当前回答'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField))
+            .controller
+            ?.text,
+        '原始回答',
+      );
+      expect(find.text('润色失败，请重试'), findsOneWidget);
+    });
+
+    testWidgets(
+        'polish does not affect other answers in AnxietyComposer',
+        (tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        onPolish: (_) async => '第一问答润色',
+      ));
+
+      await tester.enterText(find.byType(TextField), 'Q1 原始回答');
+      await tester.pump();
+
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'Q2 原始回答');
+      await tester.pump();
+
+      await tester.tap(find.text('上一步'));
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(
+          OutlinedButton, '润色当前回答'));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField))
+            .controller
+            ?.text,
+        '第一问答润色',
+      );
+
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField))
+            .controller
+            ?.text,
+        'Q2 原始回答',
+      );
+    });
+
+    testWidgets('submit format unchanged after polish',
+        (tester) async {
+      String? submitted;
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (content, _) async => submitted = content,
+        onPolish: (_) async => '润色后的问答',
+      ));
+
+      await tester.enterText(find.byType(TextField), '原始');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(
+          OutlinedButton, '润色当前回答'));
+      await tester.pump();
+
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pump();
+
+      expect(submitted, isNotNull);
+      expect(submitted, contains('- 今天什么时候我感到焦虑/紧张？'));
+      expect(submitted, contains('> 润色后的问答'));
+      expect(submitted, contains('- 当时我在担心什么？'));
     });
   });
 

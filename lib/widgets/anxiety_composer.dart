@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/draft_repository.dart';
+import '../theme/app_theme.dart';
 import 'entry_type.dart';
 
 const _questions = [
@@ -19,6 +20,7 @@ const _placeholders = [
 
 class AnxietyComposer extends StatefulWidget {
   final Future<void> Function(String content, List<String> tags) onSubmit;
+  final Future<String> Function(String content)? onPolish;
   final VoidCallback? onClose;
   final DateTime? date;
   final DraftRepository? draftRepository;
@@ -26,6 +28,7 @@ class AnxietyComposer extends StatefulWidget {
   const AnxietyComposer({
     super.key,
     required this.onSubmit,
+    this.onPolish,
     this.onClose,
     this.date,
     this.draftRepository,
@@ -40,9 +43,16 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   final _answers = List<String>.filled(4, '');
   final _controllers = List.generate(4, (_) => TextEditingController());
   bool _saving = false;
+  bool _polishing = false;
   String? _error;
 
   bool get _isLastStep => _step == 3;
+
+  bool get _canPolish =>
+      !_polishing &&
+      !_saving &&
+      _controllers[_step].text.trim().isNotEmpty &&
+      widget.onPolish != null;
 
   String _buildContent() {
     final buffer = StringBuffer();
@@ -79,7 +89,14 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   @override
   void initState() {
     super.initState();
+    for (final c in _controllers) {
+      c.addListener(_onTextChanged);
+    }
     _restoreDraft();
+  }
+
+  void _onTextChanged() {
+    setState(() {}); // trigger rebuild for _canPolish
   }
 
   void _restoreDraft() {
@@ -128,6 +145,36 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
     _saveDraft();
   }
 
+  Future<void> _polish() async {
+    if (!_canPolish) return;
+
+    final onPolish = widget.onPolish!;
+    final currentAnswer = _controllers[_step].text.trim();
+
+    setState(() {
+      _polishing = true;
+      _error = null;
+    });
+
+    try {
+      final result = await onPolish(currentAnswer);
+      if (!mounted) return;
+      _answers[_step] = result;
+      _controllers[_step].text = result;
+      _controllers[_step].selection = TextSelection.collapsed(
+        offset: result.length,
+      );
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().contains('请先在设置中启用')
+          ? e.toString().replaceFirst('Exception: ', '')
+          : '润色失败，请重试');
+    } finally {
+      if (mounted) setState(() => _polishing = false);
+    }
+  }
+
   Future<void> _submit() async {
     final content = _buildContent();
     if (content.trim().isEmpty) return;
@@ -165,6 +212,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   @override
   void dispose() {
     for (final c in _controllers) {
+      c.removeListener(_onTextChanged);
       c.dispose();
     }
     super.dispose();
@@ -213,8 +261,32 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
             hintText: _placeholders[_step],
           ),
           maxLines: 3,
-          enabled: !_saving,
+          enabled: !_saving && !_polishing,
         ),
+        if (widget.onPolish != null) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: _canPolish ? _polish : null,
+              icon: _polishing
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 1.5),
+                    )
+                  : const Text('✨',
+                      style: TextStyle(fontSize: 14)),
+              label: const Text('润色当前回答'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(
+                    color: AppColors.primary, width: 0.5),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         if (_error != null)
           Padding(

@@ -147,6 +147,61 @@ $methodsSection
 #领域 #主题 [#可选方法]''';
   }
 
+  Future<String> polishPlainText({
+    required String content,
+    required AIConfig config,
+  }) async {
+    if (!config.isUsable) {
+      throw Exception('AI 润色未启用或配置不完整');
+    }
+    if (content.trim().isEmpty) {
+      throw Exception('内容为空');
+    }
+
+    final trimmed = config.polishPrompt?.trim();
+    final effectivePrompt =
+        (trimmed != null && trimmed.isNotEmpty)
+            ? trimmed
+            : defaultPolishPrompt;
+
+    final chatUrl = PolisherService.chatUrl(config.baseUrl);
+
+    final response = await _http.post(
+      Uri.parse(chatUrl),
+      headers: {
+        'Authorization': 'Bearer ${config.apiKey}',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': config.model,
+        'messages': [
+          {'role': 'system', 'content': effectivePrompt},
+          {'role': 'user', 'content': '原文：$content'},
+        ],
+        'max_tokens': 500,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('AI 润色请求失败 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final choices = json['choices'] as List?;
+    if (choices == null || choices.isEmpty) {
+      throw Exception('AI 未返回润色结果');
+    }
+
+    final message =
+        (choices[0] as Map<String, dynamic>)['message'] as Map<String, dynamic>?;
+    final rawContent = message?['content'] as String?;
+    if (rawContent == null || rawContent.trim().isEmpty) {
+      throw Exception('AI 润色结果为空');
+    }
+
+    return rawContent.trim();
+  }
+
   static String chatUrl(String baseUrl) {
     var url = baseUrl.trim();
     while (url.endsWith('/')) {

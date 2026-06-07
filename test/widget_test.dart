@@ -25,6 +25,7 @@ import 'package:litchi_journal_flutter/widgets/entry_type_selector.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/habit_card.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
+import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 
 TagConfig _testTagConfig() {
@@ -3863,6 +3864,219 @@ tags:
       );
 
       expect(result, '- **08:00** 新 #工作 #任务执行 #反思');
+    });
+  });
+
+  group('EntryDelete', () {
+    testWidgets('QuickNoteTimeline shows delete button',
+        (tester) async {
+      final section = QuickNoteSection(
+        title: '随手记',
+        contents: [],
+        notes: [
+          QuickNoteItem(
+            time: '09:30',
+            content: '测试内容',
+            tags: ['#工作'],
+            rawLine: '- **09:30** 测试内容 #工作',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteTimeline(section: section, onDelete: (_) async {}),
+        ),
+      ));
+
+      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    });
+
+    testWidgets('QuickNoteTimeline delete button shows confirm dialog',
+        (tester) async {
+      final section = QuickNoteSection(
+        title: '随手记',
+        contents: [],
+        notes: [
+          QuickNoteItem(
+            time: '09:30',
+            content: '测试',
+            tags: [],
+            rawLine: '- **09:30** 测试',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteTimeline(section: section, onDelete: (_) async {}),
+        ),
+      ));
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      expect(find.text('确认删除'), findsOneWidget);
+      expect(find.text('确定删除这条记录吗？'), findsOneWidget);
+    });
+
+    testWidgets(
+        'QuickNoteTimeline confirm delete calls onDelete with rawLine',
+        (tester) async {
+      String? deletedRawLine;
+      final section = QuickNoteSection(
+        title: '随手记',
+        contents: [],
+        notes: [
+          QuickNoteItem(
+            time: '09:30',
+            content: '测试',
+            tags: [],
+            rawLine: '- **09:30** 测试 #工作',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteTimeline(
+            section: section,
+            onDelete: (note) async {
+              deletedRawLine = note.rawLine;
+            },
+          ),
+        ),
+      ));
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(deletedRawLine, '- **09:30** 测试 #工作');
+    });
+
+    testWidgets('GenericSectionCard timeline shows delete button',
+        (tester) async {
+      final section = HappinessSection(
+        title: '小确幸',
+        contents: [
+          TimelineContent(
+            time: '14:00',
+            text: '小确幸内容',
+            tags: ['#生活'],
+            rawLine: '> **14:00** 小确幸内容 #生活',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: GenericSectionCard(
+            section: section,
+            onTimelineDelete: (_) async {},
+          ),
+        ),
+      ));
+
+      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    });
+
+    testWidgets(
+        'GenericSectionCard happiness delete calls onDelete with rawLine',
+        (tester) async {
+      String? deletedRawLine;
+      final section = HappinessSection(
+        title: '小确幸',
+        contents: [
+          TimelineContent(
+            time: '14:00',
+            text: '小确幸内容',
+            tags: ['#生活'],
+            rawLine: '> **14:00** 小确幸内容 #生活',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: GenericSectionCard(
+            section: section,
+            onTimelineDelete: (rawLine) async {
+              deletedRawLine = rawLine;
+            },
+          ),
+        ),
+      ));
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(deletedRawLine, '> **14:00** 小确幸内容 #生活');
+    });
+
+    testWidgets(
+        'GenericSectionCard reflection delete calls onDelete with rawLine',
+        (tester) async {
+      String? deletedRawLine;
+      final section = ReviewSection(
+        title: '觉察',
+        contents: [
+          TimelineContent(
+            time: '10:00',
+            text: '觉察内容',
+            tags: ['#反思'],
+            rawLine: '- **10:00** 觉察内容 #反思',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: GenericSectionCard(
+            section: section,
+            onTimelineDelete: (rawLine) async {
+              deletedRawLine = rawLine;
+            },
+          ),
+        ),
+      ));
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(deletedRawLine, '- **10:00** 觉察内容 #反思');
+    });
+
+    testWidgets('no delete button when onDelete is null',
+        (tester) async {
+      final section = QuickNoteSection(
+        title: '随手记',
+        contents: [],
+        notes: [
+          QuickNoteItem(
+            time: '09:30',
+            content: '测试',
+            tags: [],
+            rawLine: '- **09:30** 测试',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteTimeline(section: section),
+        ),
+      ));
+
+      expect(find.byIcon(Icons.more_horiz), findsNothing);
     });
   });
 }

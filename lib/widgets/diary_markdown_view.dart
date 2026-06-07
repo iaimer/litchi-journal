@@ -11,11 +11,14 @@ import 'review_card.dart';
 class DiaryMarkdownView extends StatelessWidget {
   final String markdown;
   final Future<bool> Function(HabitStatus)? onHabitUpdate;
+  final Future<void> Function(String sectionKey, String rawLine)?
+      onEntryDelete;
 
   const DiaryMarkdownView({
     super.key,
     required this.markdown,
     this.onHabitUpdate,
+    this.onEntryDelete,
   });
 
   @override
@@ -54,13 +57,28 @@ class DiaryMarkdownView extends StatelessWidget {
           onUpdate: onHabitUpdate ?? (_) async => true,
         );
       case QuickNoteSection():
-        return QuickNoteTimeline(section: section);
+        return QuickNoteTimeline(
+          section: section,
+          onDelete: onEntryDelete != null
+              ? (note) => onEntryDelete!('quick_notes', note.rawLine)
+              : null,
+        );
       case AnxietySection():
         return AnxietyCard(section: section);
       case HappinessSection():
-        return GenericSectionCard(section: section);
+        return GenericSectionCard(
+          section: section,
+          onTimelineDelete: onEntryDelete != null
+              ? (rawLine) => onEntryDelete!('happiness', rawLine)
+              : null,
+        );
       case ReviewSection():
-        return ReviewCard(section: section);
+        return ReviewCard(
+          section: section,
+          onTimelineDelete: onEntryDelete != null
+              ? (rawLine) => onEntryDelete!('reflection', rawLine)
+              : null,
+        );
       default:
         return GenericSectionCard(section: section);
     }

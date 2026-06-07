@@ -9,8 +9,13 @@ final _questionHint = RegExp(r'[？?]$|吗[？?]?$');
 
 class GenericSectionCard extends StatelessWidget {
   final DiarySection section;
+  final Future<void> Function(String rawLine)? onTimelineDelete;
 
-  const GenericSectionCard({super.key, required this.section});
+  const GenericSectionCard({
+    super.key,
+    required this.section,
+    this.onTimelineDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +81,12 @@ class GenericSectionCard extends StatelessWidget {
       case CheckboxContent():
         widgets.add(_buildCheckbox(context, content));
       case TimelineContent():
-        widgets.add(_buildTimeline(context, content));
+        widgets.add(
+          _TimelineDeleteRow(
+            content: content,
+            onDelete: onTimelineDelete,
+          ),
+        );
       case MarkdownContent():
         widgets.add(
           MarkdownBody(
@@ -251,61 +261,6 @@ class GenericSectionCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTimeline(BuildContext context, TimelineContent content) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 48,
-              child: Text(
-                content.time,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Container(
-              width: 2,
-              margin: const EdgeInsets.only(top: 4, bottom: 4),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withAlpha(60),
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    content.text,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  if (content.tags.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        content.tags.join(' '),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary.withAlpha(180),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   (IconData, Color, Color) _calloutStyle(ThemeData theme, String type) {
     final isDark = theme.brightness == Brightness.dark;
     switch (type) {
@@ -366,5 +321,133 @@ class GenericSectionCard extends StatelessWidget {
           isDark ? Colors.blue.shade800.withAlpha(100) : Colors.blue.shade50,
         );
     }
+  }
+}
+
+class _TimelineDeleteRow extends StatefulWidget {
+  final TimelineContent content;
+  final Future<void> Function(String rawLine)? onDelete;
+
+  const _TimelineDeleteRow({
+    required this.content,
+    this.onDelete,
+  });
+
+  @override
+  State<_TimelineDeleteRow> createState() => _TimelineDeleteRowState();
+}
+
+class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
+  bool _deleting = false;
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定删除这条记录吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (widget.onDelete == null) return;
+
+    setState(() => _deleting = true);
+    try {
+      await widget.onDelete!(widget.content.rawLine);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 48,
+              child: Text(
+                widget.content.time,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Container(
+              width: 2,
+              margin: const EdgeInsets.only(top: 4, bottom: 4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withAlpha(60),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.content.text,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  if (widget.content.tags.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        widget.content.tags.join(' '),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color:
+                              theme.colorScheme.primary.withAlpha(180),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (widget.onDelete != null && !_deleting)
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: IconButton(
+                  icon: const Icon(Icons.more_horiz, size: 16),
+                  padding: EdgeInsets.zero,
+                  onPressed: _confirmDelete,
+                ),
+              ),
+            if (_deleting)
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child:
+                      CircularProgressIndicator(strokeWidth: 1.5),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

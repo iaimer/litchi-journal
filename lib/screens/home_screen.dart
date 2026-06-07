@@ -176,6 +176,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _handleEntryDelete(
+      String sectionKey, String rawLine) async {
+    final ok = await widget.apiClient.deleteEntry(
+      DateTime.now(),
+      section: sectionKey,
+      line: rawLine,
+    );
+    if (!ok) throw Exception('删除失败');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已删除')));
+    _loadDiarySilently();
+  }
+
   Future<bool> _replaceAnxiety(String content) async {
     return widget.apiClient.replaceAnxiety(DateTime.now(), content);
   }
@@ -309,6 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     DiaryMarkdownView(
                       markdown: _diary!.raw,
                       onHabitUpdate: _handleHabitUpdate,
+                      onEntryDelete: _handleEntryDelete,
                     ),
                   ] else ...[
                     const Text(

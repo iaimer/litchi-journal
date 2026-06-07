@@ -5,11 +5,19 @@ import 'generic_section_card.dart';
 
 class ReviewCard extends StatelessWidget {
   final ReviewSection section;
+  final Future<void> Function(String rawLine)? onTimelineDelete;
 
-  const ReviewCard({super.key, required this.section});
+  const ReviewCard({
+    super.key,
+    required this.section,
+    this.onTimelineDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GenericSectionCard(section: section);
+    return GenericSectionCard(
+      section: section,
+      onTimelineDelete: onTimelineDelete,
+    );
   }
 }

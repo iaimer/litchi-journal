@@ -4141,5 +4141,34 @@ tags:
 
       expect(passedRawLine, '- **10:00** 觉察内容 #反思');
     });
+
+    testWidgets(
+        'ReviewCard with SubSectionContent still shows delete button',
+        (tester) async {
+      // Replicates real markdown: "## 每日复盘" / "### 💡 觉察与迭代"
+      final section = ReviewSection(
+        title: '🧠 每日复盘',
+        contents: [
+          const SubSectionContent('💡 觉察与迭代'),
+          TimelineContent(
+            time: '10:00',
+            text: '觉察内容',
+            tags: ['#反思'],
+            rawLine: '- **10:00** 觉察内容 #反思',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ReviewCard(
+            section: section,
+            onTimelineDelete: (_) async {},
+          ),
+        ),
+      ));
+
+      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    });
   });
 }

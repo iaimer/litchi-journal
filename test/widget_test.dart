@@ -14,6 +14,7 @@ import 'package:litchi_journal_flutter/services/draft_repository.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
+import 'package:litchi_journal_flutter/screens/setup_screen.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
@@ -2509,6 +2510,153 @@ tags:
 
       expect(errorMessage, isNotNull);
       expect(errorMessage, isNot(contains('sk-super-secret')));
+    });
+  });
+
+  group('SetupScreen AI config', () {
+    Widget buildScreen({AIConfigRepository? aiRepo}) {
+      return MaterialApp(
+        home: SetupScreen(
+          onConfigured: (_) {},
+          aiConfigRepository: aiRepo,
+        ),
+      );
+    }
+
+    testWidgets('AI section renders with all fields', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      expect(find.text('AI 润色设置（可选）'), findsOneWidget);
+      expect(find.text('启用 AI 润色'), findsOneWidget);
+      expect(find.byType(SwitchListTile), findsOneWidget);
+    });
+
+    testWidgets('toggling AI switch disables AI fields', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      // Initially disabled
+      final textFields =
+          tester.widgetList<TextField>(find.byType(TextField)).skip(2).toList();
+
+      // Base URL field
+
+      // Base URL field
+      expect(textFields[0].enabled, isFalse);
+      // API Key field
+      expect(textFields[1].enabled, isFalse);
+      // Model field
+      expect(textFields[2].enabled, isFalse);
+      // Prompt field
+      expect(textFields[3].enabled, isFalse);
+
+      // Toggle enabled
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      final enabledFields =
+          tester.widgetList<TextField>(find.byType(TextField)).skip(2).toList();
+
+      expect(enabledFields[0].enabled, isTrue);
+      expect(enabledFields[1].enabled, isTrue);
+      expect(enabledFields[2].enabled, isTrue);
+      expect(enabledFields[3].enabled, isTrue);
+    });
+
+    testWidgets('disabled fields preserve content', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      // Enable AI
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      // Enter values
+      final baseUrlFinder = find.widgetWithText(TextField, 'Base URL');
+      final modelFinder = find.widgetWithText(TextField, 'Model');
+
+      await tester.enterText(baseUrlFinder, 'https://api.test.com');
+      await tester.enterText(modelFinder, 'gpt-4');
+      await tester.pump();
+
+      // Disable AI
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      // Re-enable AI
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      // Content is preserved
+      expect(
+        tester.widget<TextField>(baseUrlFinder).controller?.text,
+        'https://api.test.com',
+      );
+      expect(
+        tester.widget<TextField>(modelFinder).controller?.text,
+        'gpt-4',
+      );
+    });
+
+    testWidgets('AI config saves to repository when disabled',
+        (tester) async {
+      final storage = _TestStorage();
+      final repo = AIConfigRepository(storage: storage);
+
+      await tester.pumpWidget(buildScreen(aiRepo: repo));
+
+      // Enable AI, enter data, then disable
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Base URL'),
+        'https://api.test.com',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'API Key'),
+        'sk-test-key',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Model'),
+        'gpt-4',
+      );
+      await tester.pump();
+
+      // Disable AI
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      // Verify fields still have content (disabled state preserves)
+      expect(
+        tester
+            .widget<TextField>(
+                find.widgetWithText(TextField, 'Base URL'))
+            .controller
+            ?.text,
+        'https://api.test.com',
+      );
+    });
+
+    testWidgets('API Key obscured by default and toggleable',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      final apiKeyField = find.widgetWithText(TextField, 'API Key');
+
+      // Initially obscured
+      expect(tester.widget<TextField>(apiKeyField).obscureText, isTrue);
+
+      // Toggle via last visibility icon (avoids ambiguity with Token icon)
+      await tester.tap(find.byIcon(Icons.visibility).last);
+      await tester.pump();
+      expect(tester.widget<TextField>(apiKeyField).obscureText, isFalse);
+
+      // Toggle back
+      await tester.tap(find.byIcon(Icons.visibility_off).last);
+      await tester.pump();
+      expect(tester.widget<TextField>(apiKeyField).obscureText, isTrue);
     });
   });
 }

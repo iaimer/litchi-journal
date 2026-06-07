@@ -875,6 +875,22 @@ tags:
       expect(find.text('润色'), findsNothing);
       expect(find.byType(OutlinedButton), findsNothing);
     });
+
+    testWidgets('TextField auto-expands from 3 to 8 lines',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteComposer(
+            onSubmit: (_, _) async {},
+          ),
+        ),
+      ));
+
+      final textField = tester.widget<TextField>(find.byType(TextField));
+      expect(textField.minLines, 3);
+      expect(textField.maxLines, 8);
+      expect(textField.keyboardType, TextInputType.multiline);
+    });
   });
 
   group('TagConfig', () {

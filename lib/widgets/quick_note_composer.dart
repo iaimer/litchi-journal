@@ -183,7 +183,10 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
           decoration: InputDecoration(
             hintText: widget.placeholder ?? '写点什么...',
           ),
-          maxLines: 3,
+          minLines: 3,
+          maxLines: 8,
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
           enabled: !_saving && !_polishing,
         ),
         if (tagConfig != null) ...[

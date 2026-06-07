@@ -112,41 +112,50 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                     widget.note.content,
                     style: theme.textTheme.bodyMedium,
                   ),
-                  if (widget.note.tags.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        widget.note.tags.join(' '),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color:
-                              theme.colorScheme.primary.withAlpha(180),
-                          fontSize: 11,
+                  if (widget.note.tags.isNotEmpty ||
+                      (widget.onDelete != null && !_deleting) ||
+                      _deleting)
+                    Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            widget.note.tags.join(' '),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary
+                                  .withAlpha(180),
+                              fontSize: 11,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      if (widget.onDelete != null && !_deleting)
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: IconButton(
+                            icon: const Icon(Icons.more_horiz,
+                                size: 16),
+                            padding: EdgeInsets.zero,
+                            onPressed: _confirmDelete,
+                          ),
+                        ),
+                      if (_deleting)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 1.5),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            if (widget.onDelete != null && !_deleting)
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: IconButton(
-                  icon: const Icon(Icons.more_horiz, size: 16),
-                  padding: EdgeInsets.zero,
-                  onPressed: _confirmDelete,
-                ),
-              ),
-            if (_deleting)
-              const Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: SizedBox(
-                  width: 14,
-                  height: 14,
-                  child:
-                      CircularProgressIndicator(strokeWidth: 1.5),
-                ),
-              ),
           ],
         ),
       ),

@@ -118,12 +118,9 @@ class _CapturingHttpClient extends _FakeHttpClient {
 
 class _MultiResponseHttpClient extends http.BaseClient {
   final List<String> _bodies;
-  final int _statusCode;
   int _callCount = 0;
 
-  _MultiResponseHttpClient(List<String> bodies, {int statusCode = 200})
-      : _bodies = bodies,
-        _statusCode = statusCode;
+  _MultiResponseHttpClient(this._bodies);
 
   int get callCount => _callCount;
 
@@ -133,7 +130,7 @@ class _MultiResponseHttpClient extends http.BaseClient {
     _callCount++;
     return http.StreamedResponse(
       Stream.value(utf8.encode(_bodies[index])),
-      _statusCode,
+      200,
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
   }

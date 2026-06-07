@@ -13,6 +13,7 @@ import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/ai_config_repository.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/services/draft_repository.dart';
+import 'package:litchi_journal_flutter/services/entry_line_builder.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
@@ -3789,6 +3790,79 @@ tags:
         tester.widget<TextField>(coachField).controller?.text,
         PolisherService.defaultCoachPrompt,
       );
+    });
+  });
+
+  group('EntryLineBuilder', () {
+    test('rebuildTimelineLine preserves - prefix and time', () {
+      const rawLine = '- **09:30** 原始内容 #旧标签';
+
+      final result = rebuildTimelineLine(
+        rawLine: rawLine,
+        content: '新内容',
+        tags: ['亲子', '亲子沟通'],
+      );
+
+      expect(result, '- **09:30** 新内容 #亲子 #亲子沟通');
+    });
+
+    test('rebuildTimelineLine preserves > prefix and time', () {
+      const rawLine = '> **14:00** 小确幸原文 #生活';
+
+      final result = rebuildTimelineLine(
+        rawLine: rawLine,
+        content: '更新后的内容',
+        tags: ['生活', '日常记录'],
+      );
+
+      expect(result, '> **14:00** 更新后的内容 #生活 #日常记录');
+    });
+
+    test('rebuildTimelineLine preserves original time', () {
+      const rawLine = '- **23:59** 晚间记录';
+
+      final result = rebuildTimelineLine(
+        rawLine: rawLine,
+        content: '修改后',
+        tags: [],
+      );
+
+      expect(result, '- **23:59** 修改后');
+    });
+
+    test('rebuildTimelineLine no tags produces no hashtag', () {
+      const rawLine = '- **12:00** 内容 #标签';
+
+      final result = rebuildTimelineLine(
+        rawLine: rawLine,
+        content: '新内容',
+        tags: [],
+      );
+
+      expect(result, '- **12:00** 新内容');
+    });
+
+    test('rebuildTimelineLine throws on invalid format', () {
+      expect(
+        () => rebuildTimelineLine(
+          rawLine: 'no prefix line',
+          content: 'x',
+          tags: [],
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rebuildTimelineLine handles tags with addHash format', () {
+      const rawLine = '- **08:00** 原文 #a #b';
+
+      final result = rebuildTimelineLine(
+        rawLine: rawLine,
+        content: '新',
+        tags: ['工作', '任务执行', '反思'],
+      );
+
+      expect(result, '- **08:00** 新 #工作 #任务执行 #反思');
     });
   });
 }

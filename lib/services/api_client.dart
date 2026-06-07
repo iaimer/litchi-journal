@@ -163,6 +163,42 @@ class ApiClient {
     return response.statusCode == 200;
   }
 
+  Future<bool> editEntry(
+    DateTime date, {
+    required String section,
+    required String target,
+    required String replacement,
+  }) async {
+    final response = await _http.post(
+      Uri.parse('$_baseUrl/api/v1/diary/edit-entry'),
+      headers: _headers,
+      body: jsonEncode({
+        'date': formatDate(date),
+        'section': section,
+        'target': target,
+        'replacement': replacement,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> deleteEntry(
+    DateTime date, {
+    required String section,
+    required String line,
+  }) async {
+    final response = await _http.post(
+      Uri.parse('$_baseUrl/api/v1/diary/delete-entry'),
+      headers: _headers,
+      body: jsonEncode({
+        'date': formatDate(date),
+        'section': section,
+        'line': line,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
   Future<TagConfig> fetchTagConfig() async {
     final response = await _http.get(
       Uri.parse('$_baseUrl/api/v1/settings/tags'),

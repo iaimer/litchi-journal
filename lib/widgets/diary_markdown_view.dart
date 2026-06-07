@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/diary_document.dart';
+import '../models/tag_config.dart';
 import '../services/markdown_parser.dart';
 import 'anxiety_card.dart';
 import 'generic_section_card.dart';
@@ -13,12 +14,17 @@ class DiaryMarkdownView extends StatelessWidget {
   final Future<bool> Function(HabitStatus)? onHabitUpdate;
   final Future<void> Function(String sectionKey, String rawLine)?
       onEntryDelete;
+  final Future<void> Function(String sectionKey, String rawLine,
+      String content, List<String> tags)? onEntryEdit;
+  final TagConfig? tagConfig;
 
   const DiaryMarkdownView({
     super.key,
     required this.markdown,
     this.onHabitUpdate,
     this.onEntryDelete,
+    this.onEntryEdit,
+    this.tagConfig,
   });
 
   @override
@@ -62,6 +68,11 @@ class DiaryMarkdownView extends StatelessWidget {
           onDelete: onEntryDelete != null
               ? (note) => onEntryDelete!('quick_notes', note.rawLine)
               : null,
+          onEdit: onEntryEdit != null
+              ? (note, content, tags) => onEntryEdit!(
+                  'quick_notes', note.rawLine, content, tags)
+              : null,
+          tagConfig: tagConfig,
         );
       case AnxietySection():
         return AnxietyCard(section: section);
@@ -71,6 +82,11 @@ class DiaryMarkdownView extends StatelessWidget {
           onTimelineDelete: onEntryDelete != null
               ? (rawLine) => onEntryDelete!('happiness', rawLine)
               : null,
+          onTimelineEdit: onEntryEdit != null
+              ? (rawLine, content, tags) => onEntryEdit!(
+                  'happiness', rawLine, content, tags)
+              : null,
+          tagConfig: tagConfig,
         );
       case ReviewSection():
         return ReviewCard(
@@ -78,6 +94,11 @@ class DiaryMarkdownView extends StatelessWidget {
           onTimelineDelete: onEntryDelete != null
               ? (rawLine) => onEntryDelete!('reflection', rawLine)
               : null,
+          onTimelineEdit: onEntryEdit != null
+              ? (rawLine, content, tags) => onEntryEdit!(
+                  'reflection', rawLine, content, tags)
+              : null,
+          tagConfig: tagConfig,
         );
       default:
         return GenericSectionCard(section: section);

@@ -3953,11 +3953,20 @@ tags:
 
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: QuickNoteTimeline(section: section, onDelete: (_) async {}),
+          body: QuickNoteTimeline(
+              section: section, onDelete: (_) async {}),
         ),
       ));
 
       await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      // PopupMenu shows edit/delete items
+      expect(find.text('编辑'), findsOneWidget);
+      expect(find.text('删除'), findsOneWidget);
+
+      // Tap delete in the popup menu
+      await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
       expect(find.text('确认删除'), findsOneWidget);
@@ -3995,6 +4004,11 @@ tags:
       await tester.tap(find.byIcon(Icons.more_horiz));
       await tester.pumpAndSettle();
 
+      // Tap delete in popup menu
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      // Now tap delete in confirm dialog
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
@@ -4057,6 +4071,11 @@ tags:
       await tester.tap(find.byIcon(Icons.more_horiz));
       await tester.pumpAndSettle();
 
+      // Tap delete in popup menu
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      // Tap delete in confirm dialog
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
@@ -4093,6 +4112,11 @@ tags:
       await tester.tap(find.byIcon(Icons.more_horiz));
       await tester.pumpAndSettle();
 
+      // Tap delete in popup menu
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      // Tap delete in confirm dialog
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
@@ -4179,6 +4203,11 @@ tags:
       await tester.tap(find.byIcon(Icons.more_horiz));
       await tester.pumpAndSettle();
 
+      // Tap delete in popup menu
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      // Tap delete in confirm dialog
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
@@ -4212,6 +4241,100 @@ tags:
       ));
 
       expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    });
+
+    testWidgets('PopupMenu shows edit and delete options',
+        (tester) async {
+      final section = QuickNoteSection(
+        title: '随手记',
+        contents: [],
+        notes: [
+          QuickNoteItem(
+            time: '09:30',
+            content: '测试',
+            tags: [],
+            rawLine: '- **09:30** 测试',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteTimeline(
+              section: section,
+              onDelete: (_) async {},
+              onEdit: (_, _, _) async {}),
+        ),
+      ));
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      expect(find.text('编辑'), findsOneWidget);
+      expect(find.text('删除'), findsOneWidget);
+    });
+
+    testWidgets('edit opens EntryEditSheet with pre-filled content',
+        (tester) async {
+      final section = QuickNoteSection(
+        title: '随手记',
+        contents: [],
+        notes: [
+          QuickNoteItem(
+            time: '09:30',
+            content: '原始内容',
+            tags: ['#工作'],
+            rawLine: '- **09:30** 原始内容 #工作',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteTimeline(
+            section: section,
+            onEdit: (_, _, _) async {},
+          ),
+        ),
+      ));
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('编辑记录'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        '原始内容',
+      );
+    });
+
+    test('rebuildTimelineLine preserves original time for edit',
+        () {
+      const rawLine = '- **09:30** 旧内容 #旧标签';
+
+      final replacement = rebuildTimelineLine(
+        rawLine: rawLine,
+        content: '新内容',
+        tags: ['亲子', '亲子沟通'],
+      );
+
+      expect(replacement, '- **09:30** 新内容 #亲子 #亲子沟通');
+    });
+
+    test('rebuildTimelineLine preserves > prefix for happiness edit',
+        () {
+      const rawLine = '> **14:00** 旧小确幸 #生活';
+
+      final replacement = rebuildTimelineLine(
+        rawLine: rawLine,
+        content: '新小确幸',
+        tags: ['生活', '日常记录'],
+      );
+
+      expect(replacement, '> **14:00** 新小确幸 #生活 #日常记录');
     });
   });
 }

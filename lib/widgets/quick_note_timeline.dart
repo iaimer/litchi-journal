@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../models/diary_document.dart';
+import '../models/tag_config.dart';
 import '../theme/app_theme.dart';
+import 'entry_edit_sheet.dart';
 import 'section_card.dart';
 
 class QuickNoteTimeline extends StatelessWidget {
   final QuickNoteSection section;
   final Future<void> Function(QuickNoteItem note)? onDelete;
+  final Future<void> Function(
+      QuickNoteItem note, String content, List<String> tags)? onEdit;
+  final TagConfig? tagConfig;
 
   const QuickNoteTimeline({
     super.key,
     required this.section,
     this.onDelete,
+    this.onEdit,
+    this.tagConfig,
   });
 
   @override
@@ -22,7 +29,12 @@ class QuickNoteTimeline extends StatelessWidget {
       title: section.title,
       accentColor: AppColors.primary,
       children: section.notes
-          .map((note) => _QuickNoteRow(note: note, onDelete: onDelete))
+          .map((note) => _QuickNoteRow(
+                note: note,
+                onDelete: onDelete,
+                onEdit: onEdit,
+                tagConfig: tagConfig,
+              ))
           .toList(growable: false),
     );
   }
@@ -31,15 +43,26 @@ class QuickNoteTimeline extends StatelessWidget {
 class _QuickNoteRow extends StatefulWidget {
   final QuickNoteItem note;
   final Future<void> Function(QuickNoteItem note)? onDelete;
+  final Future<void> Function(
+      QuickNoteItem note, String content, List<String> tags)? onEdit;
+  final TagConfig? tagConfig;
 
-  const _QuickNoteRow({required this.note, this.onDelete});
+  const _QuickNoteRow({
+    required this.note,
+    this.onDelete,
+    this.onEdit,
+    this.tagConfig,
+  });
 
   @override
   State<_QuickNoteRow> createState() => _QuickNoteRowState();
 }
 
 class _QuickNoteRowState extends State<_QuickNoteRow> {
-  bool _deleting = false;
+  bool _busy = false;
+
+  bool get _showActions =>
+      (widget.onEdit != null || widget.onDelete != null) && !_busy;
 
   Future<void> _confirmDelete() async {
     final confirmed = await showDialog<bool>(
@@ -63,7 +86,7 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
     if (confirmed != true) return;
     if (widget.onDelete == null) return;
 
-    setState(() => _deleting = true);
+    setState(() => _busy = true);
     try {
       await widget.onDelete!(widget.note);
     } catch (_) {
@@ -71,8 +94,24 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
     } finally {
-      if (mounted) setState(() => _deleting = false);
+      if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _openEdit() {
+    if (widget.onEdit == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => EntryEditSheet(
+        initialContent: widget.note.content,
+        initialTags: widget.note.tags,
+        tagConfig: widget.tagConfig,
+        onSave: (content, tags) async {
+          await widget.onEdit!(widget.note, content, tags);
+        },
+      ),
+    );
   }
 
   @override
@@ -113,46 +152,60 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                     style: theme.textTheme.bodyMedium,
                   ),
                   if (widget.note.tags.isNotEmpty ||
-                      (widget.onDelete != null && !_deleting) ||
-                      _deleting)
+                      _showActions ||
+                      _busy)
                     Row(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            widget.note.tags.join(' '),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary
-                                  .withAlpha(180),
-                              fontSize: 11,
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              widget.note.tags.join(' '),
+                              style:
+                                  theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary
+                                    .withAlpha(180),
+                                fontSize: 11,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      if (widget.onDelete != null && !_deleting)
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: IconButton(
+                        if (_showActions)
+                          PopupMenuButton<_QuickNoteAction>(
+                            padding: EdgeInsets.zero,
                             icon: const Icon(Icons.more_horiz,
                                 size: 16),
-                            padding: EdgeInsets.zero,
-                            onPressed: _confirmDelete,
+                            onSelected: (action) {
+                              if (action == _QuickNoteAction.delete) {
+                                _confirmDelete();
+                              } else if (action ==
+                                  _QuickNoteAction.edit) {
+                                _openEdit();
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: _QuickNoteAction.edit,
+                                child: Text('编辑'),
+                              ),
+                              const PopupMenuItem(
+                                value: _QuickNoteAction.delete,
+                                child: Text('删除'),
+                              ),
+                            ],
                           ),
-                        ),
-                      if (_deleting)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4),
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 1.5),
+                        if (_busy)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 1.5),
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -162,3 +215,5 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
     );
   }
 }
+
+enum _QuickNoteAction { edit, delete }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../models/diary_document.dart';
+import '../models/tag_config.dart';
 import '../theme/app_theme.dart';
+import 'entry_edit_sheet.dart';
 import 'section_card.dart';
 
 final _questionHint = RegExp(r'[？?]$|吗[？?]?$');
@@ -10,11 +12,16 @@ final _questionHint = RegExp(r'[？?]$|吗[？?]?$');
 class GenericSectionCard extends StatelessWidget {
   final DiarySection section;
   final Future<void> Function(String rawLine)? onTimelineDelete;
+  final Future<void> Function(
+      String rawLine, String content, List<String> tags)? onTimelineEdit;
+  final TagConfig? tagConfig;
 
   const GenericSectionCard({
     super.key,
     required this.section,
     this.onTimelineDelete,
+    this.onTimelineEdit,
+    this.tagConfig,
   });
 
   @override
@@ -85,6 +92,8 @@ class GenericSectionCard extends StatelessWidget {
           _TimelineDeleteRow(
             content: content,
             onDelete: onTimelineDelete,
+            onEdit: onTimelineEdit,
+            tagConfig: tagConfig,
           ),
         );
       case MarkdownContent():
@@ -327,10 +336,15 @@ class GenericSectionCard extends StatelessWidget {
 class _TimelineDeleteRow extends StatefulWidget {
   final TimelineContent content;
   final Future<void> Function(String rawLine)? onDelete;
+  final Future<void> Function(
+      String rawLine, String content, List<String> tags)? onEdit;
+  final TagConfig? tagConfig;
 
   const _TimelineDeleteRow({
     required this.content,
     this.onDelete,
+    this.onEdit,
+    this.tagConfig,
   });
 
   @override
@@ -338,7 +352,10 @@ class _TimelineDeleteRow extends StatefulWidget {
 }
 
 class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
-  bool _deleting = false;
+  bool _busy = false;
+
+  bool get _showActions =>
+      (widget.onEdit != null || widget.onDelete != null) && !_busy;
 
   Future<void> _confirmDelete() async {
     final confirmed = await showDialog<bool>(
@@ -362,7 +379,7 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
     if (confirmed != true) return;
     if (widget.onDelete == null) return;
 
-    setState(() => _deleting = true);
+    setState(() => _busy = true);
     try {
       await widget.onDelete!(widget.content.rawLine);
     } catch (_) {
@@ -370,8 +387,25 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
     } finally {
-      if (mounted) setState(() => _deleting = false);
+      if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _openEdit() {
+    if (widget.onEdit == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => EntryEditSheet(
+        initialContent: widget.content.text,
+        initialTags: widget.content.tags,
+        tagConfig: widget.tagConfig,
+        onSave: (content, tags) async {
+          await widget.onEdit!(
+              widget.content.rawLine, content, tags);
+        },
+      ),
+    );
   }
 
   @override
@@ -411,46 +445,61 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
                     style: theme.textTheme.bodyMedium,
                   ),
                   if (widget.content.tags.isNotEmpty ||
-                      (widget.onDelete != null && !_deleting) ||
-                      _deleting)
+                      _showActions ||
+                      _busy)
                     Row(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            widget.content.tags.join(' '),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary
-                                  .withAlpha(180),
-                              fontSize: 11,
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              widget.content.tags.join(' '),
+                              style:
+                                  theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary
+                                    .withAlpha(180),
+                                fontSize: 11,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      if (widget.onDelete != null && !_deleting)
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: IconButton(
+                        if (_showActions)
+                          PopupMenuButton<_TimelineAction>(
+                            padding: EdgeInsets.zero,
                             icon: const Icon(Icons.more_horiz,
                                 size: 16),
-                            padding: EdgeInsets.zero,
-                            onPressed: _confirmDelete,
+                            onSelected: (action) {
+                              if (action ==
+                                  _TimelineAction.delete) {
+                                _confirmDelete();
+                              } else if (action ==
+                                  _TimelineAction.edit) {
+                                _openEdit();
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: _TimelineAction.edit,
+                                child: Text('编辑'),
+                              ),
+                              const PopupMenuItem(
+                                value: _TimelineAction.delete,
+                                child: Text('删除'),
+                              ),
+                            ],
                           ),
-                        ),
-                      if (_deleting)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4),
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 1.5),
+                        if (_busy)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 1.5),
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -460,3 +509,5 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
     );
   }
 }
+
+enum _TimelineAction { edit, delete }

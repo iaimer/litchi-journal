@@ -9,6 +9,7 @@ import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
 import '../services/api_config.dart';
 import '../services/draft_repository.dart';
+import '../services/entry_line_builder.dart';
 import '../services/markdown_parser.dart';
 import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
@@ -190,6 +191,30 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadDiarySilently();
   }
 
+  Future<void> _handleEntryEdit(
+    String sectionKey,
+    String rawLine,
+    String content,
+    List<String> tags,
+  ) async {
+    final replacement = rebuildTimelineLine(
+      rawLine: rawLine,
+      content: content,
+      tags: tags,
+    );
+    final ok = await widget.apiClient.editEntry(
+      DateTime.now(),
+      section: sectionKey,
+      target: rawLine,
+      replacement: replacement,
+    );
+    if (!ok) throw Exception('更新失败');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已更新')));
+    _loadDiarySilently();
+  }
+
   Future<bool> _replaceAnxiety(String content) async {
     return widget.apiClient.replaceAnxiety(DateTime.now(), content);
   }
@@ -324,6 +349,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       markdown: _diary!.raw,
                       onHabitUpdate: _handleHabitUpdate,
                       onEntryDelete: _handleEntryDelete,
+                      onEntryEdit: _handleEntryEdit,
+                      tagConfig: _tagConfig,
                     ),
                   ] else ...[
                     const Text(

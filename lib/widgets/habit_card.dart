@@ -23,12 +23,19 @@ class _HabitCardState extends State<HabitCard> {
 
   Future<void> _update(HabitStatus next, String field) async {
     setState(() => _updatingField = field);
-    final ok = await widget.onUpdate(next);
-    if (!mounted) return;
-    setState(() => _updatingField = null);
-    if (!ok) {
+    try {
+      final ok = await widget.onUpdate(next);
+      if (!mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('更新失败')));
+      }
+    } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('更新失败')));
+    } finally {
+      if (mounted) setState(() => _updatingField = null);
     }
   }
 
@@ -40,8 +47,10 @@ class _HabitCardState extends State<HabitCard> {
     _update(next, 'water');
   }
 
-  Future<void> _handleStepsEdit(HabitStatus status) async {
-    final controller = TextEditingController(text: status.steps.toString());
+  Future<void> _handleStepsEdit() async {
+    final currentStatus = HabitStatus.fromHabitSection(widget.section);
+    final controller =
+        TextEditingController(text: currentStatus.steps.toString());
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -70,8 +79,9 @@ class _HabitCardState extends State<HabitCard> {
         ],
       ),
     );
-    if (result != null && result >= 0 && result != status.steps) {
-      final next = status.copyWith(steps: result);
+    if (result != null && result >= 0 && result != currentStatus.steps) {
+      final freshStatus = HabitStatus.fromHabitSection(widget.section);
+      final next = freshStatus.copyWith(steps: result);
       _update(next, 'steps');
     }
   }
@@ -119,32 +129,35 @@ class _HabitCardState extends State<HabitCard> {
           habit: habit,
           status: status,
           loading: _updatingField != null,
-          onEdit: () => _handleStepsEdit(status),
+          onEdit: _handleStepsEdit,
         );
     }
   }
 
   bool _isWaterHabit(HabitItem item) => item.label.contains('饮');
 
-  String? _checkboxField(HabitItem item) {
-    final label = item.label;
+  static String? _fieldForLabel(String label) {
     if (label.contains('阅读')) return 'reading';
     if (label.contains('语言')) return 'language';
     if (label.contains('鱼油') || label.contains('植物甾醇')) return 'supplements';
     return null;
   }
 
+  String? _checkboxField(HabitItem item) => _fieldForLabel(item.label);
+
   HabitStatus? _toggleCheckbox(HabitItem item, HabitStatus status) {
-    if (item.label.contains('阅读')) {
-      return status.copyWith(reading: !status.reading);
+    final field = _fieldForLabel(item.label);
+    if (field == null) return null;
+    switch (field) {
+      case 'reading':
+        return status.copyWith(reading: !status.reading);
+      case 'language':
+        return status.copyWith(language: !status.language);
+      case 'supplements':
+        return status.copyWith(supplements: !status.supplements);
+      default:
+        return null;
     }
-    if (item.label.contains('语言')) {
-      return status.copyWith(language: !status.language);
-    }
-    if (item.label.contains('鱼油') || item.label.contains('植物甾醇')) {
-      return status.copyWith(supplements: !status.supplements);
-    }
-    return null;
   }
 }
 
@@ -162,12 +175,18 @@ class _CheckboxRow extends StatelessWidget {
   });
 
   bool get _checked {
-    if (habit.label.contains('阅读')) return status.reading;
-    if (habit.label.contains('语言')) return status.language;
-    if (habit.label.contains('鱼油') || habit.label.contains('植物甾醇')) {
-      return status.supplements;
+    final field = _HabitCardState._fieldForLabel(habit.label);
+    if (field == null) return habit.checked;
+    switch (field) {
+      case 'reading':
+        return status.reading;
+      case 'language':
+        return status.language;
+      case 'supplements':
+        return status.supplements;
+      default:
+        return habit.checked;
     }
-    return habit.checked;
   }
 
   @override

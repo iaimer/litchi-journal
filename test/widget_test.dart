@@ -1850,6 +1850,39 @@ tags:
 
       expect(find.text('更新失败'), findsOneWidget);
     });
+
+    testWidgets('onUpdate exception shows SnackBar and clears loading',
+        (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '阅读/亲子共读',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 阅读/亲子共读',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HabitCard(
+            section: section,
+            onUpdate: (_) async => throw Exception('network error'),
+          ),
+        ),
+      ));
+
+      await tester.tap(find.text('阅读/亲子共读'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('更新失败'), findsOneWidget);
+      // Verify no lingering spinner (loading cleared)
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
   });
 
   group('DraftRepository', () {

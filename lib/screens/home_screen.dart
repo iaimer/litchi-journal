@@ -107,16 +107,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<bool> _handleHabitUpdate(HabitStatus status) async {
-    final ok = await widget.apiClient.updateHabits(
-      DateTime.now(),
-      water: status.water,
-      steps: status.steps,
-      reading: status.reading,
-      language: status.language,
-      supplements: status.supplements,
-    );
-    if (ok && mounted) _loadDiarySilently();
-    return ok;
+    try {
+      final ok = await widget.apiClient.updateHabits(
+        DateTime.now(),
+        water: status.water,
+        steps: status.steps,
+        reading: status.reading,
+        language: status.language,
+        supplements: status.supplements,
+      );
+      if (ok && mounted) _loadDiarySilently();
+      return ok;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _handleEntrySubmit(

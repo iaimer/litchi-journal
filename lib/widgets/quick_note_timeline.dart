@@ -156,26 +156,32 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                       _busy)
                     Row(
                       children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              widget.note.tags.join(' '),
-                              style:
-                                  theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.primary
-                                    .withAlpha(180),
-                                fontSize: 11,
+                        if (widget.note.tags.isNotEmpty)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                widget.note.tags.join(' '),
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(
+                                  color: theme.colorScheme.primary
+                                      .withAlpha(180),
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                           ),
-                        ),
                         if (_showActions)
-                          PopupMenuButton<_QuickNoteAction>(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.more_horiz,
-                                size: 16),
-                            onSelected: (action) {
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: PopupMenuButton<
+                                _QuickNoteAction>(
+                              padding: EdgeInsets.zero,
+                              iconSize: 16,
+                              icon: const Icon(Icons.more_horiz,
+                                  size: 16),
+                              onSelected: (action) {
                               if (action == _QuickNoteAction.delete) {
                                 _confirmDelete();
                               } else if (action ==
@@ -193,6 +199,7 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                                 child: Text('删除'),
                               ),
                             ],
+                          ),
                           ),
                         if (_busy)
                           const Padding(

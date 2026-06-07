@@ -449,26 +449,32 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
                       _busy)
                     Row(
                       children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              widget.content.tags.join(' '),
-                              style:
-                                  theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.primary
-                                    .withAlpha(180),
-                                fontSize: 11,
+                        if (widget.content.tags.isNotEmpty)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                widget.content.tags.join(' '),
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(
+                                  color: theme.colorScheme.primary
+                                      .withAlpha(180),
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                           ),
-                        ),
                         if (_showActions)
-                          PopupMenuButton<_TimelineAction>(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.more_horiz,
-                                size: 16),
-                            onSelected: (action) {
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: PopupMenuButton<
+                                _TimelineAction>(
+                              padding: EdgeInsets.zero,
+                              iconSize: 16,
+                              icon: const Icon(Icons.more_horiz,
+                                  size: 16),
+                              onSelected: (action) {
                               if (action ==
                                   _TimelineAction.delete) {
                                 _confirmDelete();
@@ -487,6 +493,7 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
                                 child: Text('删除'),
                               ),
                             ],
+                          ),
                           ),
                         if (_busy)
                           const Padding(

@@ -1,5 +1,6 @@
 class AIConfig {
   final bool enabled;
+  final String name;
   final String baseUrl;
   final String apiKey;
   final String model;
@@ -7,6 +8,7 @@ class AIConfig {
 
   const AIConfig({
     this.enabled = false,
+    this.name = '',
     this.baseUrl = '',
     this.apiKey = '',
     this.model = '',
@@ -19,6 +21,7 @@ class AIConfig {
   factory AIConfig.fromJson(Map<String, dynamic> json) {
     return AIConfig(
       enabled: json['enabled'] as bool? ?? false,
+      name: json['name'] as String? ?? '',
       baseUrl: json['baseUrl'] as String? ?? '',
       apiKey: json['apiKey'] as String? ?? '',
       model: json['model'] as String? ?? '',
@@ -28,6 +31,7 @@ class AIConfig {
 
   Map<String, dynamic> toJson() => {
         'enabled': enabled,
+        'name': name,
         'baseUrl': baseUrl,
         'apiKey': apiKey,
         'model': model,
@@ -36,5 +40,40 @@ class AIConfig {
 
   @override
   String toString() =>
-      'AIConfig(enabled: $enabled, baseUrl: $baseUrl, model: $model, polishPrompt: ${polishPrompt != null ? 'set' : 'null'})';
+      'AIConfig(enabled: $enabled, name: $name, baseUrl: $baseUrl, model: $model, polishPrompt: ${polishPrompt != null ? 'set' : 'null'})';
 }
+
+class AIPreset {
+  final String name;
+  final String baseUrl;
+  final String model;
+
+  const AIPreset({
+    required this.name,
+    required this.baseUrl,
+    required this.model,
+  });
+}
+
+const aiPresets = [
+  AIPreset(
+    name: 'OpenAI API',
+    baseUrl: 'https://api.openai.com',
+    model: 'gpt-4o-mini',
+  ),
+  AIPreset(
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-chat',
+  ),
+  AIPreset(
+    name: 'Moonshot',
+    baseUrl: 'https://api.moonshot.cn',
+    model: 'moonshot-v1-8k',
+  ),
+  AIPreset(
+    name: '本地 Ollama',
+    baseUrl: 'http://localhost:11434',
+    model: 'qwen2.5:7b',
+  ),
+];

@@ -33,8 +33,10 @@ class PolisherService {
       customPrompt: config.polishPrompt,
     );
 
+    final chatUrl = PolisherService.chatUrl(config.baseUrl);
+
     final response = await _http.post(
-      Uri.parse('${config.baseUrl}/v1/chat/completions'),
+      Uri.parse(chatUrl),
       headers: {
         'Authorization': 'Bearer ${config.apiKey}',
         'Content-Type': 'application/json',
@@ -132,6 +134,17 @@ $domainsSection
 【可选方法】
 $methodsSection
 ''';
+  }
+
+  static String chatUrl(String baseUrl) {
+    var url = baseUrl.trim();
+    while (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    if (url.endsWith('/v1')) {
+      return '$url/chat/completions';
+    }
+    return '$url/v1/chat/completions';
   }
 
   void dispose() {

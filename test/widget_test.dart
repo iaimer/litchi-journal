@@ -11,10 +11,12 @@ import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/polish_result.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/ai_config_repository.dart';
+import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/services/draft_repository.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
+import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/screens/setup_screen.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
@@ -2442,6 +2444,7 @@ tags:
     test('toJson / fromJson round-trip', () {
       const config = AIConfig(
         enabled: true,
+        name: 'OpenAI API',
         baseUrl: 'https://api.openai.com',
         apiKey: 'sk-test',
         model: 'gpt-4',
@@ -2452,10 +2455,23 @@ tags:
       final restored = AIConfig.fromJson(json);
 
       expect(restored.enabled, true);
+      expect(restored.name, 'OpenAI API');
       expect(restored.baseUrl, 'https://api.openai.com');
       expect(restored.apiKey, 'sk-test');
       expect(restored.model, 'gpt-4');
       expect(restored.polishPrompt, '保持简洁');
+    });
+
+    test('fromJson defaults name to empty for old data', () {
+      final config = AIConfig.fromJson(<String, dynamic>{
+        'enabled': true,
+        'baseUrl': 'https://api.openai.com',
+        'apiKey': 'sk-test',
+        'model': 'gpt-4',
+      });
+
+      expect(config.name, '');
+      expect(config.isUsable, isTrue);
     });
 
     test('fromJson defaults disabled when fields missing', () {
@@ -2777,99 +2793,89 @@ tags:
       expect(errorMessage, isNotNull);
       expect(errorMessage, isNot(contains('sk-super-secret')));
     });
+
+    test('chatUrl normalizes base URLs', () {
+      expect(
+        PolisherService.chatUrl('https://api.openai.com'),
+        'https://api.openai.com/v1/chat/completions',
+      );
+      expect(
+        PolisherService.chatUrl('https://api.openai.com/'),
+        'https://api.openai.com/v1/chat/completions',
+      );
+      expect(
+        PolisherService.chatUrl('https://api.openai.com/v1'),
+        'https://api.openai.com/v1/chat/completions',
+      );
+      expect(
+        PolisherService.chatUrl('https://api.openai.com/v1/'),
+        'https://api.openai.com/v1/chat/completions',
+      );
+      expect(
+        PolisherService.chatUrl('http://localhost:11434'),
+        'http://localhost:11434/v1/chat/completions',
+      );
+    });
   });
 
-  group('SetupScreen AI config', () {
+  group('SettingsScreen', () {
     Widget buildScreen({AIConfigRepository? aiRepo}) {
       return MaterialApp(
-        home: SetupScreen(
-          onConfigured: (_) {},
-          aiConfigRepository: aiRepo,
+        home: SettingsScreen(
+          apiConfig: ApiConfig(
+            baseUrl: 'https://obsidian.femkits.org',
+            token: '',
+          ),
         ),
       );
     }
 
-    testWidgets('AI section renders with all fields', (tester) async {
+    testWidgets('shows AI section and connection info', (tester) async {
       await tester.pumpWidget(buildScreen());
 
-      expect(find.text('AI 润色设置（可选）'), findsOneWidget);
+      expect(find.text('设置'), findsOneWidget);
+      expect(find.text('连接信息'), findsOneWidget);
+      expect(find.text('AI 润色设置'), findsOneWidget);
       expect(find.text('启用 AI 润色'), findsOneWidget);
-      expect(find.byType(SwitchListTile), findsOneWidget);
+      expect(find.text('快速选择预设'), findsOneWidget);
+      expect(find.text('保存 AI 配置'), findsOneWidget);
+    });
+
+    testWidgets('does not show plain text Token', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      expect(find.text('已配置'), findsOneWidget);
     });
 
     testWidgets('toggling AI switch disables AI fields', (tester) async {
       await tester.pumpWidget(buildScreen());
 
-      // Initially disabled
+      // Initially disabled: skip server address + Token (which is _ReadOnlyField, not TextField)
+      // Then AI fields: name (0), baseUrl (1), apiKey (2), model (3), prompt (4)
       final textFields =
-          tester.widgetList<TextField>(find.byType(TextField)).skip(2).toList();
+          tester.widgetList<TextField>(find.byType(TextField)).toList();
 
-      // Base URL field
+      expect(textFields[0].enabled, isFalse); // name
+      expect(textFields[1].enabled, isFalse); // baseUrl
+      expect(textFields[2].enabled, isFalse); // apiKey
+      expect(textFields[3].enabled, isFalse); // model
+      expect(textFields[4].enabled, isFalse); // prompt
 
-      // Base URL field
-      expect(textFields[0].enabled, isFalse);
-      // API Key field
-      expect(textFields[1].enabled, isFalse);
-      // Model field
-      expect(textFields[2].enabled, isFalse);
-      // Prompt field
-      expect(textFields[3].enabled, isFalse);
-
-      // Toggle enabled
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
 
       final enabledFields =
-          tester.widgetList<TextField>(find.byType(TextField)).skip(2).toList();
+          tester.widgetList<TextField>(find.byType(TextField)).toList();
 
       expect(enabledFields[0].enabled, isTrue);
       expect(enabledFields[1].enabled, isTrue);
       expect(enabledFields[2].enabled, isTrue);
       expect(enabledFields[3].enabled, isTrue);
+      expect(enabledFields[4].enabled, isTrue);
     });
 
     testWidgets('disabled fields preserve content', (tester) async {
       await tester.pumpWidget(buildScreen());
 
-      // Enable AI
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pump();
-
-      // Enter values
-      final baseUrlFinder = find.widgetWithText(TextField, 'Base URL');
-      final modelFinder = find.widgetWithText(TextField, 'Model');
-
-      await tester.enterText(baseUrlFinder, 'https://api.test.com');
-      await tester.enterText(modelFinder, 'gpt-4');
-      await tester.pump();
-
-      // Disable AI
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pump();
-
-      // Re-enable AI
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pump();
-
-      // Content is preserved
-      expect(
-        tester.widget<TextField>(baseUrlFinder).controller?.text,
-        'https://api.test.com',
-      );
-      expect(
-        tester.widget<TextField>(modelFinder).controller?.text,
-        'gpt-4',
-      );
-    });
-
-    testWidgets('AI config saves to repository when disabled',
-        (tester) async {
-      final storage = _TestStorage();
-      final repo = AIConfigRepository(storage: storage);
-
-      await tester.pumpWidget(buildScreen(aiRepo: repo));
-
-      // Enable AI, enter data, then disable
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
 
@@ -2878,20 +2884,17 @@ tags:
         'https://api.test.com',
       );
       await tester.enterText(
-        find.widgetWithText(TextField, 'API Key'),
-        'sk-test-key',
-      );
-      await tester.enterText(
         find.widgetWithText(TextField, 'Model'),
-        'gpt-4',
+        'gpt-4o',
       );
       await tester.pump();
 
-      // Disable AI
+      // Disable and re-enable
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
 
-      // Verify fields still have content (disabled state preserves)
       expect(
         tester
             .widget<TextField>(
@@ -2900,29 +2903,70 @@ tags:
             ?.text,
         'https://api.test.com',
       );
+      expect(
+        tester
+            .widget<TextField>(
+                find.widgetWithText(TextField, 'Model'))
+            .controller
+            ?.text,
+        'gpt-4o',
+      );
     });
 
-    testWidgets('API Key obscured by default and toggleable',
-        (tester) async {
+    testWidgets('API Key field uses obscureText', (tester) async {
       await tester.pumpWidget(buildScreen());
-
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
 
       final apiKeyField = find.widgetWithText(TextField, 'API Key');
-
-      // Initially obscured
       expect(tester.widget<TextField>(apiKeyField).obscureText, isTrue);
 
-      // Toggle via last visibility icon (avoids ambiguity with Token icon)
       await tester.tap(find.byIcon(Icons.visibility).last);
       await tester.pump();
       expect(tester.widget<TextField>(apiKeyField).obscureText, isFalse);
+    });
 
-      // Toggle back
-      await tester.tap(find.byIcon(Icons.visibility_off).last);
+    testWidgets('preset chip fills name, baseUrl, and model',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
-      expect(tester.widget<TextField>(apiKeyField).obscureText, isTrue);
+
+      await tester.tap(find.text('DeepSeek'));
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<TextField>(
+                find.widgetWithText(TextField, '服务商名称'))
+            .controller
+            ?.text,
+        'DeepSeek',
+      );
+      expect(
+        tester
+            .widget<TextField>(
+                find.widgetWithText(TextField, 'Base URL'))
+            .controller
+            ?.text,
+        'https://api.deepseek.com',
+      );
+      expect(
+        tester
+            .widget<TextField>(
+                find.widgetWithText(TextField, 'Model'))
+            .controller
+            ?.text,
+        'deepseek-chat',
+      );
+    });
+
+    testWidgets('Server address and Token not editable',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      expect(find.text('https://obsidian.femkits.org'), findsOneWidget);
+      expect(find.text('已配置'), findsOneWidget);
     });
   });
 }

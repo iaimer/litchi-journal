@@ -4,8 +4,10 @@ import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
+import '../screens/settings_screen.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
+import '../services/api_config.dart';
 import '../services/draft_repository.dart';
 import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
@@ -179,7 +181,24 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('荔枝日记')),
+      appBar: AppBar(
+        title: const Text('荔枝日记'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => SettingsScreen(
+                  apiConfig: ApiConfig(
+                    baseUrl: widget.apiClient.baseUrl,
+                    token: '',
+                  ),
+                ),
+              ));
+            },
+          ),
+        ],
+      ),
       backgroundColor: AppColors.background,
       body: _loading
           ? const Center(child: CircularProgressIndicator())

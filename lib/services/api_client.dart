@@ -13,6 +13,8 @@ class ApiClient {
   late final String _baseUrl;
   late final Map<String, String> _headers;
 
+  String get baseUrl => _baseUrl;
+
   ApiClient(this._config) {
     _http = http.Client();
     _baseUrl = _normalizeUrl(_config.baseUrl);

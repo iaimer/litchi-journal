@@ -95,6 +95,17 @@ class ApiClient {
     return null;
   }
 
+  Future<bool> ensureDiary(DateTime date) async {
+    final response = await _http.post(
+      Uri.parse('$_baseUrl/api/v1/diary/create'),
+      headers: _headers,
+      body: jsonEncode({
+        'date': formatDate(date),
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
   Future<bool> _appendToSection(
     String section,
     DateTime date,

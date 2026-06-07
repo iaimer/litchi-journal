@@ -68,7 +68,14 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final diary = await widget.apiClient.getDiary(DateTime.now());
+      final date = DateTime.now();
+      var diary = await widget.apiClient.getDiary(date);
+
+      if (diary == null) {
+        await widget.apiClient.ensureDiary(date);
+        diary = await widget.apiClient.getDiary(date);
+      }
+
       if (!mounted) return;
       setState(() {
         _diary = diary;
@@ -100,17 +107,26 @@ class _HomeScreenState extends State<HomeScreen> {
     DateTime date,
     String content,
     List<String> tags,
-  ) {
-    switch (type) {
-      case EntryType.quickNote:
-        return widget.apiClient.appendQuickNote(date, content, tags: tags);
-      case EntryType.reflection:
-        return widget.apiClient.appendReflection(date, content, tags: tags);
-      case EntryType.happiness:
-        return widget.apiClient.appendHappiness(date, content, tags: tags);
-      case EntryType.anxiety:
-        return widget.apiClient.appendAnxiety(date, content, tags: tags);
+  ) async {
+    Future<bool> call() {
+      switch (type) {
+        case EntryType.quickNote:
+          return widget.apiClient.appendQuickNote(date, content, tags: tags);
+        case EntryType.reflection:
+          return widget.apiClient.appendReflection(date, content, tags: tags);
+        case EntryType.happiness:
+          return widget.apiClient.appendHappiness(date, content, tags: tags);
+        case EntryType.anxiety:
+          return widget.apiClient.appendAnxiety(date, content, tags: tags);
+      }
     }
+
+    var success = await call();
+    if (!success) {
+      await widget.apiClient.ensureDiary(date);
+      success = await call();
+    }
+    return success;
   }
 
   Future<bool> _handleHabitUpdate(HabitStatus status) async {

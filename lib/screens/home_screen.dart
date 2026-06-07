@@ -191,13 +191,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           },
                         )
                       else
-                        QuickNoteComposer(
-                          onSubmit: _handleEntrySubmit,
-                          tagConfig: _tagConfig,
-                          tagHint:
-                              _tagConfigFailed ? '标签暂不可用' : null,
-                          placeholder:
-                              _selectedEntryType.placeholder,
+                        KeyedSubtree(
+                          key: ValueKey(
+                              'composer_${_selectedEntryType.name}'),
+                          child: QuickNoteComposer(
+                            onSubmit: _handleEntrySubmit,
+                            date: DateTime.now(),
+                            entryType: _selectedEntryType,
+                            draftRepository: _draftRepository,
+                            tagConfig: _tagConfig,
+                            tagHint: _tagConfigFailed
+                                ? '标签暂不可用'
+                                : null,
+                            placeholder:
+                                _selectedEntryType.placeholder,
+                          ),
                         ),
                     ],
                   ),

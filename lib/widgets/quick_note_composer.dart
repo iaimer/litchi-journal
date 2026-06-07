@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/tag_config.dart';
+import '../services/draft_repository.dart';
+import 'entry_type.dart';
 import 'tag_picker.dart';
 
 class QuickNoteComposer extends StatefulWidget {
@@ -8,6 +10,9 @@ class QuickNoteComposer extends StatefulWidget {
   final TagConfig? tagConfig;
   final String? tagHint;
   final String? placeholder;
+  final DateTime? date;
+  final EntryType? entryType;
+  final DraftRepository? draftRepository;
 
   const QuickNoteComposer({
     super.key,
@@ -15,6 +20,9 @@ class QuickNoteComposer extends StatefulWidget {
     this.tagConfig,
     this.tagHint,
     this.placeholder,
+    this.date,
+    this.entryType,
+    this.draftRepository,
   });
 
   @override
@@ -29,14 +37,59 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
 
   bool get _canSubmit => !_saving && _controller.text.trim().isNotEmpty;
 
+  void _saveDraft() {
+    final dr = widget.draftRepository;
+    final d = widget.date;
+    final et = widget.entryType;
+    if (dr == null || d == null || et == null) return;
+
+    final content = _controller.text;
+    if (content.trim().isEmpty && _selectedTags.isEmpty) {
+      dr.clearDraft(date: d, entryType: et);
+      return;
+    }
+    dr.saveQuickDraft(
+      date: d,
+      entryType: et,
+      content: content,
+      tags: List.unmodifiable(_selectedTags),
+    );
+  }
+
+  Future<void> _clearDraft() async {
+    final dr = widget.draftRepository;
+    final d = widget.date;
+    final et = widget.entryType;
+    if (dr == null || d == null || et == null) return;
+    await dr.clearDraft(date: d, entryType: et);
+  }
+
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onTextChanged);
+    _restoreDraft();
+  }
+
+  void _restoreDraft() {
+    final dr = widget.draftRepository;
+    final d = widget.date;
+    final et = widget.entryType;
+    if (dr == null || d == null || et == null) return;
+
+    dr.loadQuickDraft(date: d, entryType: et).then((draft) {
+      if (draft == null) return;
+      if (!mounted) return;
+      setState(() {
+        _controller.text = draft.content;
+        _selectedTags = List.unmodifiable(draft.tags);
+      });
+    });
   }
 
   void _onTextChanged() {
     setState(() {});
+    _saveDraft();
   }
 
   @override
@@ -58,6 +111,7 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
     try {
       await widget.onSubmit(content, _selectedTags);
       if (!mounted) return;
+      await _clearDraft();
       _controller.clear();
       setState(() => _selectedTags = []);
     } catch (e) {
@@ -95,6 +149,7 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
             initialTags: _selectedTags,
             onChanged: (tags) {
               setState(() => _selectedTags = tags);
+              _saveDraft();
             },
           ),
         ] else if (widget.tagHint != null) ...[

@@ -198,11 +198,16 @@ tags:
   });
 
   group('QuickNoteComposer', () {
+    final date = DateTime(2026, 6, 7);
+
     Widget buildComposer({
       required Future<void> Function(String, List<String>) onSubmit,
       TagConfig? tagConfig,
       String? tagHint,
       String? placeholder,
+      DateTime? date,
+      EntryType? entryType,
+      DraftRepository? draftRepository,
     }) {
       return MaterialApp(
         home: Scaffold(
@@ -211,6 +216,9 @@ tags:
             tagConfig: tagConfig,
             tagHint: tagHint,
             placeholder: placeholder,
+            date: date,
+            entryType: entryType,
+            draftRepository: draftRepository,
           ),
         ),
       );
@@ -407,6 +415,171 @@ tags:
 
       final field = tester.widget<TextField>(find.byType(TextField));
       expect(field.decoration?.hintText, '觉察到了什么？');
+    });
+
+    testWidgets('restores content from draft', (tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+        content: 'hello',
+        tags: [],
+      );
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        date: date,
+        entryType: EntryType.quickNote,
+        draftRepository: repo,
+      ));
+      await tester.pumpAndSettle();
+
+      final tf = tester.widget<TextField>(find.byType(TextField));
+      expect(tf.controller?.text, 'hello');
+    });
+
+    testWidgets('saves draft on text input', (tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        date: date,
+        entryType: EntryType.quickNote,
+        draftRepository: repo,
+      ));
+      await tester.enterText(find.byType(TextField), 'hi');
+      await tester.pump();
+
+      final draft =
+          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      expect(draft!.content, 'hi');
+    });
+
+    testWidgets('saves draft on tag change', (tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        tagConfig: _testTagConfig(),
+        date: date,
+        entryType: EntryType.quickNote,
+        draftRepository: repo,
+      ));
+      await tester.pump();
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pump();
+      await tester.tap(find.text('工作').last);
+      await tester.pump();
+
+      final draft =
+          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      expect(draft!.tags, ['工作']);
+    });
+
+    testWidgets('drafts don not overwrite each other', (tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        date: date,
+        entryType: EntryType.quickNote,
+        draftRepository: repo,
+      ));
+      await tester.enterText(find.byType(TextField), 'quick');
+      await tester.pump();
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        date: date,
+        entryType: EntryType.reflection,
+        draftRepository: repo,
+      ));
+      await tester.enterText(find.byType(TextField), 'reflect');
+      await tester.pump();
+
+      expect(
+        (await repo
+                .loadQuickDraft(date: date, entryType: EntryType.quickNote))!
+            .content,
+        'quick',
+      );
+      expect(
+        (await repo.loadQuickDraft(
+                date: date, entryType: EntryType.reflection))!
+            .content,
+        'reflect',
+      );
+    });
+
+    testWidgets('clears draft on empty content and tags', (tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+        content: 'x',
+        tags: [],
+      );
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        date: date,
+        entryType: EntryType.quickNote,
+        draftRepository: repo,
+      ));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pumpAndSettle();
+
+      final draft =
+          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      expect(draft, isNull);
+    });
+
+    testWidgets('clears draft on successful submit', (tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        date: date,
+        entryType: EntryType.quickNote,
+        draftRepository: repo,
+      ));
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      final draft =
+          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      expect(draft, isNull);
+    });
+
+    testWidgets('keeps draft on failed submit', (tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {
+          throw Exception('fail');
+        },
+        date: date,
+        entryType: EntryType.quickNote,
+        draftRepository: repo,
+      ));
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      final draft =
+          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      expect(draft, isNotNull);
     });
   });
 

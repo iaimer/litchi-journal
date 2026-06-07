@@ -20,6 +20,7 @@ import 'package:litchi_journal_flutter/services/polisher_service.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
+import 'package:litchi_journal_flutter/widgets/entry_edit_sheet.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type_selector.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
@@ -4309,6 +4310,50 @@ tags:
         tester.widget<TextField>(find.byType(TextField)).controller?.text,
         '原始内容',
       );
+    });
+
+    testWidgets(
+        'EntryEditSheet strips # prefix from tags for TagPicker',
+        (tester) async {
+      final tagConfig = _polishTagConfig();
+      List<String>? savedTags;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Builder(builder: (context) {
+            return ElevatedButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => EntryEditSheet(
+                    initialContent: 'test',
+                    initialTags: const ['#亲子', '#亲子沟通'],
+                    tagConfig: tagConfig,
+                    onSave: (_, tags) async {
+                      savedTags = tags;
+                    },
+                  ),
+                );
+              },
+              child: const Text('打开'),
+            );
+          }),
+        ),
+      ));
+
+      // Open the sheet
+      await tester.tap(find.text('打开'));
+      await tester.pumpAndSettle();
+
+      // Tags should be properly prefixed (without #)
+      // Save to verify the tags are stripped
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(savedTags, isNotNull);
+      expect(savedTags, isNot(contains('#亲子')));
+      expect(savedTags, contains('亲子'));
     });
 
     test('rebuildTimelineLine preserves original time for edit',

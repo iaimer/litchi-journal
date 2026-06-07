@@ -32,7 +32,8 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialContent);
-    _selectedTags = List.from(widget.initialTags);
+    _selectedTags =
+        widget.initialTags.map((t) => t.startsWith('#') ? t.substring(1) : t).toList();
   }
 
   @override
@@ -57,67 +58,70 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            '编辑记录',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _controller,
-            maxLines: 4,
-            minLines: 2,
-            autofocus: true,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '编辑记录',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-          ),
-          if (widget.tagConfig != null) ...[
             const SizedBox(height: 12),
-            TagPicker(
-              tagConfig: widget.tagConfig!,
-              initialTags: _selectedTags,
-              onChanged: (tags) => _selectedTags = tags,
-            ),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _saving ? null : () => Navigator.pop(context),
-                  child: const Text('取消'),
-                ),
+            TextField(
+              controller: _controller,
+              maxLines: 4,
+              minLines: 2,
+              autofocus: true,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _canSave ? _save : null,
-                  child: _saving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('保存'),
-                ),
+            ),
+            if (widget.tagConfig != null) ...[
+              const SizedBox(height: 12),
+              TagPicker(
+                tagConfig: widget.tagConfig!,
+                initialTags: _selectedTags,
+                onChanged: (tags) => _selectedTags = tags,
               ),
             ],
-          ),
-        ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed:
+                        _saving ? null : () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _canSave ? _save : null,
+                    child: _saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('保存'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

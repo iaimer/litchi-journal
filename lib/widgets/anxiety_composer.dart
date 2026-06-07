@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../services/draft_repository.dart';
+import 'entry_type.dart';
+
 const _questions = [
   '今天什么时候我感到焦虑/紧张？',
   '当时我在担心什么？（具体到一句话）',
@@ -17,11 +20,15 @@ const _placeholders = [
 class AnxietyComposer extends StatefulWidget {
   final Future<void> Function(String content, List<String> tags) onSubmit;
   final VoidCallback? onClose;
+  final DateTime? date;
+  final DraftRepository? draftRepository;
 
   const AnxietyComposer({
     super.key,
     required this.onSubmit,
     this.onClose,
+    this.date,
+    this.draftRepository,
   });
 
   @override
@@ -31,10 +38,7 @@ class AnxietyComposer extends StatefulWidget {
 class _AnxietyComposerState extends State<AnxietyComposer> {
   int _step = 0;
   final _answers = List<String>.filled(4, '');
-  final _controllers = List.generate(
-    4,
-    (_) => TextEditingController(),
-  );
+  final _controllers = List.generate(4, (_) => TextEditingController());
   bool _saving = false;
   String? _error;
 
@@ -53,12 +57,59 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
     return buffer.toString();
   }
 
+  void _saveDraft() {
+    final dr = widget.draftRepository;
+    final d = widget.date;
+    if (dr == null || d == null) return;
+    if (_answers.every((a) => a.isEmpty)) return;
+    dr.saveAnxietyDraft(
+      date: d,
+      step: _step,
+      answers: List.unmodifiable(_answers),
+    );
+  }
+
+  Future<void> _clearDraft() async {
+    final dr = widget.draftRepository;
+    final d = widget.date;
+    if (dr == null || d == null) return;
+    await dr.clearDraft(date: d, entryType: EntryType.anxiety);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreDraft();
+  }
+
+  void _restoreDraft() {
+    final dr = widget.draftRepository;
+    final d = widget.date;
+    if (dr == null || d == null) return;
+
+    dr.loadAnxietyDraft(date: d).then((draft) {
+      if (draft == null) return;
+      if (!mounted) return;
+      for (int i = 0; i < draft.answers.length && i < 4; i++) {
+        _answers[i] = draft.answers[i];
+        _controllers[i].text = draft.answers[i];
+      }
+      setState(() => _step = draft.step.clamp(0, 3));
+    });
+  }
+
+  void _previous() {
+    _saveCurrentAnswer();
+    setState(() => _step--);
+  }
+
   void _next() {
     _saveCurrentAnswer();
     if (_isLastStep) {
       _submit();
     } else {
       setState(() => _step++);
+      _saveDraft();
     }
   }
 
@@ -69,10 +120,12 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
     }
     _answers[_step] = '';
     setState(() => _step++);
+    _saveDraft();
   }
 
   void _saveCurrentAnswer() {
     _answers[_step] = _controllers[_step].text;
+    _saveDraft();
   }
 
   Future<void> _submit() async {
@@ -87,6 +140,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
     try {
       await widget.onSubmit(content, []);
       if (!mounted) return;
+      await _clearDraft();
       _reset();
     } catch (e) {
       if (!mounted) return;
@@ -132,7 +186,8 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: progress,
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  backgroundColor:
+                      theme.colorScheme.surfaceContainerHighest,
                 ),
               ),
             ),
@@ -175,9 +230,16 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
+            if (_step > 0)
+              TextButton(
+                onPressed: _saving ? null : _previous,
+                child: const Text('上一步'),
+              ),
             if (widget.onClose != null)
               TextButton(
-                onPressed: _saving ? null : () => widget.onClose?.call(),
+                onPressed: _saving
+                    ? null
+                    : () => widget.onClose?.call(),
                 child: const Text('关闭'),
               ),
             const Spacer(),

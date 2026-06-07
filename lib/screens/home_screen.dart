@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
 import '../models/tag_config.dart';
 import '../services/api_client.dart';
+import '../services/draft_repository.dart';
 import '../services/tag_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anxiety_composer.dart';
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   TagConfig? _tagConfig;
   bool _tagConfigFailed = false;
   EntryType _selectedEntryType = EntryType.quickNote;
+  final _draftRepository = DraftRepository();
 
   @override
   void initState() {
@@ -181,6 +183,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (_selectedEntryType == EntryType.anxiety)
                         AnxietyComposer(
                           onSubmit: _handleEntrySubmit,
+                          date: DateTime.now(),
+                          draftRepository: _draftRepository,
                           onClose: () {
                             setState(
                                 () => _selectedEntryType = EntryType.quickNote);

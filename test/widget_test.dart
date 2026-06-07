@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
+import 'package:litchi_journal_flutter/services/draft_repository.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
@@ -32,6 +33,20 @@ TagConfig _testTagConfig() {
       TagMethod(id: 'reflect', name: '反思', order: 0),
     ],
   );
+}
+
+class _TestStorage implements DraftStorage {
+  final Map<String, String> data;
+  _TestStorage([Map<String, String>? data]) : data = data ?? {};
+
+  @override
+  Future<String?> read(String key) async => data[key];
+
+  @override
+  Future<void> write(String key, String value) async => data[key] = value;
+
+  @override
+  Future<void> delete(String key) async => data.remove(key);
 }
 
 void main() {
@@ -839,13 +854,22 @@ tags:
   });
 
   group('AnxietyComposer', () {
+    final date = DateTime(2026, 6, 7);
+
     Widget buildComposer({
       required Future<void> Function(String, List<String>) onSubmit,
       VoidCallback? onClose,
+      DateTime? date,
+      DraftRepository? draftRepository,
     }) {
       return MaterialApp(
         home: Scaffold(
-          body: AnxietyComposer(onSubmit: onSubmit, onClose: onClose),
+          body: AnxietyComposer(
+            onSubmit: onSubmit,
+            onClose: onClose,
+            date: date,
+            draftRepository: draftRepository,
+          ),
         ),
       );
     }
@@ -995,6 +1019,184 @@ tags:
 
       expect(closed, isTrue);
     });
+
+    testWidgets('restores draft step and answers on init',
+        (WidgetTester tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+      await repo.saveAnxietyDraft(
+        date: date,
+        step: 2,
+        answers: ['a1', 'a2', '', ''],
+      );
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        date: date,
+        draftRepository: repo,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3/4'), findsOneWidget);
+    });
+
+    testWidgets('saves draft after next tap',
+        (WidgetTester tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        date: date,
+        draftRepository: repo,
+      ));
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pumpAndSettle();
+
+      final draft = await repo.loadAnxietyDraft(date: date);
+      expect(draft, isNotNull);
+      expect(draft!.step, 1);
+      expect(draft.answers[0], 'hello');
+    });
+
+    testWidgets('clears draft on successful submit',
+        (WidgetTester tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+      await repo.saveAnxietyDraft(
+        date: date,
+        step: 3,
+        answers: ['a1', '', '', ''],
+      );
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        date: date,
+        draftRepository: repo,
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      final draft = await repo.loadAnxietyDraft(date: date);
+      expect(draft, isNull);
+    });
+
+    testWidgets('keeps draft on failed submit',
+        (WidgetTester tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {
+          throw Exception('fail');
+        },
+        date: date,
+        draftRepository: repo,
+      ));
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      final draft = await repo.loadAnxietyDraft(date: date);
+      expect(draft, isNotNull);
+    });
+
+    testWidgets('back button hidden on step 1',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      expect(find.text('上一步'), findsNothing);
+    });
+
+    testWidgets('back button visible on step 2',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+
+      expect(find.text('上一步'), findsOneWidget);
+    });
+
+    testWidgets('back button returns to previous step',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('上一步'));
+      await tester.pump();
+
+      expect(find.text('1/4'), findsOneWidget);
+    });
+
+    testWidgets('back button shows previous answer',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('上一步'));
+      await tester.pump();
+
+      final tf = tester.widget<TextField>(find.byType(TextField));
+      expect(tf.controller?.text, 'hello');
+    });
+
+    testWidgets('modified answer after back is submitted',
+        (WidgetTester tester) async {
+      String? submitted;
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (content, _) async {
+          submitted = content;
+        },
+      ));
+
+      await tester.enterText(find.byType(TextField), 'old');
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('上一步'));
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'new');
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pump();
+
+      expect(submitted, contains('new'));
+      expect(submitted, isNot(contains('old')));
+    });
   });
 
   testWidgets('AnxietyCard shows template when no real answers',
@@ -1064,5 +1266,120 @@ tags:
     // Template questions should be hidden (both from template and from skipped Q&A)
     // Verify the card has content by checking SectionCard is rendered
     expect(find.byType(AnxietyCard), findsOneWidget);
+  });
+
+  group('DraftRepository', () {
+    final date = DateTime(2026, 6, 7);
+    late DraftRepository repo;
+    late _TestStorage storage;
+
+    setUp(() {
+      storage = _TestStorage();
+      repo = DraftRepository(storage: storage);
+    });
+
+    test('quick draft save and restore', () async {
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+        content: 'hello',
+        tags: ['工作'],
+      );
+
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
+
+      expect(draft, isNotNull);
+      expect(draft!.content, 'hello');
+      expect(draft.tags, ['工作']);
+    });
+
+    test('quick draft entries do not overwrite each other', () async {
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+        content: 'quick',
+        tags: ['q'],
+      );
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.reflection,
+        content: 'reflect',
+        tags: ['r'],
+      );
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.happiness,
+        content: 'happy',
+        tags: ['h'],
+      );
+
+      expect(
+        (await repo.loadQuickDraft(
+                date: date, entryType: EntryType.quickNote))!
+            .content,
+        'quick',
+      );
+      expect(
+        (await repo.loadQuickDraft(
+                date: date, entryType: EntryType.reflection))!
+            .content,
+        'reflect',
+      );
+      expect(
+        (await repo.loadQuickDraft(
+                date: date, entryType: EntryType.happiness))!
+            .content,
+        'happy',
+      );
+    });
+
+    test('anxiety draft save and restore', () async {
+      await repo.saveAnxietyDraft(
+        date: date,
+        step: 2,
+        answers: ['a1', 'a2', '', ''],
+      );
+
+      final draft = await repo.loadAnxietyDraft(date: date);
+
+      expect(draft, isNotNull);
+      expect(draft!.step, 2);
+      expect(draft.answers, ['a1', 'a2', '', '']);
+    });
+
+    test('fromJson survives type-incompatible input', () {
+      final draft = QuickDraft.fromJson(<String, dynamic>{});
+
+      expect(draft.content, '');
+      expect(draft.tags, isEmpty);
+    });
+
+    test('clearDraft returns null', () async {
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+        content: 'hello',
+        tags: [],
+      );
+      await repo.clearDraft(date: date, entryType: EntryType.quickNote);
+
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
+      expect(draft, isNull);
+    });
+
+    test('bad JSON returns null', () async {
+      storage.data['draft_2026-06-07_quickNote'] = 'not json';
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
+      expect(draft, isNull);
+    });
   });
 }

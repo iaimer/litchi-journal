@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/ai_config.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
+import '../services/polisher_service.dart';
 import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -43,9 +44,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _baseUrlController.text = config.baseUrl;
       _apiKeyController.text = config.apiKey;
       _modelController.text = config.model;
-      _promptController.text = config.polishPrompt ?? '';
-      _coachPromptController.text = config.coachPrompt ?? '';
+      _promptController.text = _effectivePrompt(config.polishPrompt);
+      _coachPromptController.text =
+          _effectiveCoachPrompt(config.coachPrompt);
     });
+  }
+
+  String _effectivePrompt(String? saved) {
+    final trimmed = saved?.trim();
+    return (trimmed != null && trimmed.isNotEmpty)
+        ? trimmed
+        : PolisherService.defaultPolishPrompt;
+  }
+
+  String _effectiveCoachPrompt(String? saved) {
+    final trimmed = saved?.trim();
+    return (trimmed != null && trimmed.isNotEmpty)
+        ? trimmed
+        : PolisherService.defaultCoachPrompt;
   }
 
   void _applyPreset(AIPreset preset) {
@@ -196,26 +212,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 enabled: _enabled,
               ),
               const SizedBox(height: 16),
+              Text(
+                '润色提示词',
+                style: theme.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '默认使用系统推荐提示词。你可以直接修改；修改后将使用你的版本。',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
               TextField(
                 controller: _promptController,
-                decoration: const InputDecoration(
-                  labelText: '润色补充要求',
-                  hintText: '会追加到默认润色规则之后，不会替代默认规则。',
-                ),
-                maxLines: 3,
-                minLines: 2,
+                key: const Key('polishPromptField'),
+                maxLines: 5,
+                minLines: 3,
                 enabled: _enabled,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _enabled
+                      ? () => setState(() => _promptController.text =
+                          PolisherService.defaultPolishPrompt)
+                      : null,
+                  child: const Text('恢复默认润色提示词'),
+                ),
               ),
               const SizedBox(height: 16),
+              Text(
+                '人生教练提示词',
+                style: theme.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '默认使用系统推荐提示词。你可以直接修改；修改后将使用你的版本。',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
               TextField(
                 controller: _coachPromptController,
-                decoration: const InputDecoration(
-                  labelText: '人生教练提示词',
-                  hintText: '为后续人生教练功能预留，可选。',
-                ),
-                maxLines: 3,
-                minLines: 2,
+                key: const Key('coachPromptField'),
+                maxLines: 5,
+                minLines: 3,
                 enabled: _enabled,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _enabled
+                      ? () => setState(() => _coachPromptController.text =
+                          PolisherService.defaultCoachPrompt)
+                      : null,
+                  child: const Text('恢复默认人生教练提示词'),
+                ),
               ),
               const SizedBox(height: 24),
               if (_error != null)

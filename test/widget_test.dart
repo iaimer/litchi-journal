@@ -2671,13 +2671,13 @@ tags:
       );
     });
 
-    test('system prompt contains default rules without customPrompt',
+    test('system prompt uses default when polishPrompt is empty',
         () async {
       final client = _CapturingHttpClient(body: '''
 {
   "choices": [{
     "message": {
-      "content": "润色后正文。 #亲子 #亲子沟通"
+      "content": "ok"
     }
   }]
 }''');
@@ -2704,11 +2704,47 @@ tags:
       expect(systemContent, contains('润色规则'));
       expect(systemContent, contains('日记润色助手'));
       expect(systemContent, contains('亲子'));
-      expect(systemContent, contains('亲子沟通'));
-      expect(systemContent, isNot(contains('用户补充要求')));
+      expect(systemContent, contains('【固定标签规则】'));
     });
 
-    test('system prompt appends customPrompt when provided', () async {
+    test('system prompt uses custom prompt when provided', () async {
+      final client = _CapturingHttpClient(body: '''
+{
+  "choices": [{
+    "message": {
+      "content": "ok"
+    }
+  }]
+}''');
+      final service = PolisherService(httpClient: client);
+
+      await service.polish(
+        content: '测试',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+          polishPrompt: '请用极简风格润色，20字以内。',
+        ),
+      );
+
+      final body = client.lastRequestBody!;
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final messages = json['messages'] as List;
+      final systemContent =
+          (messages[0] as Map<String, dynamic>)['content'] as String;
+
+      expect(systemContent, contains('极简风格'));
+      expect(systemContent, contains('20字以内'));
+      expect(systemContent, contains('【固定标签规则】'));
+      expect(systemContent, isNot(contains('日记润色助手')));
+    });
+
+    test('system prompt always appends tag rules and output format',
+        () async {
       final client = _CapturingHttpClient(body: '''
 {
   "choices": [{
@@ -2738,9 +2774,9 @@ tags:
       final systemContent =
           (messages[0] as Map<String, dynamic>)['content'] as String;
 
-      expect(systemContent, contains('润色规则'));
-      expect(systemContent, contains('用户补充要求'));
       expect(systemContent, contains('字数控制在50字以内'));
+      expect(systemContent, contains('【固定标签规则】'));
+      expect(systemContent, contains('【输出格式】'));
     });
 
     test('system prompt does not contain apiKey', () async {
@@ -2970,13 +3006,61 @@ tags:
       expect(find.text('已配置'), findsOneWidget);
     });
 
-    testWidgets('shows polish and coach prompt fields', (tester) async {
+    testWidgets('shows polish and coach prompt fields with labels',
+        (tester) async {
       await tester.pumpWidget(buildScreen());
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
 
-      expect(find.text('润色补充要求'), findsOneWidget);
+      expect(find.text('润色提示词'), findsOneWidget);
       expect(find.text('人生教练提示词'), findsOneWidget);
+      expect(find.text('恢复默认润色提示词'), findsOneWidget);
+      expect(find.text('恢复默认人生教练提示词'), findsOneWidget);
+    });
+
+    testWidgets('restore default polish prompt fills default',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      final promptField = find.byKey(const Key('polishPromptField'));
+      await tester.enterText(promptField, '自定义提示词');
+      await tester.pump();
+
+      // Scroll to make restore button visible
+      await tester.ensureVisible(find.text('恢复默认润色提示词'));
+      await tester.pump();
+
+      await tester.tap(find.text('恢复默认润色提示词'));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(promptField).controller?.text,
+        PolisherService.defaultPolishPrompt,
+      );
+    });
+
+    testWidgets('restore default coach prompt fills default',
+        (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      final coachField = find.byKey(const Key('coachPromptField'));
+      await tester.enterText(coachField, '自定义教练');
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('恢复默认人生教练提示词'));
+      await tester.pump();
+
+      await tester.tap(find.text('恢复默认人生教练提示词'));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(coachField).controller?.text,
+        PolisherService.defaultCoachPrompt,
+      );
     });
   });
 }

@@ -5,6 +5,7 @@ class AIConfig {
   final String apiKey;
   final String model;
   final String? polishPrompt;
+  final String? coachPrompt;
 
   const AIConfig({
     this.enabled = false,
@@ -13,6 +14,7 @@ class AIConfig {
     this.apiKey = '',
     this.model = '',
     this.polishPrompt,
+    this.coachPrompt,
   });
 
   bool get isUsable =>
@@ -26,6 +28,7 @@ class AIConfig {
       apiKey: json['apiKey'] as String? ?? '',
       model: json['model'] as String? ?? '',
       polishPrompt: json['polishPrompt'] as String?,
+      coachPrompt: json['coachPrompt'] as String?,
     );
   }
 
@@ -36,6 +39,7 @@ class AIConfig {
         'apiKey': apiKey,
         'model': model,
         if (polishPrompt != null) 'polishPrompt': polishPrompt,
+        if (coachPrompt != null) 'coachPrompt': coachPrompt,
       };
 
   @override

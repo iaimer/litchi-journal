@@ -20,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _apiKeyController = TextEditingController();
   final _modelController = TextEditingController();
   final _promptController = TextEditingController();
+  final _coachPromptController = TextEditingController();
 
   bool _enabled = false;
   bool _obscureApiKey = true;
@@ -43,6 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _apiKeyController.text = config.apiKey;
       _modelController.text = config.model;
       _promptController.text = config.polishPrompt ?? '';
+      _coachPromptController.text = config.coachPrompt ?? '';
     });
   }
 
@@ -71,6 +73,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         polishPrompt: _promptController.text.trim().isEmpty
             ? null
             : _promptController.text.trim(),
+        coachPrompt: _coachPromptController.text.trim().isEmpty
+            ? null
+            : _coachPromptController.text.trim(),
       ));
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -90,6 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _apiKeyController.dispose();
     _modelController.dispose();
     _promptController.dispose();
+    _coachPromptController.dispose();
     super.dispose();
   }
 
@@ -195,6 +201,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: const InputDecoration(
                   labelText: '润色补充要求',
                   hintText: '会追加到默认润色规则之后，不会替代默认规则。',
+                ),
+                maxLines: 3,
+                minLines: 2,
+                enabled: _enabled,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _coachPromptController,
+                decoration: const InputDecoration(
+                  labelText: '人生教练提示词',
+                  hintText: '为后续人生教练功能预留，可选。',
                 ),
                 maxLines: 3,
                 minLines: 2,

@@ -17,7 +17,6 @@ import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
-import 'package:litchi_journal_flutter/screens/setup_screen.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
@@ -2449,6 +2448,7 @@ tags:
         apiKey: 'sk-test',
         model: 'gpt-4',
         polishPrompt: '保持简洁',
+        coachPrompt: '请用温柔的语气',
       );
 
       final json = config.toJson();
@@ -2460,6 +2460,7 @@ tags:
       expect(restored.apiKey, 'sk-test');
       expect(restored.model, 'gpt-4');
       expect(restored.polishPrompt, '保持简洁');
+      expect(restored.coachPrompt, '请用温柔的语气');
     });
 
     test('fromJson defaults name to empty for old data', () {
@@ -2967,6 +2968,15 @@ tags:
 
       expect(find.text('https://obsidian.femkits.org'), findsOneWidget);
       expect(find.text('已配置'), findsOneWidget);
+    });
+
+    testWidgets('shows polish and coach prompt fields', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      expect(find.text('润色补充要求'), findsOneWidget);
+      expect(find.text('人生教练提示词'), findsOneWidget);
     });
   });
 }

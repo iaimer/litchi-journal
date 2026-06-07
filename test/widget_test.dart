@@ -3489,6 +3489,101 @@ tags:
       expect(result, '单次润色');
       expect(client.callCount, 1);
     });
+
+    test(
+        'reflection prompt includes domain guidance',
+        () async {
+      final client = _CapturingHttpClient(body: '''
+{
+  "choices": [{
+    "message": {
+      "content": "ok"
+    }
+  }]
+}''');
+      final service = PolisherService(httpClient: client);
+
+      await service.polish(
+        content: '今天开会时有些急躁',
+        entryType: EntryType.reflection,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      final body = client.lastRequestBody!;
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final messages = json['messages'] as List;
+      final systemContent =
+          (messages[0] as Map<String, dynamic>)['content'] as String;
+
+      expect(systemContent, contains('觉察与迭代记录'));
+      expect(systemContent, contains('属于哪个生活领域'));
+    });
+
+    test('reflection retry with method-only recovers with domain+topic',
+        () async {
+      final client = _MultiResponseHttpClient([
+        '{"choices":[{"message":{"content":"正文\\n#反思"}}]}',
+        '{"choices":[{"message":{"content":"正文\\n#亲子 #亲子沟通 #反思"}}]}',
+      ]);
+      final service = PolisherService(httpClient: client);
+
+      final result = await service.polish(
+        content: '今天反思了一下',
+        entryType: EntryType.reflection,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      // First response had only #反思 (method), filtered as empty tags
+      // Second response has domain+topic+method
+      expect(result.content, '正文');
+      expect(result.tags, ['亲子', '亲子沟通', '反思']);
+      expect(client.callCount, 2);
+    });
+
+    test('retry instruction includes method warning', () async {
+      final client = _CapturingHttpClient(body: '''
+{
+  "choices": [{
+    "message": {
+      "content": "#反思"
+    }
+  }]
+}''');
+      final service = PolisherService(httpClient: client);
+
+      await service.polish(
+        content: '测试',
+        entryType: EntryType.reflection,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      final body = client.lastRequestBody!;
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final messages = json['messages'] as List;
+      final systemContent =
+          (messages[0] as Map<String, dynamic>)['content'] as String;
+
+      expect(systemContent, contains('方法名'));
+      expect(systemContent, contains('不能替代领域或主题'));
+    });
   });
 
   group('SettingsScreen', () {

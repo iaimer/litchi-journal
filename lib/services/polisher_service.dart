@@ -40,6 +40,7 @@ class PolisherService {
 3. 可选 1 个方法
 4. 标签必须来自上面列出的可选标签，不允许创造新标签
 5. 不要输出解释，只输出正文和标签
+6. 方法名（如 #反思）不能替代领域或主题，必须同时输出领域+主题
 
 输出示例：
 润色后的正文内容
@@ -195,7 +196,7 @@ class PolisherService {
 
     final hint = switch (entryType) {
       EntryType.quickNote => '这是一条随手记录。',
-      EntryType.reflection => '这是一条觉察与迭代记录。',
+      EntryType.reflection => '这是一条觉察与迭代记录。判断这条觉察属于哪个生活领域（亲子/育儿/工作/学习/阅读/技术/生活），从该领域中选择适合的主题。',
       EntryType.happiness => '这是一条小确幸记录。',
       EntryType.anxiety => '这是焦虑时刻的一个回答。',
     };

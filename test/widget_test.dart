@@ -104,7 +104,7 @@ class _FakeHttpClient extends http.BaseClient {
 class _CapturingHttpClient extends _FakeHttpClient {
   String? lastRequestBody;
 
-  _CapturingHttpClient({super.statusCode, super.body});
+  _CapturingHttpClient({super.body});
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -736,8 +736,8 @@ tags:
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
           body: QuickNoteComposer(
-            onSubmit: (_, __) async {},
-            onPolish: (_, __) async =>
+            onSubmit: (_, _) async {},
+            onPolish: (_, _) async =>
                 const PolishResult(content: '', tags: []),
             entryType: EntryType.quickNote,
           ),
@@ -760,7 +760,7 @@ tags:
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
           body: QuickNoteComposer(
-            onSubmit: (_, __) async {},
+            onSubmit: (_, _) async {},
             onPolish: (content, type) async {
               polishedContent = content;
               polishedType = type;
@@ -796,8 +796,8 @@ tags:
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
           body: QuickNoteComposer(
-            onSubmit: (_, __) async {},
-            onPolish: (_, __) async => const PolishResult(
+            onSubmit: (_, _) async {},
+            onPolish: (_, _) async => const PolishResult(
               content: '润色后的文本',
               tags: ['亲子', '亲子沟通'],
             ),
@@ -834,8 +834,8 @@ tags:
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
           body: QuickNoteComposer(
-            onSubmit: (_, __) async {},
-            onPolish: (_, __) async => throw Exception('网络错误'),
+            onSubmit: (_, _) async {},
+            onPolish: (_, _) async => throw Exception('网络错误'),
             tagConfig: tagConfig,
             entryType: EntryType.quickNote,
           ),
@@ -865,7 +865,7 @@ tags:
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
           body: QuickNoteComposer(
-            onSubmit: (_, __) async {},
+            onSubmit: (_, _) async {},
             entryType: EntryType.quickNote,
           ),
         ),

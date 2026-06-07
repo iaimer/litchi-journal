@@ -3,13 +3,17 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 
+import 'package:litchi_journal_flutter/models/ai_config.dart';
 import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
+import 'package:litchi_journal_flutter/services/ai_config_repository.dart';
 import 'package:litchi_journal_flutter/services/draft_repository.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
+import 'package:litchi_journal_flutter/services/polisher_service.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
@@ -65,7 +69,7 @@ TagConfig _polishTagConfig() {
   );
 }
 
-class _TestStorage implements DraftStorage {
+class _TestStorage implements DraftStorage, AIConfigStorage {
   final Map<String, String> data;
   _TestStorage([Map<String, String>? data]) : data = data ?? {};
 
@@ -77,6 +81,36 @@ class _TestStorage implements DraftStorage {
 
   @override
   Future<void> delete(String key) async => data.remove(key);
+}
+
+class _FakeHttpClient extends http.BaseClient {
+  final int statusCode;
+  final String body;
+
+  _FakeHttpClient({this.statusCode = 200, this.body = ''});
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(
+      Stream.value(utf8.encode(body)),
+      statusCode,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+  }
+}
+
+class _CapturingHttpClient extends _FakeHttpClient {
+  String? lastRequestBody;
+
+  _CapturingHttpClient({super.statusCode, super.body});
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final bytes = await request.finalize().fold<List<int>>(
+        [], (prev, chunk) => prev..addAll(chunk));
+    lastRequestBody = utf8.decode(bytes);
+    return super.send(request);
+  }
 }
 
 void main() {
@@ -2134,6 +2168,347 @@ tags:
 
       expect(result.content, '#工作 #任务执行');
       expect(result.tags, isEmpty);
+    });
+  });
+
+  group('AIConfig', () {
+    test('toJson / fromJson round-trip', () {
+      const config = AIConfig(
+        enabled: true,
+        baseUrl: 'https://api.openai.com',
+        apiKey: 'sk-test',
+        model: 'gpt-4',
+        polishPrompt: '保持简洁',
+      );
+
+      final json = config.toJson();
+      final restored = AIConfig.fromJson(json);
+
+      expect(restored.enabled, true);
+      expect(restored.baseUrl, 'https://api.openai.com');
+      expect(restored.apiKey, 'sk-test');
+      expect(restored.model, 'gpt-4');
+      expect(restored.polishPrompt, '保持简洁');
+    });
+
+    test('fromJson defaults disabled when fields missing', () {
+      final config = AIConfig.fromJson({});
+
+      expect(config.enabled, isFalse);
+      expect(config.isUsable, isFalse);
+    });
+
+    test('isUsable is false when any required field empty', () {
+      expect(const AIConfig(enabled: true, baseUrl: '', apiKey: 'k', model: 'm').isUsable, isFalse);
+      expect(const AIConfig(enabled: true, baseUrl: 'u', apiKey: '', model: 'm').isUsable, isFalse);
+      expect(const AIConfig(enabled: true, baseUrl: 'u', apiKey: 'k', model: '').isUsable, isFalse);
+      expect(const AIConfig(enabled: false, baseUrl: 'u', apiKey: 'k', model: 'm').isUsable, isFalse);
+    });
+
+    test('toString does not expose apiKey', () {
+      const config = AIConfig(
+        enabled: true,
+        baseUrl: 'https://api.test.com',
+        apiKey: 'sk-secret-key',
+        model: 'gpt-4',
+      );
+
+      final str = config.toString();
+      expect(str, contains('https://api.test.com'));
+      expect(str, contains('gpt-4'));
+      expect(str, isNot(contains('sk-secret-key')));
+    });
+  });
+
+  group('AIConfigRepository', () {
+    test('loadAIConfig returns disabled config on bad JSON', () async {
+      final storage = _TestStorage({'ai_config': 'not json'});
+      final repo = AIConfigRepository(storage: storage);
+
+      final config = await repo.loadAIConfig();
+
+      expect(config.enabled, isFalse);
+    });
+
+    test('save and load round-trip', () async {
+      final storage = _TestStorage();
+      final repo = AIConfigRepository(storage: storage);
+
+      const config = AIConfig(
+        enabled: true,
+        baseUrl: 'https://api.test.com',
+        apiKey: 'sk-test-key',
+        model: 'gpt-4',
+      );
+
+      await repo.saveAIConfig(config);
+      final loaded = await repo.loadAIConfig();
+
+      expect(loaded.enabled, isTrue);
+      expect(loaded.baseUrl, 'https://api.test.com');
+      expect(loaded.apiKey, 'sk-test-key');
+      expect(loaded.model, 'gpt-4');
+    });
+
+    test('clearAIConfig removes stored config', () async {
+      final storage = _TestStorage();
+      final repo = AIConfigRepository(storage: storage);
+
+      const config = AIConfig(
+        enabled: true,
+        baseUrl: 'https://api.test.com',
+        apiKey: 'sk-test',
+        model: 'gpt-4',
+      );
+
+      await repo.saveAIConfig(config);
+      await repo.clearAIConfig();
+
+      final loaded = await repo.loadAIConfig();
+      expect(loaded.enabled, isFalse);
+    });
+
+    test('loadAIConfig returns default when nothing stored', () async {
+      final storage = _TestStorage();
+      final repo = AIConfigRepository(storage: storage);
+
+      final config = await repo.loadAIConfig();
+
+      expect(config.enabled, isFalse);
+    });
+  });
+
+  group('PolisherService', () {
+    final tagConfig = _polishTagConfig();
+
+    test('throws when content is empty', () async {
+      final service = PolisherService();
+
+      expect(
+        () => service.polish(
+          content: '   ',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://api.test.com',
+            apiKey: 'sk-test',
+            model: 'gpt-4',
+          ),
+        ),
+        throwsA(isA<Exception>().having(
+            (e) => e.toString(), 'message', contains('内容为空'))),
+      );
+    });
+
+    test('throws when config is disabled', () async {
+      final service = PolisherService();
+
+      expect(
+        () => service.polish(
+          content: '测试内容',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(enabled: false),
+        ),
+        throwsA(isA<Exception>().having(
+            (e) => e.toString(), 'message', contains('未启用'))),
+      );
+    });
+
+    test('parses mock OpenAI response with tags', () async {
+      const rawResponse = '''
+{
+  "choices": [{
+    "message": {
+      "content": "今天小宝清晰表达了自己的边界。 #亲子 #亲子沟通 #反思"
+    }
+  }]
+}''';
+
+      final client = _FakeHttpClient(body: rawResponse);
+      final service = PolisherService(httpClient: client);
+
+      final result = await service.polish(
+        content: '今天小宝说不要碰我',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      expect(result.content, '今天小宝清晰表达了自己的边界。');
+      expect(result.tags, ['亲子', '亲子沟通', '反思']);
+    });
+
+    test('throws when response has no choices', () async {
+      final client = _FakeHttpClient(body: '{"choices": []}');
+      final service = PolisherService(httpClient: client);
+
+      expect(
+        () => service.polish(
+          content: '测试',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://api.test.com',
+            apiKey: 'sk-test',
+            model: 'gpt-4',
+          ),
+        ),
+        throwsA(isA<Exception>().having(
+            (e) => e.toString(), 'message', contains('未返回润色结果'))),
+      );
+    });
+
+    test('throws on non-200 status', () async {
+      final client = _FakeHttpClient(statusCode: 401, body: 'Unauthorized');
+      final service = PolisherService(httpClient: client);
+
+      expect(
+        () => service.polish(
+          content: '测试',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://api.test.com',
+            apiKey: 'sk-test',
+            model: 'gpt-4',
+          ),
+        ),
+        throwsA(isA<Exception>().having(
+            (e) => e.toString(), 'message', contains('401'))),
+      );
+    });
+
+    test('system prompt contains default rules without customPrompt',
+        () async {
+      final client = _CapturingHttpClient(body: '''
+{
+  "choices": [{
+    "message": {
+      "content": "润色后正文。 #亲子 #亲子沟通"
+    }
+  }]
+}''');
+      final service = PolisherService(httpClient: client);
+
+      await service.polish(
+        content: '测试',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      final body = client.lastRequestBody!;
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final messages = json['messages'] as List;
+      final systemContent =
+          (messages[0] as Map<String, dynamic>)['content'] as String;
+
+      expect(systemContent, contains('润色规则'));
+      expect(systemContent, contains('日记润色助手'));
+      expect(systemContent, contains('亲子'));
+      expect(systemContent, contains('亲子沟通'));
+      expect(systemContent, isNot(contains('用户补充要求')));
+    });
+
+    test('system prompt appends customPrompt when provided', () async {
+      final client = _CapturingHttpClient(body: '''
+{
+  "choices": [{
+    "message": {
+      "content": "润色后正文。 #亲子 #亲子沟通"
+    }
+  }]
+}''');
+      final service = PolisherService(httpClient: client);
+
+      await service.polish(
+        content: '测试',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+          polishPrompt: '字数控制在50字以内',
+        ),
+      );
+
+      final body = client.lastRequestBody!;
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final messages = json['messages'] as List;
+      final systemContent =
+          (messages[0] as Map<String, dynamic>)['content'] as String;
+
+      expect(systemContent, contains('润色规则'));
+      expect(systemContent, contains('用户补充要求'));
+      expect(systemContent, contains('字数控制在50字以内'));
+    });
+
+    test('system prompt does not contain apiKey', () async {
+      final client = _CapturingHttpClient(body: '''
+{
+  "choices": [{
+    "message": {
+      "content": "ok"
+    }
+  }]
+}''');
+      final service = PolisherService(httpClient: client);
+
+      await service.polish(
+        content: '测试',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-super-secret',
+          model: 'gpt-4',
+        ),
+      );
+
+      final body = client.lastRequestBody!;
+      expect(body, isNot(contains('sk-super-secret')));
+    });
+
+    test('error messages do not contain apiKey', () async {
+      final client = _FakeHttpClient(statusCode: 500, body: 'error');
+      final service = PolisherService(httpClient: client);
+
+      String? errorMessage;
+      try {
+        await service.polish(
+          content: '测试',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://api.test.com',
+            apiKey: 'sk-super-secret',
+            model: 'gpt-4',
+          ),
+        );
+      } catch (e) {
+        errorMessage = e.toString();
+      }
+
+      expect(errorMessage, isNotNull);
+      expect(errorMessage, isNot(contains('sk-super-secret')));
     });
   });
 }

@@ -2,7 +2,7 @@ import '../models/diary_document.dart';
 
 final _calloutStart = RegExp(r'^>\s*\[!(\w+)\]\s*(.*)$');
 final _checkboxLine = RegExp(r'^-\s*\[([ xX])\]\s*(.*)$');
-final _timelineLine = RegExp(r'^-\s*\*\*(\d{2}:\d{2})\*\*\s*(.*)$');
+final _timelineLine = RegExp(r'^(?:>\s*|-\s*)\*\*(\d{2}:\d{2})\*\*\s*(.*)$');
 final _sectionHeader = RegExp(r'^#{2,3}\s+(.*)$');
 final _mainTitle = RegExp(r'^#\s+(.*)$');
 final _htmlComment = RegExp(r'^<!--.*-->$');

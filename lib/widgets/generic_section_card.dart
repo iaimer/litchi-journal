@@ -27,6 +27,7 @@ class GenericSectionCard extends StatelessWidget {
             children.add(_buildSubSectionHeader(context, content.title));
           }
         } else {
+          if (_isHappinessSlogan(section, content)) continue;
           _buildContent(context, content, children);
         }
       }
@@ -54,6 +55,14 @@ class GenericSectionCard extends StatelessWidget {
     if (content is! CalloutContent) return false;
     if (content.body.isNotEmpty) return false;
     return _questionHint.hasMatch(content.title);
+  }
+
+  static bool _isHappinessSlogan(DiarySection section, DiaryContent content) {
+    if (section is! HappinessSection) return false;
+    if (content is! CalloutContent) return false;
+    if (content.body.isNotEmpty) return false;
+    if (content.type != 'success') return false;
+    return content.title.contains('值得感恩');
   }
 
   void _buildContent(

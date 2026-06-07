@@ -7,12 +7,14 @@ class QuickNoteComposer extends StatefulWidget {
   final Future<void> Function(String content, List<String> tags) onSubmit;
   final TagConfig? tagConfig;
   final String? tagHint;
+  final String? placeholder;
 
   const QuickNoteComposer({
     super.key,
     required this.onSubmit,
     this.tagConfig,
     this.tagHint,
+    this.placeholder,
   });
 
   @override
@@ -80,8 +82,8 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
       children: [
         TextField(
           controller: _controller,
-          decoration: const InputDecoration(
-            hintText: '写点什么...',
+          decoration: InputDecoration(
+            hintText: widget.placeholder ?? '写点什么...',
           ),
           maxLines: 3,
           enabled: !_saving,

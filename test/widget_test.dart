@@ -8,6 +8,9 @@ import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
+import 'package:litchi_journal_flutter/widgets/entry_type.dart';
+import 'package:litchi_journal_flutter/widgets/entry_type_selector.dart';
+import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 
@@ -164,15 +167,17 @@ tags:
         document.sections.whereType<HappinessSection>().single;
 
     expect(happiness.isEmpty, isFalse);
-    expect(happiness.contents, hasLength(1));
+    expect(happiness.contents, hasLength(2));
 
-    final block = happiness.contents[0] as MarkdownContent;
-    expect(block.text, contains('09:30'));
-    expect(block.text, contains('喝到一杯好咖啡'));
-    expect(block.text, contains('#生活'));
-    expect(block.text, contains('#日常记录'));
-    expect(block.text, contains('14:00'));
-    expect(block.text, contains('可爱的小猫'));
+    final first = happiness.contents[0] as TimelineContent;
+    expect(first.time, '09:30');
+    expect(first.text, '喝到一杯好咖啡');
+    expect(first.tags, ['#生活', '#日常记录']);
+
+    final second = happiness.contents[1] as TimelineContent;
+    expect(second.time, '14:00');
+    expect(second.text, '发现一只可爱的小猫');
+    expect(second.tags, ['#生活']);
   });
 
   group('QuickNoteComposer', () {
@@ -180,6 +185,7 @@ tags:
       required Future<void> Function(String, List<String>) onSubmit,
       TagConfig? tagConfig,
       String? tagHint,
+      String? placeholder,
     }) {
       return MaterialApp(
         home: Scaffold(
@@ -187,6 +193,7 @@ tags:
             onSubmit: onSubmit,
             tagConfig: tagConfig,
             tagHint: tagHint,
+            placeholder: placeholder,
           ),
         ),
       );
@@ -372,6 +379,17 @@ tags:
       ));
 
       expect(find.text('标签暂不可用'), findsOneWidget);
+    });
+
+    testWidgets('shows placeholder when provided',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        placeholder: '觉察到了什么？',
+      ));
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.decoration?.hintText, '觉察到了什么？');
     });
   });
 
@@ -736,5 +754,85 @@ tags:
       expect(find.byType(ChoiceChip), findsNothing);
       expect(find.text('🏷️ 标签'), findsOneWidget);
     });
+  });
+
+  group('EntryTypeSelector', () {
+    Widget buildSelector({
+      required EntryType selected,
+      required ValueChanged<EntryType> onChanged,
+    }) {
+      return MaterialApp(
+        home: Scaffold(
+          body: EntryTypeSelector(selected: selected, onChanged: onChanged),
+        ),
+      );
+    }
+
+    testWidgets('shows all four entry type labels',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildSelector(
+        selected: EntryType.quickNote,
+        onChanged: (_) {},
+      ));
+
+      expect(find.text('随手记'), findsOneWidget);
+      expect(find.text('觉察'), findsOneWidget);
+      expect(find.text('小确幸'), findsOneWidget);
+      expect(find.text('焦虑'), findsOneWidget);
+    });
+
+    testWidgets('marks selected entry as active',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildSelector(
+        selected: EntryType.reflection,
+        onChanged: (_) {},
+      ));
+
+      final chips =
+          tester.widgetList<ChoiceChip>(find.byType(ChoiceChip)).toList();
+      expect(chips[1].selected, isTrue);
+    });
+
+    testWidgets('calls onChanged when tapping a chip',
+        (WidgetTester tester) async {
+      EntryType? tapped;
+      await tester.pumpWidget(buildSelector(
+        selected: EntryType.quickNote,
+        onChanged: (type) => tapped = type,
+      ));
+
+      await tester.tap(find.text('觉察'));
+      await tester.pump();
+      expect(tapped, EntryType.reflection);
+    });
+  });
+
+  testWidgets('happiness slogan hidden when real content exists',
+      (WidgetTester tester) async {
+    final section = HappinessSection(
+      title: '✨ 每日小确幸',
+      contents: [
+        const CalloutContent(
+          type: 'success',
+          title: '总有事件值得感恩🙏❤️',
+          body: [],
+        ),
+        const TimelineContent(
+          time: '09:30',
+          text: '喝到一杯好咖啡',
+          tags: [],
+          rawLine: '',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: GenericSectionCard(section: section),
+      ),
+    ));
+
+    expect(find.text('总有事件值得感恩'), findsNothing);
+    expect(find.text('喝到一杯好咖啡'), findsOneWidget);
   });
 }

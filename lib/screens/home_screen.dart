@@ -6,6 +6,8 @@ import '../services/api_client.dart';
 import '../services/tag_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/diary_markdown_view.dart';
+import '../widgets/entry_type.dart';
+import '../widgets/entry_type_selector.dart';
 import '../widgets/quick_note_composer.dart';
 import '../widgets/section_card.dart';
 
@@ -24,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _error;
   TagConfig? _tagConfig;
   bool _tagConfigFailed = false;
+  EntryType _selectedEntryType = EntryType.quickNote;
 
   @override
   void initState() {
@@ -81,12 +84,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _handleQuickNoteSubmit(
+  Future<bool> _appendEntry(
+    EntryType type,
+    DateTime date,
+    String content,
+    List<String> tags,
+  ) {
+    switch (type) {
+      case EntryType.quickNote:
+        return widget.apiClient.appendQuickNote(date, content, tags: tags);
+      case EntryType.reflection:
+        return widget.apiClient.appendReflection(date, content, tags: tags);
+      case EntryType.happiness:
+        return widget.apiClient.appendHappiness(date, content, tags: tags);
+      case EntryType.anxiety:
+        return widget.apiClient.appendAnxiety(date, content, tags: tags);
+    }
+  }
+
+  Future<void> _handleEntrySubmit(
       String content, List<String> tags) async {
-    final success = await widget.apiClient.appendQuickNote(
+    final success = await _appendEntry(
+      _selectedEntryType,
       DateTime.now(),
       content,
-      tags: tags,
+      tags,
     );
     if (!success) throw Exception('保存失败');
     if (!mounted) return;
@@ -148,11 +170,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   SectionCard(
                     title: '快速记录',
                     children: [
+                      EntryTypeSelector(
+                        selected: _selectedEntryType,
+                        onChanged: (type) {
+                          setState(() => _selectedEntryType = type);
+                        },
+                      ),
+                      const SizedBox(height: 10),
                       QuickNoteComposer(
-                        onSubmit: _handleQuickNoteSubmit,
+                        onSubmit: _handleEntrySubmit,
                         tagConfig: _tagConfig,
                         tagHint:
                             _tagConfigFailed ? '标签暂不可用' : null,
+                        placeholder:
+                            _selectedEntryType.placeholder,
                       ),
                     ],
                   ),

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
+import '../models/polish_result.dart';
 import '../models/tag_config.dart';
+import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
 import '../services/draft_repository.dart';
+import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anxiety_composer.dart';
@@ -123,6 +126,34 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<PolishResult> _handlePolish(
+      String content, EntryType entryType) async {
+    final aiRepo = AIConfigRepository();
+    final aiConfig = await aiRepo.loadAIConfig();
+
+    if (!aiConfig.isUsable) {
+      throw Exception('AI 润色未启用，请在初始设置中配置');
+    }
+
+    final tagConfig = _tagConfig;
+    if (tagConfig == null) {
+      throw Exception('标签配置暂不可用');
+    }
+
+    final service = PolisherService();
+    try {
+      final result = await service.polish(
+        content: content,
+        entryType: entryType,
+        tagConfig: tagConfig,
+        config: aiConfig,
+      );
+      return result;
+    } finally {
+      service.dispose();
+    }
+  }
+
   Future<void> _handleEntrySubmit(
       String content, List<String> tags) async {
     final success = await _appendEntry(
@@ -215,9 +246,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         KeyedSubtree(
                           key: ValueKey(
                               'composer_${_selectedEntryType.name}'),
-                          child: QuickNoteComposer(
-                            onSubmit: _handleEntrySubmit,
-                            date: DateTime.now(),
+                        child: QuickNoteComposer(
+                          onSubmit: _handleEntrySubmit,
+                          onPolish: _handlePolish,
+                          date: DateTime.now(),
                             entryType: _selectedEntryType,
                             draftRepository: _draftRepository,
                             tagConfig: _tagConfig,

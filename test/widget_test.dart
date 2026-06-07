@@ -1857,6 +1857,18 @@ tags:
       expect(submitted, contains('- 当时我在担心什么？'));
     });
 
+    testWidgets('TextField auto-expands from 2 to 8 lines',
+        (tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+      ));
+
+      final textField = tester.widget<TextField>(find.byType(TextField));
+      expect(textField.minLines, 2);
+      expect(textField.maxLines, 8);
+      expect(textField.keyboardType, TextInputType.multiline);
+    });
+
     test('parseAnswers extracts 4 empty strings from template', () {
       const markdown = '''
 - 今天什么时候我感到焦虑/紧张？

@@ -322,7 +322,10 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
           decoration: InputDecoration(
             hintText: _placeholders[_step],
           ),
-          maxLines: 3,
+          minLines: 2,
+          maxLines: 8,
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
           enabled: !_saving && !_polishing,
         ),
         if (widget.onPolish != null) ...[

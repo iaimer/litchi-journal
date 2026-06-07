@@ -116,6 +116,29 @@ class _CapturingHttpClient extends _FakeHttpClient {
   }
 }
 
+class _MultiResponseHttpClient extends http.BaseClient {
+  final List<String> _bodies;
+  final int _statusCode;
+  int _callCount = 0;
+
+  _MultiResponseHttpClient(List<String> bodies, {int statusCode = 200})
+      : _bodies = bodies,
+        _statusCode = statusCode;
+
+  int get callCount => _callCount;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final index = _callCount < _bodies.length ? _callCount : _bodies.length - 1;
+    _callCount++;
+    return http.StreamedResponse(
+      Stream.value(utf8.encode(_bodies[index])),
+      _statusCode,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+  }
+}
+
 void main() {
   test('DiaryEntry.fromJson parses valid data', () {
     final json = {
@@ -3338,6 +3361,133 @@ tags:
         PolisherService.chatUrl('http://localhost:11434'),
         'http://localhost:11434/v1/chat/completions',
       );
+    });
+
+    test('retry succeeds when first response has no tags, second has',
+        () async {
+      final client = _MultiResponseHttpClient([
+        '{"choices":[{"message":{"content":"润色正文"}}]}',
+        '{"choices":[{"message":{"content":"润色正文\\n#亲子 #亲子沟通 #反思"}}]}',
+      ]);
+      final service = PolisherService(httpClient: client);
+
+      final result = await service.polish(
+        content: '测试',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      expect(result.content, '润色正文');
+      expect(result.tags, ['亲子', '亲子沟通', '反思']);
+      expect(client.callCount, 2);
+    });
+
+    test(
+        'retry still returns content when both responses have no valid tags',
+        () async {
+      final client = _MultiResponseHttpClient([
+        '{"choices":[{"message":{"content":"正文一"}}]}',
+        '{"choices":[{"message":{"content":"正文二"}}]}',
+      ]);
+      final service = PolisherService(httpClient: client);
+
+      final result = await service.polish(
+        content: '测试',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      expect(result.content, '正文二');
+      expect(result.tags, isEmpty);
+      expect(client.callCount, 2);
+    });
+
+    test('no retry when first response already has valid tags', () async {
+      final client = _MultiResponseHttpClient([
+        '{"choices":[{"message":{"content":"正文\\n#亲子 #亲子沟通"}}]}',
+      ]);
+      final service = PolisherService(httpClient: client);
+
+      final result = await service.polish(
+        content: '测试',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      expect(result.content, '正文');
+      expect(result.tags, ['亲子', '亲子沟通']);
+      expect(client.callCount, 1);
+    });
+
+    test('retry prompt contains retry instruction', () async {
+      final client = _CapturingHttpClient(body: '''
+{
+  "choices": [{
+    "message": {
+      "content": "无标签正文"
+    }
+  }]
+}''');
+      final service = PolisherService(httpClient: client);
+
+      await service.polish(
+        content: '测试',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      final body = client.lastRequestBody!;
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final messages = json['messages'] as List;
+      final systemContent =
+          (messages[0] as Map<String, dynamic>)['content'] as String;
+
+      expect(systemContent, contains('必须输出 1 个领域 + 1 个主题'));
+      expect(systemContent, contains('【重要提醒】'));
+    });
+
+    test('retry does not affect polishPlainText', () async {
+      final client = _MultiResponseHttpClient([
+        '{"choices":[{"message":{"content":"单次润色"}}]}',
+      ]);
+      final service = PolisherService(httpClient: client);
+
+      final result = await service.polishPlainText(
+        content: '测试',
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+        ),
+      );
+
+      expect(result, '单次润色');
+      expect(client.callCount, 1);
     });
   });
 

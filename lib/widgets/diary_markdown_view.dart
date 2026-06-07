@@ -10,8 +10,13 @@ import 'review_card.dart';
 
 class DiaryMarkdownView extends StatelessWidget {
   final String markdown;
+  final Future<bool> Function(HabitStatus)? onHabitUpdate;
 
-  const DiaryMarkdownView({super.key, required this.markdown});
+  const DiaryMarkdownView({
+    super.key,
+    required this.markdown,
+    this.onHabitUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +48,11 @@ class DiaryMarkdownView extends StatelessWidget {
   Widget _buildSection(DiarySection section) {
     switch (section) {
       case HabitSection():
-        return HabitCard(section: section);
+        return HabitCard(
+          key: const ValueKey('habit_card'),
+          section: section,
+          onUpdate: onHabitUpdate ?? (_) async => true,
+        );
       case QuickNoteSection():
         return QuickNoteTimeline(section: section);
       case AnxietySection():

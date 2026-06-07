@@ -14,6 +14,7 @@ import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type_selector.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
+import 'package:litchi_journal_flutter/widgets/habit_card.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 
@@ -1522,6 +1523,333 @@ tags:
     // Template questions should be hidden (both from template and from skipped Q&A)
     // Verify the card has content by checking SectionCard is rendered
     expect(find.byType(AnxietyCard), findsOneWidget);
+  });
+
+  group('HabitCard', () {
+    test('HabitStatus.fromHabitSection maps 5 fields', () {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '阅读/亲子共读',
+            checked: true,
+            checkable: true,
+            rawLine: '- [x] 阅读/亲子共读',
+          ),
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '学语言',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 学语言',
+          ),
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '鱼油/植物甾醇',
+            checked: true,
+            checkable: true,
+            rawLine: '- [x] 鱼油/植物甾醇',
+          ),
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '运动/拉伸/快走',
+            checked: false,
+            checkable: false,
+            rawLine: '- 运动/拉伸/快走 8000 步',
+            value: 8000,
+            unit: '步',
+          ),
+        ],
+      );
+
+      final status = HabitStatus.fromHabitSection(section);
+      expect(status.water, 500);
+      expect(status.steps, 8000);
+      expect(status.reading, isTrue);
+      expect(status.language, isFalse);
+      expect(status.supplements, isTrue);
+    });
+
+    test('HabitStatus.fromHabitSection defaults missing fields', () {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [],
+      );
+
+      final status = HabitStatus.fromHabitSection(section);
+      expect(status.water, 0);
+      expect(status.steps, 0);
+      expect(status.reading, isFalse);
+      expect(status.language, isFalse);
+      expect(status.supplements, isFalse);
+    });
+
+    test('HabitStatus.copyWith updates individual fields', () {
+      const status = HabitStatus(
+        water: 0,
+        steps: 0,
+        reading: false,
+        language: false,
+        supplements: false,
+      );
+
+      final next = status.copyWith(reading: true, water: 500);
+      expect(next.reading, isTrue);
+      expect(next.water, 500);
+      expect(next.steps, 0);
+      expect(next.language, isFalse);
+      expect(next.supplements, isFalse);
+    });
+
+    testWidgets('checkbox tap toggles reading and calls onUpdate',
+        (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '阅读/亲子共读',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 阅读/亲子共读',
+          ),
+        ],
+      );
+
+      HabitStatus? called;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HabitCard(
+            section: section,
+            onUpdate: (status) async {
+              called = status;
+              return true;
+            },
+          ),
+        ),
+      ));
+
+      expect(find.text('阅读/亲子共读'), findsOneWidget);
+      await tester.tap(find.text('阅读/亲子共读'));
+      await tester.pump();
+
+      expect(called, isNotNull);
+      expect(called!.reading, isTrue);
+      expect(called!.language, isFalse);
+      expect(called!.supplements, isFalse);
+      expect(called!.water, 0);
+      expect(called!.steps, 0);
+    });
+
+    testWidgets('water +250 button increments water and calls onUpdate',
+        (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+        ],
+      );
+
+      HabitStatus? called;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HabitCard(
+            section: section,
+            onUpdate: (status) async {
+              called = status;
+              return true;
+            },
+          ),
+        ),
+      ));
+
+      expect(find.text('+250'), findsOneWidget);
+      await tester.tap(find.text('+250'));
+      await tester.pump();
+
+      expect(called, isNotNull);
+      expect(called!.water, 750);
+      expect(called!.steps, 0);
+      expect(called!.reading, isFalse);
+      expect(called!.language, isFalse);
+      expect(called!.supplements, isFalse);
+    });
+
+    testWidgets('water 目标 button sets water to 1500', (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+        ],
+      );
+
+      HabitStatus? called;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HabitCard(
+            section: section,
+            onUpdate: (status) async {
+              called = status;
+              return true;
+            },
+          ),
+        ),
+      ));
+
+      await tester.tap(find.text('目标'));
+      await tester.pump();
+
+      expect(called, isNotNull);
+      expect(called!.water, 1500);
+    });
+
+    testWidgets('water 清零 button sets water to 0', (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+        ],
+      );
+
+      HabitStatus? called;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HabitCard(
+            section: section,
+            onUpdate: (status) async {
+              called = status;
+              return true;
+            },
+          ),
+        ),
+      ));
+
+      await tester.tap(find.text('清零'));
+      await tester.pump();
+
+      expect(called, isNotNull);
+      expect(called!.water, 0);
+    });
+
+    testWidgets('steps edit shows dialog and calls onUpdate with new value',
+        (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '运动/拉伸/快走',
+            checked: false,
+            checkable: false,
+            rawLine: '- 运动/拉伸/快走 8000 步',
+            value: 8000,
+            unit: '步',
+          ),
+        ],
+      );
+
+      HabitStatus? called;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HabitCard(
+            section: section,
+            onUpdate: (status) async {
+              called = status;
+              return true;
+            },
+          ),
+        ),
+      ));
+
+      expect(find.text('运动/拉伸/快走 8000 步'), findsOneWidget);
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+
+      // Dialog appears
+      expect(find.text('输入今日步数'), findsOneWidget);
+
+      // Enter new value
+      final field = find.byType(TextField);
+      await tester.enterText(field, '6000');
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(called, isNotNull);
+      expect(called!.steps, 6000);
+      expect(called!.water, 0);
+    });
+
+    testWidgets('onUpdate failure shows SnackBar, keeps old state',
+        (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '阅读/亲子共读',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 阅读/亲子共读',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: HabitCard(
+            section: section,
+            onUpdate: (status) async => false,
+          ),
+        ),
+      ));
+
+      await tester.tap(find.text('阅读/亲子共读'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('更新失败'), findsOneWidget);
+    });
   });
 
   group('DraftRepository', () {

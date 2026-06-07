@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
 import '../models/tag_config.dart';
 import '../services/api_client.dart';
@@ -105,6 +106,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<bool> _handleHabitUpdate(HabitStatus status) async {
+    final ok = await widget.apiClient.updateHabits(
+      DateTime.now(),
+      water: status.water,
+      steps: status.steps,
+      reading: status.reading,
+      language: status.language,
+      supplements: status.supplements,
+    );
+    if (ok && mounted) _loadDiarySilently();
+    return ok;
+  }
+
   Future<void> _handleEntrySubmit(
       String content, List<String> tags) async {
     final success = await _appendEntry(
@@ -162,7 +176,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                   ],
                   if (_diary != null && _diary!.raw.isNotEmpty) ...[
-                    DiaryMarkdownView(markdown: _diary!.raw),
+                    DiaryMarkdownView(
+                      markdown: _diary!.raw,
+                      onHabitUpdate: _handleHabitUpdate,
+                    ),
                   ] else ...[
                     const Text(
                       '今日还没有日记内容',

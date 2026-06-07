@@ -171,6 +171,76 @@ class HabitItem {
   });
 }
 
+class HabitStatus {
+  final int water;
+  final int steps;
+  final bool reading;
+  final bool language;
+  final bool supplements;
+
+  const HabitStatus({
+    required this.water,
+    required this.steps,
+    required this.reading,
+    required this.language,
+    required this.supplements,
+  });
+
+  factory HabitStatus.fromHabitSection(HabitSection section) {
+    int water = 0;
+    int steps = 0;
+    bool reading = false;
+    bool language = false;
+    bool supplements = false;
+
+    for (final item in section.habits) {
+      final label = item.label;
+      if (_containsAny(label, ['饮'])) {
+        water = item.value ?? 0;
+      } else if (_containsAny(label, ['运动'])) {
+        steps = item.value ?? 0;
+      } else if (_containsAny(label, ['阅读'])) {
+        reading = item.checked;
+      } else if (_containsAny(label, ['语言'])) {
+        language = item.checked;
+      } else if (_containsAny(label, ['鱼油', '植物甾醇'])) {
+        supplements = item.checked;
+      }
+    }
+
+    return HabitStatus(
+      water: water,
+      steps: steps,
+      reading: reading,
+      language: language,
+      supplements: supplements,
+    );
+  }
+
+  HabitStatus copyWith({
+    int? water,
+    int? steps,
+    bool? reading,
+    bool? language,
+    bool? supplements,
+  }) {
+    return HabitStatus(
+      water: water ?? this.water,
+      steps: steps ?? this.steps,
+      reading: reading ?? this.reading,
+      language: language ?? this.language,
+      supplements: supplements ?? this.supplements,
+    );
+  }
+
+  static bool _containsAny(String text, List<String> substrings) {
+    for (final s in substrings) {
+      if (text.contains(s)) return true;
+    }
+    return false;
+  }
+}
+
 class QuickNoteItem {
   final String time;
   final String content;

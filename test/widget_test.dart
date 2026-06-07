@@ -1329,6 +1329,8 @@ tags:
       VoidCallback? onClose,
       DateTime? date,
       DraftRepository? draftRepository,
+      List<String>? initialAnswers,
+      bool isEdit = false,
     }) {
       return MaterialApp(
         home: Scaffold(
@@ -1338,6 +1340,8 @@ tags:
             onClose: onClose,
             date: date,
             draftRepository: draftRepository,
+            initialAnswers: initialAnswers,
+            isEdit: isEdit,
           ),
         ),
       );
@@ -1835,6 +1839,130 @@ tags:
       expect(submitted, contains('- 今天什么时候我感到焦虑/紧张？'));
       expect(submitted, contains('> 润色后的问答'));
       expect(submitted, contains('- 当时我在担心什么？'));
+    });
+
+    test('parseAnswers extracts 4 empty strings from template', () {
+      const markdown = '''
+- 今天什么时候我感到焦虑/紧张？
+> 
+- 当时我在担心什么？（具体到一句话）
+> 
+- 我做了什么？
+> 
+- 这个应对是帮我面对了，还是帮我躲开了？
+> 
+''';
+
+      final answers = AnxietyComposer.parseAnswers(markdown);
+      expect(answers, hasLength(4));
+      expect(answers.every((a) => a.trim().isEmpty), isTrue);
+    });
+
+    test('parseAnswers extracts 4 real answers', () {
+      const markdown = '''
+- 今天什么时候我感到焦虑/紧张？
+> 下午开会时
+- 当时我在担心什么？（具体到一句话）
+> 担心项目延期
+- 我做了什么？
+> 列了任务清单
+- 这个应对是帮我面对了，还是帮我躲开了？
+> 面对了
+''';
+
+      final answers = AnxietyComposer.parseAnswers(markdown);
+      expect(answers, ['下午开会时', '担心项目延期', '列了任务清单', '面对了']);
+    });
+
+    test('parseAnswers handles empty and real answers mixed', () {
+      const markdown = '''
+- 今天什么时候我感到焦虑/紧张？
+> 下午开会
+- 当时我在担心什么？（具体到一句话）
+> 
+- 我做了什么？
+> 做了深呼吸
+- 这个应对是帮我面对了，还是帮我躲开了？
+> 
+''';
+
+      final answers = AnxietyComposer.parseAnswers(markdown);
+      expect(answers, ['下午开会', '', '做了深呼吸', '']);
+    });
+
+    testWidgets('edit mode prefills initialAnswers', (tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        initialAnswers: ['a1', 'a2', 'a3', 'a4'],
+        isEdit: true,
+      ));
+
+      await tester.pump();
+
+      expect(find.text('编辑今日焦虑记录'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        'a1',
+      );
+
+      // Move to step 2
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        'a2',
+      );
+    });
+
+    testWidgets(
+        'edit mode draft takes priority over initialAnswers',
+        (tester) async {
+      final storage = _TestStorage();
+      final repo = DraftRepository(storage: storage);
+
+      await repo.saveAnxietyDraft(
+        date: DateTime(2026, 6, 7),
+        step: 0,
+        answers: ['draft1', 'draft2', '', ''],
+      );
+
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        initialAnswers: ['init1', 'init2', 'init3', 'init4'],
+        isEdit: true,
+        draftRepository: repo,
+        date: DateTime(2026, 6, 7),
+      ));
+
+      await tester.pump();
+
+      // Draft restored — should be on step 1 with draft content
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        'draft1',
+      );
+    });
+
+    testWidgets(
+        'edit mode polish current answer still works with initialAnswers',
+        (tester) async {
+      await tester.pumpWidget(buildComposer(
+        onSubmit: (_, _) async {},
+        onPolish: (_) async => '润色后',
+        initialAnswers: ['a1', 'a2', '', ''],
+        isEdit: true,
+      ));
+
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(
+          OutlinedButton, '润色当前回答'));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        '润色后',
+      );
     });
   });
 

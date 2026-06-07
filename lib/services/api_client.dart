@@ -147,6 +147,22 @@ class ApiClient {
     return _appendToSection('anxiety', date, content, tags);
   }
 
+  Future<bool> replaceAnxiety(
+    DateTime date,
+    String content,
+  ) async {
+    final response = await _http.post(
+      Uri.parse('$_baseUrl/api/v1/diary/anxiety/replace'),
+      headers: _headers,
+      body: jsonEncode({
+        'date': formatDate(date),
+        'content': content,
+        'operationId': generateUuidV4(),
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
   Future<TagConfig> fetchTagConfig() async {
     final response = await _http.get(
       Uri.parse('$_baseUrl/api/v1/settings/tags'),

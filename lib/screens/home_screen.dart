@@ -9,6 +9,7 @@ import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
 import '../services/api_config.dart';
 import '../services/draft_repository.dart';
+import '../services/markdown_parser.dart';
 import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
 import '../theme/app_theme.dart';
@@ -175,6 +176,62 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<bool> _replaceAnxiety(String content) async {
+    return widget.apiClient.replaceAnxiety(DateTime.now(), content);
+  }
+
+  Future<void> _handleAnxietySubmit(
+      String content, List<String> tags) async {
+    final isEdit = _isAnxietyEdit;
+    final success = isEdit
+        ? await _replaceAnxiety(content)
+        : await _appendEntry(EntryType.anxiety, DateTime.now(), content, tags);
+    if (!success) throw Exception('保存失败');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已保存')));
+    _loadDiarySilently();
+  }
+
+  bool get _isAnxietyEdit {
+    final answers = _anxietyInitialAnswers;
+    return answers != null;
+  }
+
+  List<String>? get _anxietyInitialAnswers {
+    if (_diary == null || _diary!.raw.isEmpty) return null;
+
+    final document = const MarkdownParser().parse(_diary!.raw);
+    final anxietySections =
+        document.sections.whereType<AnxietySection>().toList();
+    if (anxietySections.isEmpty) return null;
+    final anxietySection = anxietySections.first;
+
+    final rawText = anxietySection.contents
+        .map((c) => c is MarkdownContent ? c.text : '')
+        .join('\n');
+    final answers = AnxietyComposer.parseAnswers(rawText);
+
+    final hasRealAnswers = answers.any((a) => a.trim().isNotEmpty);
+    return hasRealAnswers ? answers : null;
+  }
+
+  Widget _buildAnxietyInput() {
+    final isEdit = _isAnxietyEdit;
+    final initialAnswers = _anxietyInitialAnswers;
+    return AnxietyComposer(
+      onSubmit: _handleAnxietySubmit,
+      onPolish: _handleAnxietyPolish,
+      date: DateTime.now(),
+      draftRepository: _draftRepository,
+      initialAnswers: initialAnswers,
+      isEdit: isEdit,
+      onClose: () {
+        setState(() => _selectedEntryType = EntryType.quickNote);
+      },
+    );
+  }
+
   Future<void> _handleEntrySubmit(
       String content, List<String> tags) async {
     final success = await _appendEntry(
@@ -270,18 +327,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                       ),
                       const SizedBox(height: 10),
-                      if (_selectedEntryType == EntryType.anxiety)
-                        AnxietyComposer(
-                          onSubmit: _handleEntrySubmit,
-                          onPolish: _handleAnxietyPolish,
-                          date: DateTime.now(),
-                          draftRepository: _draftRepository,
-                          onClose: () {
-                            setState(
-                                () => _selectedEntryType = EntryType.quickNote);
-                          },
-                        )
-                      else
+                      if (_selectedEntryType == EntryType.anxiety) ...[
+                        _buildAnxietyInput(),
+                      ] else
                         KeyedSubtree(
                           key: ValueKey(
                               'composer_${_selectedEntryType.name}'),

@@ -24,6 +24,8 @@ class AnxietyComposer extends StatefulWidget {
   final VoidCallback? onClose;
   final DateTime? date;
   final DraftRepository? draftRepository;
+  final List<String>? initialAnswers;
+  final bool isEdit;
 
   const AnxietyComposer({
     super.key,
@@ -32,7 +34,38 @@ class AnxietyComposer extends StatefulWidget {
     this.onClose,
     this.date,
     this.draftRepository,
+    this.initialAnswers,
+    this.isEdit = false,
   });
+
+  static List<String> parseAnswers(String markdown) {
+    final answers = List<String>.filled(4, '');
+    final lines = markdown.split('\n');
+
+    for (int i = 0; i < _questions.length; i++) {
+      final questionText = _questions[i];
+      var foundQuestion = false;
+
+      for (int j = 0; j < lines.length; j++) {
+        final line = lines[j].trim();
+        if (line == '- $questionText' || line.startsWith('- ') && line.contains(questionText)) {
+          foundQuestion = true;
+          // Collect all blockquote lines following this question
+          final buffer = StringBuffer();
+          for (int k = j + 1; k < lines.length && lines[k].trim().startsWith('> '); k++) {
+            if (buffer.isNotEmpty) buffer.write('\n');
+            buffer.write(lines[k].trim().substring(2));
+          }
+          answers[i] = buffer.toString();
+          break;
+        }
+      }
+
+      if (!foundQuestion) break;
+    }
+
+    return answers;
+  }
 
   @override
   State<AnxietyComposer> createState() => _AnxietyComposerState();
@@ -102,17 +135,35 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   void _restoreDraft() {
     final dr = widget.draftRepository;
     final d = widget.date;
-    if (dr == null || d == null) return;
 
-    dr.loadAnxietyDraft(date: d).then((draft) {
-      if (draft == null) return;
-      if (!mounted) return;
-      for (int i = 0; i < draft.answers.length && i < 4; i++) {
-        _answers[i] = draft.answers[i];
-        _controllers[i].text = draft.answers[i];
-      }
-      setState(() => _step = draft.step.clamp(0, 3));
-    });
+    if (dr != null && d != null) {
+      dr.loadAnxietyDraft(date: d).then((draft) {
+        if (!mounted) return;
+
+        if (draft != null) {
+          for (int i = 0; i < draft.answers.length && i < 4; i++) {
+            _answers[i] = draft.answers[i];
+            _controllers[i].text = draft.answers[i];
+          }
+          setState(() => _step = draft.step.clamp(0, 3));
+          return;
+        }
+
+        _restoreInitialAnswers();
+      });
+      return;
+    }
+
+    _restoreInitialAnswers();
+  }
+
+  void _restoreInitialAnswers() {
+    final initial = widget.initialAnswers;
+    if (initial == null || initial.length != 4) return;
+    for (int i = 0; i < 4; i++) {
+      _answers[i] = initial[i];
+      _controllers[i].text = initial[i];
+    }
   }
 
   void _previous() {
@@ -247,6 +298,17 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
           ],
         ),
         const SizedBox(height: 12),
+        if (widget.isEdit)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              '编辑今日焦虑记录',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         Text(
           _questions[_step],
           style: theme.textTheme.bodyMedium?.copyWith(

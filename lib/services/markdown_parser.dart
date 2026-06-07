@@ -108,6 +108,7 @@ class MarkdownParser {
         while (i < lines.length) {
           final next = lines[i].trim();
           if (!next.startsWith('>')) break;
+          if (_timelineLine.hasMatch(next)) break;
           final bodyLine = next.substring(1).trim();
           if (bodyLine.isNotEmpty && bodyLine != '** **') {
             body.add(bodyLine);

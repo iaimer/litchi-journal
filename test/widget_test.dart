@@ -197,6 +197,42 @@ tags:
     expect(second.tags, ['#生活']);
   });
 
+  test('MarkdownParser separates happiness slogan from timeline entries',
+      () {
+    const markdown = '''
+---
+---
+
+## ✨ 每日小确幸
+> [!success] 总有事件值得感恩🙏❤️
+>
+> **09:30** 喝到一杯好咖啡 #生活 #日常记录
+> **14:00** 发现一只可爱的小猫 #生活
+
+## 📸 影像记录
+''';
+
+    final document = const MarkdownParser().parse(markdown);
+    final happiness =
+        document.sections.whereType<HappinessSection>().single;
+
+    expect(happiness.isEmpty, isFalse);
+
+    final callouts = happiness.contents.whereType<CalloutContent>();
+    final timelines = happiness.contents.whereType<TimelineContent>();
+
+    expect(callouts, hasLength(1));
+    expect(callouts.single.type, 'success');
+    expect(callouts.single.title, '总有事件值得感恩🙏❤️');
+    expect(callouts.single.body, isEmpty);
+
+    expect(timelines, hasLength(2));
+    expect(timelines.first.time, '09:30');
+    expect(timelines.first.text, '喝到一杯好咖啡');
+    expect(timelines.last.time, '14:00');
+    expect(timelines.last.text, '发现一只可爱的小猫');
+  });
+
   group('QuickNoteComposer', () {
     final date = DateTime(2026, 6, 7);
 

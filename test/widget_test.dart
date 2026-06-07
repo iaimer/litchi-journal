@@ -822,10 +822,168 @@ tags:
         '润色后的文本',
       );
 
-      // Tags updated - read back from TagPicker display
-      // After polish, TagPicker should show the selected domain
-      // The initialTags mechanism syncs TagPicker state
-      // Verify compose rebuild with the correct state
+      // TagPicker shows selected domain chip
+      expect(find.text('亲子'), findsWidgets);
+    });
+
+    testWidgets(
+        'quickNote polish selects tags in TagPicker',
+        (tester) async {
+      final tagConfig = _polishTagConfig();
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteComposer(
+            onSubmit: (_, _) async {},
+            onPolish: (_, _) async => const PolishResult(
+              content: '润色后',
+              tags: ['亲子', '亲子沟通', '反思'],
+            ),
+            tagConfig: tagConfig,
+            entryType: EntryType.quickNote,
+          ),
+        ),
+      ));
+
+      await tester.enterText(find.byType(TextField), '测试');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.pump();
+
+      expect(find.text('亲子'), findsWidgets);
+    });
+
+    testWidgets(
+        'reflection polish selects tags in TagPicker',
+        (tester) async {
+      final tagConfig = _polishTagConfig();
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteComposer(
+            onSubmit: (_, _) async {},
+            onPolish: (_, _) async => const PolishResult(
+              content: '觉察润色后',
+              tags: ['亲子', '亲子沟通'],
+            ),
+            tagConfig: tagConfig,
+            entryType: EntryType.reflection,
+          ),
+        ),
+      ));
+
+      await tester.enterText(find.byType(TextField), '觉察测试');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.pump();
+
+      expect(find.text('亲子'), findsWidgets);
+    });
+
+    testWidgets(
+        'happiness polish selects tags in TagPicker',
+        (tester) async {
+      final tagConfig = _polishTagConfig();
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteComposer(
+            onSubmit: (_, _) async {},
+            onPolish: (_, _) async => const PolishResult(
+              content: '小确幸润色后',
+              tags: ['亲子', '亲子沟通'],
+            ),
+            tagConfig: tagConfig,
+            entryType: EntryType.happiness,
+          ),
+        ),
+      ));
+
+      await tester.enterText(find.byType(TextField), '小确幸测试');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.pump();
+
+      expect(find.text('亲子'), findsWidgets);
+    });
+
+    testWidgets(
+        'reflection onPolish receives EntryType.reflection',
+        (tester) async {
+      EntryType? receivedType;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteComposer(
+            onSubmit: (_, _) async {},
+            onPolish: (_, type) async {
+              receivedType = type;
+              return const PolishResult(content: 'ok', tags: []);
+            },
+            entryType: EntryType.reflection,
+          ),
+        ),
+      ));
+
+      await tester.enterText(find.byType(TextField), '测试');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.pump();
+
+      expect(receivedType, EntryType.reflection);
+    });
+
+    testWidgets(
+        'happiness onPolish receives EntryType.happiness',
+        (tester) async {
+      EntryType? receivedType;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteComposer(
+            onSubmit: (_, _) async {},
+            onPolish: (_, type) async {
+              receivedType = type;
+              return const PolishResult(content: 'ok', tags: []);
+            },
+            entryType: EntryType.happiness,
+          ),
+        ),
+      ));
+
+      await tester.enterText(find.byType(TextField), '测试');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.pump();
+
+      expect(receivedType, EntryType.happiness);
+    });
+
+    testWidgets(
+        'unknown tags preserved in content, tags empty',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: QuickNoteComposer(
+            onSubmit: (_, _) async {},
+            onPolish: (_, _) async => const PolishResult(
+              content: '正文。 #未知标签',
+              tags: [],
+            ),
+            entryType: EntryType.quickNote,
+          ),
+        ),
+      ));
+
+      await tester.enterText(find.byType(TextField), '测试');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        '正文。 #未知标签',
+      );
     });
 
     testWidgets('polish failure preserves original content and tags',

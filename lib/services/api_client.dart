@@ -159,6 +159,30 @@ class ApiClient {
     return TagConfig.fromJson(json);
   }
 
+  Future<bool> updateHabits(
+    DateTime date, {
+    required int water,
+    required int steps,
+    required bool reading,
+    required bool language,
+    required bool supplements,
+  }) async {
+    final response = await _http.post(
+      Uri.parse('$_baseUrl/api/v1/diary/habit'),
+      headers: _headers,
+      body: jsonEncode({
+        'date': formatDate(date),
+        'water': water,
+        'steps': steps,
+        'reading': reading,
+        'language': language,
+        'supplements': supplements,
+        'operationId': generateUuidV4(),
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
   void dispose() {
     _http.close();
   }

@@ -130,11 +130,16 @@ tags:
     expect(habit.habits, hasLength(3));
     expect(habit.habits[0].label, '📖 阅读/亲子共读');
     expect(habit.habits[0].checked, isTrue);
+    expect(habit.habits[0].kind, HabitKind.checkbox);
     expect(habit.habits[0].rawLine, '- [x] 📖 阅读/亲子共读');
     expect(habit.habits[1].label, '💊 鱼油/植物甾醇');
     expect(habit.habits[1].checked, isFalse);
+    expect(habit.habits[1].kind, HabitKind.checkbox);
     expect(habit.habits[1].rawLine, '- [ ] 💊 鱼油/植物甾醇');
-    expect(habit.habits[2].label, '喝水 8 杯');
+    expect(habit.habits[2].label, '喝水');
+    expect(habit.habits[2].kind, HabitKind.counter);
+    expect(habit.habits[2].value, 8);
+    expect(habit.habits[2].unit, '杯');
 
     final quickNote = document.sections.whereType<QuickNoteSection>().single;
     final note = quickNote.contents.whereType<TimelineContent>().single;
@@ -231,6 +236,48 @@ tags:
     expect(timelines.first.text, '喝到一杯好咖啡');
     expect(timelines.last.time, '14:00');
     expect(timelines.last.text, '发现一只可爱的小猫');
+  });
+
+  test('MarkdownParser parses counter habits', () {
+    const markdown = '''
+---
+---
+
+## 🏃 习惯打卡
+- 🥛🥤🥤饮水 500 mL
+- 🧘 运动/拉伸/快走 8000 步
+- [x] 📖 阅读/亲子共读
+- [ ] 💊 鱼油/植物甾醇
+''';
+
+    final document = const MarkdownParser().parse(markdown);
+    final habit = document.sections.whereType<HabitSection>().single;
+
+    expect(habit.habits, hasLength(4));
+
+    final water = habit.habits[0];
+    expect(water.kind, HabitKind.counter);
+    expect(water.label, '饮水');
+    expect(water.value, 500);
+    expect(water.unit, 'mL');
+    expect(water.checkable, isFalse);
+
+    final steps = habit.habits[1];
+    expect(steps.kind, HabitKind.counter);
+    expect(steps.label, '运动/拉伸/快走');
+    expect(steps.value, 8000);
+    expect(steps.unit, '步');
+    expect(steps.checkable, isFalse);
+
+    final reading = habit.habits[2];
+    expect(reading.kind, HabitKind.checkbox);
+    expect(reading.label, '📖 阅读/亲子共读');
+    expect(reading.checked, isTrue);
+
+    final supplements = habit.habits[3];
+    expect(supplements.kind, HabitKind.checkbox);
+    expect(supplements.label, '💊 鱼油/植物甾醇');
+    expect(supplements.checked, isFalse);
   });
 
   group('QuickNoteComposer', () {

@@ -146,17 +146,28 @@ class SubSectionContent extends DiaryContent {
   bool get hasRealContent => false;
 }
 
+enum HabitKind {
+  checkbox,
+  counter,
+}
+
 class HabitItem {
+  final HabitKind kind;
   final String label;
   final bool checked;
   final bool checkable;
   final String rawLine;
+  final int? value;
+  final String? unit;
 
   const HabitItem({
+    required this.kind,
     required this.label,
     required this.checked,
     required this.checkable,
     required this.rawLine,
+    this.value,
+    this.unit,
   });
 }
 

@@ -250,9 +250,13 @@ class _DraftSection {
 
   List<HabitItem> _buildHabitItems() {
     final habits = <HabitItem>[];
+    final counterPattern = RegExp(r'(\d+)\s*(\S+)$');
+    final cleanLabel = RegExp(r'^[^\w\u4e00-\u9fff]+');
+
     for (final content in contents) {
       if (content is CheckboxContent) {
         habits.add(HabitItem(
+          kind: HabitKind.checkbox,
           label: content.text,
           checked: content.checked,
           checkable: true,
@@ -262,14 +266,36 @@ class _DraftSection {
         for (final line in content.text.split('\n')) {
           final trimmed = line.trim();
           if (!trimmed.startsWith('- ')) continue;
-          final label = trimmed.substring(2).trim();
-          if (label.isEmpty) continue;
-          habits.add(HabitItem(
-            label: label,
-            checked: false,
-            checkable: false,
-            rawLine: line,
-          ));
+          final body = trimmed.substring(2).trim();
+          if (body.isEmpty) continue;
+
+          final counterMatch = counterPattern.firstMatch(body);
+          if (counterMatch != null) {
+            final value = int.tryParse(counterMatch.group(1)!);
+            final unit = counterMatch.group(2)!;
+            final rawLabel =
+                body.substring(0, counterMatch.start).trim();
+            final label =
+                rawLabel.replaceFirst(cleanLabel, '').trim();
+
+            habits.add(HabitItem(
+              kind: HabitKind.counter,
+              label: label,
+              checked: false,
+              checkable: false,
+              rawLine: line,
+              value: value,
+              unit: unit,
+            ));
+          } else {
+            habits.add(HabitItem(
+              kind: HabitKind.checkbox,
+              label: body,
+              checked: false,
+              checkable: false,
+              rawLine: line,
+            ));
+          }
         }
       }
     }

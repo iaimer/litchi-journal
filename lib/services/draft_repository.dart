@@ -7,29 +7,54 @@ import '../widgets/entry_type.dart';
 class QuickDraft {
   final String content;
   final List<String> tags;
+  final DateTime? updatedAt;
 
-  const QuickDraft({required this.content, required this.tags});
+  const QuickDraft({
+    required this.content,
+    required this.tags,
+    this.updatedAt,
+  });
 
-  Map<String, dynamic> toJson() => {'content': content, 'tags': tags};
+  Map<String, dynamic> toJson() => {
+        'content': content,
+        'tags': tags,
+        if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
+      };
 
   factory QuickDraft.fromJson(Map<String, dynamic> json) => QuickDraft(
         content: json['content'] as String? ?? '',
         tags: (json['tags'] as List?)?.cast<String>() ?? [],
+        updatedAt: _parseDateTime(json['updatedAt']),
       );
 }
 
 class AnxietyDraft {
   final int step;
   final List<String> answers;
+  final DateTime? updatedAt;
 
-  const AnxietyDraft({required this.step, required this.answers});
+  const AnxietyDraft({
+    required this.step,
+    required this.answers,
+    this.updatedAt,
+  });
 
-  Map<String, dynamic> toJson() => {'step': step, 'answers': answers};
+  Map<String, dynamic> toJson() => {
+        'step': step,
+        'answers': answers,
+        if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
+      };
 
   factory AnxietyDraft.fromJson(Map<String, dynamic> json) => AnxietyDraft(
         step: json['step'] as int? ?? 0,
         answers: (json['answers'] as List?)?.cast<String>() ?? [],
+        updatedAt: _parseDateTime(json['updatedAt']),
       );
+}
+
+DateTime? _parseDateTime(dynamic value) {
+  if (value is String) return DateTime.tryParse(value);
+  return null;
 }
 
 abstract class DraftStorage {
@@ -53,10 +78,16 @@ class _SecureStorage extends DraftStorage {
 }
 
 class DraftRepository {
-  final DraftStorage _storage;
+  static const _ttl = Duration(minutes: 2);
 
-  DraftRepository({DraftStorage? storage})
-      : _storage = storage ?? _SecureStorage();
+  final DraftStorage _storage;
+  final DateTime Function() _now;
+
+  DraftRepository({
+    DraftStorage? storage,
+    DateTime Function()? now,
+  })  : _storage = storage ?? _SecureStorage(),
+        _now = now ?? (() => DateTime.now());
 
   static String _formatDate(DateTime date) {
     final y = date.year.toString();
@@ -79,7 +110,11 @@ class DraftRepository {
       await clearDraft(date: date, entryType: entryType);
       return;
     }
-    final draft = QuickDraft(content: content, tags: tags);
+    final draft = QuickDraft(
+      content: content,
+      tags: tags,
+      updatedAt: _now(),
+    );
     await _storage.write(
       _key(date, entryType),
       jsonEncode(draft.toJson()),
@@ -93,7 +128,13 @@ class DraftRepository {
     final json = await _storage.read(_key(date, entryType));
     if (json == null || json.isEmpty) return null;
     try {
-      return QuickDraft.fromJson(jsonDecode(json) as Map<String, dynamic>);
+      final draft =
+          QuickDraft.fromJson(jsonDecode(json) as Map<String, dynamic>);
+      if (_isExpired(draft.updatedAt)) {
+        await clearDraft(date: date, entryType: entryType);
+        return null;
+      }
+      return draft;
     } catch (_) {
       return null;
     }
@@ -108,7 +149,11 @@ class DraftRepository {
       await clearDraft(date: date, entryType: EntryType.anxiety);
       return;
     }
-    final draft = AnxietyDraft(step: step, answers: answers);
+    final draft = AnxietyDraft(
+      step: step,
+      answers: answers,
+      updatedAt: _now(),
+    );
     await _storage.write(
       _key(date, EntryType.anxiety),
       jsonEncode(draft.toJson()),
@@ -121,7 +166,13 @@ class DraftRepository {
     final json = await _storage.read(_key(date, EntryType.anxiety));
     if (json == null || json.isEmpty) return null;
     try {
-      return AnxietyDraft.fromJson(jsonDecode(json) as Map<String, dynamic>);
+      final draft =
+          AnxietyDraft.fromJson(jsonDecode(json) as Map<String, dynamic>);
+      if (_isExpired(draft.updatedAt)) {
+        await clearDraft(date: date, entryType: EntryType.anxiety);
+        return null;
+      }
+      return draft;
     } catch (_) {
       return null;
     }
@@ -132,5 +183,10 @@ class DraftRepository {
     required EntryType entryType,
   }) async {
     await _storage.delete(_key(date, entryType));
+  }
+
+  bool _isExpired(DateTime? updatedAt) {
+    if (updatedAt == null) return true;
+    return _now().difference(updatedAt) > _ttl;
   }
 }

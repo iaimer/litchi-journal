@@ -2207,6 +2207,127 @@ tags:
       );
       expect(draft, isNull);
     });
+
+    test('quick draft not expired within TTL', () async {
+      final now = DateTime(2026, 6, 7, 10, 0);
+      repo = DraftRepository(storage: storage, now: () => now);
+
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+        content: 'hello',
+        tags: ['工作'],
+      );
+
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
+
+      expect(draft, isNotNull);
+      expect(draft!.content, 'hello');
+    });
+
+    test('quick draft expired after 2 minutes returns null and clears',
+        () async {
+      final now = DateTime(2026, 6, 7, 10, 0);
+      repo = DraftRepository(storage: storage, now: () => now);
+
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+        content: 'hello',
+        tags: [],
+      );
+
+      // Advance 2 minutes + 1 second
+      repo = DraftRepository(
+        storage: storage,
+        now: () => now.add(const Duration(minutes: 2, seconds: 1)),
+      );
+
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
+
+      expect(draft, isNull);
+
+      // Draft was cleared
+      final reloaded = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
+      expect(reloaded, isNull);
+    });
+
+    test('anxiety draft not expired within TTL', () async {
+      final now = DateTime(2026, 6, 7, 10, 0);
+      repo = DraftRepository(storage: storage, now: () => now);
+
+      await repo.saveAnxietyDraft(
+        date: date,
+        step: 2,
+        answers: ['a1', 'a2', '', ''],
+      );
+
+      final draft = await repo.loadAnxietyDraft(date: date);
+
+      expect(draft, isNotNull);
+      expect(draft!.step, 2);
+      expect(draft.answers, ['a1', 'a2', '', '']);
+    });
+
+    test('anxiety draft expired after 2 minutes returns null and clears',
+        () async {
+      final now = DateTime(2026, 6, 7, 10, 0);
+      repo = DraftRepository(storage: storage, now: () => now);
+
+      await repo.saveAnxietyDraft(
+        date: date,
+        step: 2,
+        answers: ['a1', 'a2', '', ''],
+      );
+
+      repo = DraftRepository(
+        storage: storage,
+        now: () => now.add(const Duration(minutes: 2, seconds: 1)),
+      );
+
+      final draft = await repo.loadAnxietyDraft(date: date);
+
+      expect(draft, isNull);
+    });
+
+    test('old format without updatedAt returns null', () async {
+      // Simulate old draft without updatedAt field
+      storage.data['draft_2026-06-07_quickNote'] =
+          jsonEncode({'content': 'old', 'tags': []});
+
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
+
+      expect(draft, isNull);
+    });
+
+    test('updatedAt written on save', () async {
+      final now = DateTime(2026, 6, 7, 10, 0);
+      repo = DraftRepository(storage: storage, now: () => now);
+
+      await repo.saveQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+        content: 'hello',
+        tags: ['工作'],
+      );
+
+      final raw = storage.data['draft_2026-06-07_quickNote']!;
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      expect(json['updatedAt'], isNotNull);
+      expect(json['updatedAt'], now.toIso8601String());
+    });
   });
 
   group('PolishResultParser', () {

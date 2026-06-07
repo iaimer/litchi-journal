@@ -9,6 +9,14 @@ final _htmlComment = RegExp(r'^<!--.*-->$');
 final _tagPattern = RegExp(r'#(\S+)');
 final _horizontalRule = RegExp(r'^[-*_]{3,}$');
 
+bool _isStandaloneSubSection(String title) {
+  return title.contains('觉察') ||
+      title.contains('人生教练') ||
+      title.contains('荔枝喵说') ||
+      title.contains('明日寄语') ||
+      title.contains('影像');
+}
+
 const _templateTimelineText = '内容 #标签';
 
 class MarkdownParser {
@@ -88,9 +96,12 @@ class MarkdownParser {
 
       final sectionMatch = _sectionHeader.firstMatch(trimmed);
       if (sectionMatch != null) {
+        final title = sectionMatch.group(1)!.trim();
+        final isH3 = trimmed.startsWith('###');
         contents.add(_SectionMarker(
-          sectionMatch.group(1)!.trim(),
-          isSubHeader: trimmed.startsWith('###'),
+          title,
+          isSubHeader: isH3 &&
+              !_isStandaloneSubSection(title),
         ));
         i++;
         continue;
@@ -233,7 +244,7 @@ class _DraftSection {
     if (title.contains('小确幸')) {
       return HappinessSection(title: title, contents: contents);
     }
-    if (title.contains('每日复盘')) {
+    if (title.contains('每日复盘') || title.contains('觉察')) {
       return ReviewSection(title: title, contents: contents);
     }
     if (title.contains('人生教练') || title.contains('荔枝喵说')) {

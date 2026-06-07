@@ -212,7 +212,9 @@ tags:
     expect(document.sections.whereType<HabitSection>(), hasLength(1));
     expect(document.sections.whereType<QuickNoteSection>(), hasLength(1));
     expect(document.sections.whereType<AnxietySection>(), hasLength(1));
-    expect(document.sections.whereType<ReviewSection>(), hasLength(1));
+    expect(document.sections.whereType<ReviewSection>(), hasLength(2));
+    expect(document.sections.whereType<CoachSection>(), hasLength(1));
+    expect(document.sections.whereType<TomorrowSection>(), hasLength(1));
     expect(document.sections.whereType<MediaSection>(), hasLength(1));
 
     final habit = document.sections.whereType<HabitSection>().single;
@@ -249,8 +251,8 @@ tags:
     final anxiety = document.sections.whereType<AnxietySection>().single;
     expect(anxiety.isEmpty, isTrue);
 
-    final review = document.sections.whereType<ReviewSection>().single;
-    expect(review.isEmpty, isFalse);
+    final reviews = document.sections.whereType<ReviewSection>().toList();
+    expect(reviews.any((r) => !r.isEmpty), isTrue);
   });
 
   test('MarkdownParser recognizes happiness section', () {
@@ -368,6 +370,47 @@ tags:
     expect(supplements.kind, HabitKind.checkbox);
     expect(supplements.label, '💊 鱼油/植物甾醇');
     expect(supplements.checked, isFalse);
+  });
+
+  test('MarkdownParser treats ### 觉察 as standalone section',
+      () {
+    const markdown = '''
+---
+---
+
+## 😰 焦虑时刻
+- 今天什么时候我感到焦虑/紧张？
+> 下午开会
+
+### 💡 觉察与迭代
+- **21:24** 今天反思了一下沟通方式 #育儿 #成长观察 #反思
+- **22:00** 第二条例行觉察 #工作 #任务执行
+''';
+
+    final document = const MarkdownParser().parse(markdown);
+
+    // Anxiety section should exist and only contain anxiety content
+    final anxietySections =
+        document.sections.whereType<AnxietySection>().toList();
+    expect(anxietySections, hasLength(1));
+
+    // Reflection section should exist as standalone section
+    final reviewSections =
+        document.sections.whereType<ReviewSection>().toList();
+    expect(reviewSections, hasLength(1));
+
+    final reviewSection = reviewSections.first;
+    expect(reviewSection.title, contains('觉察'));
+
+    // Timeline entries from the reflection section
+    final timelines = reviewSection.contents
+        .whereType<TimelineContent>()
+        .toList();
+    expect(timelines, hasLength(2));
+    expect(timelines[0].text, '今天反思了一下沟通方式');
+    expect(timelines[0].time, '21:24');
+    expect(timelines[0].tags, containsAll(['#育儿', '#成长观察', '#反思']));
+    expect(timelines[0].rawLine, '- **21:24** 今天反思了一下沟通方式 #育儿 #成长观察 #反思');
   });
 
   group('QuickNoteComposer', () {

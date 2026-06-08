@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
 
 import 'package:litchi_journal_flutter/models/ai_config.dart';
@@ -15,6 +16,7 @@ import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/services/api_client.dart';
 import 'package:litchi_journal_flutter/services/draft_repository.dart';
 import 'package:litchi_journal_flutter/services/entry_line_builder.dart';
+import 'package:litchi_journal_flutter/services/image_compress_service.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
@@ -26,6 +28,7 @@ import 'package:litchi_journal_flutter/widgets/entry_type.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type_selector.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/habit_card.dart';
+import 'package:litchi_journal_flutter/widgets/image_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
 import 'package:litchi_journal_flutter/widgets/review_card.dart';
@@ -144,6 +147,10 @@ class _MultiResponseHttpClient extends http.BaseClient {
 class _CapturingClient extends http.BaseClient {
   String? lastUrl;
   String? lastBody;
+  final int statusCode;
+  final String responseBody;
+
+  _CapturingClient({this.statusCode = 200, this.responseBody = '{"ok": true}'});
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -152,8 +159,8 @@ class _CapturingClient extends http.BaseClient {
       lastBody = request.body;
     }
     return http.StreamedResponse(
-      Stream.value(utf8.encode('{"ok": true}')),
-      200,
+      Stream.value(utf8.encode(responseBody)),
+      statusCode,
     );
   }
 }
@@ -4533,6 +4540,189 @@ tags:
       final result = await api.replaceAnxiety(DateTime(2026, 6, 7), 'test');
 
       expect(result, isTrue);
+    });
+  });
+
+  group('ImageCompressService', () {
+    test('compressToBase64 output includes data:image/jpeg;base64, prefix',
+        () {
+      // Generate a 1x1 pixel JPEG using the image package
+      final image = img.Image(width: 1, height: 1);
+      image.setPixelRgba(0, 0, 255, 0, 0, 255);
+      final bytes = img.encodeJpg(image, quality: 90);
+
+      final service = const ImageCompressService();
+      final result = service.compressToBase64(bytes);
+
+      expect(result, startsWith('data:image/jpeg;base64,'));
+      expect(result.length, greaterThan('data:image/jpeg;base64,'.length));
+    });
+  });
+
+  group('ImageSectionCard', () {
+    test('parseWikiLinks extracts single WikiLink', () {
+      final section = MediaSection(
+        title: '## 📸 影像记录',
+        contents: [
+          MarkdownContent('![[Image-20260608-001.jpg]]'),
+        ],
+      );
+      final filenames = ImageSectionCard.parseWikiLinks(section);
+      expect(filenames, ['Image-20260608-001.jpg']);
+    });
+
+    test('parseWikiLinks extracts multiple WikiLinks', () {
+      final section = MediaSection(
+        title: '## 📸 影像记录',
+        contents: [
+          MarkdownContent(
+            '![[Image-20260608-001.jpg]]\n![[Image-20260608-002.jpg]]',
+          ),
+        ],
+      );
+      final filenames = ImageSectionCard.parseWikiLinks(section);
+      expect(filenames, ['Image-20260608-001.jpg', 'Image-20260608-002.jpg']);
+    });
+
+    test('parseWikiLinks ignores non-wiki Markdown image format', () {
+      final section = MediaSection(
+        title: '## 📸 影像记录',
+        contents: [
+          MarkdownContent('![](path/to/image.jpg)'),
+        ],
+      );
+      final filenames = ImageSectionCard.parseWikiLinks(section);
+      expect(filenames, isEmpty);
+    });
+
+    test('parseWikiLinks only allows safe image extensions', () {
+      final section = MediaSection(
+        title: '## 📸 影像记录',
+        contents: [
+          MarkdownContent(
+            '![[safe.jpg]]\n![[unsafe.exe]]\n![[safe.png]]\n![[no-ext]]',
+          ),
+        ],
+      );
+      final filenames = ImageSectionCard.parseWikiLinks(section);
+      expect(filenames, ['safe.jpg', 'safe.png']);
+    });
+
+    test('parseWikiLinks handles PNG, GIF, WebP, HEIC extensions', () {
+      final section = MediaSection(
+        title: '## 📸 影像记录',
+        contents: [
+          MarkdownContent(
+            '![[a.png]] ![[b.gif]] ![[c.webp]] ![[d.heic]] ![[e.heif]]',
+          ),
+        ],
+      );
+      final filenames = ImageSectionCard.parseWikiLinks(section);
+      expect(filenames, ['a.png', 'b.gif', 'c.webp', 'd.heic', 'e.heif']);
+    });
+
+    test('parseWikiLinks returns empty for empty MediaSection', () {
+      final section = MediaSection(
+        title: '## 📸 影像记录',
+        contents: [],
+      );
+      final filenames = ImageSectionCard.parseWikiLinks(section);
+      expect(filenames, isEmpty);
+    });
+
+    testWidgets('shows empty state when no images', (tester) async {
+      final section = MediaSection(
+        title: '## 📸 影像记录',
+        contents: [],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ImageSectionCard(
+            section: section,
+            apiClient: ApiClient(
+              ApiConfig(baseUrl: 'https://test.local', token: 'x'),
+            ),
+            date: DateTime(2026, 6, 8),
+          ),
+        ),
+      ));
+
+      expect(find.text('暂无影像记录'), findsOneWidget);
+    });
+  });
+
+  group('ApiClient image', () {
+    ApiClient makeImageClient(_CapturingClient client) {
+      return ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: client,
+      );
+    }
+
+    test('uploadImage sends correct payload', () async {
+      final client = _CapturingClient();
+      final api = makeImageClient(client);
+
+      await api.uploadImage(
+        DateTime(2026, 6, 8),
+        'data:image/jpeg;base64,abc123',
+      );
+
+      expect(client.lastUrl, contains('/api/v1/diary/image/upload'));
+      final body = jsonDecode(client.lastBody!) as Map<String, dynamic>;
+      expect(body['date'], '2026-06-08');
+      expect(body['imageData'], 'data:image/jpeg;base64,abc123');
+    });
+
+    test('uploadImage throws on non-200 response', () async {
+      final failClient = _CapturingClient(statusCode: 500);
+      final failApi = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: failClient,
+      );
+
+      expect(
+        () => failApi.uploadImage(
+          DateTime(2026, 6, 8),
+          'data:image/jpeg;base64,test',
+        ),
+        throwsA(isA<Exception>()),
+      );
+    });
+
+    test('fetchDiaryImage requests correct URL with month', () async {
+      final client = _CapturingClient();
+      final api = makeImageClient(client);
+
+      await api.fetchDiaryImage(
+        year: 2026,
+        month: 6,
+        imageName: 'Image-20260608-001.jpg',
+      );
+
+      expect(
+        client.lastUrl,
+        contains('/api/v1/diary/image/2026/Image-20260608-001.jpg'),
+      );
+      expect(client.lastUrl, contains('month=6'));
+    });
+
+    test('fetchDiaryImage returns parsed JSON', () async {
+      final client = _CapturingClient(
+        responseBody:
+            '{"data":"data:image/jpeg;base64,test123","mimeType":"image/jpeg"}',
+      );
+      final api = makeImageClient(client);
+
+      final result = await api.fetchDiaryImage(
+        year: 2026,
+        month: 6,
+        imageName: 'Image-20260608-001.jpg',
+      );
+
+      expect(result['data'], 'data:image/jpeg;base64,test123');
+      expect(result['mimeType'], 'image/jpeg');
     });
   });
 }

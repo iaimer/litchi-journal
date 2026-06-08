@@ -174,6 +174,44 @@ class ApiClient {
     return response.statusCode == 200;
   }
 
+  Future<Map<String, dynamic>> uploadImage(
+    DateTime date,
+    String imageBase64, {
+    String? operationId,
+  }) async {
+    final response = await _http.post(
+      Uri.parse('$_baseUrl/api/v1/diary/image/upload'),
+      headers: _headers,
+      body: jsonEncode({
+        'date': formatDate(date),
+        'imageData': imageBase64,
+        // ignore: use_null_aware_elements
+        if (operationId != null) 'operationId': operationId,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('图片上传失败 (${response.statusCode})');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> fetchDiaryImage({
+    required int year,
+    required String imageName,
+    int? month,
+  }) async {
+    final uri = month != null
+        ? Uri.parse(
+            '$_baseUrl/api/v1/diary/image/$year/$imageName?month=$month')
+        : Uri.parse('$_baseUrl/api/v1/diary/image/$year/$imageName');
+
+    final response = await _http.get(uri, headers: _headers);
+    if (response.statusCode != 200) {
+      throw Exception('图片加载失败 (${response.statusCode})');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<bool> editEntry(
     DateTime date, {
     required String section,

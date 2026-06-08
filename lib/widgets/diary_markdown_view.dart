@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/diary_document.dart';
 import '../models/tag_config.dart';
+import '../services/api_client.dart';
 import '../services/markdown_parser.dart';
 import 'anxiety_card.dart';
 import 'generic_section_card.dart';
 import 'habit_card.dart';
+import 'image_section_card.dart';
 import 'quick_note_timeline.dart';
 import 'review_card.dart';
 
@@ -17,6 +19,8 @@ class DiaryMarkdownView extends StatelessWidget {
   final Future<void> Function(String sectionKey, String rawLine,
       String content, List<String> tags)? onEntryEdit;
   final TagConfig? tagConfig;
+  final ApiClient? apiClient;
+  final DateTime? date;
 
   const DiaryMarkdownView({
     super.key,
@@ -25,6 +29,8 @@ class DiaryMarkdownView extends StatelessWidget {
     this.onEntryDelete,
     this.onEntryEdit,
     this.tagConfig,
+    this.apiClient,
+    this.date,
   });
 
   @override
@@ -100,6 +106,15 @@ class DiaryMarkdownView extends StatelessWidget {
               : null,
           tagConfig: tagConfig,
         );
+      case MediaSection():
+        if (apiClient != null && date != null) {
+          return ImageSectionCard(
+            section: section,
+            apiClient: apiClient!,
+            date: date!,
+          );
+        }
+        return GenericSectionCard(section: section);
       default:
         return GenericSectionCard(section: section);
     }

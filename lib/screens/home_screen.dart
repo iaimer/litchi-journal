@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
@@ -10,6 +11,7 @@ import '../services/api_client.dart';
 import '../services/api_config.dart';
 import '../services/draft_repository.dart';
 import '../services/entry_line_builder.dart';
+import '../services/image_compress_service.dart';
 import '../services/markdown_parser.dart';
 import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
@@ -38,6 +40,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _tagConfigFailed = false;
   EntryType _selectedEntryType = EntryType.quickNote;
   final _draftRepository = DraftRepository();
+  final _imagePicker = ImagePicker();
+  bool _imageUploading = false;
 
   @override
   void initState() {
@@ -304,6 +308,39 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadDiarySilently();
   }
 
+  Future<void> _handleImageUpload() async {
+    if (_imageUploading) return;
+
+    final file = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 2000,
+      maxHeight: 2000,
+      imageQuality: 70,
+    );
+    if (file == null) return;
+
+    setState(() => _imageUploading = true);
+
+    try {
+      final bytes = await file.readAsBytes();
+      final compressService = const ImageCompressService();
+      final base64 = compressService.compressToBase64(bytes);
+
+      await widget.apiClient.uploadImage(DateTime.now(), base64);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已添加照片')));
+      _loadDiarySilently();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('上传失败: $e')));
+    } finally {
+      if (mounted) setState(() => _imageUploading = false);
+    }
+  }
+
   String _todayString() {
     final now = DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
@@ -369,6 +406,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       onEntryDelete: _handleEntryDelete,
                       onEntryEdit: _handleEntryEdit,
                       tagConfig: _tagConfig,
+                      apiClient: widget.apiClient,
+                      date: DateTime.now(),
                     ),
                   ] else ...[
                     const Text(
@@ -377,6 +416,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                   const SizedBox(height: 32),
+                  Card(
+                    color: theme.colorScheme.surface,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.add_a_photo_outlined,
+                              size: 20, color: AppColors.textSecondary),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              '添加照片',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed:
+                                _imageUploading ? null : _handleImageUpload,
+                            child: _imageUploading
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Text('选择图片'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   SectionCard(
                     title: '快速记录',
                     children: [

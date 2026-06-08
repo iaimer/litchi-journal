@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -162,6 +163,14 @@ class _CapturingClient extends http.BaseClient {
       Stream.value(utf8.encode(responseBody)),
       statusCode,
     );
+  }
+}
+
+void _fillSolidImage(img.Image image) {
+  for (var y = 0; y < image.height; y++) {
+    for (var x = 0; x < image.width; x++) {
+      image.setPixelRgba(x, y, 100, 150, 200, 255);
+    }
   }
 }
 
@@ -4544,9 +4553,10 @@ tags:
   });
 
   group('ImageCompressService', () {
+    const maxBytes = 3 * 1024 * 1024;
+
     test('compressToBase64 output includes data:image/jpeg;base64, prefix',
         () {
-      // Generate a 1x1 pixel JPEG using the image package
       final image = img.Image(width: 1, height: 1);
       image.setPixelRgba(0, 0, 255, 0, 0, 255);
       final bytes = img.encodeJpg(image, quality: 90);
@@ -4556,6 +4566,104 @@ tags:
 
       expect(result, startsWith('data:image/jpeg;base64,'));
       expect(result.length, greaterThan('data:image/jpeg;base64,'.length));
+    });
+
+    test('small image is not enlarged', () {
+      final image = img.Image(width: 100, height: 100);
+      final bytes = img.encodeJpg(image, quality: 90);
+
+      final service = const ImageCompressService();
+      final result = service.compressToBase64(bytes);
+
+      final base64 = result.split(',').last;
+      final decoded = img.decodeImage(base64Decode(base64));
+      expect(decoded, isNotNull);
+      expect(decoded!.width, 100);
+      expect(decoded.height, 100);
+    });
+
+    test('image over 2000px long side is downsized', () {
+      final image = img.Image(width: 4000, height: 3000);
+      _fillSolidImage(image);
+      final bytes = img.encodeJpg(image, quality: 90);
+
+      final service = const ImageCompressService();
+      final result = service.compressToBase64(bytes);
+
+      final base64 = result.split(',').last;
+      final decoded = img.decodeImage(base64Decode(base64));
+      expect(decoded, isNotNull);
+      expect(decoded!.width, lessThanOrEqualTo(2000));
+      expect(decoded.height, lessThanOrEqualTo(2000));
+    });
+
+    test('output fits under 3MB for a compressible large image', () {
+      // Generate a 3000×2000 image with repeating pattern — highly compressible
+      final image = img.Image(width: 3000, height: 2000);
+      _fillSolidImage(image);
+      final input = img.encodeJpg(image, quality: 95);
+
+      final service = const ImageCompressService();
+      final result = service.compressToBase64(input);
+      final base64 = result.split(',').last;
+      final outputBytes = base64Decode(base64);
+      expect(outputBytes.length, lessThanOrEqualTo(maxBytes));
+    });
+
+    test('does not hang or crash on noisy incompressible image', () {
+      final image = img.Image(width: 200, height: 200);
+      final rng = Random(42);
+      for (var y = 0; y < image.height; y++) {
+        for (var x = 0; x < image.width; x++) {
+          image.setPixelRgba(
+            x, y, rng.nextInt(256), rng.nextInt(256), rng.nextInt(256), 255);
+        }
+      }
+      final inputBytes = img.encodeJpg(image, quality: 100);
+      final service = const ImageCompressService();
+      final result = service.compressToBase64(inputBytes);
+      expect(result, startsWith('data:image/jpeg;base64,'));
+    });
+
+    test('output can be decoded back from base64', () {
+      final image = img.Image(width: 500, height: 500);
+      _fillSolidImage(image);
+      final bytes = img.encodeJpg(image, quality: 90);
+
+      final service = const ImageCompressService();
+      final result = service.compressToBase64(bytes);
+
+      final base64 = result.split(',').last;
+      final decoded = img.decodeImage(base64Decode(base64));
+      expect(decoded, isNotNull);
+      expect(decoded!.width, greaterThan(0));
+      expect(decoded.height, greaterThan(0));
+    });
+
+    test('large uncompressible image returns best-effort and stops', () {
+      // Generate a 6000×4000 image filled with noise — nearly incompressible.
+      final image = img.Image(width: 6000, height: 4000);
+      final rng = Random(42);
+      for (var y = 0; y < image.height; y++) {
+        for (var x = 0; x < image.width; x++) {
+          image.setPixelRgba(
+            x, y, rng.nextInt(256), rng.nextInt(256), rng.nextInt(256), 255);
+        }
+      }
+      final inputBytes = img.encodeJpg(image, quality: 95);
+
+      final service = const ImageCompressService();
+      final result = service.compressToBase64(inputBytes);
+
+      // Should complete without crash and produce valid output.
+      expect(result, startsWith('data:image/jpeg;base64,'));
+
+      final base64 = result.split(',').last;
+      final decoded = img.decodeImage(base64Decode(base64));
+      expect(decoded, isNotNull);
+      // Long side is at most the initial 2000px after first resize.
+      expect(decoded!.width, lessThanOrEqualTo(2000));
+      expect(decoded.height, lessThanOrEqualTo(2000));
     });
   });
 

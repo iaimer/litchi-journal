@@ -232,15 +232,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<bool> _replaceAnxiety(String content) async {
-    return widget.apiClient.replaceAnxiety(DateTime.now(), content);
+    var success = await widget.apiClient.replaceAnxiety(DateTime.now(), content);
+    if (!success) {
+      await widget.apiClient.ensureDiary(DateTime.now());
+      success = await widget.apiClient.replaceAnxiety(DateTime.now(), content);
+    }
+    return success;
   }
 
   Future<void> _handleAnxietySubmit(
       String content, List<String> tags) async {
-    final isEdit = _isAnxietyEdit;
-    final success = isEdit
-        ? await _replaceAnxiety(content)
-        : await _appendEntry(EntryType.anxiety, DateTime.now(), content, tags);
+    final success = await _replaceAnxiety(content);
     if (!success) throw Exception('保存失败');
     if (!mounted) return;
     ScaffoldMessenger.of(context)

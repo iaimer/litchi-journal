@@ -15,8 +15,8 @@ class ApiClient {
 
   String get baseUrl => _baseUrl;
 
-  ApiClient(this._config) {
-    _http = http.Client();
+  ApiClient(this._config, {http.Client? httpClient}) {
+    _http = httpClient ?? http.Client();
     _baseUrl = _normalizeUrl(_config.baseUrl);
     _headers = {
       'Authorization': 'Token ${_config.token}',

@@ -44,24 +44,25 @@ class AnxietyComposer extends StatefulWidget {
 
     for (int i = 0; i < _questions.length; i++) {
       final questionText = _questions[i];
-      var foundQuestion = false;
 
       for (int j = 0; j < lines.length; j++) {
         final line = lines[j].trim();
-        if (line == '- $questionText' || line.startsWith('- ') && line.contains(questionText)) {
-          foundQuestion = true;
-          // Collect all blockquote lines following this question
+        if (line == '- $questionText' ||
+            line.startsWith('- ') && line.contains(questionText)) {
           final buffer = StringBuffer();
-          for (int k = j + 1; k < lines.length && lines[k].trim().startsWith('> '); k++) {
+          for (int k = j + 1;
+              k < lines.length && lines[k].trim().startsWith('> ');
+              k++) {
             if (buffer.isNotEmpty) buffer.write('\n');
             buffer.write(lines[k].trim().substring(2));
           }
-          answers[i] = buffer.toString();
-          break;
+          final answer = buffer.toString();
+          if (answer.trim().isNotEmpty) {
+            answers[i] = answer;
+          }
+          // Continue scanning: last non-empty answer wins
         }
       }
-
-      if (!foundQuestion) break;
     }
 
     return answers;

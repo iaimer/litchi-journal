@@ -12,6 +12,7 @@ import 'package:litchi_journal_flutter/models/polish_result.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/ai_config_repository.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
+import 'package:litchi_journal_flutter/services/api_client.dart';
 import 'package:litchi_journal_flutter/services/draft_repository.dart';
 import 'package:litchi_journal_flutter/services/entry_line_builder.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
@@ -136,6 +137,23 @@ class _MultiResponseHttpClient extends http.BaseClient {
       Stream.value(utf8.encode(_bodies[index])),
       200,
       headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+  }
+}
+
+class _CapturingClient extends http.BaseClient {
+  String? lastUrl;
+  String? lastBody;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    lastUrl = request.url.toString();
+    if (request is http.Request) {
+      lastBody = request.body;
+    }
+    return http.StreamedResponse(
+      Stream.value(utf8.encode('{"ok": true}')),
+      200,
     );
   }
 }
@@ -2141,6 +2159,91 @@ tags:
 
       final answers = AnxietyComposer.parseAnswers(markdown);
       expect(answers, ['下午开会', '', '做了深呼吸', '']);
+    });
+
+    test(
+        'parseAnswers handles template + real duplicate questions '
+        '- takes last non-empty answer', () {
+      const markdown = '''
+- 今天什么时候我感到焦虑/紧张？
+> 
+- 当时我在担心什么？（具体到一句话）
+> 
+- 我做了什么？
+> 
+- 这个应对是帮我面对了，还是帮我躲开了？
+> 
+- 今天什么时候我感到焦虑/紧张？
+> 午休的时候刷视频
+- 当时我在担心什么？（具体到一句话）
+> 任务安排有冲突
+- 我做了什么？
+> 优先处理截止日期近的
+- 这个应对是帮我面对了，还是帮我躲开了？
+> 继续拖到最后一刻，躲不开
+''';
+
+      final answers = AnxietyComposer.parseAnswers(markdown);
+      expect(answers, [
+        '午休的时候刷视频',
+        '任务安排有冲突',
+        '优先处理截止日期近的',
+        '继续拖到最后一刻，躲不开',
+      ]);
+    });
+
+    test(
+        'parseAnswers handles repeated questions with multiple real answers '
+        '- takes last non-empty', () {
+      const markdown = '''
+- 今天什么时候我感到焦虑/紧张？
+> 第一次回答
+- 当时我在担心什么？（具体到一句话）
+> 第一次担心
+- 今天什么时候我感到焦虑/紧张？
+> 第二次回答才是真的
+- 当时我在担心什么？（具体到一句话）
+> 
+''';
+
+      final answers = AnxietyComposer.parseAnswers(markdown);
+      expect(answers, ['第二次回答才是真的', '第一次担心', '', '']);
+    });
+
+    test(
+        'parseAnswers handles partial duplicate - some questions '
+        'repeated, some not', () {
+      const markdown = '''
+- 今天什么时候我感到焦虑/紧张？
+> 
+- 今天什么时候我感到焦虑/紧张？
+> 实际场景
+- 当时我在担心什么？（具体到一句话）
+> 实际担心
+- 我做了什么？
+> 什么都不做
+''';
+
+      final answers = AnxietyComposer.parseAnswers(markdown);
+      expect(answers, ['实际场景', '实际担心', '什么都不做', '']);
+    });
+
+    test(
+        'parseAnswers empty answer does not overwrite previous real answer',
+        () {
+      const markdown = '''
+- 今天什么时候我感到焦虑/紧张？
+> 真实回答
+- 当时我在担心什么？（具体到一句话）
+> 真实担心
+- 今天什么时候我感到焦虑/紧张？
+> 
+- 当时我在担心什么？（具体到一句话）
+> 
+''';
+
+      final answers = AnxietyComposer.parseAnswers(markdown);
+      expect(answers, ['真实回答', '真实担心', '', '']);
     });
 
     testWidgets('edit mode prefills initialAnswers', (tester) async {
@@ -4380,6 +4483,56 @@ tags:
       );
 
       expect(replacement, '> **14:00** 新小确幸 #生活 #日常记录');
+    });
+  });
+
+  group('ApiClient replaceAnxiety', () {
+    ApiClient makeClient(_CapturingClient client) {
+      return ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: client,
+      );
+    }
+
+    test('calls replace endpoint, not append endpoint', () async {
+      final client = _CapturingClient();
+      final api = makeClient(client);
+
+      await api.replaceAnxiety(DateTime(2026, 6, 7), 'test');
+
+      expect(client.lastUrl, contains('/api/v1/diary/anxiety/replace'));
+    });
+
+    test('sends date, content, and operationId in body', () async {
+      final client = _CapturingClient();
+      final api = makeClient(client);
+
+      await api.replaceAnxiety(DateTime(2026, 6, 7), '四问内容');
+
+      final body = jsonDecode(client.lastBody!) as Map<String, dynamic>;
+      expect(body['date'], '2026-06-07');
+      expect(body['content'], '四问内容');
+      expect(body['operationId'], isA<String>());
+      expect(body['operationId'], hasLength(36));
+    });
+
+    test('does NOT send tags (replace endpoint has no tags)', () async {
+      final client = _CapturingClient();
+      final api = makeClient(client);
+
+      await api.replaceAnxiety(DateTime(2026, 6, 7), 'content');
+
+      final body = jsonDecode(client.lastBody!) as Map<String, dynamic>;
+      expect(body.containsKey('tags'), isFalse);
+    });
+
+    test('returns true on 200 response', () async {
+      final client = _CapturingClient();
+      final api = makeClient(client);
+
+      final result = await api.replaceAnxiety(DateTime(2026, 6, 7), 'test');
+
+      expect(result, isTrue);
     });
   });
 }

@@ -10,12 +10,14 @@ class ImageSectionCard extends StatelessWidget {
   final MediaSection section;
   final ApiClient apiClient;
   final DateTime date;
+  final Future<void> Function(String rawLine)? onDeleteImage;
 
   const ImageSectionCard({
     super.key,
     required this.section,
     required this.apiClient,
     required this.date,
+    this.onDeleteImage,
   });
 
   @override
@@ -74,6 +76,9 @@ class ImageSectionCard extends StatelessWidget {
                   filename: name,
                   apiClient: apiClient,
                   date: date,
+                  onDelete: onDeleteImage != null
+                      ? () => onDeleteImage!('![[$name]]')
+                      : null,
                 );
               }).toList(),
             ),
@@ -105,11 +110,13 @@ class _ImageThumbnail extends StatefulWidget {
   final String filename;
   final ApiClient apiClient;
   final DateTime date;
+  final VoidCallback? onDelete;
 
   const _ImageThumbnail({
     required this.filename,
     required this.apiClient,
     required this.date,
+    this.onDelete,
   });
 
   @override
@@ -137,9 +144,9 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
       final dataUrl = result['data'] as String?;
       if (dataUrl == null) throw Exception('图片数据为空');
 
-      // data:image/jpeg;base64,xxx...
       final commaIndex = dataUrl.indexOf(',');
-      final base64 = commaIndex >= 0 ? dataUrl.substring(commaIndex + 1) : dataUrl;
+      final base64 =
+          commaIndex >= 0 ? dataUrl.substring(commaIndex + 1) : dataUrl;
       final bytes = base64Decode(base64);
 
       if (!mounted) return;
@@ -154,6 +161,54 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
         _loading = false;
       });
     }
+  }
+
+  void _openPreview() {
+    if (_bytes == null) return;
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => GestureDetector(
+        onTap: () => Navigator.of(context).pop(),
+        child: InteractiveViewer(
+          child: Center(
+            child: Image.memory(
+              _bytes!,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Center(
+                child: Text(
+                  '图片加载失败',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('删除照片'),
+        content: const Text('将从今日影像记录中删除这张图片'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              widget.onDelete?.call();
+            },
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -188,31 +243,67 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.memory(
-        _bytes!,
-        width: 120,
-        height: 120,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: _openPreview,
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(
-              '图片加载失败',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.error,
+            child: Image.memory(
+              _bytes!,
+              width: 120,
+              height: 120,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    '图片加载失败',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
           ),
         ),
-      ),
+        if (widget.onDelete != null)
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.more_horiz, size: 16),
+                color: theme.colorScheme.surface,
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text(
+                      '删除',
+                      style: TextStyle(
+                        color: theme.colorScheme.error,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+                onSelected: (value) {
+                  if (value == 'delete') _confirmDelete();
+                },
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

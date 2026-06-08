@@ -112,6 +112,9 @@ class DiaryMarkdownView extends StatelessWidget {
             section: section,
             apiClient: apiClient!,
             date: date!,
+            onDeleteImage: onEntryDelete != null
+                ? (rawLine) => onEntryDelete!('images', rawLine)
+                : null,
           );
         }
         return GenericSectionCard(section: section);

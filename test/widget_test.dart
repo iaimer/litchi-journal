@@ -4650,6 +4650,188 @@ tags:
 
       expect(find.text('暂无影像记录'), findsOneWidget);
     });
+
+    ApiClient imageTestApiClient() {
+      final response =
+          '{"data":"data:image/jpeg;base64,/9j/4AAQ","mimeType":"image/jpeg"}';
+      return ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'x'),
+        httpClient: _CapturingClient(responseBody: response),
+      );
+    }
+
+    MediaSection imageSection(List<String> filenames) {
+      final links = filenames.map((f) => '![[$f]]').join('\n');
+      return MediaSection(
+        title: '## 📸 影像记录',
+        contents: [MarkdownContent(links)],
+      );
+    }
+
+    testWidgets('thumbnail shows delete menu', (tester) async {
+      String? deleted;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ImageSectionCard(
+            section: imageSection(['img-001.jpg']),
+            apiClient: imageTestApiClient(),
+            date: DateTime(2026, 6, 8),
+            onDeleteImage: (rawLine) async { deleted = rawLine; },
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+      expect(deleted, isNull);
+    });
+
+    testWidgets('delete shows confirm dialog', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ImageSectionCard(
+            section: imageSection(['img-001.jpg']),
+            apiClient: imageTestApiClient(),
+            date: DateTime(2026, 6, 8),
+            onDeleteImage: (_) async {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('删除照片'), findsOneWidget);
+      expect(find.text('将从今日影像记录中删除这张图片'), findsOneWidget);
+    });
+
+    testWidgets('cancel delete does not fire callback', (tester) async {
+      String? deleted;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ImageSectionCard(
+            section: imageSection(['img-001.jpg']),
+            apiClient: imageTestApiClient(),
+            date: DateTime(2026, 6, 8),
+            onDeleteImage: (rawLine) async { deleted = rawLine; },
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+
+      expect(deleted, isNull);
+    });
+
+    testWidgets('confirm delete fires callback with correct rawLine',
+        (tester) async {
+      String? deleted;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ImageSectionCard(
+            section: imageSection(['Image-20260608-001.jpg']),
+            apiClient: imageTestApiClient(),
+            date: DateTime(2026, 6, 8),
+            onDeleteImage: (rawLine) async { deleted = rawLine; },
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(deleted, '![[Image-20260608-001.jpg]]');
+    });
+
+    testWidgets('multi-image delete passes correct rawLine per image',
+        (tester) async {
+      String? deleted;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ImageSectionCard(
+            section: imageSection(['img-001.jpg', 'img-002.jpg']),
+            apiClient: imageTestApiClient(),
+            date: DateTime(2026, 6, 8),
+            onDeleteImage: (rawLine) async { deleted = rawLine; },
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Two thumbnails → two delete menus
+      expect(find.byIcon(Icons.more_horiz), findsNWidgets(2));
+
+      // Delete the first image
+      await tester.tap(find.byIcon(Icons.more_horiz).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(deleted, '![[img-001.jpg]]');
+    });
+
+    testWidgets('no delete menu when onDeleteImage is null',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ImageSectionCard(
+            section: imageSection(['img-001.jpg']),
+            apiClient: imageTestApiClient(),
+            date: DateTime(2026, 6, 8),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.more_horiz), findsNothing);
+    });
+
+    testWidgets('tap thumbnail opens preview with close gesture',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ImageSectionCard(
+            section: imageSection(['img-001.jpg']),
+            apiClient: imageTestApiClient(),
+            date: DateTime(2026, 6, 8),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Tap the thumbnail image
+      await tester.tap(find.byType(Image));
+      await tester.pumpAndSettle();
+
+      // Should show the full-screen preview image
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+
+      // Tap to close
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(InteractiveViewer), findsNothing);
+    });
   });
 
   group('ApiClient image', () {

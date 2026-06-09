@@ -352,15 +352,66 @@ class _HomeScreenState extends State<HomeScreen> {
       final config = await aiRepo.loadAIConfig();
       if (!config.isUsable) throw Exception('请先在设置中启用AI并配置API');
 
-      final ok = await widget.apiClient.generateCoach(
-        date: DateTime.now(),
-        baseUrl: config.baseUrl,
-        apiKey: config.apiKey,
-        model: config.model,
-        coachPrompt: config.coachPrompt,
+      // Build diary context (same as Web client)
+      final sections = <String>[];
+      void addSection(String title, List<String> items) {
+        if (items.isNotEmpty) {
+          sections.add('【$title】');
+          sections.addAll(items);
+        }
+      }
+
+      final document = const MarkdownParser().parse(_diary!.raw);
+      for (final section in document.sections) {
+        if (section is QuickNoteSection) {
+          addSection('随手记',
+              section.notes.map((n) => n.content).toList());
+        } else if (section is HappinessSection) {
+          addSection('小确幸',
+              section.contents.whereType<TimelineContent>().map((t) => t.text).toList());
+        } else if (section is ReviewSection) {
+          addSection('觉察',
+              section.contents.whereType<TimelineContent>().map((t) => t.text).toList());
+        } else if (section is AnxietySection) {
+          final answers = AnxietyComposer.parseAnswers(
+            section.contents
+                .map((c) => c is MarkdownContent ? c.text : '')
+                .join('\n'),
+          );
+          addSection('焦虑时刻', answers.where((a) => a.isNotEmpty).toList());
+        }
+      }
+
+      final diaryContext = sections.isEmpty ? '今天暂无日记内容' : sections.join('\n');
+
+      // Call AI (same as Web's generateLizhiSays)
+      final service = PolisherService();
+      final result = await service.generateCoach(
+        diaryContext: diaryContext,
+        config: config,
       );
 
-      if (!ok) throw Exception('生成失败');
+      // Extract action suggestion (same regex as Web)
+      final actionMatch = RegExp(
+        r'(?:###\s+)?\*{0,2}\s*🎯\s*\*{0,2}\s*行动建议\s*\*{0,2}\s*\n?([\s\S]*?)(?=(?:###\s+)?\*{0,2}\s*💬\s*\*{0,2}\s*暖心鼓励\s*\*{0,2}|$)',
+      ).firstMatch(result);
+
+      final actionContent = actionMatch?.group(1)?.trim() ?? '';
+
+      // Remove action module for lizhi_says (same as Web)
+      final lizhiContent = actionMatch != null
+          ? result.replaceAll(actionMatch.group(0)!, '').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim()
+          : result.trim();
+
+      if (lizhiContent.isEmpty) throw Exception('生成结果为空，请重试');
+
+      // Write to server (same as Web)
+      final ok = await widget.apiClient.replaceLizhiSays(DateTime.now(), lizhiContent);
+      if (!ok) throw Exception('保存人生教练失败');
+
+      if (actionContent.isNotEmpty) {
+        await widget.apiClient.replaceTomorrowSection(DateTime.now(), actionContent);
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context)

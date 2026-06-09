@@ -242,30 +242,6 @@ class ApiClient {
     return response.statusCode == 200;
   }
 
-  Future<bool> generateCoach({
-    required DateTime date,
-    required String baseUrl,
-    required String apiKey,
-    required String model,
-    String? coachPrompt,
-  }) async {
-    final body = <String, dynamic>{
-      'date': formatDate(date),
-      'baseUrl': baseUrl,
-      'apiKey': apiKey,
-      'model': model,
-    };
-    if (coachPrompt != null && coachPrompt.trim().isNotEmpty) {
-      body['coachPrompt'] = coachPrompt;
-    }
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/coach/generate'),
-      headers: _headers,
-      body: jsonEncode(body),
-    );
-    return response.statusCode == 200;
-  }
-
   Future<bool> editEntry(
     DateTime date, {
     required String section,

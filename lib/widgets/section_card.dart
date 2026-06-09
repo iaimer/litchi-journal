@@ -7,6 +7,7 @@ class SectionCard extends StatelessWidget {
   final Color? accentColor;
   final List<Widget> children;
   final EdgeInsetsGeometry? padding;
+  final Widget? trailing;
 
   const SectionCard({
     super.key,
@@ -14,6 +15,7 @@ class SectionCard extends StatelessWidget {
     this.accentColor,
     this.children = const [],
     this.padding,
+    this.trailing,
   });
 
   @override
@@ -44,13 +46,20 @@ class SectionCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                child: Text(
-                  title!,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    ?trailing,
+                  ],
                 ),
               ),
               const Divider(height: 1, color: AppColors.border),

@@ -10,6 +10,7 @@ import 'habit_card.dart';
 import 'image_section_card.dart';
 import 'quick_note_timeline.dart';
 import 'review_card.dart';
+import 'section_card.dart';
 
 class DiaryMarkdownView extends StatelessWidget {
   final String markdown;
@@ -115,7 +116,7 @@ class DiaryMarkdownView extends StatelessWidget {
       case TomorrowSection():
         if (section.contents.any(
             (c) => c is MarkdownContent && c.text.trim().isNotEmpty)) {
-          return GenericSectionCard(section: section);
+          return _buildTomorrowCard(section, context);
         }
         return const SizedBox.shrink();
       case MediaSection():
@@ -137,75 +138,121 @@ class DiaryMarkdownView extends StatelessWidget {
 
   Widget _buildCoachCard(CoachSection section, BuildContext context) {
     final theme = Theme.of(context);
+    final hasContent = section.contents.any(
+        (c) => c is MarkdownContent && c.text.trim().isNotEmpty);
+
+    final children = <Widget>[];
+    for (final c in section.contents) {
+      if (c is MarkdownContent && c.text.trim().isNotEmpty) {
+        if (c.text.trim().startsWith('<!--')) continue;
+        children.addAll(_buildCoachContentWidgets(theme, c.text));
+      }
+    }
+
+    return SectionCard(
+      title: section.title,
+      trailing: onGenerateCoach != null
+          ? TextButton.icon(
+              onPressed: generatingCoach ? null : onGenerateCoach,
+              icon: generatingCoach
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child:
+                          CircularProgressIndicator(strokeWidth: 1.5),
+                    )
+                  : const Text('🧠', style: TextStyle(fontSize: 14)),
+              label: Text(
+                generatingCoach
+                    ? '生成中...'
+                    : (hasContent ? '重新生成' : '生成今日反馈'),
+                style: const TextStyle(fontSize: 13),
+              ),
+            )
+          : null,
+      children: hasContent
+          ? children
+          : (onGenerateCoach == null
+              ? [
+                  Text(
+                    '暂无教练反馈',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ]
+              : []),
+    );
+  }
+
+  List<Widget> _buildCoachContentWidgets(
+      ThemeData theme, String rawText) {
+    final widgets = <Widget>[];
+    final lines = rawText.split('\n');
+    // Module title markers
+    final coachModuleTitle = RegExp(r'^[📌⚠️💬]\s');
+
+    for (var i = 0; i < lines.length; i++) {
+      final line = _stripStorageListMarkers(lines[i]).trim();
+      if (line.isEmpty) continue;
+
+      if (coachModuleTitle.hasMatch(line)) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 4),
+            child: Text(
+              line,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+        );
+      } else {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              line,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+            ),
+          ),
+        );
+      }
+    }
+
+    return widgets;
+  }
+
+  Widget _buildTomorrowCard(TomorrowSection section, BuildContext context) {
+    final theme = Theme.of(context);
     final contentTexts = <String>[];
     for (final c in section.contents) {
       if (c is MarkdownContent && c.text.trim().isNotEmpty) {
-        // Exclude HTML comments and empty template bullets
         if (!c.text.trim().startsWith('<!--')) {
-          contentTexts.add(c.text);
+          contentTexts.add(_stripStorageListMarkers(c.text));
         }
       }
     }
-    final hasContent = contentTexts.isNotEmpty;
+    if (contentTexts.isEmpty) return const SizedBox.shrink();
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      color: theme.colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    section.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (onGenerateCoach != null)
-                  TextButton.icon(
-                    onPressed:
-                        generatingCoach ? null : onGenerateCoach,
-                    icon: generatingCoach
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 1.5),
-                          )
-                        : const Text('🧠', style: TextStyle(fontSize: 14)),
-                    label: Text(
-                      generatingCoach
-                          ? '生成中...'
-                          : (hasContent ? '重新生成' : '生成今日反馈'),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-              ],
-            ),
-            if (hasContent) ...[
-              const SizedBox(height: 12),
-              Text(
-                contentTexts.join('\n\n'),
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.8),
-              ),
-            ] else if (onGenerateCoach == null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '暂无教练反馈',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-          ],
+    return SectionCard(
+      title: section.title,
+      children: [
+        Text(
+          contentTexts.join('\n\n'),
+          style: theme.textTheme.bodyMedium?.copyWith(height: 1.8),
         ),
-      ),
+      ],
     );
+  }
+
+  String _stripStorageListMarkers(String text) {
+    return text
+        .split('\n')
+        .map((line) => line.trim().replaceFirst(RegExp(r'^-\s+'), ''))
+        .join('\n')
+        .trim();
   }
 }

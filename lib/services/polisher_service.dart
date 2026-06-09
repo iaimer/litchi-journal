@@ -21,26 +21,29 @@ class PolisherService {
 6. 输出润色后的正文即可。''';
 
   static const defaultCoachPrompt = '''
-你是一个理性的人生教练。基于当天日记内容，输出 250-300 字的分析。用第三人称"你"视角。
-
-按以下结构输出，模块间空行分隔：
+你是理性人生教练。基于当天日记，严格按以下格式输出，不要添加任何其他内容。
 
 📌 模式识别
-今天的行为模式或思维惯性
+- 今天的行为模式或思维惯性
 
 ⚠️ 矛盾指出
-温和指出言行不一致的地方
+- 指出言行不一致的地方
 
 🎯 行动建议
-明天可做的具体小改进
+- 明天可做的具体改进
 
 💬 暖心鼓励
-注入一点情绪价值，给继续记录、持续改进的勇气
+- 情绪价值，鼓励继续记录
 
-铁律：
-- 总字数严格 250-300 字，不超出、不偷懒
-- 只基于原文，不编造
-- 教练口吻，客观直接，不说教''';
+严禁：
+- 不要说"你好""好的""让我们来看看""以下是""希望"等开场或结尾语
+- 不要改写模块标题：必须使用 📌 模式识别 ⚠️ 矛盾指出 🎯 行动建议 💬 暖心鼓励
+- 不要用加粗**或方括号【】包裹标题
+- 不要给标题加编号如1. 2. 3. 4.
+- 不要用#号做标题
+- 正文用 - 开头
+- 总字数250-300字
+- 只基于原文，不编造''';
 
   static const _retryInstruction = '''
 【重要提醒】
@@ -250,46 +253,127 @@ class PolisherService {
   }
 
   static List<String> parseCoachResult(String raw) {
-    final lines = raw.split('\n');
-    int? actionStart;
-    int? actionEnd;
+    // Step 1: parse into module blocks
+    final blocks = _parseModuleBlocks(raw);
+    if (blocks.isEmpty) return [raw.trim(), ''];
 
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i].trim();
-      if (actionStart == null && _isActionLine(line)) {
-        actionStart = i;
-        continue;
-      }
-      if (actionStart != null && _isEncouragementLine(line)) {
-        actionEnd = i;
-        break;
+    // Step 2: extract & normalize
+    var lizhi = <String>[];
+    var action = '';
+
+    for (final block in blocks) {
+      switch (block.type) {
+        case _ModuleType.pattern:
+          lizhi.add('📌 模式识别');
+          lizhi.addAll(block.bodyLines);
+          break;
+        case _ModuleType.contradiction:
+          lizhi.add('⚠️ 矛盾指出');
+          lizhi.addAll(block.bodyLines);
+          break;
+        case _ModuleType.encouragement:
+          lizhi.add('💬 暖心鼓励');
+          lizhi.addAll(block.bodyLines);
+          break;
+        case _ModuleType.action:
+          action = block.bodyLines.join('\n');
+          break;
       }
     }
 
-    if (actionStart == null) return [raw.trim(), ''];
+    final lizhiContent = lizhi.join('\n').trim();
+    return [lizhiContent, action.trim()];
+  }
 
-    // Extract action body: lines after the title up to encouragement or end
-    final actionEndIdx = actionEnd ?? lines.length;
-    final actionLines = lines.sublist(actionStart + 1, actionEndIdx);
-    final actionContent = actionLines.join('\n').trim();
+  // -- module detection helpers --
 
-    // Build lizhi content: skip the action module
-    final before = lines.sublist(0, actionStart);
-    final after = actionEndIdx < lines.length ? lines.sublist(actionEndIdx) : <String>[];
-    final lizhiContent = [...before, ...after]
-        .join('\n')
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+  static final _patternAliases = [
+    '模式识别', '主要模式', '主要模式与趋势',
+  ];
+  static final _contradictionAliases = [
+    '矛盾指出', '矛盾', '可能的矛盾', '潜在矛盾', '不一致',
+  ];
+  static final _actionAliases = [
+    '行动建议', '可操作的行动', '操作建议', '具体行动',
+  ];
+  static final _encouragementAliases = [
+    '暖心鼓励', '温暖鼓励', '温暖结语',
+  ];
+
+  static bool _matchesAny(String text, List<String> aliases) {
+    final cleaned = _cleanMarkdown(text);
+    return aliases.any((a) => cleaned.contains(a));
+  }
+
+  static String _cleanMarkdown(String text) {
+    return text
+        .replaceAll(RegExp(r'\*{1,3}'), '')
+        .replaceAll(RegExp(r'#{1,3}\s*'), '')
+        .replaceAll('【', '')
+        .replaceAll('】', '')
+        .replaceAll(RegExp(r'^\d+\.\s*'), '')
+        .replaceAll(RegExp(r'^[-•]\s*'), '')
+        .replaceAll(RegExp(r'[：:]$'), '')
         .trim();
-
-    return [lizhiContent, actionContent];
   }
 
-  static bool _isActionLine(String line) {
-    return line.contains('行动建议') || line.contains('操作建议');
+  static String _cleanBodyLine(String line) {
+    var t = line.trim();
+    if (t.isEmpty) return '';
+    // remove markdown formatting
+    t = t.replaceAll('**', '');
+    t = t.replaceAll('__', '');
+    // strip leading bullet characters and whitespace
+    t = t.replaceAll(RegExp(r'^[-\u2022\s]+'), '');
+    if (t.isEmpty) return '';
+    return '- $t';
   }
 
-  static bool _isEncouragementLine(String line) {
-    return line.contains('温暖鼓励') || line.contains('暖心鼓励');
+  static List<_ModuleBlock> _parseModuleBlocks(String raw) {
+    final lines = raw.split('\n');
+    final blocks = <_ModuleBlock>[];
+    _ModuleBlock? current;
+    var reachedFirstModule = false;
+
+    for (final line in lines) {
+      final t = line.trim();
+      if (t.isEmpty) continue;
+
+      final type = _detectModuleType(t);
+      if (type != null) {
+        reachedFirstModule = true;
+        if (current != null && current.bodyLines.isNotEmpty) {
+          blocks.add(current);
+        }
+        current = _ModuleBlock(type);
+        continue;
+      }
+
+      if (!reachedFirstModule) continue; // skip preamble
+
+      final cleaned = _cleanBodyLine(t);
+      if (cleaned.isNotEmpty) {
+        current?.bodyLines.add(cleaned);
+      }
+    }
+
+    if (current != null && current.bodyLines.isNotEmpty) {
+      blocks.add(current);
+    }
+
+    return blocks;
+  }
+
+  static _ModuleType? _detectModuleType(String line) {
+    final c = _cleanMarkdown(line);
+    if (c.isEmpty) return null;
+
+    if (_matchesAny(c, _actionAliases)) return _ModuleType.action;
+    if (_matchesAny(c, _encouragementAliases)) return _ModuleType.encouragement;
+    if (_matchesAny(c, _contradictionAliases)) return _ModuleType.contradiction;
+    if (_matchesAny(c, _patternAliases)) return _ModuleType.pattern;
+
+    return null;
   }
 
   String _buildSystemPrompt({
@@ -358,4 +442,12 @@ $methodsSection
   void dispose() {
     _http.close();
   }
+}
+
+enum _ModuleType { pattern, contradiction, action, encouragement }
+
+class _ModuleBlock {
+  final _ModuleType type;
+  final bodyLines = <String>[];
+  _ModuleBlock(this.type);
 }

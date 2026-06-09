@@ -3750,67 +3750,105 @@ tags:
   });
 
   group('parseCoachResult', () {
-    test('extracts emoji action suggestion', () {
+    test('standard emoji titles with bullet bodies', () {
       final raw = '📌 模式识别\n'
-          '今天表现很好\n'
+          '- 今天表现很好\n'
+          '⚠️ 矛盾指出\n'
+          '- 有点焦虑\n'
           '🎯 行动建议\n'
-          '明天早点睡\n'
+          '- 明天早点睡\n'
           '💬 暖心鼓励\n'
-          '加油';
-      final result = PolisherService.parseCoachResult(raw);
-      expect(result[1], '明天早点睡');
-      expect(result[0], contains('模式识别'));
-      expect(result[0], contains('暖心鼓励'));
-      expect(result[0], isNot(contains('行动建议')));
+          '- 加油';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[1], '- 明天早点睡');
+      expect(r[0], contains('📌 模式识别'));
+      expect(r[0], contains('⚠️ 矛盾指出'));
+      expect(r[0], contains('💬 暖心鼓励'));
+      expect(r[0], isNot(contains('行动建议')));
+      expect(r[0], isNot(contains('🎯')));
     });
 
-    test('extracts numbered action suggestion with bold', () {
-      final raw = '好的，让我们来看看。\n'
-          '- **1. 主要模式与趋势：**\n'
-          '你今天表现很好\n'
-          '- **2. 可能的矛盾或不一致：**\n'
-          '没有矛盾\n'
+    test('numbered bold markdown format with preamble', () {
+      final raw = '你好！看到你今天先做了计划。\n'
+          '- **【模式识别】**\n'
+          '- 今天表现很好\n'
+          '- **【潜在矛盾与提醒】**\n'
+          '- 有点焦虑\n'
           '- **3. 可操作的行动建议：**\n'
-          '明天早点睡\n'
-          '- **4. 温暖鼓励：**\n'
-          '你很棒';
-      final result = PolisherService.parseCoachResult(raw);
-      expect(result[1], '明天早点睡');
-      expect(result[0], contains('主要模式'));
-      expect(result[0], contains('温暖鼓励'));
-      expect(result[0], isNot(contains('行动建议')));
+          '- 明天早点睡\n'
+          '- **【温暖结语】**\n'
+          '- 加油';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[1], '- 明天早点睡');
+      // Preamble filtered
+      expect(r[0], isNot(contains('你好')));
+      // Titles normalized
+      expect(r[0], contains('📌 模式识别'));
+      expect(r[0], contains('⚠️ 矛盾指出'));
+      expect(r[0], contains('💬 暖心鼓励'));
+      // No markdown artifacts
+      expect(r[0], isNot(contains('**')));
+      expect(r[0], isNot(contains('【')));
+      expect(r[0], isNot(contains('】')));
+      expect(r[0], isNot(contains('行动建议')));
     });
 
-    test('handles markdown header action suggestion', () {
-      final raw = '### 模式识别\n'
-          '今天很好\n'
-          '### 3. 可操作的行动建议\n'
-          '多喝水\n'
-          '### 💬 温暖鼓励\n'
-          '加油';
-      final result = PolisherService.parseCoachResult(raw);
-      expect(result[1], '多喝水');
-      expect(result[0], isNot(contains('行动建议')));
+    test('encouragement not leaked into actionContent', () {
+      final raw = '🎯 行动建议\n'
+          '- 多喝水\n'
+          '【温暖结语】\n'
+          '- 加油';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[1], '- 多喝水');
+      expect(r[1], isNot(contains('加油')));
+      expect(r[0], contains('💬 暖心鼓励'));
+      expect(r[0], contains('- 加油'));
     });
 
-    test('handles action suggestion at end without encouragement', () {
-      final raw = '模式识别\n'
-          '今天很好\n'
-          '3. 行动建议\n'
-          '多喝水';
-      final result = PolisherService.parseCoachResult(raw);
-      expect(result[1], '多喝水');
-      expect(result[0], isNot(contains('行动建议')));
+    test('action at end without encouragement', () {
+      final raw = '📌 模式识别\n'
+          '- 今天不错\n'
+          '🎯 行动建议\n'
+          '- 多喝水';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[1], '- 多喝水');
+      expect(r[0], isNot(contains('行动')));
     });
 
-    test('returns empty actionContent when no action suggestion', () {
-      final raw = '模式识别\n'
-          '今天很好\n'
-          '温暖鼓励\n'
-          '加油';
-      final result = PolisherService.parseCoachResult(raw);
-      expect(result[1], '');
-      expect(result[0], '模式识别\n今天很好\n温暖鼓励\n加油');
+    test('no action module returns empty', () {
+      final raw = '📌 模式识别\n'
+          '- 今天不错\n'
+          '💬 暖心鼓励\n'
+          '- 加油';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[1], '');
+      expect(r[0], contains('📌'));
+      expect(r[0], contains('💬'));
+    });
+
+    test('no double bullet normalization', () {
+      final raw = '🎯 行动建议\n'
+          '- - 明天早点睡';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[1], '- 明天早点睡');
+    });
+
+    test('removes ** from body text', () {
+      final raw = '📌 模式识别\n'
+          '- 你今天**表现很好**';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[0], isNot(contains('**')));
+      expect(r[0], contains('- 你今天表现很好'));
+    });
+
+    test('aliases for contradiction: 潜在矛盾与提醒', () {
+      final raw = '- **【潜在矛盾与提醒】**\n'
+          '- 有点焦虑\n'
+          '💬 暖心鼓励\n'
+          '- 加油';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[0], contains('⚠️ 矛盾指出'));
+      expect(r[0], isNot(contains('【潜在矛盾')));
     });
   });
 

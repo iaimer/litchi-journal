@@ -154,6 +154,12 @@ class DiaryMarkdownView extends StatelessWidget {
       trailing: onGenerateCoach != null
           ? TextButton.icon(
               onPressed: generatingCoach ? null : onGenerateCoach,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+              ),
               icon: generatingCoach
                   ? const SizedBox(
                       width: 14,

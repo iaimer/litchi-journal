@@ -405,12 +405,6 @@ class PolisherService {
     return line.trim().replaceFirst(RegExp(r'^(?:[-•·.\s])+'), '').trim();
   }
 
-  static bool _isCoachModuleTitle(String line) {
-    return line == '📌 模式识别' ||
-        line == '⚠️ 矛盾指出' ||
-        line == '💬 暖心鼓励';
-  }
-
   String _buildSystemPrompt({
     required EntryType entryType,
     required TagConfig tagConfig,

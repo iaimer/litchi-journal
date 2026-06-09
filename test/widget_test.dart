@@ -3749,6 +3749,71 @@ tags:
     });
   });
 
+  group('parseCoachResult', () {
+    test('extracts emoji action suggestion', () {
+      final raw = '📌 模式识别\n'
+          '今天表现很好\n'
+          '🎯 行动建议\n'
+          '明天早点睡\n'
+          '💬 暖心鼓励\n'
+          '加油';
+      final result = PolisherService.parseCoachResult(raw);
+      expect(result[1], '明天早点睡');
+      expect(result[0], contains('模式识别'));
+      expect(result[0], contains('暖心鼓励'));
+      expect(result[0], isNot(contains('行动建议')));
+    });
+
+    test('extracts numbered action suggestion with bold', () {
+      final raw = '好的，让我们来看看。\n'
+          '- **1. 主要模式与趋势：**\n'
+          '你今天表现很好\n'
+          '- **2. 可能的矛盾或不一致：**\n'
+          '没有矛盾\n'
+          '- **3. 可操作的行动建议：**\n'
+          '明天早点睡\n'
+          '- **4. 温暖鼓励：**\n'
+          '你很棒';
+      final result = PolisherService.parseCoachResult(raw);
+      expect(result[1], '明天早点睡');
+      expect(result[0], contains('主要模式'));
+      expect(result[0], contains('温暖鼓励'));
+      expect(result[0], isNot(contains('行动建议')));
+    });
+
+    test('handles markdown header action suggestion', () {
+      final raw = '### 模式识别\n'
+          '今天很好\n'
+          '### 3. 可操作的行动建议\n'
+          '多喝水\n'
+          '### 💬 温暖鼓励\n'
+          '加油';
+      final result = PolisherService.parseCoachResult(raw);
+      expect(result[1], '多喝水');
+      expect(result[0], isNot(contains('行动建议')));
+    });
+
+    test('handles action suggestion at end without encouragement', () {
+      final raw = '模式识别\n'
+          '今天很好\n'
+          '3. 行动建议\n'
+          '多喝水';
+      final result = PolisherService.parseCoachResult(raw);
+      expect(result[1], '多喝水');
+      expect(result[0], isNot(contains('行动建议')));
+    });
+
+    test('returns empty actionContent when no action suggestion', () {
+      final raw = '模式识别\n'
+          '今天很好\n'
+          '温暖鼓励\n'
+          '加油';
+      final result = PolisherService.parseCoachResult(raw);
+      expect(result[1], '');
+      expect(result[0], '模式识别\n今天很好\n温暖鼓励\n加油');
+    });
+  });
+
   group('SettingsScreen', () {
     Widget buildScreen({AIConfigRepository? aiRepo}) {
       return MaterialApp(

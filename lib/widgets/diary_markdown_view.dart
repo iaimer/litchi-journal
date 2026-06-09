@@ -112,6 +112,12 @@ class DiaryMarkdownView extends StatelessWidget {
         );
       case CoachSection():
         return _buildCoachCard(section, context);
+      case TomorrowSection():
+        if (section.contents.any(
+            (c) => c is MarkdownContent && c.text.trim().isNotEmpty)) {
+          return GenericSectionCard(section: section);
+        }
+        return const SizedBox.shrink();
       case MediaSection():
         if (apiClient != null && date != null) {
           return ImageSectionCard(
@@ -131,9 +137,16 @@ class DiaryMarkdownView extends StatelessWidget {
 
   Widget _buildCoachCard(CoachSection section, BuildContext context) {
     final theme = Theme.of(context);
-    final hasContent = section.contents.any(
-      (c) => c is MarkdownContent && c.text.trim().isNotEmpty,
-    );
+    final contentTexts = <String>[];
+    for (final c in section.contents) {
+      if (c is MarkdownContent && c.text.trim().isNotEmpty) {
+        // Exclude HTML comments and empty template bullets
+        if (!c.text.trim().startsWith('<!--')) {
+          contentTexts.add(c.text);
+        }
+      }
+    }
+    final hasContent = contentTexts.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -174,7 +187,13 @@ class DiaryMarkdownView extends StatelessWidget {
                   ),
               ],
             ),
-            if (!hasContent && onGenerateCoach == null)
+            if (hasContent) ...[
+              const SizedBox(height: 12),
+              Text(
+                contentTexts.join('\n\n'),
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.8),
+              ),
+            ] else if (onGenerateCoach == null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(

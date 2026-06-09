@@ -250,21 +250,46 @@ class PolisherService {
   }
 
   static List<String> parseCoachResult(String raw) {
-    // Extract 🎯 行动建议 module — same regex as Web
-    final actionMatch = RegExp(
-      r'(?:###\s+)?\*{0,2}\s*🎯\s*\*{0,2}\s*行动建议\s*\*{0,2}\s*\n?([\s\S]*?)(?=(?:###\s+)?\*{0,2}\s*💬\s*\*{0,2}\s*暖心鼓励\s*\*{0,2}|$)',
-      multiLine: true,
-    ).firstMatch(raw);
+    final lines = raw.split('\n');
+    int? actionStart;
+    int? actionEnd;
 
-    final actionContent =
-        actionMatch?.group(1)?.trim() ?? '';
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (actionStart == null && _isActionLine(line)) {
+        actionStart = i;
+        continue;
+      }
+      if (actionStart != null && _isEncouragementLine(line)) {
+        actionEnd = i;
+        break;
+      }
+    }
 
-    // Remove action module + clean up whitespace
-    final lizhiContent = actionMatch != null
-        ? raw.replaceAll(actionMatch.group(0)!, '').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim()
-        : raw.trim();
+    if (actionStart == null) return [raw.trim(), ''];
+
+    // Extract action body: lines after the title up to encouragement or end
+    final actionEndIdx = actionEnd ?? lines.length;
+    final actionLines = lines.sublist(actionStart + 1, actionEndIdx);
+    final actionContent = actionLines.join('\n').trim();
+
+    // Build lizhi content: skip the action module
+    final before = lines.sublist(0, actionStart);
+    final after = actionEndIdx < lines.length ? lines.sublist(actionEndIdx) : <String>[];
+    final lizhiContent = [...before, ...after]
+        .join('\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
 
     return [lizhiContent, actionContent];
+  }
+
+  static bool _isActionLine(String line) {
+    return line.contains('行动建议') || line.contains('操作建议');
+  }
+
+  static bool _isEncouragementLine(String line) {
+    return line.contains('温暖鼓励') || line.contains('暖心鼓励');
   }
 
   String _buildSystemPrompt({

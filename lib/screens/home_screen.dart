@@ -352,66 +352,15 @@ class _HomeScreenState extends State<HomeScreen> {
       final config = await aiRepo.loadAIConfig();
       if (!config.isUsable) throw Exception('请先在设置中启用AI并配置API');
 
-      final sections = <String>[];
-      void addSection(String title, List<String> items) {
-        if (items.isNotEmpty) {
-          sections.add('【$title】');
-          sections.addAll(items);
-        }
-      }
-
-      final document = const MarkdownParser().parse(_diary!.raw);
-      for (final section in document.sections) {
-        if (section is QuickNoteSection) {
-          addSection('随手记',
-              section.notes.map((n) => n.content).toList());
-        } else if (section is HappinessSection) {
-          final items = section.contents
-              .whereType<TimelineContent>()
-              .map((t) => t.text)
-              .toList();
-          addSection('小确幸', items);
-        } else if (section is ReviewSection) {
-          final items = section.contents
-              .whereType<TimelineContent>()
-              .map((t) => t.text)
-              .toList();
-          addSection('觉察', items);
-        } else if (section is AnxietySection) {
-          final answers = AnxietyComposer.parseAnswers(
-            section.contents
-                .map((c) => c is MarkdownContent ? c.text : '')
-                .join('\n'),
-          );
-          addSection('焦虑时刻', answers.where((a) => a.isNotEmpty).toList());
-        }
-      }
-
-      final diaryContext = sections.join('\n');
-      if (diaryContext.isEmpty) throw Exception('今天还没有日记内容');
-
-      final service = PolisherService();
-      final result = await service.generateCoach(
-        diaryContext: diaryContext,
-        config: config,
+      final ok = await widget.apiClient.generateCoach(
+        date: DateTime.now(),
+        baseUrl: config.baseUrl,
+        apiKey: config.apiKey,
+        model: config.model,
+        coachPrompt: config.coachPrompt,
       );
 
-      final parsed = PolisherService.parseCoachResult(result);
-      final lizhiContent = parsed[0];
-      final actionContent = parsed[1];
-
-      if (lizhiContent.trim().isEmpty) {
-        throw Exception('生成结果格式异常，请重试');
-      }
-
-      // Write 人生教练 (modules except 🎯行动建议)
-      await widget.apiClient.replaceLizhiSays(DateTime.now(), lizhiContent);
-
-      // Write 明日寄语 (only 🎯行动建议)
-      if (actionContent.trim().isNotEmpty) {
-        await widget.apiClient.replaceTomorrowSection(
-            DateTime.now(), actionContent);
-      }
+      if (!ok) throw Exception('生成失败');
 
       if (!mounted) return;
       ScaffoldMessenger.of(context)

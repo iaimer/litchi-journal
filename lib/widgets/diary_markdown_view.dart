@@ -53,7 +53,7 @@ class DiaryMarkdownView extends StatelessWidget {
     }
 
     for (final section in document.sections) {
-      if (section.isEmpty) continue;
+      if (section.isEmpty && (section is! CoachSection || onGenerateCoach == null)) continue;
       widgets.add(_buildSection(section, context));
     }
 

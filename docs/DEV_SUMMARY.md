@@ -453,3 +453,147 @@ POST /api/v1/diary/create
 它已经具备日常文字记录 App 的主要能力：跨日自动建日记，随手记、觉察、小确幸可添加、AI 润色、自动标签、编辑、删除；焦虑四问可新建、润色当前回答、编辑替换；习惯可更新；设置页可配置 AI 和提示词；草稿可短时保护；Obsidian 后台同步正常。
 
 尚未完成的主要能力包括：图片添加、画廊页面、历史页、统计页、人生教练功能、标签管理、习惯管理、完整设置管理，以及 Open Design UI 重设计。
+
+---
+
+## 19. Sprint 11-12：图片上传、压缩、显示与删除
+
+对应提交：
+
+```text
+970a823 feat: add image upload and media section rendering
+8e949d4 feat: image tap-to-preview and delete with confirm dialog
+96b3ed0 feat: iterative compression loop with quality + resize, 3MB target
+```
+
+这一阶段实现 Flutter 端图片功能 MVP Phase 1 和 Phase 2，包括上传、压缩、显示、预览和删除，复用服务端已有的完整图片能力：
+
+服务端已有：
+- `POST /api/v1/diary/image/upload` — 接收 base64 压缩图片，保存为 `Image-YYYYMMDD-NNN.jpg`，追加 `![[filename]]` 到 `## 📸 影像记录`
+- `GET /api/v1/diary/image/:year/:imageName?month=:month` — 返回 base64 图片 JSON
+- 删除条目时自动清理不再引用的图片文件
+
+Flutter 端实现：
+
+### 19.1 依赖与压缩
+
+新增 `image_picker` 和 `image`（纯 Dart 图片处理）两个依赖。`ImageCompressService` 使用以下策略逐步将图片压缩到 3MB 以内：
+
+1. 长边 > 2000px 时等比缩小到 2000px
+2. quality 70 编码 JPEG → ≤ 3MB？返回
+3. 逐步降 quality：60 → 50 → 40 → 30
+4. 仍 > 3MB：长边 × 0.85 缩小，从 quality 70 重新开始
+5. 最小长边 800px（防止无限循环）
+6. 最终 best-effort 返回
+
+### 19.2 ApiClient 扩展
+
+新增 `uploadImage()` 和 `fetchDiaryImage()`，分别调用服务端的上传和读取接口。
+
+### 19.3 ImageSectionCard
+
+新建组件，负责：
+- 解析 `## 📸 影像记录` section 中的 `![[filename]]` WikiLink
+- 通过 `fetchDiaryImage` 加载图片 bytes
+- 渲染 120×120 缩略图（loading/error 状态）
+- 点击缩略图 → `showDialog` 全屏大图预览（黑色背景，InteractiveViewer 支持缩放）
+- 缩略图右上角 ⋮ → "删除" → AlertDialog 确认 → 删除回调
+
+### 19.4 显示路由
+
+`DiaryMarkdownView` 新增 `MediaSection` 路由到 `ImageSectionCard`，传递 `apiClient` 和 `date` 参数。
+
+### 19.5 真机验证
+
+上传后 Obsidian 写入 `![[Image-YYYYMMDD-NNN.jpg]]`，Vault assets 目录生成对应文件，Flutter 刷新后显示缩略图，点击可预览和删除。
+
+---
+
+## 20. 一键生成人生教练（多次迭代）
+
+对应提交：
+
+```text
+4e9930b feat: one-click coach generation with action separation
+f82f1aa fix: show CoachSection card even when empty so generate button is visible
+56b58d4 fix: flexible parseCoachResult + display coach content in card
+16500c0 fix: normalize coach output - strict prompt, module parser, markdown cleaning
+d007c1a fix: stable coach output - same-type dedup, startsWith matching, empty guard
+7acefbd fix: revert to Web-style client-side coach generation with existing server APIs
+adcdb86 refactor: delegate coach generation to server endpoint (REVERTED)
+393b89b fix: coach card title row height — compact button style to match other sections
+65312eb style: unify coach/tomorrow card styling with SectionCard, module titles as small headings
+f08695d fix: revert ?trailing syntax, add coach+tomorrow regression tests
+886fe09 fix: normalize coach content — handle title+body same-line, ** artifacts, aliases
+035c93bf chore: fix use_null_aware_elements lint + remove unused _isCoachModuleTitle
+```
+
+这一阶段经历了一次反复的重构，最终稳定在 Web 同款客户端架构。
+
+### 20.1 架构选择（重要经验）
+
+最初选择新增服务端端点 `POST /api/v1/diary/coach/generate`，让服务端统一处理 AI 调用和模块拆分。后来回退到 Web 端同款客户端模式：Flutter 直接调 AI → 正则提取行动建议 → 用已有 `POST /lizhi-says` + `POST /tomorrow` 写入。
+
+**教训**：不要为单一客户端功能新增服务端端点，除非该逻辑必须中心化。Flutter 和 Web 都维护自己的客户端 AI 调用更简单，Web 端经验证的逻辑可以直接在 Flutter 端复刻。
+
+### 20.2 生成逻辑
+
+- PolisherService.generateCoach() — 直接调用 AI 厂商
+- PolisherService.splitCoachResultLikeWeb() — 正则提取行动建议模块，写入时分为 lizhiContent 和 actionContent
+- 服务端 replaceLizhiSaysSection / replaceTomorrowSection 自动补 `- ` 前缀
+
+### 20.3 格式归一化（多次修补）
+
+AI 输出不稳定导致多次迭代。最终 `_cleanCoachForReplace` 使用 `_extractModuleTitle` + `_normalizeTitle` + `_cleanBodyText` 支持：
+
+- 标题+正文同行拆分：`📌 **模式识别** 今天你展现了…` → `📌 模式识别` + `今天你展现了…`
+- Markdown 标记清理：`**`、`###`、`【】`、编号、冒号
+- 别名归一化：`主要模式与趋势` → `📌 模式识别`，`潜在矛盾与提醒` → `⚠️ 矛盾指出`，`温暖结语` → `💬 暖心鼓励`
+- 正文 bullet 清理：`- - 正文` → `正文`
+
+### 20.4 UI 展示
+
+人生教练卡片从 `Card` + `titleMedium` 改为 `SectionCard`（与其他 section 一致的 13px 标题、左 accent 边线、圆角容器）。
+模块标题 📌⚠️💬 降级为小段落标题（bodyMedium + w600 + primary color）。
+右侧「重新生成」按钮改为 `VisualDensity.compact` + `shrinkWrap`，避免撑高标题行。
+
+### 20.5 关键修复
+
+- CoachSection 为空时被 `section.isEmpty` 跳过 → 改为 `!CoachSection` 例外
+- _buildCoachCard 只渲染按钮不渲染正文 → 新增 `_buildCoachContentWidgets`
+- TomorrowSection 不显示 → 测试断言用了 `###` 前缀（实际 parser 已剥除）→ 修复为 `🌙 明日寄语`
+- `?trailing` 语法兼容性问题 → 回退为 `if (trailing != null) trailing!`
+
+### 20.6 SectionCard trailing 参数
+
+为支持人生教练卡片右侧的生成按钮，SectionCard 新增可选 `trailing` 参数（Widget?），放入标题行 Row 右侧。
+
+---
+
+## 21. 当前项目状态（2026-06-09）
+
+当前 Flutter 端可以定义为：
+
+"荔枝日记 Flutter 图片 + 文字记录功能对齐版"。
+
+所有文字记录功能已完成并经过多次真机验证：跨日自动建日记，随手记、觉察、小确幸可添加、AI 润色、自动标签、编辑、删除；焦虑四问可新建、润色当前回答、编辑替换；习惯可更新；设置页可配置 AI 和提示词；草稿可短时保护；图片可上传、压缩、预览、删除；人生教练可一键生成（含模块拆分与格式归一化）；Obsidian 后台同步正常。
+
+测试覆盖：227 个 Flutter 测试全部通过，analyze 零问题。
+
+已完成的功能：
+- 文字记录（随手记、觉察、小确幸、焦虑四问）CRUD
+- AI 润色 + 自动标签（含 retry）
+- 习惯追踪（checkbox/counter/water/steps）
+- 草稿保护（2 分钟 TTL）
+- 图片上传 + 压缩（3MB 上限循环）
+- 图片大图预览 + 删除
+- 一键生成人生教练（含行动建议拆分）
+- CoachSection / TomorrowSection 独立渲染
+- SectionCard 统一 UI 样式
+
+开发中的注意事项：
+- 人生教练的 AI 输出格式不稳定，`_cleanCoachForReplace` 需要持续兼容各种变体
+- 不要新增服务端端点给单一客户端功能
+- `section.title` 由 `_sectionHeader` 正则提取，不包含 `###`/`##` 前缀
+- SectionCard `trailing` 参数用于标题行右侧控件
+- 图片通过 Image.memory 渲染（服务端返回 base64 JSON，不是直接二进制 URL）

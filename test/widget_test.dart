@@ -3890,6 +3890,82 @@ tags:
     });
   });
 
+  group('coach content normalization', () {
+    test('title and body on same line with ** artifacts', () {
+      final raw = '📌 **模式识别** 今天你展现了清晰的目标导向\n'
+          '⚠️ **矛盾指出** 然而你记录焦虑时\n'
+          '💬 **暖心鼓励** 你已经开始训练觉察力';
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+      final lines = parts.lizhiContent.split('\n');
+      expect(lines[0], '📌 模式识别');
+      expect(lines[1], '今天你展现了清晰的目标导向');
+      expect(lines[2], '⚠️ 矛盾指出');
+      expect(lines[3], '然而你记录焦虑时');
+      expect(lines[4], '💬 暖心鼓励');
+      expect(lines[5], '你已经开始训练觉察力');
+    });
+
+    test('title with colon and body on same line', () {
+      final raw = '📌 模式识别：今天你展现了清晰的目标导向\n'
+          '⚠️ 矛盾指出：然而你记录焦虑时';
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+      expect(parts.lizhiContent, contains('📌 模式识别'));
+      expect(parts.lizhiContent, contains('今天你展现了清晰的目标导向'));
+      expect(parts.lizhiContent, isNot(contains('**')));
+      expect(parts.lizhiContent, isNot(contains('：')));
+    });
+
+    test('header markdown ### is stripped', () {
+      final raw = '### 📌 **模式识别**\n'
+          '今天不错\n'
+          '### ⚠️ **矛盾指出**\n'
+          '有点问题';
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+      expect(parts.lizhiContent, contains('📌 模式识别'));
+      expect(parts.lizhiContent, contains('⚠️ 矛盾指出'));
+      expect(parts.lizhiContent, isNot(contains('###')));
+      expect(parts.lizhiContent, isNot(contains('**')));
+    });
+
+    test('alias titles are normalized', () {
+      final raw = '主要模式与趋势\n'
+          '今天不错\n'
+          '潜在矛盾与提醒\n'
+          '有点问题\n'
+          '温暖结语\n'
+          '加油';
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+      expect(parts.lizhiContent, contains('📌 模式识别'));
+      expect(parts.lizhiContent, contains('⚠️ 矛盾指出'));
+      expect(parts.lizhiContent, contains('💬 暖心鼓励'));
+      expect(parts.lizhiContent, isNot(contains('主要模式')));
+      expect(parts.lizhiContent, isNot(contains('潜在矛盾')));
+      expect(parts.lizhiContent, isNot(contains('温暖结语')));
+    });
+
+    test('body ** is cleaned', () {
+      final raw = '📌 **模式识别**\n'
+          '- 你今天**表现很好**特别棒';
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+      expect(parts.lizhiContent, isNot(contains('**')));
+      expect(parts.lizhiContent, contains('你今天表现很好特别棒'));
+    });
+
+    test('standard format is not broken', () {
+      final raw = '📌 模式识别\n'
+          '- 今天表现很好\n'
+          '⚠️ 矛盾指出\n'
+          '- 有点焦虑\n'
+          '💬 暖心鼓励\n'
+          '- 加油';
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+      expect(parts.lizhiContent, contains('📌 模式识别'));
+      expect(parts.lizhiContent, contains('⚠️ 矛盾指出'));
+      expect(parts.lizhiContent, contains('💬 暖心鼓励'));
+      expect(parts.lizhiContent, isNot(contains('**')));
+    });
+  });
+
   group('DiaryMarkdownView coach and tomorrow', () {
     testWidgets('shows both coach and tomorrow sections',
         (tester) async {

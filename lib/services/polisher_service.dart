@@ -293,21 +293,112 @@ class PolisherService {
     }
 
     for (final rawLine in text.split('\n')) {
-      final line = _stripGeneratedListMarker(rawLine);
-      if (line.isEmpty) {
+      final raw = rawLine.trim();
+      if (raw.isEmpty) {
         flushParagraph();
         continue;
       }
-      if (_isCoachModuleTitle(line)) {
+
+      // Try to detect and extract a module title from this line
+      final extracted = _extractModuleTitle(raw);
+      if (extracted != null) {
         flushParagraph();
-        output.add(line);
+        output.add(extracted.title);
+        if (extracted.body != null) {
+          paragraph.add(extracted.body!);
+        }
       } else {
-        paragraph.add(line);
+        final body = _cleanBodyText(raw);
+        if (body.isNotEmpty) paragraph.add(body);
       }
     }
     flushParagraph();
 
     return output.join('\n').trim();
+  }
+
+  /// Returns (normalizedTitle, remainingBody) if the line contains a module title.
+  /// If the line is just a title, body is null.
+  /// If the line starts with a module emoji but no recognized keyword, returns null.
+  static ({String title, String? body})? _extractModuleTitle(String raw) {
+    // Strip markdown artifacts for matching
+    var cleaned = raw
+        .replaceAll('**', '')
+        .replaceAll(RegExp(r'#{1,3}\s*'), '')
+        .replaceAll('【', '')
+        .replaceAll('】', '')
+        .trim();
+
+    if (cleaned.isEmpty) return null;
+
+    // Check which module this is and get the normalized title
+    final normTitle = _normalizeTitle(cleaned);
+    if (normTitle == null) return null;
+
+    // Find the actual title text position in the original line.
+    // The original line might be: "📌 **模式识别** 今天你展现了……"
+    // or: "📌 模式识别：今天你展现了……"
+
+    // Find where the title part ends in the ORIGINAL string.
+    // Strategy: find the normalized title text position, and body starts after it.
+    final normText = _titleTextFor(normTitle); // e.g., "模式识别"
+    final rawNoMD = raw
+        .replaceAll('**', '')
+        .replaceAll(RegExp(r'#{1,3}\s*'), '')
+        .replaceAll('【', '')
+        .replaceAll('】', '')
+        .replaceAll(RegExp(r'^\d+\.\s*'), '')
+        .trim();
+
+    final idx = rawNoMD.indexOf(normText);
+    if (idx == -1) return (title: normTitle, body: null);
+
+    final afterTitle = rawNoMD.substring(idx + normText.length)
+        .replaceFirst(RegExp(r'^[：:\s]+'), '')
+        .trim();
+
+    if (afterTitle.isEmpty) return (title: normTitle, body: null);
+
+    final body = _cleanBodyText(afterTitle);
+    return (title: normTitle, body: body.isEmpty ? null : body);
+  }
+
+  static String? _normalizeTitle(String cleaned) {
+    // Check for pattern recognition aliases
+    if (_matchesModule(cleaned, const ['模式识别', '主要模式', '主要模式与趋势'])) {
+      return '📌 模式识别';
+    }
+    if (_matchesModule(cleaned, const ['矛盾指出', '潜在矛盾', '可能的矛盾', '矛盾', '不一致'])) {
+      return '⚠️ 矛盾指出';
+    }
+    if (_matchesModule(cleaned,
+        const ['暖心鼓励', '温暖鼓励', '温暖结语', '最后，想对你说', '最后想对你说'])) {
+      return '💬 暖心鼓励';
+    }
+    return null;
+  }
+
+  static bool _matchesModule(String text, List<String> aliases) {
+    for (final a in aliases) {
+      if (text.contains(a)) return true;
+    }
+    return false;
+  }
+
+  static String _titleTextFor(String normTitle) {
+    switch (normTitle) {
+      case '📌 模式识别': return '模式识别';
+      case '⚠️ 矛盾指出': return '矛盾指出';
+      case '💬 暖心鼓励': return '暖心鼓励';
+      default: return normTitle;
+    }
+  }
+
+  static String _cleanBodyText(String text) {
+    return text
+        .replaceAll('**', '')
+        .replaceAll(RegExp(r'^[-•·.\s]+'), '')
+        .trim();
   }
 
   static String _stripGeneratedListMarker(String line) {

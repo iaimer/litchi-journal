@@ -212,6 +212,36 @@ class ApiClient {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<bool> replaceLizhiSays(
+    DateTime date,
+    String content,
+  ) async {
+    final response = await _http.post(
+      Uri.parse('$_baseUrl/api/v1/diary/lizhi-says'),
+      headers: _headers,
+      body: jsonEncode({
+        'date': formatDate(date),
+        'content': content,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> replaceTomorrowSection(
+    DateTime date,
+    String content,
+  ) async {
+    final response = await _http.post(
+      Uri.parse('$_baseUrl/api/v1/diary/tomorrow'),
+      headers: _headers,
+      body: jsonEncode({
+        'date': formatDate(date),
+        'content': content,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
   Future<bool> editEntry(
     DateTime date, {
     required String section,

@@ -21,6 +21,8 @@ class DiaryMarkdownView extends StatelessWidget {
   final TagConfig? tagConfig;
   final ApiClient? apiClient;
   final DateTime? date;
+  final VoidCallback? onGenerateCoach;
+  final bool generatingCoach;
 
   const DiaryMarkdownView({
     super.key,
@@ -31,6 +33,8 @@ class DiaryMarkdownView extends StatelessWidget {
     this.tagConfig,
     this.apiClient,
     this.date,
+    this.onGenerateCoach,
+    this.generatingCoach = false,
   });
 
   @override
@@ -50,7 +54,7 @@ class DiaryMarkdownView extends StatelessWidget {
 
     for (final section in document.sections) {
       if (section.isEmpty) continue;
-      widgets.add(_buildSection(section));
+      widgets.add(_buildSection(section, context));
     }
 
     if (widgets.isEmpty) return const SizedBox.shrink();
@@ -60,7 +64,7 @@ class DiaryMarkdownView extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(DiarySection section) {
+  Widget _buildSection(DiarySection section, BuildContext context) {
     switch (section) {
       case HabitSection():
         return HabitCard(
@@ -106,6 +110,8 @@ class DiaryMarkdownView extends StatelessWidget {
               : null,
           tagConfig: tagConfig,
         );
+      case CoachSection():
+        return _buildCoachCard(section, context);
       case MediaSection():
         if (apiClient != null && date != null) {
           return ImageSectionCard(
@@ -121,5 +127,66 @@ class DiaryMarkdownView extends StatelessWidget {
       default:
         return GenericSectionCard(section: section);
     }
+  }
+
+  Widget _buildCoachCard(CoachSection section, BuildContext context) {
+    final theme = Theme.of(context);
+    final hasContent = section.contents.any(
+      (c) => c is MarkdownContent && c.text.trim().isNotEmpty,
+    );
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: theme.colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    section.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (onGenerateCoach != null)
+                  TextButton.icon(
+                    onPressed:
+                        generatingCoach ? null : onGenerateCoach,
+                    icon: generatingCoach
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 1.5),
+                          )
+                        : const Text('🧠', style: TextStyle(fontSize: 14)),
+                    label: Text(
+                      generatingCoach
+                          ? '生成中...'
+                          : (hasContent ? '重新生成' : '生成今日反馈'),
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+              ],
+            ),
+            if (!hasContent && onGenerateCoach == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '暂无教练反馈',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

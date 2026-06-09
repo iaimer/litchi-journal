@@ -42,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _draftRepository = DraftRepository();
   final _imagePicker = ImagePicker();
   bool _imageUploading = false;
+  bool _generatingCoach = false;
 
   @override
   void initState() {
@@ -341,6 +342,88 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _handleGenerateCoach() async {
+    if (_generatingCoach || _diary == null || _diary!.raw.isEmpty) return;
+
+    setState(() => _generatingCoach = true);
+
+    try {
+      final aiRepo = AIConfigRepository();
+      final config = await aiRepo.loadAIConfig();
+      if (!config.isUsable) throw Exception('请先在设置中启用AI并配置API');
+
+      final sections = <String>[];
+      void addSection(String title, List<String> items) {
+        if (items.isNotEmpty) {
+          sections.add('【$title】');
+          sections.addAll(items);
+        }
+      }
+
+      final document = const MarkdownParser().parse(_diary!.raw);
+      for (final section in document.sections) {
+        if (section is QuickNoteSection) {
+          addSection('随手记',
+              section.notes.map((n) => n.content).toList());
+        } else if (section is HappinessSection) {
+          final items = section.contents
+              .whereType<TimelineContent>()
+              .map((t) => t.text)
+              .toList();
+          addSection('小确幸', items);
+        } else if (section is ReviewSection) {
+          final items = section.contents
+              .whereType<TimelineContent>()
+              .map((t) => t.text)
+              .toList();
+          addSection('觉察', items);
+        } else if (section is AnxietySection) {
+          final answers = AnxietyComposer.parseAnswers(
+            section.contents
+                .map((c) => c is MarkdownContent ? c.text : '')
+                .join('\n'),
+          );
+          addSection('焦虑时刻', answers.where((a) => a.isNotEmpty).toList());
+        }
+      }
+
+      final diaryContext = sections.join('\n');
+      if (diaryContext.isEmpty) throw Exception('今天还没有日记内容');
+
+      final service = PolisherService();
+      final result = await service.generateCoach(
+        diaryContext: diaryContext,
+        config: config,
+      );
+
+      final parsed = PolisherService.parseCoachResult(result);
+      final lizhiContent = parsed[0];
+      final actionContent = parsed[1];
+
+      // Write 人生教练 (modules except 🎯行动建议)
+      await widget.apiClient.replaceLizhiSays(DateTime.now(), lizhiContent);
+
+      // Write 明日寄语 (only 🎯行动建议)
+      if (actionContent.isNotEmpty) {
+        await widget.apiClient.replaceTomorrowSection(
+            DateTime.now(), actionContent);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('教练反馈已生成')));
+      _loadDiarySilently();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            '生成失败: ${e.toString().replaceFirst('Exception: ', '')}'),
+      ));
+    } finally {
+      if (mounted) setState(() => _generatingCoach = false);
+    }
+  }
+
   String _todayString() {
     final now = DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
@@ -408,6 +491,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       tagConfig: _tagConfig,
                       apiClient: widget.apiClient,
                       date: DateTime.now(),
+                      onGenerateCoach: _handleGenerateCoach,
+                      generatingCoach: _generatingCoach,
                     ),
                   ] else ...[
                     const Text(

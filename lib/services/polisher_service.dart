@@ -21,15 +21,26 @@ class PolisherService {
 6. 输出润色后的正文即可。''';
 
   static const defaultCoachPrompt = '''
-你是一个人生教练，将根据用户今天的日记记录，给予结构化的指导。
+你是一个理性的人生教练。基于当天日记内容，输出 250-300 字的分析。用第三人称"你"视角。
 
-【教练规则】
-1. 识别用户今天的主要模式或趋势
-2. 指出可能的矛盾或不一致之处
-3. 给出一条可操作的行动建议
-4. 以温暖鼓励的语气结束
-5. 使用第二人称"你"
-6. 控制在250-300字''';
+按以下结构输出，模块间空行分隔：
+
+📌 模式识别
+今天的行为模式或思维惯性
+
+⚠️ 矛盾指出
+温和指出言行不一致的地方
+
+🎯 行动建议
+明天可做的具体小改进
+
+💬 暖心鼓励
+注入一点情绪价值，给继续记录、持续改进的勇气
+
+铁律：
+- 总字数严格 250-300 字，不超出、不偷懒
+- 只基于原文，不编造
+- 教练口吻，客观直接，不说教''';
 
   static const _retryInstruction = '''
 【重要提醒】
@@ -183,6 +194,77 @@ class PolisherService {
     }
 
     return rawContent.trim();
+  }
+
+  Future<String> generateCoach({
+    required String diaryContext,
+    required AIConfig config,
+  }) async {
+    if (!config.isUsable) {
+      throw Exception('AI 教练未启用或配置不完整');
+    }
+
+    final trimmed = config.coachPrompt?.trim();
+    final effectivePrompt =
+        (trimmed != null && trimmed.isNotEmpty) ? trimmed : defaultCoachPrompt;
+
+    final chatUrl = PolisherService.chatUrl(config.baseUrl);
+
+    final response = await _http.post(
+      Uri.parse(chatUrl),
+      headers: {
+        'Authorization': 'Bearer ${config.apiKey}',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': config.model,
+        'messages': [
+          {'role': 'system', 'content': effectivePrompt},
+          {
+            'role': 'user',
+            'content': '今天日记内容：\n$diaryContext',
+          },
+        ],
+        'max_tokens': 800,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('AI 教练生成失败 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final choices = json['choices'] as List?;
+    if (choices == null || choices.isEmpty) {
+      throw Exception('AI 未返回教练结果');
+    }
+
+    final message =
+        (choices[0] as Map<String, dynamic>)['message'] as Map<String, dynamic>?;
+    final rawContent = message?['content'] as String?;
+    if (rawContent == null || rawContent.trim().isEmpty) {
+      throw Exception('AI 教练结果为空');
+    }
+
+    return rawContent.trim();
+  }
+
+  static List<String> parseCoachResult(String raw) {
+    // Extract 🎯 行动建议 module — same regex as Web
+    final actionMatch = RegExp(
+      r'(?:###\s+)?\*{0,2}\s*🎯\s*\*{0,2}\s*行动建议\s*\*{0,2}\s*\n?([\s\S]*?)(?=(?:###\s+)?\*{0,2}\s*💬\s*\*{0,2}\s*暖心鼓励\s*\*{0,2}|$)',
+      multiLine: true,
+    ).firstMatch(raw);
+
+    final actionContent =
+        actionMatch?.group(1)?.trim() ?? '';
+
+    // Remove action module + clean up whitespace
+    final lizhiContent = actionMatch != null
+        ? raw.replaceAll(actionMatch.group(0)!, '').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim()
+        : raw.trim();
+
+    return [lizhiContent, actionContent];
   }
 
   String _buildSystemPrompt({

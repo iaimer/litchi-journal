@@ -400,11 +400,15 @@ class _HomeScreenState extends State<HomeScreen> {
       final lizhiContent = parsed[0];
       final actionContent = parsed[1];
 
+      if (lizhiContent.trim().isEmpty) {
+        throw Exception('生成结果格式异常，请重试');
+      }
+
       // Write 人生教练 (modules except 🎯行动建议)
       await widget.apiClient.replaceLizhiSays(DateTime.now(), lizhiContent);
 
       // Write 明日寄语 (only 🎯行动建议)
-      if (actionContent.isNotEmpty) {
+      if (actionContent.trim().isNotEmpty) {
         await widget.apiClient.replaceTomorrowSection(
             DateTime.now(), actionContent);
       }

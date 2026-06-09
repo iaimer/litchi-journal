@@ -297,12 +297,20 @@ class PolisherService {
     '行动建议', '可操作的行动', '操作建议', '具体行动',
   ];
   static final _encouragementAliases = [
-    '暖心鼓励', '温暖鼓励', '温暖结语',
+    '暖心鼓励', '温暖鼓励', '温暖结语', '最后，想对你说', '最后想对你说',
   ];
 
-  static bool _matchesAny(String text, List<String> aliases) {
-    final cleaned = _cleanMarkdown(text);
-    return aliases.any((a) => cleaned.contains(a));
+  static bool _matchesAny(String cleanedText, List<String> aliases) {
+    return aliases.any((a) {
+      if (cleanedText == a) return true;
+      // Allow longer phrases that start with the alias
+      if (cleanedText.startsWith(a)) return true;
+      // Strip trailing punctuation and check again
+      final stripped = cleanedText
+          .replaceAll(RegExp(r'[！？：…\.、，]+$'), '')
+          .trim();
+      return stripped == a || stripped.startsWith(a);
+    });
   }
 
   static String _cleanMarkdown(String text) {
@@ -311,8 +319,9 @@ class PolisherService {
         .replaceAll(RegExp(r'#{1,3}\s*'), '')
         .replaceAll('【', '')
         .replaceAll('】', '')
+        .replaceAll(RegExp(r'^[-\u2022\s]+'), '')
+        .replaceAll(RegExp(r'^[📌⚠️🎯💬\s]+'), '')
         .replaceAll(RegExp(r'^\d+\.\s*'), '')
-        .replaceAll(RegExp(r'^[-•]\s*'), '')
         .replaceAll(RegExp(r'[：:]$'), '')
         .trim();
   }
@@ -342,6 +351,13 @@ class PolisherService {
       final type = _detectModuleType(t);
       if (type != null) {
         reachedFirstModule = true;
+        // Only start a new module if the type changed.
+        // Same-type lines within a module are body, not titles.
+        if (current != null && current.type == type) {
+          final cleaned = _cleanBodyLine(t);
+          if (cleaned.isNotEmpty) current.bodyLines.add(cleaned);
+          continue;
+        }
         if (current != null && current.bodyLines.isNotEmpty) {
           blocks.add(current);
         }
@@ -364,8 +380,8 @@ class PolisherService {
     return blocks;
   }
 
-  static _ModuleType? _detectModuleType(String line) {
-    final c = _cleanMarkdown(line);
+  static _ModuleType? _detectModuleType(String rawLine) {
+    final c = _cleanMarkdown(rawLine);
     if (c.isEmpty) return null;
 
     if (_matchesAny(c, _actionAliases)) return _ModuleType.action;

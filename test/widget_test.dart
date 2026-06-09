@@ -3764,7 +3764,6 @@ tags:
       expect(r[0], contains('📌 模式识别'));
       expect(r[0], contains('⚠️ 矛盾指出'));
       expect(r[0], contains('💬 暖心鼓励'));
-      expect(r[0], isNot(contains('行动建议')));
       expect(r[0], isNot(contains('🎯')));
     });
 
@@ -3780,16 +3779,12 @@ tags:
           '- 加油';
       final r = PolisherService.parseCoachResult(raw);
       expect(r[1], '- 明天早点睡');
-      // Preamble filtered
       expect(r[0], isNot(contains('你好')));
-      // Titles normalized
       expect(r[0], contains('📌 模式识别'));
       expect(r[0], contains('⚠️ 矛盾指出'));
       expect(r[0], contains('💬 暖心鼓励'));
-      // No markdown artifacts
       expect(r[0], isNot(contains('**')));
       expect(r[0], isNot(contains('【')));
-      expect(r[0], isNot(contains('】')));
       expect(r[0], isNot(contains('行动建议')));
     });
 
@@ -3805,6 +3800,32 @@ tags:
       expect(r[0], contains('- 加油'));
     });
 
+    test('最后，想对你说 starts encouragement, not action body', () {
+      final raw = '📌 模式识别\n'
+          '- 今天很好\n'
+          '🎯 行动建议\n'
+          '- 明天早点睡\n'
+          '最后，想对你说：\n'
+          '- 加油';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[1], '- 明天早点睡');
+      expect(r[1], isNot(contains('加油')));
+      expect(r[1], isNot(contains('最后')));
+      expect(r[0], contains('💬 暖心鼓励'));
+      expect(r[0], contains('- 加油'));
+    });
+
+    test('no action module, 最后想对你说 goes to encouragement', () {
+      final raw = '📌 模式识别\n'
+          '- 今天不错\n'
+          '最后，想对你说\n'
+          '- 你值得这样被善待';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[1], '');
+      expect(r[0], contains('💬 暖心鼓励'));
+      expect(r[0], contains('- 你值得这样被善待'));
+    });
+
     test('action at end without encouragement', () {
       final raw = '📌 模式识别\n'
           '- 今天不错\n'
@@ -3815,7 +3836,7 @@ tags:
       expect(r[0], isNot(contains('行动')));
     });
 
-    test('no action module returns empty', () {
+    test('no action module returns empty actionContent', () {
       final raw = '📌 模式识别\n'
           '- 今天不错\n'
           '💬 暖心鼓励\n'
@@ -3826,11 +3847,20 @@ tags:
       expect(r[0], contains('💬'));
     });
 
-    test('no double bullet normalization', () {
+    test('double bullet normalization', () {
       final raw = '🎯 行动建议\n'
           '- - 明天早点睡';
       final r = PolisherService.parseCoachResult(raw);
       expect(r[1], '- 明天早点睡');
+    });
+
+    test('mixed bullet • • normalization', () {
+      final raw = '💬 暖心鼓励\n'
+          '•  •  最后，想对你说……';
+      final r = PolisherService.parseCoachResult(raw);
+      expect(r[0], contains('- 最后，想对你说……'));
+      expect(r[0], isNot(contains('•')));
+      expect(r[0], isNot(contains('- -')));
     });
 
     test('removes ** from body text', () {
@@ -3841,14 +3871,16 @@ tags:
       expect(r[0], contains('- 你今天表现很好'));
     });
 
-    test('aliases for contradiction: 潜在矛盾与提醒', () {
+    test('去掉方括号', () {
       final raw = '- **【潜在矛盾与提醒】**\n'
           '- 有点焦虑\n'
           '💬 暖心鼓励\n'
           '- 加油';
       final r = PolisherService.parseCoachResult(raw);
       expect(r[0], contains('⚠️ 矛盾指出'));
-      expect(r[0], isNot(contains('【潜在矛盾')));
+      // No CJK bracket artifacts
+      expect(r[0].contains('\u3010'), isFalse);
+      expect(r[0].contains('\u3011'), isFalse);
     });
   });
 

@@ -354,63 +354,59 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Build diary context (same as Web client)
       final sections = <String>[];
+
       void addSection(String title, List<String> items) {
         if (items.isNotEmpty) {
-          sections.add('【$title】');
-          sections.addAll(items);
+          sections.addAll(['【$title】', ...items]);
         }
       }
 
       final document = const MarkdownParser().parse(_diary!.raw);
       for (final section in document.sections) {
         if (section is QuickNoteSection) {
-          addSection('随手记',
-              section.notes.map((n) => n.content).toList());
+          addSection('随手记', _timelineRawLines(section.contents));
         } else if (section is HappinessSection) {
-          addSection('小确幸',
-              section.contents.whereType<TimelineContent>().map((t) => t.text).toList());
-        } else if (section is ReviewSection) {
-          addSection('觉察',
-              section.contents.whereType<TimelineContent>().map((t) => t.text).toList());
+          addSection('小确幸', _timelineRawLines(section.contents));
         } else if (section is AnxietySection) {
-          final answers = AnxietyComposer.parseAnswers(
-            section.contents
-                .map((c) => c is MarkdownContent ? c.text : '')
-                .join('\n'),
-          );
-          addSection('焦虑时刻', answers.where((a) => a.isNotEmpty).toList());
+          addSection('焦虑时刻', _markdownLines(section.contents));
+        } else if (section is ReviewSection) {
+          addSection('觉察', _timelineRawLines(section.contents));
+        } else if (section is TomorrowSection) {
+          addSection('明日寄语', _markdownLines(section.contents));
         }
       }
 
       final diaryContext = sections.isEmpty ? '今天暂无日记内容' : sections.join('\n');
 
-      // Call AI (same as Web's generateLizhiSays)
       final service = PolisherService();
-      final result = await service.generateCoach(
-        diaryContext: diaryContext,
-        config: config,
-      );
+      try {
+        final result = await service.generateCoach(
+          diaryContext: diaryContext,
+          config: config,
+        );
+        final parts = PolisherService.splitCoachResultLikeWeb(result);
+        final lizhiContent = parts.lizhiContent;
+        final actionContent = parts.actionContent;
 
-      // Extract action suggestion (same regex as Web)
-      final actionMatch = RegExp(
-        r'(?:###\s+)?\*{0,2}\s*🎯\s*\*{0,2}\s*行动建议\s*\*{0,2}\s*\n?([\s\S]*?)(?=(?:###\s+)?\*{0,2}\s*💬\s*\*{0,2}\s*暖心鼓励\s*\*{0,2}|$)',
-      ).firstMatch(result);
+        if (lizhiContent.isEmpty) {
+          throw Exception('生成结果为空，请重试');
+        }
 
-      final actionContent = actionMatch?.group(1)?.trim() ?? '';
+        if (actionContent.isNotEmpty) {
+          final ok = await widget.apiClient.replaceTomorrowSection(
+            DateTime.now(),
+            actionContent,
+          );
+          if (!ok) throw Exception('保存明日寄语失败');
+        }
 
-      // Remove action module for lizhi_says (same as Web)
-      final lizhiContent = actionMatch != null
-          ? result.replaceAll(actionMatch.group(0)!, '').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim()
-          : result.trim();
-
-      if (lizhiContent.isEmpty) throw Exception('生成结果为空，请重试');
-
-      // Write to server (same as Web)
-      final ok = await widget.apiClient.replaceLizhiSays(DateTime.now(), lizhiContent);
-      if (!ok) throw Exception('保存人生教练失败');
-
-      if (actionContent.isNotEmpty) {
-        await widget.apiClient.replaceTomorrowSection(DateTime.now(), actionContent);
+        final ok = await widget.apiClient.replaceLizhiSays(
+          DateTime.now(),
+          lizhiContent,
+        );
+        if (!ok) throw Exception('保存人生教练失败');
+      } finally {
+        service.dispose();
       }
 
       if (!mounted) return;
@@ -426,6 +422,32 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _generatingCoach = false);
     }
+  }
+
+  List<String> _timelineRawLines(List<DiaryContent> contents) {
+    return contents
+        .whereType<TimelineContent>()
+        .map((content) => content.rawLine)
+        .where(_isUsableContextLine)
+        .toList();
+  }
+
+  List<String> _markdownLines(List<DiaryContent> contents) {
+    final lines = <String>[];
+    for (final content in contents) {
+      if (content is MarkdownContent) {
+        lines.addAll(content.text.split('\n'));
+      }
+    }
+    return lines.where(_isUsableContextLine).toList();
+  }
+
+  bool _isUsableContextLine(String line) {
+    final trimmed = line.trim();
+    return trimmed.isNotEmpty &&
+        trimmed != '-' &&
+        trimmed != '- ' &&
+        !trimmed.contains('<!--');
   }
 
   String _todayString() {

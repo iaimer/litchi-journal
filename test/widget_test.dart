@@ -24,6 +24,7 @@ import 'package:litchi_journal_flutter/services/polisher_service.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
+import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
 import 'package:litchi_journal_flutter/widgets/entry_edit_sheet.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type_selector.dart';
@@ -446,6 +447,25 @@ tags:
     expect(timelines[0].time, '21:24');
     expect(timelines[0].tags, containsAll(['#育儿', '#成长观察', '#反思']));
     expect(timelines[0].rawLine, '- **21:24** 今天反思了一下沟通方式 #育儿 #成长观察 #反思');
+  });
+
+  testWidgets('DiaryMarkdownView renders tomorrow without list bullet',
+      (tester) async {
+    const markdown = '''
+## 📈 每日复盘
+### 🌙 明日寄语
+- 明天当焦虑升起时，立刻用手机备忘录写下担心的一句话。
+''';
+
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(
+        body: DiaryMarkdownView(markdown: markdown),
+      ),
+    ));
+
+    expect(find.text('🌙 明日寄语'), findsOneWidget);
+    expect(find.textContaining('明天当焦虑升起时'), findsOneWidget);
+    expect(find.textContaining('- 明天当焦虑升起时'), findsNothing);
   });
 
   group('QuickNoteComposer', () {
@@ -3747,10 +3767,49 @@ tags:
       expect(systemContent, contains('方法名'));
       expect(systemContent, contains('不能替代领域或主题'));
     });
+
+    test('generateCoach uses Web-compatible prompt and diary context',
+        () async {
+      final client = _CapturingHttpClient(body: '''
+{
+  "choices": [{
+    "message": {
+      "content": "📌 模式识别\\n内容\\n\\n🎯 行动建议\\n行动"
+    }
+  }]
+}''');
+      final service = PolisherService(httpClient: client);
+
+      final result = await service.generateCoach(
+        diaryContext: '【随手记】\n- **09:30** 测试 #生活',
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-secret',
+          model: 'gpt-4',
+        ),
+      );
+
+      final body = client.lastRequestBody!;
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final messages = json['messages'] as List;
+      final systemContent =
+          (messages[0] as Map<String, dynamic>)['content'] as String;
+      final userContent =
+          (messages[1] as Map<String, dynamic>)['content'] as String;
+
+      expect(result, contains('📌 模式识别'));
+      expect(systemContent, contains('你是一个理性的人生教练'));
+      expect(systemContent, contains('📌 模式识别'));
+      expect(systemContent, contains('🎯 行动建议'));
+      expect(systemContent, contains('💬 暖心鼓励'));
+      expect(userContent, '今天日记内容：\n【随手记】\n- **09:30** 测试 #生活');
+      expect(body, isNot(contains('sk-secret')));
+    });
   });
 
-  group('parseCoachResult', () {
-    test('standard emoji titles with bullet bodies', () {
+  group('splitCoachResultLikeWeb', () {
+    test('extracts action and keeps other modules in coach content', () {
       final raw = '📌 模式识别\n'
           '- 今天表现很好\n'
           '⚠️ 矛盾指出\n'
@@ -3759,128 +3818,155 @@ tags:
           '- 明天早点睡\n'
           '💬 暖心鼓励\n'
           '- 加油';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[1], '- 明天早点睡');
-      expect(r[0], contains('📌 模式识别'));
-      expect(r[0], contains('⚠️ 矛盾指出'));
-      expect(r[0], contains('💬 暖心鼓励'));
-      expect(r[0], isNot(contains('🎯')));
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+
+      expect(parts.actionContent, '明天早点睡');
+      expect(parts.lizhiContent, contains('📌 模式识别'));
+      expect(parts.lizhiContent, contains('⚠️ 矛盾指出'));
+      expect(parts.lizhiContent, contains('💬 暖心鼓励'));
+      expect(parts.lizhiContent, isNot(contains('🎯 行动建议')));
+      expect(parts.lizhiContent, isNot(contains('- 今天表现很好')));
+      expect(parts.lizhiContent, contains('📌 模式识别\n今天表现很好'));
     });
 
-    test('numbered bold markdown format with preamble', () {
-      final raw = '你好！看到你今天先做了计划。\n'
-          '- **【模式识别】**\n'
-          '- 今天表现很好\n'
-          '- **【潜在矛盾与提醒】**\n'
-          '- 有点焦虑\n'
-          '- **3. 可操作的行动建议：**\n'
-          '- 明天早点睡\n'
-          '- **【温暖结语】**\n'
-          '- 加油';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[1], '- 明天早点睡');
-      expect(r[0], isNot(contains('你好')));
-      expect(r[0], contains('📌 模式识别'));
-      expect(r[0], contains('⚠️ 矛盾指出'));
-      expect(r[0], contains('💬 暖心鼓励'));
-      expect(r[0], isNot(contains('**')));
-      expect(r[0], isNot(contains('【')));
-      expect(r[0], isNot(contains('行动建议')));
-    });
-
-    test('encouragement not leaked into actionContent', () {
+    test('encouragement does not leak into action content', () {
       final raw = '🎯 行动建议\n'
           '- 多喝水\n'
-          '【温暖结语】\n'
+          '💬 暖心鼓励\n'
           '- 加油';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[1], '- 多喝水');
-      expect(r[1], isNot(contains('加油')));
-      expect(r[0], contains('💬 暖心鼓励'));
-      expect(r[0], contains('- 加油'));
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+
+      expect(parts.actionContent, '多喝水');
+      expect(parts.actionContent, isNot(contains('加油')));
+      expect(parts.lizhiContent, contains('💬 暖心鼓励'));
+      expect(parts.lizhiContent, contains('加油'));
+      expect(parts.lizhiContent, isNot(contains('- 加油')));
     });
 
-    test('最后，想对你说 starts encouragement, not action body', () {
-      final raw = '📌 模式识别\n'
-          '- 今天很好\n'
-          '🎯 行动建议\n'
-          '- 明天早点睡\n'
-          '最后，想对你说：\n'
-          '- 加油';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[1], '- 明天早点睡');
-      expect(r[1], isNot(contains('加油')));
-      expect(r[1], isNot(contains('最后')));
-      expect(r[0], contains('💬 暖心鼓励'));
-      expect(r[0], contains('- 加油'));
-    });
-
-    test('no action module, 最后想对你说 goes to encouragement', () {
-      final raw = '📌 模式识别\n'
-          '- 今天不错\n'
-          '最后，想对你说\n'
-          '- 你值得这样被善待';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[1], '');
-      expect(r[0], contains('💬 暖心鼓励'));
-      expect(r[0], contains('- 你值得这样被善待'));
-    });
-
-    test('action at end without encouragement', () {
-      final raw = '📌 模式识别\n'
-          '- 今天不错\n'
-          '🎯 行动建议\n'
-          '- 多喝水';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[1], '- 多喝水');
-      expect(r[0], isNot(contains('行动')));
-    });
-
-    test('no action module returns empty actionContent', () {
+    test('returns empty action when action module is missing', () {
       final raw = '📌 模式识别\n'
           '- 今天不错\n'
           '💬 暖心鼓励\n'
           '- 加油';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[1], '');
-      expect(r[0], contains('📌'));
-      expect(r[0], contains('💬'));
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+
+      expect(parts.actionContent, '');
+      expect(parts.lizhiContent, contains('📌'));
+      expect(parts.lizhiContent, contains('💬'));
     });
 
-    test('double bullet normalization', () {
-      final raw = '🎯 行动建议\n'
-          '- - 明天早点睡';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[1], '- 明天早点睡');
-    });
-
-    test('mixed bullet • • normalization', () {
-      final raw = '💬 暖心鼓励\n'
-          '•  •  最后，想对你说……';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[0], contains('- 最后，想对你说……'));
-      expect(r[0], isNot(contains('•')));
-      expect(r[0], isNot(contains('- -')));
-    });
-
-    test('removes ** from body text', () {
+    test('merges multiple bullets into one paragraph per section', () {
       final raw = '📌 模式识别\n'
-          '- 你今天**表现很好**';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[0], isNot(contains('**')));
-      expect(r[0], contains('- 你今天表现很好'));
+          '- 你习惯先做计划再行动\n'
+          '- 你倾向在焦虑时记录情绪触发点\n'
+          '\n'
+          '⚠️ 矛盾指出\n'
+          '- 你设计了焦虑处理流程\n'
+          '- 但实际记录只写了计划部分\n'
+          '\n'
+          '🎯 行动建议\n'
+          '- 明天完成焦虑情境的完整记录\n'
+          '- 计划执行后预留5分钟回顾\n'
+          '\n'
+          '💬 暖心鼓励\n'
+          '- 你已经开始用计划管理任务\n'
+          '- 继续保持记录';
+
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+
+      expect(
+        parts.lizhiContent,
+        '📌 模式识别\n'
+        '你习惯先做计划再行动 你倾向在焦虑时记录情绪触发点\n'
+        '⚠️ 矛盾指出\n'
+        '你设计了焦虑处理流程 但实际记录只写了计划部分\n'
+        '💬 暖心鼓励\n'
+        '你已经开始用计划管理任务 继续保持记录',
+      );
+      expect(
+        parts.actionContent,
+        '明天完成焦虑情境的完整记录\n计划执行后预留5分钟回顾',
+      );
+    });
+  });
+
+  group('DiaryMarkdownView coach and tomorrow', () {
+    testWidgets('shows both coach and tomorrow sections',
+        (tester) async {
+      const markdown = '''
+---
+tags:
+  - 日记
+---
+
+# 今天
+
+### 🧠 人生教练
+📌 模式识别
+- 你今天表现很好
+⚠️ 矛盾指出
+- 有一点焦虑
+💬 暖心鼓励
+- 加油
+
+### 🌙 明日寄语
+- 明天完成重要任务
+''';
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: DiaryMarkdownView(
+            markdown: markdown,
+            onGenerateCoach: () {},
+            generatingCoach: false,
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Coach section should show
+      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('📌 模式识别'), findsOneWidget);
+      expect(find.text('⚠️ 矛盾指出'), findsOneWidget);
+      expect(find.text('💬 暖心鼓励'), findsOneWidget);
+
+      // Tomorrow section should show
+      expect(find.text('🌙 明日寄语'), findsOneWidget);
+      expect(find.text('明天完成重要任务'), findsOneWidget);
     });
 
-    test('去掉方括号', () {
-      final raw = '- **【潜在矛盾与提醒】**\n'
-          '- 有点焦虑\n'
-          '💬 暖心鼓励\n'
-          '- 加油';
-      final r = PolisherService.parseCoachResult(raw);
-      expect(r[0], contains('⚠️ 矛盾指出'));
-      // No CJK bracket artifacts
-      expect(r[0].contains('\u3010'), isFalse);
-      expect(r[0].contains('\u3011'), isFalse);
+    testWidgets('restore default rendering after changes',
+        (tester) async {
+      const markdown = '''
+---
+tags:
+  - 日记
+---
+
+# 今天
+
+## 📈 每日复盘
+### 🧠 人生教练
+📌 模式识别
+今天表现很好
+### 🌙 明日寄语
+明天完成重要任务
+''';
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: DiaryMarkdownView(
+            markdown: markdown,
+            onGenerateCoach: () {},
+            generatingCoach: false,
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Both sections exist independently
+      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('🌙 明日寄语'), findsOneWidget);
     });
   });
 

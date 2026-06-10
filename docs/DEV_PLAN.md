@@ -331,3 +331,96 @@ Open Design UI 重设计尚未开始。
 当前项目已经完成从基础 Flutter 客户端到日常文字记录 App 的主要迁移。它不再只是 Web 的辅助阅读器，而是已经具备独立日常使用能力的移动端记录工具。
 
 后续不应继续盲目迁移 Web，而应围绕真实使用体验逐步推进：先稳定，再扩展图片，再做回看，再进入 Open Design。
+
+---
+
+## 16. 当前实际进度更新（2026-06-11）
+
+本节覆盖上方旧计划中已经完成或调整的部分。下一位 agent 应优先以本节为准。
+
+### 16.1 已完成，不再作为待办
+
+以下能力已经完成并通过测试或真机验证：
+
+- 图片上传、压缩、显示、预览、删除
+- 人生教练一键生成、重新生成、明日寄语拆分写入
+- 人生教练旧格式只读展示兼容
+- 底部导航「今天 / 过往」
+- 过往页记忆卡片
+- 过往日记只读详情
+- 过往详情隐藏明日寄语和习惯追踪
+- release 版 Android 网络权限
+
+因此旧计划中的「P1 图片添加能力分析与实现」和「P2 人生教练功能」已完成；「P2 历史页 / 过往日记」已完成第一版，但不是完整日历历史页。
+
+### 16.2 当前稳定版定义
+
+当前版本定位：
+
+```text
+荔枝日记 Flutter 文字 + 图片 + 过往回看功能对齐版
+```
+
+当前稳定提交：
+
+```text
+b19105c Fix past diary read-only rendering
+428e313 Fix coach fallback and past habit hiding
+```
+
+截至 `428e313`：
+
+- `dart analyze lib test` 通过
+- `flutter analyze` 通过
+- `flutter test` 238 个测试全部通过
+- `flutter build apk --release` 通过
+- 最新 release APK 已安装到 PLG110
+- 用户真机确认过往回归修复成功
+
+### 16.3 下一阶段推荐方向
+
+下一阶段建议先进入「稳定观察 + 小修」而不是继续新增大功能。
+
+优先级建议：
+
+1. 真实使用 1-2 天，记录阻塞级问题。
+2. 修复真机发现的小回归，尤其是过往详情、人生教练、图片预览、习惯交互。
+3. 整理过往页数据体验：空状态、加载失败、随机记忆重复、图片加载失败。
+4. 再决定是否做完整日历式历史页或统计页。
+5. 功能稳定后再启动 Open Design UI 重设计。
+
+### 16.4 仍未完成的功能
+
+仍未完成但可以规划：
+
+- 完整日历式历史页：当前只有「今天曾经发生过」和「随便走走」。
+- 统计页：建议先做习惯统计。
+- 画廊页：图片链路已经具备，画廊可作为后续移动端增强能力。
+- 标签管理设置：短期建议只读，不急着增删改。
+- 习惯管理设置：当前 API 仍是固定字段，动态习惯需要服务端先支持。
+- 远程 API 配置编辑：SettingsScreen 当前仍以只读展示为主。
+- Open Design：功能稳定后统一设计，不要在小修中顺手大改。
+
+### 16.5 重要技术边界
+
+继续遵守以下边界：
+
+- 不改服务端，除非任务明确要求。
+- 不在 Flutter 本地直接读写 Obsidian 文件。
+- 不修改历史 Markdown 原文来解决展示问题。
+- Markdown 兼容逻辑放在 Parser 或展示归一化层，UI 组件尽量消费领域模型。
+- 写入类功能必须保护已有内容，避免空字符串覆盖。
+- 不输出 Token、API Key 或用户敏感内容。
+
+### 16.6 已知注意事项
+
+- `flutter install` 默认可能安装旧的 `app-release.apk`。真机验证前必须先构建对应模式，例如：
+
+```bash
+/Users/yezi/development/flutter/bin/flutter build apk --release
+/Users/yezi/development/flutter/bin/flutter install --release -d <device-id>
+```
+
+- 如果只构建 debug，却安装 release，会导致真机不是最新代码。
+- 当前环境有时会出现 ADB daemon 无法绑定本机端口：`could not install *smartsocket* listener: Operation not permitted`。这属于本地执行环境限制，不代表 App 崩溃。
+- 手机上 App 名称是「荔枝日记 dev」，applicationId 是 `com.example.litchi_journal_flutter`。

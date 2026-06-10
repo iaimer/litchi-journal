@@ -597,3 +597,146 @@ AI 输出不稳定导致多次迭代。最终 `_cleanCoachForReplace` 使用 `_e
 - `section.title` 由 `_sectionHeader` 正则提取，不包含 `###`/`##` 前缀
 - SectionCard `trailing` 参数用于标题行右侧控件
 - 图片通过 Image.memory 渲染（服务端返回 base64 JSON，不是直接二进制 URL）
+
+---
+
+## 22. Sprint 13：过往页、只读详情与人生教练回归修复
+
+对应提交：
+
+```text
+b19105c Fix past diary read-only rendering
+428e313 Fix coach fallback and past habit hiding
+```
+
+这一阶段新增底部导航，将 App 从单一今日页扩展为「今天 / 过往」两个 tab。
+
+### 22.1 过往页 MVP
+
+新增 `PastScreen`、`PastMemoryService`、`MemoryEntry`、`MemoryCard` 和 `HistoryMonthResult`。
+
+过往页当前不是完整历史管理页，而是记忆回看入口：
+
+- 「今天曾经发生过」：优先取去年同月同日、上个月同日、7 天前的真实记录。
+- 「随便走走」：从最近两个月有内容的日期中随机抽取。
+- 卡片优先显示图片、小确幸、随手记/觉察摘要；只有前两层为空时才 fallback 显示人生教练摘要。
+- 点击卡片进入只读日记详情页。
+
+新增 `ApiClient.fetchHistoryMonth(year, month)`，调用：
+
+```http
+GET /api/v1/history/{year}/{month}
+```
+
+### 22.2 只读日记详情
+
+新增 `ReadOnlyDiaryScreen`。它复用 `DiaryMarkdownView`，但明确传入：
+
+```dart
+readOnly: true
+hiddenSections: {'tomorrow', 'habits'}
+```
+
+只读详情页定位是回看记忆与成长，不是完整 Obsidian 原文查看器。因此过往详情明确隐藏：
+
+- `明日寄语 / tomorrow`
+- `习惯追踪 / 习惯打卡 / habits / habit`
+
+今天页不传 `hiddenSections`，所以今天页继续显示明日寄语和习惯追踪。
+
+### 22.3 人生教练标题与旧格式兼容
+
+过往详情中，旧标题 `荔枝喵说` 统一显示为 `🧠 人生教练`。
+
+`DiaryMarkdownView` 对人生教练展示层做兼容归一化，不修改 Markdown 原文：
+
+- `**模式识别**：正文` → `📌 模式识别` + 正文
+- `**矛盾指出**：正文` → `⚠️ 矛盾指出` + 正文
+- `**批判性问题**：正文` → `❓ 批判性问题` + 正文
+- `**甜点**：正文` → `🍰 甜点` + 正文
+- 清理展示中的 `**`、`###` 和存储层 bullet 标记
+
+### 22.4 今天页人生教练按钮回归
+
+一度出现今天页人生教练按钮不显示。最终根因有两层：
+
+1. 前一次安装时构建的是 `app-debug.apk`，但 `flutter install` 实际安装了较旧的 `app-release.apk`，导致真机不是最新代码。
+2. 如果当天 Markdown 中根本没有人生教练 section，`DiaryMarkdownView` 没有可渲染的 `CoachSection`，所以即使 `HomeScreen` 传入了 `onGenerateCoach`，按钮也不会出现。
+
+最终修复：
+
+- `HomeScreen` 保持传入 `onGenerateCoach: _handleGenerateCoach` 和 `generatingCoach`。
+- `DiaryMarkdownView.readOnly` 默认值保持 `false`。
+- 按钮显示条件明确为：
+
+```text
+readOnly == false
+onGenerateCoach != null
+当前 section 是 CoachSection，或当前文档缺少 CoachSection 但允许生成
+```
+
+- 当文档缺少人生教练 section 且允许生成时，展示一个空的 `🧠 人生教练` 卡片，按钮显示 `生成今日反馈`。
+- 有内容时按钮显示 `重新生成`。
+- 只读过往详情不传生成回调，且 `readOnly: true`，所以不显示生成/重新生成按钮。
+
+### 22.5 习惯追踪标题变体
+
+过往详情最初只隐藏 `习惯打卡`，但真实日记中可能使用 `习惯追踪` 标题。修复后：
+
+- `MarkdownParser` 将 `习惯打卡` 和 `习惯追踪` 都识别为 `HabitSection`。
+- `DiaryMarkdownView.hiddenSections` 同时按 section type 和标题文本判断。
+- 过往详情隐藏 `习惯追踪` 标题变体。
+- 今天页不受影响，习惯仍可交互。
+
+### 22.6 Android release 网络权限
+
+release 版曾出现无法连接远程服务端。根因是 Android Manifest 缺少网络权限。
+
+已在 `android/app/src/main/AndroidManifest.xml` 添加：
+
+```xml
+<uses-permission android:name="android.permission.INTERNET"/>
+```
+
+### 22.7 验证状态
+
+截至提交 `428e313`：
+
+- `dart analyze lib test`：通过
+- `flutter analyze`：通过
+- `flutter test`：238 个测试全部通过
+- `flutter build apk --release`：通过
+- 最新 release APK 已安装到 PLG110 真机
+- 用户真机确认：本轮回归修复成功
+
+### 22.8 当前项目状态（2026-06-11）
+
+当前 Flutter 端可以定义为：
+
+"荔枝日记 Flutter 文字 + 图片 + 过往回看功能对齐版"。
+
+已完成：
+
+- 今日页日记读取与结构化展示
+- 随手记、觉察、小确幸、焦虑四问写入
+- AI 润色与自动标签
+- 条目编辑、删除
+- 习惯追踪交互
+- 草稿 2 分钟 TTL
+- 图片上传、压缩、显示、预览、删除
+- 人生教练一键生成与旧格式展示兼容
+- 明日寄语展示
+- 过往页记忆卡片
+- 过往只读详情
+- 过往详情隐藏明日寄语和习惯追踪
+- release 版远程服务端连接
+
+尚未完成或后续再做：
+
+- 完整日历式历史页
+- 统计页
+- 画廊页
+- 标签管理设置
+- 习惯管理设置
+- 远程 API 配置编辑
+- Open Design 全局 UI 重设计

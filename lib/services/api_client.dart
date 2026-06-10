@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
+import '../models/history_month_result.dart';
 import '../models/diary_entry.dart';
 import '../models/tag_config.dart';
 import 'api_config.dart';
@@ -99,9 +100,7 @@ class ApiClient {
     final response = await _http.post(
       Uri.parse('$_baseUrl/api/v1/diary/create'),
       headers: _headers,
-      body: jsonEncode({
-        'date': formatDate(date),
-      }),
+      body: jsonEncode({'date': formatDate(date)}),
     );
     return response.statusCode == 200;
   }
@@ -158,10 +157,7 @@ class ApiClient {
     return _appendToSection('anxiety', date, content, tags);
   }
 
-  Future<bool> replaceAnxiety(
-    DateTime date,
-    String content,
-  ) async {
+  Future<bool> replaceAnxiety(DateTime date, String content) async {
     final response = await _http.post(
       Uri.parse('$_baseUrl/api/v1/diary/anxiety/replace'),
       headers: _headers,
@@ -202,7 +198,8 @@ class ApiClient {
   }) async {
     final uri = month != null
         ? Uri.parse(
-            '$_baseUrl/api/v1/diary/image/$year/$imageName?month=$month')
+            '$_baseUrl/api/v1/diary/image/$year/$imageName?month=$month',
+          )
         : Uri.parse('$_baseUrl/api/v1/diary/image/$year/$imageName');
 
     final response = await _http.get(uri, headers: _headers);
@@ -212,32 +209,20 @@ class ApiClient {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
-  Future<bool> replaceLizhiSays(
-    DateTime date,
-    String content,
-  ) async {
+  Future<bool> replaceLizhiSays(DateTime date, String content) async {
     final response = await _http.post(
       Uri.parse('$_baseUrl/api/v1/diary/lizhi-says'),
       headers: _headers,
-      body: jsonEncode({
-        'date': formatDate(date),
-        'content': content,
-      }),
+      body: jsonEncode({'date': formatDate(date), 'content': content}),
     );
     return response.statusCode == 200;
   }
 
-  Future<bool> replaceTomorrowSection(
-    DateTime date,
-    String content,
-  ) async {
+  Future<bool> replaceTomorrowSection(DateTime date, String content) async {
     final response = await _http.post(
       Uri.parse('$_baseUrl/api/v1/diary/tomorrow'),
       headers: _headers,
-      body: jsonEncode({
-        'date': formatDate(date),
-        'content': content,
-      }),
+      body: jsonEncode({'date': formatDate(date), 'content': content}),
     );
     return response.statusCode == 200;
   }
@@ -290,6 +275,20 @@ class ApiClient {
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     return TagConfig.fromJson(json);
+  }
+
+  Future<HistoryMonthResult> fetchHistoryMonth(int year, int month) async {
+    final response = await _http.get(
+      Uri.parse('$_baseUrl/api/v1/history/$year/$month'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('获取历史日记列表失败 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return HistoryMonthResult.fromJson(json);
   }
 
   Future<bool> updateHabits(

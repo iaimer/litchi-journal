@@ -43,14 +43,10 @@ TagConfig _testTagConfig() {
         id: 'work',
         name: '工作',
         order: 0,
-        topics: [
-          TagTopic(id: 'work-task', name: '任务执行', order: 0),
-        ],
+        topics: [TagTopic(id: 'work-task', name: '任务执行', order: 0)],
       ),
     ],
-    methods: [
-      TagMethod(id: 'reflect', name: '反思', order: 0),
-    ],
+    methods: [TagMethod(id: 'reflect', name: '反思', order: 0)],
   );
 }
 
@@ -71,14 +67,10 @@ TagConfig _polishTagConfig() {
         id: 'work',
         name: '工作',
         order: 1,
-        topics: [
-          TagTopic(id: 'work-task', name: '任务执行', order: 0),
-        ],
+        topics: [TagTopic(id: 'work-task', name: '任务执行', order: 0)],
       ),
     ],
-    methods: [
-      TagMethod(id: 'reflect', name: '反思', order: 0),
-    ],
+    methods: [TagMethod(id: 'reflect', name: '反思', order: 0)],
   );
 }
 
@@ -120,7 +112,9 @@ class _CapturingHttpClient extends _FakeHttpClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final bytes = await request.finalize().fold<List<int>>(
-        [], (prev, chunk) => prev..addAll(chunk));
+      [],
+      (prev, chunk) => prev..addAll(chunk),
+    );
     lastRequestBody = utf8.decode(bytes);
     return super.send(request);
   }
@@ -182,7 +176,7 @@ void main() {
       'title': 'Test',
       'raw': 'Hello world',
       'sections': {
-        'notes': ['note1', 'note2']
+        'notes': ['note1', 'note2'],
       },
     };
     final entry = DiaryEntry.fromJson(json);
@@ -279,10 +273,7 @@ tags:
     expect(quickNote.notes.single.time, '09:30');
     expect(quickNote.notes.single.content, '写下一个想法');
     expect(quickNote.notes.single.tags, ['#生活', '#日常记录']);
-    expect(
-      quickNote.notes.single.rawLine,
-      '- **09:30** 写下一个想法 #生活 #日常记录',
-    );
+    expect(quickNote.notes.single.rawLine, '- **09:30** 写下一个想法 #生活 #日常记录');
 
     final anxiety = document.sections.whereType<AnxietySection>().single;
     expect(anxiety.isEmpty, isTrue);
@@ -313,8 +304,7 @@ tags:
 ''';
 
     final document = const MarkdownParser().parse(markdown);
-    final happiness =
-        document.sections.whereType<HappinessSection>().single;
+    final happiness = document.sections.whereType<HappinessSection>().single;
 
     expect(happiness.isEmpty, isFalse);
     expect(happiness.contents, hasLength(2));
@@ -330,8 +320,7 @@ tags:
     expect(second.tags, ['#生活']);
   });
 
-  test('MarkdownParser separates happiness slogan from timeline entries',
-      () {
+  test('MarkdownParser separates happiness slogan from timeline entries', () {
     const markdown = '''
 ---
 ---
@@ -346,8 +335,7 @@ tags:
 ''';
 
     final document = const MarkdownParser().parse(markdown);
-    final happiness =
-        document.sections.whereType<HappinessSection>().single;
+    final happiness = document.sections.whereType<HappinessSection>().single;
 
     expect(happiness.isEmpty, isFalse);
 
@@ -408,8 +396,7 @@ tags:
     expect(supplements.checked, isFalse);
   });
 
-  test('MarkdownParser treats ### 觉察 as standalone section',
-      () {
+  test('MarkdownParser treats ### 觉察 as standalone section', () {
     const markdown = '''
 ---
 ---
@@ -426,13 +413,15 @@ tags:
     final document = const MarkdownParser().parse(markdown);
 
     // Anxiety section should exist and only contain anxiety content
-    final anxietySections =
-        document.sections.whereType<AnxietySection>().toList();
+    final anxietySections = document.sections
+        .whereType<AnxietySection>()
+        .toList();
     expect(anxietySections, hasLength(1));
 
     // Reflection section should exist as standalone section
-    final reviewSections =
-        document.sections.whereType<ReviewSection>().toList();
+    final reviewSections = document.sections
+        .whereType<ReviewSection>()
+        .toList();
     expect(reviewSections, hasLength(1));
 
     final reviewSection = reviewSections.first;
@@ -449,19 +438,20 @@ tags:
     expect(timelines[0].rawLine, '- **21:24** 今天反思了一下沟通方式 #育儿 #成长观察 #反思');
   });
 
-  testWidgets('DiaryMarkdownView renders tomorrow without list bullet',
-      (tester) async {
+  testWidgets('DiaryMarkdownView renders tomorrow without list bullet', (
+    tester,
+  ) async {
     const markdown = '''
 ## 📈 每日复盘
 ### 🌙 明日寄语
 - 明天当焦虑升起时，立刻用手机备忘录写下担心的一句话。
 ''';
 
-    await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(
-        body: DiaryMarkdownView(markdown: markdown),
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: DiaryMarkdownView(markdown: markdown)),
       ),
-    ));
+    );
 
     expect(find.text('🌙 明日寄语'), findsOneWidget);
     expect(find.textContaining('明天当焦虑升起时'), findsOneWidget);
@@ -495,21 +485,19 @@ tags:
       );
     }
 
-    testWidgets('button is disabled when input is empty',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('button is disabled when input is empty', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('button is enabled when input is not empty',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('button is enabled when input is not empty', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
@@ -518,31 +506,34 @@ tags:
       expect(button.onPressed, isNotNull);
     });
 
-    testWidgets('calls onSubmit with content and empty tags when no tagConfig',
-        (WidgetTester tester) async {
-      String? submittedContent;
-      List<String>? submittedTags;
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (content, tags) async {
-          submittedContent = content;
-          submittedTags = tags;
-        },
-      ));
+    testWidgets(
+      'calls onSubmit with content and empty tags when no tagConfig',
+      (WidgetTester tester) async {
+        String? submittedContent;
+        List<String>? submittedTags;
+        await tester.pumpWidget(
+          buildComposer(
+            onSubmit: (content, tags) async {
+              submittedContent = content;
+              submittedTags = tags;
+            },
+          ),
+        );
 
-      await tester.enterText(find.byType(TextField), 'hello');
-      await tester.pump();
-      await tester.tap(find.byType(ElevatedButton));
-      await tester.pump();
+        await tester.enterText(find.byType(TextField), 'hello');
+        await tester.pump();
+        await tester.tap(find.byType(ElevatedButton));
+        await tester.pump();
 
-      expect(submittedContent, 'hello');
-      expect(submittedTags, isEmpty);
-    });
+        expect(submittedContent, 'hello');
+        expect(submittedTags, isEmpty);
+      },
+    );
 
-    testWidgets('clears input on successful submit',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('clears input on successful submit', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
@@ -553,13 +544,16 @@ tags:
       expect(field.controller?.text, isEmpty);
     });
 
-    testWidgets('preserves input and shows error on failure',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {
-          throw Exception('fail');
-        },
-      ));
+    testWidgets('preserves input and shows error on failure', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {
+            throw Exception('fail');
+          },
+        ),
+      );
 
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
@@ -572,12 +566,11 @@ tags:
       expect(find.text('保存失败，请重试'), findsOneWidget);
     });
 
-    testWidgets('button is disabled while saving',
-        (WidgetTester tester) async {
+    testWidgets('button is disabled while saving', (WidgetTester tester) async {
       final completer = Completer<void>();
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) => completer.future,
-      ));
+      await tester.pumpWidget(
+        buildComposer(onSubmit: (_, _) => completer.future),
+      );
 
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
@@ -591,15 +584,18 @@ tags:
       await tester.pumpAndSettle();
     });
 
-    testWidgets('submits tags when selected via tagConfig',
-        (WidgetTester tester) async {
+    testWidgets('submits tags when selected via tagConfig', (
+      WidgetTester tester,
+    ) async {
       List<String>? submittedTags;
-      await tester.pumpWidget(buildComposer(
-        tagConfig: _testTagConfig(),
-        onSubmit: (_, tags) async {
-          submittedTags = tags;
-        },
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          tagConfig: _testTagConfig(),
+          onSubmit: (_, tags) async {
+            submittedTags = tags;
+          },
+        ),
+      );
 
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
@@ -617,12 +613,12 @@ tags:
       expect(submittedTags, ['工作', '任务执行']);
     });
 
-    testWidgets('clears tags on successful submit',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        tagConfig: _testTagConfig(),
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('clears tags on successful submit', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        buildComposer(tagConfig: _testTagConfig(), onSubmit: (_, _) async {}),
+      );
 
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
@@ -640,14 +636,15 @@ tags:
       expect(find.byType(Chip), findsNothing);
     });
 
-    testWidgets('preserves tags on failed submit',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        tagConfig: _testTagConfig(),
-        onSubmit: (_, _) async {
-          throw Exception('fail');
-        },
-      ));
+    testWidgets('preserves tags on failed submit', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        buildComposer(
+          tagConfig: _testTagConfig(),
+          onSubmit: (_, _) async {
+            throw Exception('fail');
+          },
+        ),
+      );
 
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
@@ -667,22 +664,20 @@ tags:
       expect(find.text('任务执行'), findsWidgets);
     });
 
-    testWidgets('shows tagHint when tagConfig is null',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        tagHint: '标签暂不可用',
-      ));
+    testWidgets('shows tagHint when tagConfig is null', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        buildComposer(onSubmit: (_, _) async {}, tagHint: '标签暂不可用'),
+      );
 
       expect(find.text('标签暂不可用'), findsOneWidget);
     });
 
-    testWidgets('shows placeholder when provided',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        placeholder: '觉察到了什么？',
-      ));
+    testWidgets('shows placeholder when provided', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        buildComposer(onSubmit: (_, _) async {}, placeholder: '觉察到了什么？'),
+      );
 
       final field = tester.widget<TextField>(find.byType(TextField));
       expect(field.decoration?.hintText, '觉察到了什么？');
@@ -698,12 +693,14 @@ tags:
         tags: [],
       );
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        date: date,
-        entryType: EntryType.quickNote,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          date: date,
+          entryType: EntryType.quickNote,
+          draftRepository: repo,
+        ),
+      );
       await tester.pumpAndSettle();
 
       final tf = tester.widget<TextField>(find.byType(TextField));
@@ -714,17 +711,21 @@ tags:
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        date: date,
-        entryType: EntryType.quickNote,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          date: date,
+          entryType: EntryType.quickNote,
+          draftRepository: repo,
+        ),
+      );
       await tester.enterText(find.byType(TextField), 'hi');
       await tester.pump();
 
-      final draft =
-          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
       expect(draft!.content, 'hi');
     });
 
@@ -732,21 +733,25 @@ tags:
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        tagConfig: _testTagConfig(),
-        date: date,
-        entryType: EntryType.quickNote,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          tagConfig: _testTagConfig(),
+          date: date,
+          entryType: EntryType.quickNote,
+          draftRepository: repo,
+        ),
+      );
       await tester.pump();
       await tester.tap(find.text('🏷️ 标签'));
       await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
 
-      final draft =
-          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
       expect(draft!.tags, ['工作']);
     });
 
@@ -754,34 +759,40 @@ tags:
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        date: date,
-        entryType: EntryType.quickNote,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          date: date,
+          entryType: EntryType.quickNote,
+          draftRepository: repo,
+        ),
+      );
       await tester.enterText(find.byType(TextField), 'quick');
       await tester.pump();
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        date: date,
-        entryType: EntryType.reflection,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          date: date,
+          entryType: EntryType.reflection,
+          draftRepository: repo,
+        ),
+      );
       await tester.enterText(find.byType(TextField), 'reflect');
       await tester.pump();
 
       expect(
-        (await repo
-                .loadQuickDraft(date: date, entryType: EntryType.quickNote))!
-            .content,
+        (await repo.loadQuickDraft(
+          date: date,
+          entryType: EntryType.quickNote,
+        ))!.content,
         'quick',
       );
       expect(
         (await repo.loadQuickDraft(
-                date: date, entryType: EntryType.reflection))!
-            .content,
+          date: date,
+          entryType: EntryType.reflection,
+        ))!.content,
         'reflect',
       );
     });
@@ -796,18 +807,22 @@ tags:
         tags: [],
       );
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        date: date,
-        entryType: EntryType.quickNote,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          date: date,
+          entryType: EntryType.quickNote,
+          draftRepository: repo,
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '');
       await tester.pumpAndSettle();
 
-      final draft =
-          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
       expect(draft, isNull);
     });
 
@@ -815,19 +830,23 @@ tags:
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        date: date,
-        entryType: EntryType.quickNote,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          date: date,
+          entryType: EntryType.quickNote,
+          draftRepository: repo,
+        ),
+      );
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
-      final draft =
-          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
       expect(draft, isNull);
     });
 
@@ -835,36 +854,41 @@ tags:
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {
-          throw Exception('fail');
-        },
-        date: date,
-        entryType: EntryType.quickNote,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {
+            throw Exception('fail');
+          },
+          date: date,
+          entryType: EntryType.quickNote,
+          draftRepository: repo,
+        ),
+      );
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
 
-      final draft =
-          await repo.loadQuickDraft(date: date, entryType: EntryType.quickNote);
+      final draft = await repo.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
       expect(draft, isNotNull);
     });
 
-    testWidgets('polish button disabled when content empty',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (_, _) async =>
-                const PolishResult(content: '', tags: []),
-            entryType: EntryType.quickNote,
+    testWidgets('polish button disabled when content empty', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (_, _) async =>
+                  const PolishResult(content: '', tags: []),
+              entryType: EntryType.quickNote,
+            ),
           ),
         ),
-      ));
+      );
 
       expect(find.text('润色'), findsOneWidget);
 
@@ -874,27 +898,27 @@ tags:
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('polish button calls onPolish when content not empty',
-        (tester) async {
+    testWidgets('polish button calls onPolish when content not empty', (
+      tester,
+    ) async {
       String? polishedContent;
       EntryType? polishedType;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (content, type) async {
-              polishedContent = content;
-              polishedType = type;
-              return const PolishResult(
-                content: '润色后',
-                tags: ['工作', '任务执行'],
-              );
-            },
-            entryType: EntryType.quickNote,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (content, type) async {
+                polishedContent = content;
+                polishedType = type;
+                return const PolishResult(content: '润色后', tags: ['工作', '任务执行']);
+              },
+              entryType: EntryType.quickNote,
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.enterText(find.byType(TextField), '测试');
       await tester.pump();
@@ -911,23 +935,22 @@ tags:
       expect(polishedType, EntryType.quickNote);
     });
 
-    testWidgets('polish success updates text and tags',
-        (tester) async {
+    testWidgets('polish success updates text and tags', (tester) async {
       final tagConfig = _polishTagConfig();
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (_, _) async => const PolishResult(
-              content: '润色后的文本',
-              tags: ['亲子', '亲子沟通'],
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (_, _) async =>
+                  const PolishResult(content: '润色后的文本', tags: ['亲子', '亲子沟通']),
+              tagConfig: tagConfig,
+              entryType: EntryType.reflection,
             ),
-            tagConfig: tagConfig,
-            entryType: EntryType.reflection,
           ),
         ),
-      ));
+      );
 
       // Enter content
       await tester.enterText(find.byType(TextField), '原始文本');
@@ -947,24 +970,24 @@ tags:
       expect(find.text('亲子'), findsWidgets);
     });
 
-    testWidgets(
-        'quickNote polish selects tags in TagPicker',
-        (tester) async {
+    testWidgets('quickNote polish selects tags in TagPicker', (tester) async {
       final tagConfig = _polishTagConfig();
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (_, _) async => const PolishResult(
-              content: '润色后',
-              tags: ['亲子', '亲子沟通', '反思'],
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (_, _) async => const PolishResult(
+                content: '润色后',
+                tags: ['亲子', '亲子沟通', '反思'],
+              ),
+              tagConfig: tagConfig,
+              entryType: EntryType.quickNote,
             ),
-            tagConfig: tagConfig,
-            entryType: EntryType.quickNote,
           ),
         ),
-      ));
+      );
 
       await tester.enterText(find.byType(TextField), '测试');
       await tester.pump();
@@ -974,24 +997,22 @@ tags:
       expect(find.text('亲子'), findsWidgets);
     });
 
-    testWidgets(
-        'reflection polish selects tags in TagPicker',
-        (tester) async {
+    testWidgets('reflection polish selects tags in TagPicker', (tester) async {
       final tagConfig = _polishTagConfig();
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (_, _) async => const PolishResult(
-              content: '觉察润色后',
-              tags: ['亲子', '亲子沟通'],
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (_, _) async =>
+                  const PolishResult(content: '觉察润色后', tags: ['亲子', '亲子沟通']),
+              tagConfig: tagConfig,
+              entryType: EntryType.reflection,
             ),
-            tagConfig: tagConfig,
-            entryType: EntryType.reflection,
           ),
         ),
-      ));
+      );
 
       await tester.enterText(find.byType(TextField), '觉察测试');
       await tester.pump();
@@ -1001,24 +1022,22 @@ tags:
       expect(find.text('亲子'), findsWidgets);
     });
 
-    testWidgets(
-        'happiness polish selects tags in TagPicker',
-        (tester) async {
+    testWidgets('happiness polish selects tags in TagPicker', (tester) async {
       final tagConfig = _polishTagConfig();
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (_, _) async => const PolishResult(
-              content: '小确幸润色后',
-              tags: ['亲子', '亲子沟通'],
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (_, _) async =>
+                  const PolishResult(content: '小确幸润色后', tags: ['亲子', '亲子沟通']),
+              tagConfig: tagConfig,
+              entryType: EntryType.happiness,
             ),
-            tagConfig: tagConfig,
-            entryType: EntryType.happiness,
           ),
         ),
-      ));
+      );
 
       await tester.enterText(find.byType(TextField), '小确幸测试');
       await tester.pump();
@@ -1028,23 +1047,25 @@ tags:
       expect(find.text('亲子'), findsWidgets);
     });
 
-    testWidgets(
-        'reflection onPolish receives EntryType.reflection',
-        (tester) async {
+    testWidgets('reflection onPolish receives EntryType.reflection', (
+      tester,
+    ) async {
       EntryType? receivedType;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (_, type) async {
-              receivedType = type;
-              return const PolishResult(content: 'ok', tags: []);
-            },
-            entryType: EntryType.reflection,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (_, type) async {
+                receivedType = type;
+                return const PolishResult(content: 'ok', tags: []);
+              },
+              entryType: EntryType.reflection,
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.enterText(find.byType(TextField), '测试');
       await tester.pump();
@@ -1054,23 +1075,25 @@ tags:
       expect(receivedType, EntryType.reflection);
     });
 
-    testWidgets(
-        'happiness onPolish receives EntryType.happiness',
-        (tester) async {
+    testWidgets('happiness onPolish receives EntryType.happiness', (
+      tester,
+    ) async {
       EntryType? receivedType;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (_, type) async {
-              receivedType = type;
-              return const PolishResult(content: 'ok', tags: []);
-            },
-            entryType: EntryType.happiness,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (_, type) async {
+                receivedType = type;
+                return const PolishResult(content: 'ok', tags: []);
+              },
+              entryType: EntryType.happiness,
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.enterText(find.byType(TextField), '测试');
       await tester.pump();
@@ -1080,21 +1103,21 @@ tags:
       expect(receivedType, EntryType.happiness);
     });
 
-    testWidgets(
-        'unknown tags preserved in content, tags empty',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (_, _) async => const PolishResult(
-              content: '正文。 #未知标签',
-              tags: [],
+    testWidgets('unknown tags preserved in content, tags empty', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (_, _) async =>
+                  const PolishResult(content: '正文。 #未知标签', tags: []),
+              entryType: EntryType.quickNote,
             ),
-            entryType: EntryType.quickNote,
           ),
         ),
-      ));
+      );
 
       await tester.enterText(find.byType(TextField), '测试');
       await tester.pump();
@@ -1107,20 +1130,23 @@ tags:
       );
     });
 
-    testWidgets('polish failure preserves original content and tags',
-        (tester) async {
+    testWidgets('polish failure preserves original content and tags', (
+      tester,
+    ) async {
       final tagConfig = _polishTagConfig();
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            onPolish: (_, _) async => throw Exception('网络错误'),
-            tagConfig: tagConfig,
-            entryType: EntryType.quickNote,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              onPolish: (_, _) async => throw Exception('网络错误'),
+              tagConfig: tagConfig,
+              entryType: EntryType.quickNote,
+            ),
           ),
         ),
-      ));
+      );
 
       // Enter content
       await tester.enterText(find.byType(TextField), '原始文本');
@@ -1140,30 +1166,30 @@ tags:
       expect(find.text('润色失败，请重试'), findsOneWidget);
     });
 
-    testWidgets('polish button not shown when onPolish is null',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-            entryType: EntryType.quickNote,
+    testWidgets('polish button not shown when onPolish is null', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteComposer(
+              onSubmit: (_, _) async {},
+              entryType: EntryType.quickNote,
+            ),
           ),
         ),
-      ));
+      );
 
       expect(find.text('润色'), findsNothing);
       expect(find.byType(OutlinedButton), findsNothing);
     });
 
-    testWidgets('TextField auto-expands from 3 to 8 lines',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteComposer(
-            onSubmit: (_, _) async {},
-          ),
+    testWidgets('TextField auto-expands from 3 to 8 lines', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: QuickNoteComposer(onSubmit: (_, _) async {})),
         ),
-      ));
+      );
 
       final textField = tester.widget<TextField>(find.byType(TextField));
       expect(textField.minLines, 3);
@@ -1182,20 +1208,12 @@ tags:
             'description': '职业任务',
             'order': 0,
             'topics': [
-              {
-                'id': 'work-task',
-                'name': '任务执行',
-                'order': 0,
-              }
+              {'id': 'work-task', 'name': '任务执行', 'order': 0},
             ],
-          }
+          },
         ],
         'methods': [
-          {
-            'id': 'reflect',
-            'name': '反思',
-            'order': 0,
-          }
+          {'id': 'reflect', 'name': '反思', 'order': 0},
         ],
       };
 
@@ -1214,11 +1232,7 @@ tags:
     });
 
     test('TagTopic.fromJson handles missing description', () {
-      final json = {
-        'id': 'work-task',
-        'name': '任务执行',
-        'order': 0,
-      };
+      final json = {'id': 'work-task', 'name': '任务执行', 'order': 0};
       final topic = TagTopic.fromJson(json);
       expect(topic.id, 'work-task');
       expect(topic.name, '任务执行');
@@ -1226,11 +1240,7 @@ tags:
     });
 
     test('TagMethod.fromJson handles missing description', () {
-      final json = {
-        'id': 'remember',
-        'name': '回忆',
-        'order': 3,
-      };
+      final json = {'id': 'remember', 'name': '回忆', 'order': 3};
       final method = TagMethod.fromJson(json);
       expect(method.id, 'remember');
       expect(method.name, '回忆');
@@ -1244,11 +1254,7 @@ tags:
     });
 
     test('TagDomain.fromJson handles missing topics', () {
-      final json = {
-        'id': 'work',
-        'name': '工作',
-        'order': 0,
-      };
+      final json = {'id': 'work', 'name': '工作', 'order': 0};
       final domain = TagDomain.fromJson(json);
       expect(domain.topics, isEmpty);
     });
@@ -1258,7 +1264,7 @@ tags:
         'domains': [
           {
             'topics': [{}],
-          }
+          },
         ],
         'methods': [{}],
       };
@@ -1279,14 +1285,10 @@ tags:
             name: '工作',
             description: 'desc',
             order: 0,
-            topics: [
-              TagTopic(id: 't1', name: '主题1', order: 0),
-            ],
+            topics: [TagTopic(id: 't1', name: '主题1', order: 0)],
           ),
         ],
-        methods: [
-          TagMethod(id: 'm1', name: '方法1', order: 0),
-        ],
+        methods: [TagMethod(id: 'm1', name: '方法1', order: 0)],
       );
       final json = config.toJson();
       expect(json['domains'], isA<List>());
@@ -1306,20 +1308,22 @@ tags:
             order: 2,
             topics: [
               TagTopic(
-                  id: 'work-task',
-                  name: '任务执行',
-                  description: '具体任务完成',
-                  order: 0),
+                id: 'work-task',
+                name: '任务执行',
+                description: '具体任务完成',
+                order: 0,
+              ),
               TagTopic(id: 'work-collab', name: '沟通协作', order: 1),
             ],
           ),
         ],
         methods: [
           TagMethod(
-              id: 'reflect',
-              name: '反思',
-              description: '对自身行为和思考的回顾',
-              order: 0),
+            id: 'reflect',
+            name: '反思',
+            description: '对自身行为和思考的回顾',
+            order: 0,
+          ),
           TagMethod(id: 'remember', name: '回忆', order: 3),
         ],
       );
@@ -1386,16 +1390,16 @@ tags:
       );
     }
 
-    testWidgets('defaults to collapsed state',
-        (WidgetTester tester) async {
+    testWidgets('defaults to collapsed state', (WidgetTester tester) async {
       await tester.pumpWidget(buildPicker(onChanged: (_) {}));
       // Chips hidden by default
       expect(find.byType(ChoiceChip), findsNothing);
       expect(find.text('🏷️ 标签'), findsOneWidget);
     });
 
-    testWidgets('expands chips when toggle tapped',
-        (WidgetTester tester) async {
+    testWidgets('expands chips when toggle tapped', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(buildPicker(onChanged: (_) {}));
 
       await tester.tap(find.text('🏷️ 标签'));
@@ -1405,8 +1409,9 @@ tags:
       expect(find.text('工作'), findsWidgets);
     });
 
-    testWidgets('shows topics after expanding and tapping domain',
-        (WidgetTester tester) async {
+    testWidgets('shows topics after expanding and tapping domain', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(buildPicker(onChanged: (_) {}));
 
       await tester.tap(find.text('🏷️ 标签'));
@@ -1417,12 +1422,11 @@ tags:
       expect(find.text('任务执行'), findsOneWidget);
     });
 
-    testWidgets('onChanged outputs domain and topic when selected',
-        (WidgetTester tester) async {
+    testWidgets('onChanged outputs domain and topic when selected', (
+      WidgetTester tester,
+    ) async {
       List<String>? output;
-      await tester.pumpWidget(buildPicker(
-        onChanged: (tags) => output = tags,
-      ));
+      await tester.pumpWidget(buildPicker(onChanged: (tags) => output = tags));
 
       await tester.tap(find.text('🏷️ 标签'));
       await tester.pump();
@@ -1435,12 +1439,11 @@ tags:
       expect(output, ['工作', '任务执行']);
     });
 
-    testWidgets('onChanged outputs method when toggled',
-        (WidgetTester tester) async {
+    testWidgets('onChanged outputs method when toggled', (
+      WidgetTester tester,
+    ) async {
       List<String>? output;
-      await tester.pumpWidget(buildPicker(
-        onChanged: (tags) => output = tags,
-      ));
+      await tester.pumpWidget(buildPicker(onChanged: (tags) => output = tags));
 
       await tester.tap(find.text('🏷️ 标签'));
       await tester.pump();
@@ -1458,12 +1461,9 @@ tags:
       expect(output, ['工作', '任务执行']);
     });
 
-    testWidgets('switching domain clears topic',
-        (WidgetTester tester) async {
+    testWidgets('switching domain clears topic', (WidgetTester tester) async {
       List<String>? output;
-      await tester.pumpWidget(buildPicker(
-        onChanged: (tags) => output = tags,
-      ));
+      await tester.pumpWidget(buildPicker(onChanged: (tags) => output = tags));
 
       await tester.tap(find.text('🏷️ 标签'));
       await tester.pump();
@@ -1478,12 +1478,12 @@ tags:
       expect(output, ['生活']);
     });
 
-    testWidgets('selected pills visible in collapsed state',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildPicker(
-        initialTags: ['生活', '健康管理', '回忆'],
-        onChanged: (_) {},
-      ));
+    testWidgets('selected pills visible in collapsed state', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        buildPicker(initialTags: ['生活', '健康管理', '回忆'], onChanged: (_) {}),
+      );
 
       // Pills visible even in collapsed state
       expect(find.text('生活'), findsWidgets);
@@ -1494,23 +1494,26 @@ tags:
       expect(find.byType(ChoiceChip), findsNothing);
     });
 
-    testWidgets('collapses when initialTags cleared externally',
-        (WidgetTester tester) async {
+    testWidgets('collapses when initialTags cleared externally', (
+      WidgetTester tester,
+    ) async {
       List<String> tags = ['工作', '任务执行'];
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: StatefulBuilder(
-            builder: (context, setState) {
-              return TagPicker(
-                tagConfig: testConfig,
-                initialTags: tags,
-                onChanged: (_) {},
-              );
-            },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                return TagPicker(
+                  tagConfig: testConfig,
+                  initialTags: tags,
+                  onChanged: (_) {},
+                );
+              },
+            ),
           ),
         ),
-      ));
+      );
 
       // Expand and verify chips visible
       await tester.tap(find.text('🏷️ 标签'));
@@ -1519,15 +1522,17 @@ tags:
 
       // Now clear tags by rebuilding with empty list
       tags = [];
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: TagPicker(
-            tagConfig: testConfig,
-            initialTags: tags,
-            onChanged: (_) {},
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TagPicker(
+              tagConfig: testConfig,
+              initialTags: tags,
+              onChanged: (_) {},
+            ),
           ),
         ),
-      ));
+      );
 
       // Should be collapsed again
       expect(find.byType(ChoiceChip), findsNothing);
@@ -1547,12 +1552,12 @@ tags:
       );
     }
 
-    testWidgets('shows all four entry type labels',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildSelector(
-        selected: EntryType.quickNote,
-        onChanged: (_) {},
-      ));
+    testWidgets('shows all four entry type labels', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        buildSelector(selected: EntryType.quickNote, onChanged: (_) {}),
+      );
 
       expect(find.text('随手记'), findsOneWidget);
       expect(find.text('觉察'), findsOneWidget);
@@ -1560,25 +1565,27 @@ tags:
       expect(find.text('焦虑'), findsOneWidget);
     });
 
-    testWidgets('marks selected entry as active',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildSelector(
-        selected: EntryType.reflection,
-        onChanged: (_) {},
-      ));
+    testWidgets('marks selected entry as active', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        buildSelector(selected: EntryType.reflection, onChanged: (_) {}),
+      );
 
-      final chips =
-          tester.widgetList<ChoiceChip>(find.byType(ChoiceChip)).toList();
+      final chips = tester
+          .widgetList<ChoiceChip>(find.byType(ChoiceChip))
+          .toList();
       expect(chips[1].selected, isTrue);
     });
 
-    testWidgets('calls onChanged when tapping a chip',
-        (WidgetTester tester) async {
+    testWidgets('calls onChanged when tapping a chip', (
+      WidgetTester tester,
+    ) async {
       EntryType? tapped;
-      await tester.pumpWidget(buildSelector(
-        selected: EntryType.quickNote,
-        onChanged: (type) => tapped = type,
-      ));
+      await tester.pumpWidget(
+        buildSelector(
+          selected: EntryType.quickNote,
+          onChanged: (type) => tapped = type,
+        ),
+      );
 
       await tester.tap(find.text('觉察'));
       await tester.pump();
@@ -1586,16 +1593,13 @@ tags:
     });
   });
 
-  testWidgets('happiness slogan hidden when real content exists',
-      (WidgetTester tester) async {
+  testWidgets('happiness slogan hidden when real content exists', (
+    WidgetTester tester,
+  ) async {
     final section = HappinessSection(
       title: '✨ 每日小确幸',
       contents: [
-        const CalloutContent(
-          type: 'success',
-          title: '总有事件值得感恩🙏❤️',
-          body: [],
-        ),
+        const CalloutContent(type: 'success', title: '总有事件值得感恩🙏❤️', body: []),
         const TimelineContent(
           time: '09:30',
           text: '喝到一杯好咖啡',
@@ -1605,11 +1609,11 @@ tags:
       ],
     );
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: GenericSectionCard(section: section),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: GenericSectionCard(section: section)),
       ),
-    ));
+    );
 
     expect(find.text('总有事件值得感恩'), findsNothing);
     expect(find.text('喝到一杯好咖啡'), findsOneWidget);
@@ -1642,21 +1646,17 @@ tags:
       );
     }
 
-    testWidgets('shows first question initially',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('shows first question initially', (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
       expect(find.text('1/4'), findsOneWidget);
     });
 
-    testWidgets('next button advances to second question',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('next button advances to second question', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       await tester.tap(find.text('下一步'));
       await tester.pump();
@@ -1665,24 +1665,26 @@ tags:
       expect(find.text('2/4'), findsOneWidget);
     });
 
-    testWidgets('skip button advances to next step',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('skip button advances to next step', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
-      await tester.tap(find.byWidgetPredicate(
-          (w) => w is TextButton && w.child is Text && (w.child as Text).data == '跳过'));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) =>
+              w is TextButton &&
+              w.child is Text &&
+              (w.child as Text).data == '跳过',
+        ),
+      );
       await tester.pump();
 
       expect(find.text('当时我在担心什么？（具体到一句话）'), findsOneWidget);
     });
 
-    testWidgets('shows save on last step',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('shows save on last step', (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       await tester.tap(find.text('下一步'));
       await tester.pump();
@@ -1695,16 +1697,19 @@ tags:
       expect(find.text('下一步'), findsNothing);
     });
 
-    testWidgets('submits formatted content with empty tags',
-        (WidgetTester tester) async {
+    testWidgets('submits formatted content with empty tags', (
+      WidgetTester tester,
+    ) async {
       String? submittedContent;
       List<String>? submittedTags;
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (content, tags) async {
-          submittedContent = content;
-          submittedTags = tags;
-        },
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (content, tags) async {
+            submittedContent = content;
+            submittedTags = tags;
+          },
+        ),
+      );
 
       await tester.enterText(find.byType(TextField), '下午开会时');
       await tester.pump();
@@ -1733,11 +1738,10 @@ tags:
       );
     });
 
-    testWidgets('resets to step 1 on successful submit',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('resets to step 1 on successful submit', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       await tester.tap(find.text('下一步'));
       await tester.pump();
@@ -1751,13 +1755,16 @@ tags:
       expect(find.text('1/4'), findsOneWidget);
     });
 
-    testWidgets('preserves answers on failed submit',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {
-          throw Exception('fail');
-        },
-      ));
+    testWidgets('preserves answers on failed submit', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {
+            throw Exception('fail');
+          },
+        ),
+      );
 
       await tester.enterText(find.byType(TextField), '下午开会时');
       await tester.pump();
@@ -1774,13 +1781,11 @@ tags:
       expect(find.text('4/4'), findsOneWidget);
     });
 
-    testWidgets('close button calls onClose',
-        (WidgetTester tester) async {
+    testWidgets('close button calls onClose', (WidgetTester tester) async {
       bool closed = false;
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        onClose: () => closed = true,
-      ));
+      await tester.pumpWidget(
+        buildComposer(onSubmit: (_, _) async {}, onClose: () => closed = true),
+      );
 
       await tester.tap(find.text('关闭'));
       await tester.pump();
@@ -1788,8 +1793,9 @@ tags:
       expect(closed, isTrue);
     });
 
-    testWidgets('restores draft step and answers on init',
-        (WidgetTester tester) async {
+    testWidgets('restores draft step and answers on init', (
+      WidgetTester tester,
+    ) async {
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
       await repo.saveAnxietyDraft(
@@ -1798,26 +1804,29 @@ tags:
         answers: ['a1', 'a2', '', ''],
       );
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        date: date,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          date: date,
+          draftRepository: repo,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('3/4'), findsOneWidget);
     });
 
-    testWidgets('saves draft after next tap',
-        (WidgetTester tester) async {
+    testWidgets('saves draft after next tap', (WidgetTester tester) async {
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        date: date,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          date: date,
+          draftRepository: repo,
+        ),
+      );
       await tester.pump();
 
       await tester.enterText(find.byType(TextField), 'hello');
@@ -1831,8 +1840,9 @@ tags:
       expect(draft.answers[0], 'hello');
     });
 
-    testWidgets('clears draft on successful submit',
-        (WidgetTester tester) async {
+    testWidgets('clears draft on successful submit', (
+      WidgetTester tester,
+    ) async {
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
       await repo.saveAnxietyDraft(
@@ -1841,11 +1851,13 @@ tags:
         answers: ['a1', '', '', ''],
       );
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        date: date,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          date: date,
+          draftRepository: repo,
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
@@ -1854,18 +1866,19 @@ tags:
       expect(draft, isNull);
     });
 
-    testWidgets('keeps draft on failed submit',
-        (WidgetTester tester) async {
+    testWidgets('keeps draft on failed submit', (WidgetTester tester) async {
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {
-          throw Exception('fail');
-        },
-        date: date,
-        draftRepository: repo,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {
+            throw Exception('fail');
+          },
+          date: date,
+          draftRepository: repo,
+        ),
+      );
       await tester.pump();
 
       await tester.enterText(find.byType(TextField), 'hello');
@@ -1883,20 +1896,14 @@ tags:
       expect(draft, isNotNull);
     });
 
-    testWidgets('back button hidden on step 1',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('back button hidden on step 1', (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       expect(find.text('上一步'), findsNothing);
     });
 
-    testWidgets('back button visible on step 2',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('back button visible on step 2', (WidgetTester tester) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       await tester.tap(find.text('下一步'));
       await tester.pump();
@@ -1904,11 +1911,10 @@ tags:
       expect(find.text('上一步'), findsOneWidget);
     });
 
-    testWidgets('back button returns to previous step',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('back button returns to previous step', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       await tester.tap(find.text('下一步'));
       await tester.pump();
@@ -1918,11 +1924,10 @@ tags:
       expect(find.text('1/4'), findsOneWidget);
     });
 
-    testWidgets('back button shows previous answer',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('back button shows previous answer', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
@@ -1935,14 +1940,17 @@ tags:
       expect(tf.controller?.text, 'hello');
     });
 
-    testWidgets('modified answer after back is submitted',
-        (WidgetTester tester) async {
+    testWidgets('modified answer after back is submitted', (
+      WidgetTester tester,
+    ) async {
       String? submitted;
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (content, _) async {
-          submitted = content;
-        },
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (content, _) async {
+            submitted = content;
+          },
+        ),
+      );
 
       await tester.enterText(find.byType(TextField), 'old');
       await tester.pump();
@@ -1966,12 +1974,10 @@ tags:
       expect(submitted, isNot(contains('old')));
     });
 
-    testWidgets('polish button disabled when answer empty',
-        (tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        onPolish: (_) async => 'ok',
-      ));
+    testWidgets('polish button disabled when answer empty', (tester) async {
+      await tester.pumpWidget(
+        buildComposer(onSubmit: (_, _) async {}, onPolish: (_) async => 'ok'),
+      );
 
       expect(find.text('润色当前回答'), findsOneWidget);
 
@@ -1981,17 +1987,20 @@ tags:
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('polish button calls onPolish when answer not empty',
-        (tester) async {
+    testWidgets('polish button calls onPolish when answer not empty', (
+      tester,
+    ) async {
       String? polished;
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        onPolish: (content) async {
-          polished = content;
-          return '润色后';
-        },
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          onPolish: (content) async {
+            polished = content;
+            return '润色后';
+          },
+        ),
+      );
 
       await tester.enterText(find.byType(TextField), '原始回答');
       await tester.pump();
@@ -2001,76 +2010,74 @@ tags:
       );
       expect(button.onPressed, isNotNull);
 
-      await tester.tap(find.widgetWithText(
-          OutlinedButton, '润色当前回答'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色当前回答'));
       await tester.pump();
 
       expect(polished, '原始回答');
     });
 
     testWidgets(
-        'polish success updates only current TextField and saves draft',
-        (tester) async {
-      final storage = _TestStorage();
-      final repo = DraftRepository(storage: storage);
+      'polish success updates only current TextField and saves draft',
+      (tester) async {
+        final storage = _TestStorage();
+        final repo = DraftRepository(storage: storage);
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        onPolish: (_) async => '润色后的回答',
-        draftRepository: repo,
-        date: DateTime(2026, 6, 7),
-      ));
+        await tester.pumpWidget(
+          buildComposer(
+            onSubmit: (_, _) async {},
+            onPolish: (_) async => '润色后的回答',
+            draftRepository: repo,
+            date: DateTime(2026, 6, 7),
+          ),
+        );
 
-      await tester.enterText(find.byType(TextField), '原始回答');
-      await tester.pump();
+        await tester.enterText(find.byType(TextField), '原始回答');
+        await tester.pump();
 
-      await tester.tap(find.widgetWithText(
-          OutlinedButton, '润色当前回答'));
-      await tester.pump();
+        await tester.tap(find.widgetWithText(OutlinedButton, '润色当前回答'));
+        await tester.pump();
 
-      expect(
-        tester.widget<TextField>(find.byType(TextField))
-            .controller
-            ?.text,
-        '润色后的回答',
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller?.text,
+          '润色后的回答',
+        );
+
+        final draft = await repo.loadAnxietyDraft(date: DateTime(2026, 6, 7));
+        expect(draft, isNotNull);
+        expect(draft!.answers[0], '润色后的回答');
+      },
+    );
+
+    testWidgets('polish failure preserves original answer', (tester) async {
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          onPolish: (_) async => throw Exception('网络错误'),
+        ),
       );
 
-      final draft = await repo.loadAnxietyDraft(
-          date: DateTime(2026, 6, 7));
-      expect(draft, isNotNull);
-      expect(draft!.answers[0], '润色后的回答');
-    });
-
-    testWidgets('polish failure preserves original answer',
-        (tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        onPolish: (_) async => throw Exception('网络错误'),
-      ));
-
       await tester.enterText(find.byType(TextField), '原始回答');
       await tester.pump();
 
-      await tester.tap(find.widgetWithText(
-          OutlinedButton, '润色当前回答'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色当前回答'));
       await tester.pumpAndSettle();
 
       expect(
-        tester.widget<TextField>(find.byType(TextField))
-            .controller
-            ?.text,
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
         '原始回答',
       );
       expect(find.text('润色失败，请重试'), findsOneWidget);
     });
 
-    testWidgets(
-        'polish does not affect other answers in AnxietyComposer',
-        (tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        onPolish: (_) async => '第一问答润色',
-      ));
+    testWidgets('polish does not affect other answers in AnxietyComposer', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          onPolish: (_) async => '第一问答润色',
+        ),
+      );
 
       await tester.enterText(find.byType(TextField), 'Q1 原始回答');
       await tester.pump();
@@ -2084,14 +2091,11 @@ tags:
       await tester.tap(find.text('上一步'));
       await tester.pump();
 
-      await tester.tap(find.widgetWithText(
-          OutlinedButton, '润色当前回答'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色当前回答'));
       await tester.pump();
 
       expect(
-        tester.widget<TextField>(find.byType(TextField))
-            .controller
-            ?.text,
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
         '第一问答润色',
       );
 
@@ -2099,26 +2103,24 @@ tags:
       await tester.pump();
 
       expect(
-        tester.widget<TextField>(find.byType(TextField))
-            .controller
-            ?.text,
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
         'Q2 原始回答',
       );
     });
 
-    testWidgets('submit format unchanged after polish',
-        (tester) async {
+    testWidgets('submit format unchanged after polish', (tester) async {
       String? submitted;
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (content, _) async => submitted = content,
-        onPolish: (_) async => '润色后的问答',
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (content, _) async => submitted = content,
+          onPolish: (_) async => '润色后的问答',
+        ),
+      );
 
       await tester.enterText(find.byType(TextField), '原始');
       await tester.pump();
 
-      await tester.tap(find.widgetWithText(
-          OutlinedButton, '润色当前回答'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色当前回答'));
       await tester.pump();
 
       await tester.tap(find.text('下一步'));
@@ -2136,11 +2138,8 @@ tags:
       expect(submitted, contains('- 当时我在担心什么？'));
     });
 
-    testWidgets('TextField auto-expands from 2 to 8 lines',
-        (tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-      ));
+    testWidgets('TextField auto-expands from 2 to 8 lines', (tester) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       final textField = tester.widget<TextField>(find.byType(TextField));
       expect(textField.minLines, 2);
@@ -2197,8 +2196,7 @@ tags:
       expect(answers, ['下午开会', '', '做了深呼吸', '']);
     });
 
-    test(
-        'parseAnswers handles template + real duplicate questions '
+    test('parseAnswers handles template + real duplicate questions '
         '- takes last non-empty answer', () {
       const markdown = '''
 - 今天什么时候我感到焦虑/紧张？
@@ -2220,16 +2218,10 @@ tags:
 ''';
 
       final answers = AnxietyComposer.parseAnswers(markdown);
-      expect(answers, [
-        '午休的时候刷视频',
-        '任务安排有冲突',
-        '优先处理截止日期近的',
-        '继续拖到最后一刻，躲不开',
-      ]);
+      expect(answers, ['午休的时候刷视频', '任务安排有冲突', '优先处理截止日期近的', '继续拖到最后一刻，躲不开']);
     });
 
-    test(
-        'parseAnswers handles repeated questions with multiple real answers '
+    test('parseAnswers handles repeated questions with multiple real answers '
         '- takes last non-empty', () {
       const markdown = '''
 - 今天什么时候我感到焦虑/紧张？
@@ -2246,8 +2238,7 @@ tags:
       expect(answers, ['第二次回答才是真的', '第一次担心', '', '']);
     });
 
-    test(
-        'parseAnswers handles partial duplicate - some questions '
+    test('parseAnswers handles partial duplicate - some questions '
         'repeated, some not', () {
       const markdown = '''
 - 今天什么时候我感到焦虑/紧张？
@@ -2265,9 +2256,9 @@ tags:
     });
 
     test(
-        'parseAnswers empty answer does not overwrite previous real answer',
-        () {
-      const markdown = '''
+      'parseAnswers empty answer does not overwrite previous real answer',
+      () {
+        const markdown = '''
 - 今天什么时候我感到焦虑/紧张？
 > 真实回答
 - 当时我在担心什么？（具体到一句话）
@@ -2278,16 +2269,19 @@ tags:
 > 
 ''';
 
-      final answers = AnxietyComposer.parseAnswers(markdown);
-      expect(answers, ['真实回答', '真实担心', '', '']);
-    });
+        final answers = AnxietyComposer.parseAnswers(markdown);
+        expect(answers, ['真实回答', '真实担心', '', '']);
+      },
+    );
 
     testWidgets('edit mode prefills initialAnswers', (tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        initialAnswers: ['a1', 'a2', 'a3', 'a4'],
-        isEdit: true,
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          initialAnswers: ['a1', 'a2', 'a3', 'a4'],
+          isEdit: true,
+        ),
+      );
 
       await tester.pump();
 
@@ -2306,9 +2300,9 @@ tags:
       );
     });
 
-    testWidgets(
-        'edit mode draft takes priority over initialAnswers',
-        (tester) async {
+    testWidgets('edit mode draft takes priority over initialAnswers', (
+      tester,
+    ) async {
       final storage = _TestStorage();
       final repo = DraftRepository(storage: storage);
 
@@ -2318,13 +2312,15 @@ tags:
         answers: ['draft1', 'draft2', '', ''],
       );
 
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        initialAnswers: ['init1', 'init2', 'init3', 'init4'],
-        isEdit: true,
-        draftRepository: repo,
-        date: DateTime(2026, 6, 7),
-      ));
+      await tester.pumpWidget(
+        buildComposer(
+          onSubmit: (_, _) async {},
+          initialAnswers: ['init1', 'init2', 'init3', 'init4'],
+          isEdit: true,
+          draftRepository: repo,
+          date: DateTime(2026, 6, 7),
+        ),
+      );
 
       await tester.pump();
 
@@ -2336,30 +2332,33 @@ tags:
     });
 
     testWidgets(
-        'edit mode polish current answer still works with initialAnswers',
-        (tester) async {
-      await tester.pumpWidget(buildComposer(
-        onSubmit: (_, _) async {},
-        onPolish: (_) async => '润色后',
-        initialAnswers: ['a1', 'a2', '', ''],
-        isEdit: true,
-      ));
+      'edit mode polish current answer still works with initialAnswers',
+      (tester) async {
+        await tester.pumpWidget(
+          buildComposer(
+            onSubmit: (_, _) async {},
+            onPolish: (_) async => '润色后',
+            initialAnswers: ['a1', 'a2', '', ''],
+            isEdit: true,
+          ),
+        );
 
-      await tester.pump();
+        await tester.pump();
 
-      await tester.tap(find.widgetWithText(
-          OutlinedButton, '润色当前回答'));
-      await tester.pump();
+        await tester.tap(find.widgetWithText(OutlinedButton, '润色当前回答'));
+        await tester.pump();
 
-      expect(
-        tester.widget<TextField>(find.byType(TextField)).controller?.text,
-        '润色后',
-      );
-    });
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller?.text,
+          '润色后',
+        );
+      },
+    );
   });
 
-  testWidgets('AnxietyCard shows template when no real answers',
-      (WidgetTester tester) async {
+  testWidgets('AnxietyCard shows template when no real answers', (
+    WidgetTester tester,
+  ) async {
     final section = AnxietySection(
       title: '😰 焦虑时刻',
       contents: [
@@ -2376,17 +2375,18 @@ tags:
       ],
     );
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: AnxietyCard(section: section),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: AnxietyCard(section: section)),
       ),
-    ));
+    );
 
     expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
   });
 
-  testWidgets('AnxietyCard hides template when real answers exist',
-      (WidgetTester tester) async {
+  testWidgets('AnxietyCard hides template when real answers exist', (
+    WidgetTester tester,
+  ) async {
     final section = AnxietySection(
       title: '😰 焦虑时刻',
       contents: [
@@ -2412,11 +2412,11 @@ tags:
       ],
     );
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: AnxietyCard(section: section),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: AnxietyCard(section: section)),
       ),
-    ));
+    );
 
     // Real Q&A visible
     expect(find.text('下午开会时'), findsOneWidget);
@@ -2484,11 +2484,7 @@ tags:
     });
 
     test('HabitStatus.fromHabitSection defaults missing fields', () {
-      final section = HabitSection(
-        title: '习惯打卡',
-        contents: [],
-        habits: [],
-      );
+      final section = HabitSection(title: '习惯打卡', contents: [], habits: []);
 
       final status = HabitStatus.fromHabitSection(section);
       expect(status.water, 0);
@@ -2515,8 +2511,9 @@ tags:
       expect(next.supplements, isFalse);
     });
 
-    testWidgets('checkbox tap toggles reading and calls onUpdate',
-        (tester) async {
+    testWidgets('checkbox tap toggles reading and calls onUpdate', (
+      tester,
+    ) async {
       final section = HabitSection(
         title: '习惯打卡',
         contents: [],
@@ -2532,17 +2529,19 @@ tags:
       );
 
       HabitStatus? called;
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: HabitCard(
-            section: section,
-            onUpdate: (status) async {
-              called = status;
-              return true;
-            },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (status) async {
+                called = status;
+                return true;
+              },
+            ),
           ),
         ),
-      ));
+      );
 
       expect(find.text('阅读/亲子共读'), findsOneWidget);
       await tester.tap(find.text('阅读/亲子共读'));
@@ -2556,8 +2555,9 @@ tags:
       expect(called!.steps, 0);
     });
 
-    testWidgets('water +250 button increments water and calls onUpdate',
-        (tester) async {
+    testWidgets('water +250 button increments water and calls onUpdate', (
+      tester,
+    ) async {
       final section = HabitSection(
         title: '习惯打卡',
         contents: [],
@@ -2575,17 +2575,19 @@ tags:
       );
 
       HabitStatus? called;
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: HabitCard(
-            section: section,
-            onUpdate: (status) async {
-              called = status;
-              return true;
-            },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (status) async {
+                called = status;
+                return true;
+              },
+            ),
           ),
         ),
-      ));
+      );
 
       expect(find.text('+250'), findsOneWidget);
       await tester.tap(find.text('+250'));
@@ -2617,17 +2619,19 @@ tags:
       );
 
       HabitStatus? called;
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: HabitCard(
-            section: section,
-            onUpdate: (status) async {
-              called = status;
-              return true;
-            },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (status) async {
+                called = status;
+                return true;
+              },
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.tap(find.text('目标'));
       await tester.pump();
@@ -2654,17 +2658,19 @@ tags:
       );
 
       HabitStatus? called;
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: HabitCard(
-            section: section,
-            onUpdate: (status) async {
-              called = status;
-              return true;
-            },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (status) async {
+                called = status;
+                return true;
+              },
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.tap(find.text('清零'));
       await tester.pump();
@@ -2673,8 +2679,9 @@ tags:
       expect(called!.water, 0);
     });
 
-    testWidgets('steps edit shows dialog and calls onUpdate with new value',
-        (tester) async {
+    testWidgets('steps edit shows dialog and calls onUpdate with new value', (
+      tester,
+    ) async {
       final section = HabitSection(
         title: '习惯打卡',
         contents: [],
@@ -2692,17 +2699,19 @@ tags:
       );
 
       HabitStatus? called;
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: HabitCard(
-            section: section,
-            onUpdate: (status) async {
-              called = status;
-              return true;
-            },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (status) async {
+                called = status;
+                return true;
+              },
+            ),
           ),
         ),
-      ));
+      );
 
       expect(find.text('运动/拉伸/快走 8000 步'), findsOneWidget);
       await tester.tap(find.text('编辑'));
@@ -2722,8 +2731,9 @@ tags:
       expect(called!.water, 0);
     });
 
-    testWidgets('onUpdate failure shows SnackBar, keeps old state',
-        (tester) async {
+    testWidgets('onUpdate failure shows SnackBar, keeps old state', (
+      tester,
+    ) async {
       final section = HabitSection(
         title: '习惯打卡',
         contents: [],
@@ -2738,14 +2748,16 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: HabitCard(
-            section: section,
-            onUpdate: (status) async => false,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (status) async => false,
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.tap(find.text('阅读/亲子共读'));
       await tester.pumpAndSettle();
@@ -2753,8 +2765,9 @@ tags:
       expect(find.text('更新失败'), findsOneWidget);
     });
 
-    testWidgets('onUpdate exception shows SnackBar and clears loading',
-        (tester) async {
+    testWidgets('onUpdate exception shows SnackBar and clears loading', (
+      tester,
+    ) async {
       final section = HabitSection(
         title: '习惯打卡',
         contents: [],
@@ -2769,14 +2782,16 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: HabitCard(
-            section: section,
-            onUpdate: (_) async => throw Exception('network error'),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (_) async => throw Exception('network error'),
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.tap(find.text('阅读/亲子共读'));
       await tester.pumpAndSettle();
@@ -2837,20 +2852,23 @@ tags:
 
       expect(
         (await repo.loadQuickDraft(
-                date: date, entryType: EntryType.quickNote))!
-            .content,
+          date: date,
+          entryType: EntryType.quickNote,
+        ))!.content,
         'quick',
       );
       expect(
         (await repo.loadQuickDraft(
-                date: date, entryType: EntryType.reflection))!
-            .content,
+          date: date,
+          entryType: EntryType.reflection,
+        ))!.content,
         'reflect',
       );
       expect(
         (await repo.loadQuickDraft(
-                date: date, entryType: EntryType.happiness))!
-            .content,
+          date: date,
+          entryType: EntryType.happiness,
+        ))!.content,
         'happy',
       );
     });
@@ -2921,38 +2939,40 @@ tags:
       expect(draft!.content, 'hello');
     });
 
-    test('quick draft expired after 2 minutes returns null and clears',
-        () async {
-      final now = DateTime(2026, 6, 7, 10, 0);
-      repo = DraftRepository(storage: storage, now: () => now);
+    test(
+      'quick draft expired after 2 minutes returns null and clears',
+      () async {
+        final now = DateTime(2026, 6, 7, 10, 0);
+        repo = DraftRepository(storage: storage, now: () => now);
 
-      await repo.saveQuickDraft(
-        date: date,
-        entryType: EntryType.quickNote,
-        content: 'hello',
-        tags: [],
-      );
+        await repo.saveQuickDraft(
+          date: date,
+          entryType: EntryType.quickNote,
+          content: 'hello',
+          tags: [],
+        );
 
-      // Advance 2 minutes + 1 second
-      repo = DraftRepository(
-        storage: storage,
-        now: () => now.add(const Duration(minutes: 2, seconds: 1)),
-      );
+        // Advance 2 minutes + 1 second
+        repo = DraftRepository(
+          storage: storage,
+          now: () => now.add(const Duration(minutes: 2, seconds: 1)),
+        );
 
-      final draft = await repo.loadQuickDraft(
-        date: date,
-        entryType: EntryType.quickNote,
-      );
+        final draft = await repo.loadQuickDraft(
+          date: date,
+          entryType: EntryType.quickNote,
+        );
 
-      expect(draft, isNull);
+        expect(draft, isNull);
 
-      // Draft was cleared
-      final reloaded = await repo.loadQuickDraft(
-        date: date,
-        entryType: EntryType.quickNote,
-      );
-      expect(reloaded, isNull);
-    });
+        // Draft was cleared
+        final reloaded = await repo.loadQuickDraft(
+          date: date,
+          entryType: EntryType.quickNote,
+        );
+        expect(reloaded, isNull);
+      },
+    );
 
     test('anxiety draft not expired within TTL', () async {
       final now = DateTime(2026, 6, 7, 10, 0);
@@ -2971,31 +2991,35 @@ tags:
       expect(draft.answers, ['a1', 'a2', '', '']);
     });
 
-    test('anxiety draft expired after 2 minutes returns null and clears',
-        () async {
-      final now = DateTime(2026, 6, 7, 10, 0);
-      repo = DraftRepository(storage: storage, now: () => now);
+    test(
+      'anxiety draft expired after 2 minutes returns null and clears',
+      () async {
+        final now = DateTime(2026, 6, 7, 10, 0);
+        repo = DraftRepository(storage: storage, now: () => now);
 
-      await repo.saveAnxietyDraft(
-        date: date,
-        step: 2,
-        answers: ['a1', 'a2', '', ''],
-      );
+        await repo.saveAnxietyDraft(
+          date: date,
+          step: 2,
+          answers: ['a1', 'a2', '', ''],
+        );
 
-      repo = DraftRepository(
-        storage: storage,
-        now: () => now.add(const Duration(minutes: 2, seconds: 1)),
-      );
+        repo = DraftRepository(
+          storage: storage,
+          now: () => now.add(const Duration(minutes: 2, seconds: 1)),
+        );
 
-      final draft = await repo.loadAnxietyDraft(date: date);
+        final draft = await repo.loadAnxietyDraft(date: date);
 
-      expect(draft, isNull);
-    });
+        expect(draft, isNull);
+      },
+    );
 
     test('old format without updatedAt returns null', () async {
       // Simulate old draft without updatedAt field
-      storage.data['draft_2026-06-07_quickNote'] =
-          jsonEncode({'content': 'old', 'tags': []});
+      storage.data['draft_2026-06-07_quickNote'] = jsonEncode({
+        'content': 'old',
+        'tags': [],
+      });
 
       final draft = await repo.loadQuickDraft(
         date: date,
@@ -3028,50 +3052,35 @@ tags:
     const parser = PolishResultParser();
 
     test('extracts Chinese tags and removes them from content', () {
-      final result = parser.parse(
-        '今天小宝表达了自己的边界。 #亲子 #亲子沟通 #反思',
-        config,
-      );
+      final result = parser.parse('今天小宝表达了自己的边界。 #亲子 #亲子沟通 #反思', config);
 
       expect(result.content, '今天小宝表达了自己的边界。');
       expect(result.tags, ['亲子', '亲子沟通', '反思']);
     });
 
     test('filters unknown tags, keeps known tags', () {
-      final result = parser.parse(
-        '正文。 #未知标签 #不存在',
-        config,
-      );
+      final result = parser.parse('正文。 #未知标签 #不存在', config);
 
       expect(result.content, '正文。 #未知标签 #不存在');
       expect(result.tags, isEmpty);
     });
 
     test('returns empty tags when domain present but no matching topic', () {
-      final result = parser.parse(
-        '正文。 #亲子 #反思',
-        config,
-      );
+      final result = parser.parse('正文。 #亲子 #反思', config);
 
       expect(result.content, '正文。');
       expect(result.tags, isEmpty);
     });
 
     test('returns domain and topic without method', () {
-      final result = parser.parse(
-        '正文。 #亲子 #亲子沟通',
-        config,
-      );
+      final result = parser.parse('正文。 #亲子 #亲子沟通', config);
 
       expect(result.content, '正文。');
       expect(result.tags, ['亲子', '亲子沟通']);
     });
 
     test('keeps first domain, ignores topic not belonging to it', () {
-      final result = parser.parse(
-        '正文。 #工作 #亲子沟通',
-        config,
-      );
+      final result = parser.parse('正文。 #工作 #亲子沟通', config);
 
       // 工作 is first domain, 亲子沟通 does not belong to 工作
       expect(result.content, '正文。');
@@ -3079,10 +3088,7 @@ tags:
     });
 
     test('keeps first domain, ignores topic belonging to later domain', () {
-      final result = parser.parse(
-        '正文。 #亲子 #工作 #任务执行 #反思',
-        config,
-      );
+      final result = parser.parse('正文。 #亲子 #工作 #任务执行 #反思', config);
 
       // 亲子 is first domain, 任务执行 belongs to 工作, ignored
       expect(result.content, '正文。');
@@ -3090,10 +3096,7 @@ tags:
     });
 
     test('keeps first topic, first method for the selected domain', () {
-      final result = parser.parse(
-        '正文。 #亲子 #亲子沟通 #陪伴互动 #反思',
-        config,
-      );
+      final result = parser.parse('正文。 #亲子 #亲子沟通 #陪伴互动 #反思', config);
 
       // 亲子沟通 is first topic, 陪伴互动 ignored
       expect(result.content, '正文。');
@@ -3101,20 +3104,14 @@ tags:
     });
 
     test('cleans 润色后 prefix from content', () {
-      final result = parser.parse(
-        '润色后：今天小宝表达了边界。 #亲子 #亲子沟通',
-        config,
-      );
+      final result = parser.parse('润色后：今天小宝表达了边界。 #亲子 #亲子沟通', config);
 
       expect(result.content, '今天小宝表达了边界。');
       expect(result.tags, ['亲子', '亲子沟通']);
     });
 
     test('returns content and empty tags when no tags present', () {
-      final result = parser.parse(
-        '这是一段普通的正文。',
-        config,
-      );
+      final result = parser.parse('这是一段普通的正文。', config);
 
       expect(result.content, '这是一段普通的正文。');
       expect(result.tags, isEmpty);
@@ -3175,10 +3172,42 @@ tags:
     });
 
     test('isUsable is false when any required field empty', () {
-      expect(const AIConfig(enabled: true, baseUrl: '', apiKey: 'k', model: 'm').isUsable, isFalse);
-      expect(const AIConfig(enabled: true, baseUrl: 'u', apiKey: '', model: 'm').isUsable, isFalse);
-      expect(const AIConfig(enabled: true, baseUrl: 'u', apiKey: 'k', model: '').isUsable, isFalse);
-      expect(const AIConfig(enabled: false, baseUrl: 'u', apiKey: 'k', model: 'm').isUsable, isFalse);
+      expect(
+        const AIConfig(
+          enabled: true,
+          baseUrl: '',
+          apiKey: 'k',
+          model: 'm',
+        ).isUsable,
+        isFalse,
+      );
+      expect(
+        const AIConfig(
+          enabled: true,
+          baseUrl: 'u',
+          apiKey: '',
+          model: 'm',
+        ).isUsable,
+        isFalse,
+      );
+      expect(
+        const AIConfig(
+          enabled: true,
+          baseUrl: 'u',
+          apiKey: 'k',
+          model: '',
+        ).isUsable,
+        isFalse,
+      );
+      expect(
+        const AIConfig(
+          enabled: false,
+          baseUrl: 'u',
+          apiKey: 'k',
+          model: 'm',
+        ).isUsable,
+        isFalse,
+      );
     });
 
     test('toString does not expose apiKey', () {
@@ -3272,8 +3301,13 @@ tags:
             model: 'gpt-4',
           ),
         ),
-        throwsA(isA<Exception>().having(
-            (e) => e.toString(), 'message', contains('内容为空'))),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('内容为空'),
+          ),
+        ),
       );
     });
 
@@ -3287,8 +3321,13 @@ tags:
           tagConfig: tagConfig,
           config: const AIConfig(enabled: false),
         ),
-        throwsA(isA<Exception>().having(
-            (e) => e.toString(), 'message', contains('未启用'))),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('未启用'),
+          ),
+        ),
       );
     });
 
@@ -3337,8 +3376,13 @@ tags:
             model: 'gpt-4',
           ),
         ),
-        throwsA(isA<Exception>().having(
-            (e) => e.toString(), 'message', contains('未返回润色结果'))),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('未返回润色结果'),
+          ),
+        ),
       );
     });
 
@@ -3358,21 +3402,27 @@ tags:
             model: 'gpt-4',
           ),
         ),
-        throwsA(isA<Exception>().having(
-            (e) => e.toString(), 'message', contains('401'))),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('401'),
+          ),
+        ),
       );
     });
 
-    test('system prompt uses default when polishPrompt is empty',
-        () async {
-      final client = _CapturingHttpClient(body: '''
+    test('system prompt uses default when polishPrompt is empty', () async {
+      final client = _CapturingHttpClient(
+        body: '''
 {
   "choices": [{
     "message": {
       "content": "ok"
     }
   }]
-}''');
+}''',
+      );
       final service = PolisherService(httpClient: client);
 
       await service.polish(
@@ -3400,14 +3450,16 @@ tags:
     });
 
     test('system prompt uses custom prompt when provided', () async {
-      final client = _CapturingHttpClient(body: '''
+      final client = _CapturingHttpClient(
+        body: '''
 {
   "choices": [{
     "message": {
       "content": "ok"
     }
   }]
-}''');
+}''',
+      );
       final service = PolisherService(httpClient: client);
 
       await service.polish(
@@ -3435,16 +3487,17 @@ tags:
       expect(systemContent, isNot(contains('日记润色助手')));
     });
 
-    test('system prompt always appends tag rules and output format',
-        () async {
-      final client = _CapturingHttpClient(body: '''
+    test('system prompt always appends tag rules and output format', () async {
+      final client = _CapturingHttpClient(
+        body: '''
 {
   "choices": [{
     "message": {
       "content": "润色后正文。 #亲子 #亲子沟通"
     }
   }]
-}''');
+}''',
+      );
       final service = PolisherService(httpClient: client);
 
       await service.polish(
@@ -3472,14 +3525,16 @@ tags:
     });
 
     test('system prompt does not contain apiKey', () async {
-      final client = _CapturingHttpClient(body: '''
+      final client = _CapturingHttpClient(
+        body: '''
 {
   "choices": [{
     "message": {
       "content": "ok"
     }
   }]
-}''');
+}''',
+      );
       final service = PolisherService(httpClient: client);
 
       await service.polish(
@@ -3546,56 +3601,59 @@ tags:
       );
     });
 
-    test('retry succeeds when first response has no tags, second has',
-        () async {
-      final client = _MultiResponseHttpClient([
-        '{"choices":[{"message":{"content":"润色正文"}}]}',
-        '{"choices":[{"message":{"content":"润色正文\\n#亲子 #亲子沟通 #反思"}}]}',
-      ]);
-      final service = PolisherService(httpClient: client);
+    test(
+      'retry succeeds when first response has no tags, second has',
+      () async {
+        final client = _MultiResponseHttpClient([
+          '{"choices":[{"message":{"content":"润色正文"}}]}',
+          '{"choices":[{"message":{"content":"润色正文\\n#亲子 #亲子沟通 #反思"}}]}',
+        ]);
+        final service = PolisherService(httpClient: client);
 
-      final result = await service.polish(
-        content: '测试',
-        entryType: EntryType.quickNote,
-        tagConfig: tagConfig,
-        config: const AIConfig(
-          enabled: true,
-          baseUrl: 'https://api.test.com',
-          apiKey: 'sk-test',
-          model: 'gpt-4',
-        ),
-      );
+        final result = await service.polish(
+          content: '测试',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://api.test.com',
+            apiKey: 'sk-test',
+            model: 'gpt-4',
+          ),
+        );
 
-      expect(result.content, '润色正文');
-      expect(result.tags, ['亲子', '亲子沟通', '反思']);
-      expect(client.callCount, 2);
-    });
+        expect(result.content, '润色正文');
+        expect(result.tags, ['亲子', '亲子沟通', '反思']);
+        expect(client.callCount, 2);
+      },
+    );
 
     test(
-        'retry still returns content when both responses have no valid tags',
-        () async {
-      final client = _MultiResponseHttpClient([
-        '{"choices":[{"message":{"content":"正文一"}}]}',
-        '{"choices":[{"message":{"content":"正文二"}}]}',
-      ]);
-      final service = PolisherService(httpClient: client);
+      'retry still returns content when both responses have no valid tags',
+      () async {
+        final client = _MultiResponseHttpClient([
+          '{"choices":[{"message":{"content":"正文一"}}]}',
+          '{"choices":[{"message":{"content":"正文二"}}]}',
+        ]);
+        final service = PolisherService(httpClient: client);
 
-      final result = await service.polish(
-        content: '测试',
-        entryType: EntryType.quickNote,
-        tagConfig: tagConfig,
-        config: const AIConfig(
-          enabled: true,
-          baseUrl: 'https://api.test.com',
-          apiKey: 'sk-test',
-          model: 'gpt-4',
-        ),
-      );
+        final result = await service.polish(
+          content: '测试',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://api.test.com',
+            apiKey: 'sk-test',
+            model: 'gpt-4',
+          ),
+        );
 
-      expect(result.content, '正文二');
-      expect(result.tags, isEmpty);
-      expect(client.callCount, 2);
-    });
+        expect(result.content, '正文二');
+        expect(result.tags, isEmpty);
+        expect(client.callCount, 2);
+      },
+    );
 
     test('no retry when first response already has valid tags', () async {
       final client = _MultiResponseHttpClient([
@@ -3621,14 +3679,16 @@ tags:
     });
 
     test('retry prompt contains retry instruction', () async {
-      final client = _CapturingHttpClient(body: '''
+      final client = _CapturingHttpClient(
+        body: '''
 {
   "choices": [{
     "message": {
       "content": "无标签正文"
     }
   }]
-}''');
+}''',
+      );
       final service = PolisherService(httpClient: client);
 
       await service.polish(
@@ -3673,17 +3733,17 @@ tags:
       expect(client.callCount, 1);
     });
 
-    test(
-        'reflection prompt includes domain guidance',
-        () async {
-      final client = _CapturingHttpClient(body: '''
+    test('reflection prompt includes domain guidance', () async {
+      final client = _CapturingHttpClient(
+        body: '''
 {
   "choices": [{
     "message": {
       "content": "ok"
     }
   }]
-}''');
+}''',
+      );
       final service = PolisherService(httpClient: client);
 
       await service.polish(
@@ -3708,42 +3768,46 @@ tags:
       expect(systemContent, contains('属于哪个生活领域'));
     });
 
-    test('reflection retry with method-only recovers with domain+topic',
-        () async {
-      final client = _MultiResponseHttpClient([
-        '{"choices":[{"message":{"content":"正文\\n#反思"}}]}',
-        '{"choices":[{"message":{"content":"正文\\n#亲子 #亲子沟通 #反思"}}]}',
-      ]);
-      final service = PolisherService(httpClient: client);
+    test(
+      'reflection retry with method-only recovers with domain+topic',
+      () async {
+        final client = _MultiResponseHttpClient([
+          '{"choices":[{"message":{"content":"正文\\n#反思"}}]}',
+          '{"choices":[{"message":{"content":"正文\\n#亲子 #亲子沟通 #反思"}}]}',
+        ]);
+        final service = PolisherService(httpClient: client);
 
-      final result = await service.polish(
-        content: '今天反思了一下',
-        entryType: EntryType.reflection,
-        tagConfig: tagConfig,
-        config: const AIConfig(
-          enabled: true,
-          baseUrl: 'https://api.test.com',
-          apiKey: 'sk-test',
-          model: 'gpt-4',
-        ),
-      );
+        final result = await service.polish(
+          content: '今天反思了一下',
+          entryType: EntryType.reflection,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://api.test.com',
+            apiKey: 'sk-test',
+            model: 'gpt-4',
+          ),
+        );
 
-      // First response had only #反思 (method), filtered as empty tags
-      // Second response has domain+topic+method
-      expect(result.content, '正文');
-      expect(result.tags, ['亲子', '亲子沟通', '反思']);
-      expect(client.callCount, 2);
-    });
+        // First response had only #反思 (method), filtered as empty tags
+        // Second response has domain+topic+method
+        expect(result.content, '正文');
+        expect(result.tags, ['亲子', '亲子沟通', '反思']);
+        expect(client.callCount, 2);
+      },
+    );
 
     test('retry instruction includes method warning', () async {
-      final client = _CapturingHttpClient(body: '''
+      final client = _CapturingHttpClient(
+        body: '''
 {
   "choices": [{
     "message": {
       "content": "#反思"
     }
   }]
-}''');
+}''',
+      );
       final service = PolisherService(httpClient: client);
 
       await service.polish(
@@ -3768,49 +3832,54 @@ tags:
       expect(systemContent, contains('不能替代领域或主题'));
     });
 
-    test('generateCoach uses Web-compatible prompt and diary context',
-        () async {
-      final client = _CapturingHttpClient(body: '''
+    test(
+      'generateCoach uses Web-compatible prompt and diary context',
+      () async {
+        final client = _CapturingHttpClient(
+          body: '''
 {
   "choices": [{
     "message": {
       "content": "📌 模式识别\\n内容\\n\\n🎯 行动建议\\n行动"
     }
   }]
-}''');
-      final service = PolisherService(httpClient: client);
+}''',
+        );
+        final service = PolisherService(httpClient: client);
 
-      final result = await service.generateCoach(
-        diaryContext: '【随手记】\n- **09:30** 测试 #生活',
-        config: const AIConfig(
-          enabled: true,
-          baseUrl: 'https://api.test.com',
-          apiKey: 'sk-secret',
-          model: 'gpt-4',
-        ),
-      );
+        final result = await service.generateCoach(
+          diaryContext: '【随手记】\n- **09:30** 测试 #生活',
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://api.test.com',
+            apiKey: 'sk-secret',
+            model: 'gpt-4',
+          ),
+        );
 
-      final body = client.lastRequestBody!;
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final messages = json['messages'] as List;
-      final systemContent =
-          (messages[0] as Map<String, dynamic>)['content'] as String;
-      final userContent =
-          (messages[1] as Map<String, dynamic>)['content'] as String;
+        final body = client.lastRequestBody!;
+        final json = jsonDecode(body) as Map<String, dynamic>;
+        final messages = json['messages'] as List;
+        final systemContent =
+            (messages[0] as Map<String, dynamic>)['content'] as String;
+        final userContent =
+            (messages[1] as Map<String, dynamic>)['content'] as String;
 
-      expect(result, contains('📌 模式识别'));
-      expect(systemContent, contains('你是一个理性的人生教练'));
-      expect(systemContent, contains('📌 模式识别'));
-      expect(systemContent, contains('🎯 行动建议'));
-      expect(systemContent, contains('💬 暖心鼓励'));
-      expect(userContent, '今天日记内容：\n【随手记】\n- **09:30** 测试 #生活');
-      expect(body, isNot(contains('sk-secret')));
-    });
+        expect(result, contains('📌 模式识别'));
+        expect(systemContent, contains('你是一个理性的人生教练'));
+        expect(systemContent, contains('📌 模式识别'));
+        expect(systemContent, contains('🎯 行动建议'));
+        expect(systemContent, contains('💬 暖心鼓励'));
+        expect(userContent, '今天日记内容：\n【随手记】\n- **09:30** 测试 #生活');
+        expect(body, isNot(contains('sk-secret')));
+      },
+    );
   });
 
   group('splitCoachResultLikeWeb', () {
     test('extracts action and keeps other modules in coach content', () {
-      final raw = '📌 模式识别\n'
+      final raw =
+          '📌 模式识别\n'
           '- 今天表现很好\n'
           '⚠️ 矛盾指出\n'
           '- 有点焦虑\n'
@@ -3830,7 +3899,8 @@ tags:
     });
 
     test('encouragement does not leak into action content', () {
-      final raw = '🎯 行动建议\n'
+      final raw =
+          '🎯 行动建议\n'
           '- 多喝水\n'
           '💬 暖心鼓励\n'
           '- 加油';
@@ -3844,7 +3914,8 @@ tags:
     });
 
     test('returns empty action when action module is missing', () {
-      final raw = '📌 模式识别\n'
+      final raw =
+          '📌 模式识别\n'
           '- 今天不错\n'
           '💬 暖心鼓励\n'
           '- 加油';
@@ -3856,7 +3927,8 @@ tags:
     });
 
     test('merges multiple bullets into one paragraph per section', () {
-      final raw = '📌 模式识别\n'
+      final raw =
+          '📌 模式识别\n'
           '- 你习惯先做计划再行动\n'
           '- 你倾向在焦虑时记录情绪触发点\n'
           '\n'
@@ -3883,16 +3955,14 @@ tags:
         '💬 暖心鼓励\n'
         '你已经开始用计划管理任务 继续保持记录',
       );
-      expect(
-        parts.actionContent,
-        '明天完成焦虑情境的完整记录\n计划执行后预留5分钟回顾',
-      );
+      expect(parts.actionContent, '明天完成焦虑情境的完整记录\n计划执行后预留5分钟回顾');
     });
   });
 
   group('coach content normalization', () {
     test('title and body on same line with ** artifacts', () {
-      final raw = '📌 **模式识别** 今天你展现了清晰的目标导向\n'
+      final raw =
+          '📌 **模式识别** 今天你展现了清晰的目标导向\n'
           '⚠️ **矛盾指出** 然而你记录焦虑时\n'
           '💬 **暖心鼓励** 你已经开始训练觉察力';
       final parts = PolisherService.splitCoachResultLikeWeb(raw);
@@ -3906,7 +3976,8 @@ tags:
     });
 
     test('title with colon and body on same line', () {
-      final raw = '📌 模式识别：今天你展现了清晰的目标导向\n'
+      final raw =
+          '📌 模式识别：今天你展现了清晰的目标导向\n'
           '⚠️ 矛盾指出：然而你记录焦虑时';
       final parts = PolisherService.splitCoachResultLikeWeb(raw);
       expect(parts.lizhiContent, contains('📌 模式识别'));
@@ -3916,7 +3987,8 @@ tags:
     });
 
     test('header markdown ### is stripped', () {
-      final raw = '### 📌 **模式识别**\n'
+      final raw =
+          '### 📌 **模式识别**\n'
           '今天不错\n'
           '### ⚠️ **矛盾指出**\n'
           '有点问题';
@@ -3928,7 +4000,8 @@ tags:
     });
 
     test('alias titles are normalized', () {
-      final raw = '主要模式与趋势\n'
+      final raw =
+          '主要模式与趋势\n'
           '今天不错\n'
           '潜在矛盾与提醒\n'
           '有点问题\n'
@@ -3944,7 +4017,8 @@ tags:
     });
 
     test('body ** is cleaned', () {
-      final raw = '📌 **模式识别**\n'
+      final raw =
+          '📌 **模式识别**\n'
           '- 你今天**表现很好**特别棒';
       final parts = PolisherService.splitCoachResultLikeWeb(raw);
       expect(parts.lizhiContent, isNot(contains('**')));
@@ -3952,7 +4026,8 @@ tags:
     });
 
     test('standard format is not broken', () {
-      final raw = '📌 模式识别\n'
+      final raw =
+          '📌 模式识别\n'
           '- 今天表现很好\n'
           '⚠️ 矛盾指出\n'
           '- 有点焦虑\n'
@@ -3967,8 +4042,7 @@ tags:
   });
 
   group('DiaryMarkdownView coach and tomorrow', () {
-    testWidgets('shows both coach and tomorrow sections',
-        (tester) async {
+    testWidgets('shows both coach and tomorrow sections', (tester) async {
       const markdown = '''
 ---
 tags:
@@ -3989,15 +4063,17 @@ tags:
 - 明天完成重要任务
 ''';
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: DiaryMarkdownView(
-            markdown: markdown,
-            onGenerateCoach: () {},
-            generatingCoach: false,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: markdown,
+              onGenerateCoach: () {},
+              generatingCoach: false,
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       // Coach section should show
@@ -4011,8 +4087,7 @@ tags:
       expect(find.text('明天完成重要任务'), findsOneWidget);
     });
 
-    testWidgets('restore default rendering after changes',
-        (tester) async {
+    testWidgets('restore default rendering after changes', (tester) async {
       const markdown = '''
 ---
 tags:
@@ -4029,21 +4104,306 @@ tags:
 明天完成重要任务
 ''';
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: DiaryMarkdownView(
-            markdown: markdown,
-            onGenerateCoach: () {},
-            generatingCoach: false,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: markdown,
+              onGenerateCoach: () {},
+              generatingCoach: false,
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       // Both sections exist independently
       expect(find.text('🧠 人生教练'), findsOneWidget);
       expect(find.text('🌙 明日寄语'), findsOneWidget);
     });
+
+    testWidgets('readOnly=false shows regenerate button', (tester) async {
+      const markdown = '''
+# 今天
+
+### 🧠 人生教练
+📌 模式识别
+你今天表现很好
+⚠️ 矛盾指出
+有一点焦虑
+''';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: markdown,
+              onGenerateCoach: () {},
+              readOnly: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // regenerate button should show
+      expect(find.text('重新生成'), findsOneWidget);
+    });
+
+    testWidgets('readOnly=false shows generate button for empty coach', (
+      tester,
+    ) async {
+      var tapped = false;
+      const markdown = '''
+# 今天
+
+### 🧠 人生教练
+-
+''';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: markdown,
+              onGenerateCoach: () => tapped = true,
+              readOnly: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('生成今日反馈'), findsOneWidget);
+
+      await tester.tap(find.text('生成今日反馈'));
+      await tester.pump();
+
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('old coach title still shows generate button when editable', (
+      tester,
+    ) async {
+      const markdown = '''
+# 今天
+
+### 🧠 荔枝喵说
+-
+''';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: markdown,
+              onGenerateCoach: () {},
+              readOnly: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('🧠 荔枝喵说'), findsNothing);
+      expect(find.text('生成今日反馈'), findsOneWidget);
+    });
+
+    testWidgets('readOnly=true hides regenerate button', (tester) async {
+      const markdown = '''
+# 今天
+
+### 🧠 人生教练
+📌 模式识别
+你今天表现很好
+''';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: markdown,
+              onGenerateCoach: () {},
+              readOnly: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Coach content should show
+      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('📌 模式识别'), findsOneWidget);
+      // Regenerate button should NOT show
+      expect(find.text('重新生成'), findsNothing);
+      expect(find.text('生成今日反馈'), findsNothing);
+    });
+
+    testWidgets('荔枝喵说 title displays as 人生教练', (tester) async {
+      const markdown = '''
+# 今天
+
+### 🧠 荔枝喵说
+📌 模式识别
+你今天表现很好
+''';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(markdown: markdown, readOnly: true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Should show as 人生教练, not 荔枝喵说
+      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('🧠 荔枝喵说'), findsNothing);
+    });
+
+    testWidgets('old format **模式识别** renders as module title', (tester) async {
+      const markdown = '''
+# 今天
+
+### 🧠 人生教练
+**模式识别**：今天两条线索并行。
+**矛盾指出**：16:07 小宝能独立玩乐高。
+**批判性问题**：你在旁边盯着的行为。
+**甜点**：4岁半能在陌生游乐场自得其乐。
+''';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(markdown: markdown, readOnly: true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Old format patterns should be normalized to display titles
+      expect(find.text('📌 模式识别'), findsOneWidget);
+      expect(find.text('⚠️ 矛盾指出'), findsOneWidget);
+      expect(find.text('❓ 批判性问题'), findsOneWidget);
+      expect(find.text('🍰 甜点'), findsOneWidget);
+
+      // Raw ** markers should NOT appear
+      expect(find.text('**模式识别**'), findsNothing);
+      expect(find.text('**矛盾指出**'), findsNothing);
+      expect(find.text('**批判性问题**'), findsNothing);
+      expect(find.text('**甜点**'), findsNothing);
+
+      // Body text (after colon) should still appear
+      expect(find.text('今天两条线索并行。'), findsOneWidget);
+      expect(find.text('16:07 小宝能独立玩乐高。'), findsOneWidget);
+    });
+
+    testWidgets('old format with emoji prefix normalizes correctly', (
+      tester,
+    ) async {
+      const markdown = '''
+# 今天
+
+### 🧠 人生教练
+🍰 **甜点**：4岁半能在陌生游乐场自得其乐。
+''';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(markdown: markdown, readOnly: true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify body text appears (without raw ** markers)
+      expect(find.text('4岁半能在陌生游乐场自得其乐。'), findsOneWidget);
+      // Verify no raw ** markers remain
+      expect(find.text('**甜点**'), findsNothing);
+      // Verify 人生教练 title still shows
+      expect(find.text('🧠 人生教练'), findsOneWidget);
+    });
+
+    testWidgets(
+      'hiddenSections hides tomorrow and habits only when specified',
+      (tester) async {
+        const markdown = '''
+# 今天
+
+## 🏃 习惯打卡
+- [x] 📖 阅读/亲子共读
+
+### 🧠 人生教练
+📌 模式识别
+你今天表现很好
+
+### 🌙 明日寄语
+- 明天完成重要任务
+''';
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: DiaryMarkdownView(
+                markdown: markdown,
+                readOnly: true,
+                hiddenSections: {'tomorrow', 'habits'},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('🧠 人生教练'), findsOneWidget);
+        expect(find.text('📌 模式识别'), findsOneWidget);
+        expect(find.text('🌙 明日寄语'), findsNothing);
+        expect(find.text('🏃 习惯打卡'), findsNothing);
+        expect(find.text('📖 阅读/亲子共读'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'today rendering keeps tomorrow and habits without hiddenSections',
+      (tester) async {
+        const markdown = '''
+# 今天
+
+## 🏃 习惯打卡
+- [x] 📖 阅读/亲子共读
+
+### 🧠 人生教练
+📌 模式识别
+你今天表现很好
+
+### 🌙 明日寄语
+- 明天完成重要任务
+''';
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: DiaryMarkdownView(
+                markdown: markdown,
+                onGenerateCoach: () {},
+                readOnly: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('🧠 人生教练'), findsOneWidget);
+        expect(find.text('重新生成'), findsOneWidget);
+        expect(find.text('🌙 明日寄语'), findsOneWidget);
+        expect(find.text('明天完成重要任务'), findsOneWidget);
+        expect(find.text('🏃 习惯打卡'), findsOneWidget);
+        expect(find.text('📖 阅读/亲子共读'), findsOneWidget);
+      },
+    );
   });
 
   group('SettingsScreen', () {
@@ -4079,8 +4439,9 @@ tags:
 
       // Initially disabled: skip server address + Token (which is _ReadOnlyField, not TextField)
       // Then AI fields: name (0), baseUrl (1), apiKey (2), model (3), prompt (4)
-      final textFields =
-          tester.widgetList<TextField>(find.byType(TextField)).toList();
+      final textFields = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .toList();
 
       expect(textFields[0].enabled, isFalse); // name
       expect(textFields[1].enabled, isFalse); // baseUrl
@@ -4091,8 +4452,9 @@ tags:
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
 
-      final enabledFields =
-          tester.widgetList<TextField>(find.byType(TextField)).toList();
+      final enabledFields = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .toList();
 
       expect(enabledFields[0].enabled, isTrue);
       expect(enabledFields[1].enabled, isTrue);
@@ -4111,10 +4473,7 @@ tags:
         find.widgetWithText(TextField, 'Base URL'),
         'https://api.test.com',
       );
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Model'),
-        'gpt-4o',
-      );
+      await tester.enterText(find.widgetWithText(TextField, 'Model'), 'gpt-4o');
       await tester.pump();
 
       // Disable and re-enable
@@ -4125,16 +4484,14 @@ tags:
 
       expect(
         tester
-            .widget<TextField>(
-                find.widgetWithText(TextField, 'Base URL'))
+            .widget<TextField>(find.widgetWithText(TextField, 'Base URL'))
             .controller
             ?.text,
         'https://api.test.com',
       );
       expect(
         tester
-            .widget<TextField>(
-                find.widgetWithText(TextField, 'Model'))
+            .widget<TextField>(find.widgetWithText(TextField, 'Model'))
             .controller
             ?.text,
         'gpt-4o',
@@ -4154,8 +4511,7 @@ tags:
       expect(tester.widget<TextField>(apiKeyField).obscureText, isFalse);
     });
 
-    testWidgets('preset chip fills name, baseUrl, and model',
-        (tester) async {
+    testWidgets('preset chip fills name, baseUrl, and model', (tester) async {
       await tester.pumpWidget(buildScreen());
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
@@ -4165,40 +4521,37 @@ tags:
 
       expect(
         tester
-            .widget<TextField>(
-                find.widgetWithText(TextField, '服务商名称'))
+            .widget<TextField>(find.widgetWithText(TextField, '服务商名称'))
             .controller
             ?.text,
         'DeepSeek',
       );
       expect(
         tester
-            .widget<TextField>(
-                find.widgetWithText(TextField, 'Base URL'))
+            .widget<TextField>(find.widgetWithText(TextField, 'Base URL'))
             .controller
             ?.text,
         'https://api.deepseek.com',
       );
       expect(
         tester
-            .widget<TextField>(
-                find.widgetWithText(TextField, 'Model'))
+            .widget<TextField>(find.widgetWithText(TextField, 'Model'))
             .controller
             ?.text,
         'deepseek-chat',
       );
     });
 
-    testWidgets('Server address and Token not editable',
-        (tester) async {
+    testWidgets('Server address and Token not editable', (tester) async {
       await tester.pumpWidget(buildScreen());
 
       expect(find.text('https://obsidian.femkits.org'), findsOneWidget);
       expect(find.text('已配置'), findsOneWidget);
     });
 
-    testWidgets('shows polish and coach prompt fields with labels',
-        (tester) async {
+    testWidgets('shows polish and coach prompt fields with labels', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildScreen());
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
@@ -4209,8 +4562,7 @@ tags:
       expect(find.text('恢复默认人生教练提示词'), findsOneWidget);
     });
 
-    testWidgets('restore default polish prompt fills default',
-        (tester) async {
+    testWidgets('restore default polish prompt fills default', (tester) async {
       await tester.pumpWidget(buildScreen());
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
@@ -4232,8 +4584,7 @@ tags:
       );
     });
 
-    testWidgets('restore default coach prompt fills default',
-        (tester) async {
+    testWidgets('restore default coach prompt fills default', (tester) async {
       await tester.pumpWidget(buildScreen());
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
@@ -4329,8 +4680,7 @@ tags:
   });
 
   group('EntryDelete', () {
-    testWidgets('QuickNoteTimeline shows delete button',
-        (tester) async {
+    testWidgets('QuickNoteTimeline shows delete button', (tester) async {
       final section = QuickNoteSection(
         title: '随手记',
         contents: [],
@@ -4344,17 +4694,20 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteTimeline(section: section, onDelete: (_) async {}),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteTimeline(section: section, onDelete: (_) async {}),
+          ),
         ),
-      ));
+      );
 
       expect(find.byIcon(Icons.more_horiz), findsOneWidget);
     });
 
-    testWidgets('QuickNoteTimeline delete button shows confirm dialog',
-        (tester) async {
+    testWidgets('QuickNoteTimeline delete button shows confirm dialog', (
+      tester,
+    ) async {
       final section = QuickNoteSection(
         title: '随手记',
         contents: [],
@@ -4368,12 +4721,13 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteTimeline(
-              section: section, onDelete: (_) async {}),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteTimeline(section: section, onDelete: (_) async {}),
+          ),
         ),
-      ));
+      );
 
       await tester.tap(find.byIcon(Icons.more_horiz));
       await tester.pumpAndSettle();
@@ -4391,49 +4745,53 @@ tags:
     });
 
     testWidgets(
-        'QuickNoteTimeline confirm delete calls onDelete with rawLine',
-        (tester) async {
-      String? deletedRawLine;
-      final section = QuickNoteSection(
-        title: '随手记',
-        contents: [],
-        notes: [
-          QuickNoteItem(
-            time: '09:30',
-            content: '测试',
-            tags: [],
-            rawLine: '- **09:30** 测试 #工作',
+      'QuickNoteTimeline confirm delete calls onDelete with rawLine',
+      (tester) async {
+        String? deletedRawLine;
+        final section = QuickNoteSection(
+          title: '随手记',
+          contents: [],
+          notes: [
+            QuickNoteItem(
+              time: '09:30',
+              content: '测试',
+              tags: [],
+              rawLine: '- **09:30** 测试 #工作',
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: QuickNoteTimeline(
+                section: section,
+                onDelete: (note) async {
+                  deletedRawLine = note.rawLine;
+                },
+              ),
+            ),
           ),
-        ],
-      );
+        );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteTimeline(
-            section: section,
-            onDelete: (note) async {
-              deletedRawLine = note.rawLine;
-            },
-          ),
-        ),
-      ));
+        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
-      await tester.pumpAndSettle();
+        // Tap delete in popup menu
+        await tester.tap(find.text('删除'));
+        await tester.pumpAndSettle();
 
-      // Tap delete in popup menu
-      await tester.tap(find.text('删除'));
-      await tester.pumpAndSettle();
+        // Now tap delete in confirm dialog
+        await tester.tap(find.text('删除'));
+        await tester.pumpAndSettle();
 
-      // Now tap delete in confirm dialog
-      await tester.tap(find.text('删除'));
-      await tester.pumpAndSettle();
+        expect(deletedRawLine, '- **09:30** 测试 #工作');
+      },
+    );
 
-      expect(deletedRawLine, '- **09:30** 测试 #工作');
-    });
-
-    testWidgets('GenericSectionCard timeline shows delete button',
-        (tester) async {
+    testWidgets('GenericSectionCard timeline shows delete button', (
+      tester,
+    ) async {
       final section = HappinessSection(
         title: '小确幸',
         contents: [
@@ -4446,102 +4804,109 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: GenericSectionCard(
-            section: section,
-            onTimelineDelete: (_) async {},
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GenericSectionCard(
+              section: section,
+              onTimelineDelete: (_) async {},
+            ),
           ),
         ),
-      ));
+      );
 
       expect(find.byIcon(Icons.more_horiz), findsOneWidget);
     });
 
     testWidgets(
-        'GenericSectionCard happiness delete calls onDelete with rawLine',
-        (tester) async {
-      String? deletedRawLine;
-      final section = HappinessSection(
-        title: '小确幸',
-        contents: [
-          TimelineContent(
-            time: '14:00',
-            text: '小确幸内容',
-            tags: ['#生活'],
-            rawLine: '> **14:00** 小确幸内容 #生活',
+      'GenericSectionCard happiness delete calls onDelete with rawLine',
+      (tester) async {
+        String? deletedRawLine;
+        final section = HappinessSection(
+          title: '小确幸',
+          contents: [
+            TimelineContent(
+              time: '14:00',
+              text: '小确幸内容',
+              tags: ['#生活'],
+              rawLine: '> **14:00** 小确幸内容 #生活',
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: GenericSectionCard(
+                section: section,
+                onTimelineDelete: (rawLine) async {
+                  deletedRawLine = rawLine;
+                },
+              ),
+            ),
           ),
-        ],
-      );
+        );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: GenericSectionCard(
-            section: section,
-            onTimelineDelete: (rawLine) async {
-              deletedRawLine = rawLine;
-            },
-          ),
-        ),
-      ));
+        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
-      await tester.pumpAndSettle();
+        // Tap delete in popup menu
+        await tester.tap(find.text('删除'));
+        await tester.pumpAndSettle();
 
-      // Tap delete in popup menu
-      await tester.tap(find.text('删除'));
-      await tester.pumpAndSettle();
+        // Tap delete in confirm dialog
+        await tester.tap(find.text('删除'));
+        await tester.pumpAndSettle();
 
-      // Tap delete in confirm dialog
-      await tester.tap(find.text('删除'));
-      await tester.pumpAndSettle();
-
-      expect(deletedRawLine, '> **14:00** 小确幸内容 #生活');
-    });
+        expect(deletedRawLine, '> **14:00** 小确幸内容 #生活');
+      },
+    );
 
     testWidgets(
-        'GenericSectionCard reflection delete calls onDelete with rawLine',
-        (tester) async {
-      String? deletedRawLine;
-      final section = ReviewSection(
-        title: '觉察',
-        contents: [
-          TimelineContent(
-            time: '10:00',
-            text: '觉察内容',
-            tags: ['#反思'],
-            rawLine: '- **10:00** 觉察内容 #反思',
+      'GenericSectionCard reflection delete calls onDelete with rawLine',
+      (tester) async {
+        String? deletedRawLine;
+        final section = ReviewSection(
+          title: '觉察',
+          contents: [
+            TimelineContent(
+              time: '10:00',
+              text: '觉察内容',
+              tags: ['#反思'],
+              rawLine: '- **10:00** 觉察内容 #反思',
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: GenericSectionCard(
+                section: section,
+                onTimelineDelete: (rawLine) async {
+                  deletedRawLine = rawLine;
+                },
+              ),
+            ),
           ),
-        ],
-      );
+        );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: GenericSectionCard(
-            section: section,
-            onTimelineDelete: (rawLine) async {
-              deletedRawLine = rawLine;
-            },
-          ),
-        ),
-      ));
+        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
-      await tester.pumpAndSettle();
+        // Tap delete in popup menu
+        await tester.tap(find.text('删除'));
+        await tester.pumpAndSettle();
 
-      // Tap delete in popup menu
-      await tester.tap(find.text('删除'));
-      await tester.pumpAndSettle();
+        // Tap delete in confirm dialog
+        await tester.tap(find.text('删除'));
+        await tester.pumpAndSettle();
 
-      // Tap delete in confirm dialog
-      await tester.tap(find.text('删除'));
-      await tester.pumpAndSettle();
+        expect(deletedRawLine, '- **10:00** 觉察内容 #反思');
+      },
+    );
 
-      expect(deletedRawLine, '- **10:00** 觉察内容 #反思');
-    });
-
-    testWidgets('no delete button when onDelete is null',
-        (tester) async {
+    testWidgets('no delete button when onDelete is null', (tester) async {
       final section = QuickNoteSection(
         title: '随手记',
         contents: [],
@@ -4555,17 +4920,18 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteTimeline(section: section),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: QuickNoteTimeline(section: section)),
         ),
-      ));
+      );
 
       expect(find.byIcon(Icons.more_horiz), findsNothing);
     });
 
-    testWidgets('ReviewCard shows delete button via GenericSectionCard',
-        (tester) async {
+    testWidgets('ReviewCard shows delete button via GenericSectionCard', (
+      tester,
+    ) async {
       final section = ReviewSection(
         title: '💡 觉察与迭代',
         contents: [
@@ -4578,21 +4944,20 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ReviewCard(
-            section: section,
-            onTimelineDelete: (_) async {},
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ReviewCard(section: section, onTimelineDelete: (_) async {}),
           ),
         ),
-      ));
+      );
 
       expect(find.byIcon(Icons.more_horiz), findsOneWidget);
     });
 
-    testWidgets(
-        'ReviewCard delete passes rawLine with section reflection',
-        (tester) async {
+    testWidgets('ReviewCard delete passes rawLine with section reflection', (
+      tester,
+    ) async {
       String? passedRawLine;
       final section = ReviewSection(
         title: '💡 觉察与迭代',
@@ -4606,16 +4971,18 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ReviewCard(
-            section: section,
-            onTimelineDelete: (rawLine) async {
-              passedRawLine = rawLine;
-            },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ReviewCard(
+              section: section,
+              onTimelineDelete: (rawLine) async {
+                passedRawLine = rawLine;
+              },
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.tap(find.byIcon(Icons.more_horiz));
       await tester.pumpAndSettle();
@@ -4631,9 +4998,9 @@ tags:
       expect(passedRawLine, '- **10:00** 觉察内容 #反思');
     });
 
-    testWidgets(
-        'ReviewCard with SubSectionContent still shows delete button',
-        (tester) async {
+    testWidgets('ReviewCard with SubSectionContent still shows delete button', (
+      tester,
+    ) async {
       // Replicates real markdown: "## 每日复盘" / "### 💡 觉察与迭代"
       final section = ReviewSection(
         title: '🧠 每日复盘',
@@ -4648,20 +5015,18 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ReviewCard(
-            section: section,
-            onTimelineDelete: (_) async {},
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ReviewCard(section: section, onTimelineDelete: (_) async {}),
           ),
         ),
-      ));
+      );
 
       expect(find.byIcon(Icons.more_horiz), findsOneWidget);
     });
 
-    testWidgets('PopupMenu shows edit and delete options',
-        (tester) async {
+    testWidgets('PopupMenu shows edit and delete options', (tester) async {
       final section = QuickNoteSection(
         title: '随手记',
         contents: [],
@@ -4675,14 +5040,17 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteTimeline(
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteTimeline(
               section: section,
               onDelete: (_) async {},
-              onEdit: (_, _, _) async {}),
+              onEdit: (_, _, _) async {},
+            ),
+          ),
         ),
-      ));
+      );
 
       await tester.tap(find.byIcon(Icons.more_horiz));
       await tester.pumpAndSettle();
@@ -4691,8 +5059,9 @@ tags:
       expect(find.text('删除'), findsOneWidget);
     });
 
-    testWidgets('edit opens EntryEditSheet with pre-filled content',
-        (tester) async {
+    testWidgets('edit opens EntryEditSheet with pre-filled content', (
+      tester,
+    ) async {
       final section = QuickNoteSection(
         title: '随手记',
         contents: [],
@@ -4706,14 +5075,16 @@ tags:
         ],
       );
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: QuickNoteTimeline(
-            section: section,
-            onEdit: (_, _, _) async {},
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteTimeline(
+              section: section,
+              onEdit: (_, _, _) async {},
+            ),
           ),
         ),
-      ));
+      );
 
       await tester.tap(find.byIcon(Icons.more_horiz));
       await tester.pumpAndSettle();
@@ -4728,35 +5099,39 @@ tags:
       );
     });
 
-    testWidgets(
-        'EntryEditSheet strips # prefix from tags for TagPicker',
-        (tester) async {
+    testWidgets('EntryEditSheet strips # prefix from tags for TagPicker', (
+      tester,
+    ) async {
       final tagConfig = _polishTagConfig();
       List<String>? savedTags;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: Builder(builder: (context) {
-            return ElevatedButton(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (_) => EntryEditSheet(
-                    initialContent: 'test',
-                    initialTags: const ['#亲子', '#亲子沟通'],
-                    tagConfig: tagConfig,
-                    onSave: (_, tags) async {
-                      savedTags = tags;
-                    },
-                  ),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                return ElevatedButton(
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => EntryEditSheet(
+                        initialContent: 'test',
+                        initialTags: const ['#亲子', '#亲子沟通'],
+                        tagConfig: tagConfig,
+                        onSave: (_, tags) async {
+                          savedTags = tags;
+                        },
+                      ),
+                    );
+                  },
+                  child: const Text('打开'),
                 );
               },
-              child: const Text('打开'),
-            );
-          }),
+            ),
+          ),
         ),
-      ));
+      );
 
       // Open the sheet
       await tester.tap(find.text('打开'));
@@ -4772,8 +5147,7 @@ tags:
       expect(savedTags, contains('亲子'));
     });
 
-    test('rebuildTimelineLine preserves original time for edit',
-        () {
+    test('rebuildTimelineLine preserves original time for edit', () {
       const rawLine = '- **09:30** 旧内容 #旧标签';
 
       final replacement = rebuildTimelineLine(
@@ -4785,8 +5159,7 @@ tags:
       expect(replacement, '- **09:30** 新内容 #亲子 #亲子沟通');
     });
 
-    test('rebuildTimelineLine preserves > prefix for happiness edit',
-        () {
+    test('rebuildTimelineLine preserves > prefix for happiness edit', () {
       const rawLine = '> **14:00** 旧小确幸 #生活';
 
       final replacement = rebuildTimelineLine(
@@ -4852,8 +5225,7 @@ tags:
   group('ImageCompressService', () {
     const maxBytes = 3 * 1024 * 1024;
 
-    test('compressToBase64 output includes data:image/jpeg;base64, prefix',
-        () {
+    test('compressToBase64 output includes data:image/jpeg;base64, prefix', () {
       final image = img.Image(width: 1, height: 1);
       image.setPixelRgba(0, 0, 255, 0, 0, 255);
       final bytes = img.encodeJpg(image, quality: 90);
@@ -4913,7 +5285,13 @@ tags:
       for (var y = 0; y < image.height; y++) {
         for (var x = 0; x < image.width; x++) {
           image.setPixelRgba(
-            x, y, rng.nextInt(256), rng.nextInt(256), rng.nextInt(256), 255);
+            x,
+            y,
+            rng.nextInt(256),
+            rng.nextInt(256),
+            rng.nextInt(256),
+            255,
+          );
         }
       }
       final inputBytes = img.encodeJpg(image, quality: 100);
@@ -4944,7 +5322,13 @@ tags:
       for (var y = 0; y < image.height; y++) {
         for (var x = 0; x < image.width; x++) {
           image.setPixelRgba(
-            x, y, rng.nextInt(256), rng.nextInt(256), rng.nextInt(256), 255);
+            x,
+            y,
+            rng.nextInt(256),
+            rng.nextInt(256),
+            rng.nextInt(256),
+            255,
+          );
         }
       }
       final inputBytes = img.encodeJpg(image, quality: 95);
@@ -4968,9 +5352,7 @@ tags:
     test('parseWikiLinks extracts single WikiLink', () {
       final section = MediaSection(
         title: '## 📸 影像记录',
-        contents: [
-          MarkdownContent('![[Image-20260608-001.jpg]]'),
-        ],
+        contents: [MarkdownContent('![[Image-20260608-001.jpg]]')],
       );
       final filenames = ImageSectionCard.parseWikiLinks(section);
       expect(filenames, ['Image-20260608-001.jpg']);
@@ -4992,9 +5374,7 @@ tags:
     test('parseWikiLinks ignores non-wiki Markdown image format', () {
       final section = MediaSection(
         title: '## 📸 影像记录',
-        contents: [
-          MarkdownContent('![](path/to/image.jpg)'),
-        ],
+        contents: [MarkdownContent('![](path/to/image.jpg)')],
       );
       final filenames = ImageSectionCard.parseWikiLinks(section);
       expect(filenames, isEmpty);
@@ -5027,31 +5407,27 @@ tags:
     });
 
     test('parseWikiLinks returns empty for empty MediaSection', () {
-      final section = MediaSection(
-        title: '## 📸 影像记录',
-        contents: [],
-      );
+      final section = MediaSection(title: '## 📸 影像记录', contents: []);
       final filenames = ImageSectionCard.parseWikiLinks(section);
       expect(filenames, isEmpty);
     });
 
     testWidgets('shows empty state when no images', (tester) async {
-      final section = MediaSection(
-        title: '## 📸 影像记录',
-        contents: [],
-      );
+      final section = MediaSection(title: '## 📸 影像记录', contents: []);
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ImageSectionCard(
-            section: section,
-            apiClient: ApiClient(
-              ApiConfig(baseUrl: 'https://test.local', token: 'x'),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ImageSectionCard(
+              section: section,
+              apiClient: ApiClient(
+                ApiConfig(baseUrl: 'https://test.local', token: 'x'),
+              ),
+              date: DateTime(2026, 6, 8),
             ),
-            date: DateTime(2026, 6, 8),
           ),
         ),
-      ));
+      );
 
       expect(find.text('暂无影像记录'), findsOneWidget);
     });
@@ -5076,16 +5452,20 @@ tags:
     testWidgets('thumbnail shows delete menu', (tester) async {
       String? deleted;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ImageSectionCard(
-            section: imageSection(['img-001.jpg']),
-            apiClient: imageTestApiClient(),
-            date: DateTime(2026, 6, 8),
-            onDeleteImage: (rawLine) async { deleted = rawLine; },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ImageSectionCard(
+              section: imageSection(['img-001.jpg']),
+              apiClient: imageTestApiClient(),
+              date: DateTime(2026, 6, 8),
+              onDeleteImage: (rawLine) async {
+                deleted = rawLine;
+              },
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.more_horiz), findsOneWidget);
@@ -5093,16 +5473,18 @@ tags:
     });
 
     testWidgets('delete shows confirm dialog', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ImageSectionCard(
-            section: imageSection(['img-001.jpg']),
-            apiClient: imageTestApiClient(),
-            date: DateTime(2026, 6, 8),
-            onDeleteImage: (_) async {},
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ImageSectionCard(
+              section: imageSection(['img-001.jpg']),
+              apiClient: imageTestApiClient(),
+              date: DateTime(2026, 6, 8),
+              onDeleteImage: (_) async {},
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(Icons.more_horiz));
@@ -5117,16 +5499,20 @@ tags:
     testWidgets('cancel delete does not fire callback', (tester) async {
       String? deleted;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ImageSectionCard(
-            section: imageSection(['img-001.jpg']),
-            apiClient: imageTestApiClient(),
-            date: DateTime(2026, 6, 8),
-            onDeleteImage: (rawLine) async { deleted = rawLine; },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ImageSectionCard(
+              section: imageSection(['img-001.jpg']),
+              apiClient: imageTestApiClient(),
+              date: DateTime(2026, 6, 8),
+              onDeleteImage: (rawLine) async {
+                deleted = rawLine;
+              },
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(Icons.more_horiz));
@@ -5139,20 +5525,25 @@ tags:
       expect(deleted, isNull);
     });
 
-    testWidgets('confirm delete fires callback with correct rawLine',
-        (tester) async {
+    testWidgets('confirm delete fires callback with correct rawLine', (
+      tester,
+    ) async {
       String? deleted;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ImageSectionCard(
-            section: imageSection(['Image-20260608-001.jpg']),
-            apiClient: imageTestApiClient(),
-            date: DateTime(2026, 6, 8),
-            onDeleteImage: (rawLine) async { deleted = rawLine; },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ImageSectionCard(
+              section: imageSection(['Image-20260608-001.jpg']),
+              apiClient: imageTestApiClient(),
+              date: DateTime(2026, 6, 8),
+              onDeleteImage: (rawLine) async {
+                deleted = rawLine;
+              },
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(Icons.more_horiz));
@@ -5165,20 +5556,25 @@ tags:
       expect(deleted, '![[Image-20260608-001.jpg]]');
     });
 
-    testWidgets('multi-image delete passes correct rawLine per image',
-        (tester) async {
+    testWidgets('multi-image delete passes correct rawLine per image', (
+      tester,
+    ) async {
       String? deleted;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ImageSectionCard(
-            section: imageSection(['img-001.jpg', 'img-002.jpg']),
-            apiClient: imageTestApiClient(),
-            date: DateTime(2026, 6, 8),
-            onDeleteImage: (rawLine) async { deleted = rawLine; },
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ImageSectionCard(
+              section: imageSection(['img-001.jpg', 'img-002.jpg']),
+              apiClient: imageTestApiClient(),
+              date: DateTime(2026, 6, 8),
+              onDeleteImage: (rawLine) async {
+                deleted = rawLine;
+              },
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       // Two thumbnails → two delete menus
@@ -5195,33 +5591,37 @@ tags:
       expect(deleted, '![[img-001.jpg]]');
     });
 
-    testWidgets('no delete menu when onDeleteImage is null',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ImageSectionCard(
-            section: imageSection(['img-001.jpg']),
-            apiClient: imageTestApiClient(),
-            date: DateTime(2026, 6, 8),
+    testWidgets('no delete menu when onDeleteImage is null', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ImageSectionCard(
+              section: imageSection(['img-001.jpg']),
+              apiClient: imageTestApiClient(),
+              date: DateTime(2026, 6, 8),
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.more_horiz), findsNothing);
     });
 
-    testWidgets('tap thumbnail opens preview with close gesture',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: ImageSectionCard(
-            section: imageSection(['img-001.jpg']),
-            apiClient: imageTestApiClient(),
-            date: DateTime(2026, 6, 8),
+    testWidgets('tap thumbnail opens preview with close gesture', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ImageSectionCard(
+              section: imageSection(['img-001.jpg']),
+              apiClient: imageTestApiClient(),
+              date: DateTime(2026, 6, 8),
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       // Tap the thumbnail image

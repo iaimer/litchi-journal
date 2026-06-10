@@ -7,11 +7,13 @@ import 'section_card.dart';
 class HabitCard extends StatefulWidget {
   final HabitSection section;
   final Future<bool> Function(HabitStatus) onUpdate;
+  final bool readOnly;
 
   const HabitCard({
     super.key,
     required this.section,
     required this.onUpdate,
+    this.readOnly = false,
   });
 
   @override
@@ -27,13 +29,15 @@ class _HabitCardState extends State<HabitCard> {
       final ok = await widget.onUpdate(next);
       if (!mounted) return;
       if (!ok) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('更新失败')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('更新失败')));
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('更新失败')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('更新失败')));
     } finally {
       if (mounted) setState(() => _updatingField = null);
     }
@@ -49,8 +53,9 @@ class _HabitCardState extends State<HabitCard> {
 
   Future<void> _handleStepsEdit() async {
     final currentStatus = HabitStatus.fromHabitSection(widget.section);
-    final controller =
-        TextEditingController(text: currentStatus.steps.toString());
+    final controller = TextEditingController(
+      text: currentStatus.steps.toString(),
+    );
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -102,6 +107,9 @@ class _HabitCardState extends State<HabitCard> {
   }
 
   Widget _buildRow(HabitItem habit, HabitStatus status) {
+    if (widget.readOnly) {
+      return _buildReadOnlyRow(habit, status);
+    }
     switch (habit.kind) {
       case HabitKind.checkbox:
         return _CheckboxRow(
@@ -130,6 +138,33 @@ class _HabitCardState extends State<HabitCard> {
           status: status,
           loading: _updatingField != null,
           onEdit: _handleStepsEdit,
+        );
+    }
+  }
+
+  Widget _buildReadOnlyRow(HabitItem habit, HabitStatus status) {
+    switch (habit.kind) {
+      case HabitKind.checkbox:
+        return _CheckboxRow(
+          habit: habit,
+          status: status,
+          loading: false,
+          onTap: () {},
+        );
+      case HabitKind.counter:
+        if (_isWaterHabit(habit)) {
+          return _WaterCounterRow(
+            habit: habit,
+            status: status,
+            loading: false,
+            onIncrement: (_) {},
+          );
+        }
+        return _StepsCounterRow(
+          habit: habit,
+          status: status,
+          loading: false,
+          onEdit: () {},
         );
     }
   }
@@ -275,18 +310,15 @@ class _WaterCounterRow extends StatelessWidget {
             children: [
               _QuickButton(
                 label: '+250',
-                onTap:
-                    loading ? null : () => onIncrement(_add(250)),
+                onTap: loading ? null : () => onIncrement(_add(250)),
               ),
               _QuickButton(
                 label: '+475',
-                onTap:
-                    loading ? null : () => onIncrement(_add(475)),
+                onTap: loading ? null : () => onIncrement(_add(475)),
               ),
               _QuickButton(
                 label: '+500',
-                onTap:
-                    loading ? null : () => onIncrement(_add(500)),
+                onTap: loading ? null : () => onIncrement(_add(500)),
               ),
               _QuickButton(
                 label: '目标',
@@ -383,9 +415,7 @@ class _QuickButton extends StatelessWidget {
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           side: const BorderSide(color: AppColors.primary, width: 0.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
         child: Text(
           label,

@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'services/api_config.dart';
 import 'services/api_client.dart';
-import 'screens/setup_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/past_screen.dart';
 import 'theme/app_theme.dart';
+import 'screens/setup_screen.dart';
 
 void main() {
   runApp(const LitchiJournalApp());
@@ -63,6 +64,62 @@ class _AppEntryState extends State<AppEntry> {
     if (_config == null) {
       return SetupScreen(onConfigured: _onConfigured);
     }
-    return HomeScreen(apiClient: ApiClient(_config!));
+    return MainScreen(apiClient: ApiClient(_config!));
+  }
+}
+
+/// 底部导航主页面，包含今天和过往两个 tab。
+class MainScreen extends StatefulWidget {
+  final ApiClient apiClient;
+
+  const MainScreen({super.key, required this.apiClient});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      HomeScreen(
+        key: const PageStorageKey('home'),
+        apiClient: widget.apiClient,
+      ),
+      PastScreen(
+        key: const PageStorageKey('past'),
+        apiClient: widget.apiClient,
+      ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() => _currentIndex = index);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.edit_note_outlined),
+            selectedIcon: Icon(Icons.edit_note),
+            label: '今天',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: '过往',
+          ),
+        ],
+      ),
+    );
   }
 }

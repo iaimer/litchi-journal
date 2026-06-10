@@ -46,11 +46,7 @@ class MarkdownParser {
 
     if (current != null) sections.add(current.toSection());
 
-    return DiaryDocument(
-      title: title,
-      preamble: preamble,
-      sections: sections,
-    );
+    return DiaryDocument(title: title, preamble: preamble, sections: sections);
   }
 
   List<String> _stripYaml(String raw) {
@@ -98,11 +94,12 @@ class MarkdownParser {
       if (sectionMatch != null) {
         final title = sectionMatch.group(1)!.trim();
         final isH3 = trimmed.startsWith('###');
-        contents.add(_SectionMarker(
-          title,
-          isSubHeader: isH3 &&
-              !_isStandaloneSubSection(title),
-        ));
+        contents.add(
+          _SectionMarker(
+            title,
+            isSubHeader: isH3 && !_isStandaloneSubSection(title),
+          ),
+        );
         i++;
         continue;
       }
@@ -126,11 +123,13 @@ class MarkdownParser {
           }
           i++;
         }
-        contents.add(CalloutContent(
-          type: calloutMatch.group(1)!.toLowerCase(),
-          title: (calloutMatch.group(2) ?? '').trim(),
-          body: body,
-        ));
+        contents.add(
+          CalloutContent(
+            type: calloutMatch.group(1)!.toLowerCase(),
+            title: (calloutMatch.group(2) ?? '').trim(),
+            body: body,
+          ),
+        );
         continue;
       }
 
@@ -138,11 +137,13 @@ class MarkdownParser {
       if (checkboxMatch != null) {
         final text = (checkboxMatch.group(2) ?? '').trim();
         if (text.isNotEmpty) {
-          contents.add(CheckboxContent(
-            checked: checkboxMatch.group(1)!.toLowerCase() == 'x',
-            text: text,
-            rawLine: line,
-          ));
+          contents.add(
+            CheckboxContent(
+              checked: checkboxMatch.group(1)!.toLowerCase() == 'x',
+              text: text,
+              rawLine: line,
+            ),
+          );
         }
         i++;
         continue;
@@ -152,12 +153,14 @@ class MarkdownParser {
       if (timelineMatch != null) {
         final rawContent = (timelineMatch.group(2) ?? '').trim();
         if (rawContent.isNotEmpty && rawContent != _templateTimelineText) {
-          contents.add(TimelineContent(
-            time: timelineMatch.group(1)!,
-            text: _stripTags(rawContent),
-            tags: _extractTags(rawContent),
-            rawLine: line,
-          ));
+          contents.add(
+            TimelineContent(
+              time: timelineMatch.group(1)!,
+              text: _stripTags(rawContent),
+              tags: _extractTags(rawContent),
+              rawLine: line,
+            ),
+          );
         }
         i++;
         continue;
@@ -209,7 +212,10 @@ class MarkdownParser {
   }
 
   List<String> _extractTags(String text) {
-    return _tagPattern.allMatches(text).map((match) => match.group(0)!).toList();
+    return _tagPattern
+        .allMatches(text)
+        .map((match) => match.group(0)!)
+        .toList();
   }
 
   String _stripTags(String text) {
@@ -224,7 +230,7 @@ class _DraftSection {
   _DraftSection(this.title);
 
   DiarySection toSection() {
-    if (title.contains('习惯打卡')) {
+    if (title.contains('习惯打卡') || title.contains('习惯追踪')) {
       return HabitSection(
         title: title,
         contents: contents,
@@ -266,13 +272,15 @@ class _DraftSection {
 
     for (final content in contents) {
       if (content is CheckboxContent) {
-        habits.add(HabitItem(
-          kind: HabitKind.checkbox,
-          label: content.text,
-          checked: content.checked,
-          checkable: true,
-          rawLine: content.rawLine,
-        ));
+        habits.add(
+          HabitItem(
+            kind: HabitKind.checkbox,
+            label: content.text,
+            checked: content.checked,
+            checkable: true,
+            rawLine: content.rawLine,
+          ),
+        );
       } else if (content is MarkdownContent) {
         for (final line in content.text.split('\n')) {
           final trimmed = line.trim();
@@ -284,28 +292,30 @@ class _DraftSection {
           if (counterMatch != null) {
             final value = int.tryParse(counterMatch.group(1)!);
             final unit = counterMatch.group(2)!;
-            final rawLabel =
-                body.substring(0, counterMatch.start).trim();
-            final label =
-                rawLabel.replaceFirst(cleanLabel, '').trim();
+            final rawLabel = body.substring(0, counterMatch.start).trim();
+            final label = rawLabel.replaceFirst(cleanLabel, '').trim();
 
-            habits.add(HabitItem(
-              kind: HabitKind.counter,
-              label: label,
-              checked: false,
-              checkable: false,
-              rawLine: line,
-              value: value,
-              unit: unit,
-            ));
+            habits.add(
+              HabitItem(
+                kind: HabitKind.counter,
+                label: label,
+                checked: false,
+                checkable: false,
+                rawLine: line,
+                value: value,
+                unit: unit,
+              ),
+            );
           } else {
-            habits.add(HabitItem(
-              kind: HabitKind.checkbox,
-              label: body,
-              checked: false,
-              checkable: false,
-              rawLine: line,
-            ));
+            habits.add(
+              HabitItem(
+                kind: HabitKind.checkbox,
+                label: body,
+                checked: false,
+                checkable: false,
+                rawLine: line,
+              ),
+            );
           }
         }
       }
@@ -317,12 +327,14 @@ class _DraftSection {
     final notes = <QuickNoteItem>[];
     for (final content in contents) {
       if (content is TimelineContent) {
-        notes.add(QuickNoteItem(
-          time: content.time,
-          content: content.text,
-          tags: content.tags,
-          rawLine: content.rawLine,
-        ));
+        notes.add(
+          QuickNoteItem(
+            time: content.time,
+            content: content.text,
+            tags: content.tags,
+            rawLine: content.rawLine,
+          ),
+        );
       }
     }
     return notes;

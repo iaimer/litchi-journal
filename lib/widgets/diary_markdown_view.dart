@@ -64,13 +64,24 @@ class DiaryMarkdownView extends StatelessWidget {
       widgets.add(GenericSectionCard(section: preamble));
     }
 
+    var hasCoachSection = false;
     for (final section in document.sections) {
       if (_isHiddenSection(section)) continue;
+      if (section is CoachSection) hasCoachSection = true;
       if (section.isEmpty &&
           (section is! CoachSection || readOnly || onGenerateCoach == null)) {
         continue;
       }
       widgets.add(_buildSection(section, context));
+    }
+
+    if (canGenerateCoach && !hasCoachSection) {
+      widgets.add(
+        _buildCoachCard(
+          const CoachSection(title: '🧠 人生教练', contents: []),
+          context,
+        ),
+      );
     }
 
     if (widgets.isEmpty) return const SizedBox.shrink();
@@ -83,14 +94,26 @@ class DiaryMarkdownView extends StatelessWidget {
   bool _isHiddenSection(DiarySection section) {
     if (hiddenSections.isEmpty) return false;
     final normalized = hiddenSections.map((s) => s.toLowerCase()).toSet();
-    if (section is HabitSection) {
-      return normalized.contains('habit') ||
-          normalized.contains('habits') ||
-          normalized.contains('习惯追踪') ||
-          normalized.contains('习惯打卡');
+    final title = section.title.toLowerCase();
+    final hideHabit =
+        normalized.contains('habit') ||
+        normalized.contains('habits') ||
+        normalized.contains('习惯追踪') ||
+        normalized.contains('习惯打卡');
+    if (hideHabit &&
+        (section is HabitSection ||
+            title.contains('habit') ||
+            title.contains('习惯追踪') ||
+            title.contains('习惯打卡'))) {
+      return true;
     }
-    if (section is TomorrowSection) {
-      return normalized.contains('tomorrow') || normalized.contains('明日寄语');
+    final hideTomorrow =
+        normalized.contains('tomorrow') || normalized.contains('明日寄语');
+    if (hideTomorrow &&
+        (section is TomorrowSection ||
+            title.contains('tomorrow') ||
+            title.contains('明日寄语'))) {
+      return true;
     }
     return false;
   }

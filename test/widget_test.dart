@@ -4183,6 +4183,39 @@ tags:
       expect(tapped, isTrue);
     });
 
+    testWidgets(
+      'readOnly=false shows generate button when coach section missing',
+      (tester) async {
+        const markdown = '''
+# 今天
+
+## 🏃 习惯打卡
+- [x] 📖 阅读/亲子共读
+
+### 🌙 明日寄语
+- 明天完成重要任务
+''';
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: DiaryMarkdownView(
+                markdown: markdown,
+                onGenerateCoach: () {},
+                readOnly: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('🧠 人生教练'), findsOneWidget);
+        expect(find.text('生成今日反馈'), findsOneWidget);
+        expect(find.text('🌙 明日寄语'), findsOneWidget);
+        expect(find.text('🏃 习惯打卡'), findsOneWidget);
+      },
+    );
+
     testWidgets('old coach title still shows generate button when editable', (
       tester,
     ) async {
@@ -4365,6 +4398,38 @@ tags:
         expect(find.text('📖 阅读/亲子共读'), findsNothing);
       },
     );
+
+    testWidgets('hiddenSections hides habit tracking title variant', (
+      tester,
+    ) async {
+      const markdown = '''
+# 今天
+
+## 📌 习惯追踪
+- [x] 📖 阅读/亲子共读
+
+### 🧠 人生教练
+📌 模式识别
+你今天表现很好
+''';
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: markdown,
+              readOnly: true,
+              hiddenSections: {'tomorrow', 'habits'},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('📌 习惯追踪'), findsNothing);
+      expect(find.text('📖 阅读/亲子共读'), findsNothing);
+    });
 
     testWidgets(
       'today rendering keeps tomorrow and habits without hiddenSections',

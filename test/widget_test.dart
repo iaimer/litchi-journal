@@ -250,6 +250,24 @@ void main() {
       expect(find.text('看看那些已经走过的日子'), findsOneWidget);
       expect(find.text('今天曾经发生过'), findsOneWidget);
       expect(find.text('随便走走'), findsOneWidget);
+      expect(
+        find.ancestor(of: find.text('过往'), matching: find.byType(ListView)),
+        findsNothing,
+      );
+      expect(
+        find.ancestor(
+          of: find.text('看看那些已经走过的日子'),
+          matching: find.byType(ListView),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.ancestor(
+          of: find.text('今天曾经发生过'),
+          matching: find.byType(ListView),
+        ),
+        findsOneWidget,
+      );
     });
   });
 

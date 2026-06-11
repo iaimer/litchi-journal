@@ -34,6 +34,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   DiaryEntry? _diary;
+  DateTime? _diaryDate;
   bool _loading = true;
   String? _error;
   TagConfig? _tagConfig;
@@ -84,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _diary = diary;
+        _diaryDate = date;
         _loading = false;
       });
     } catch (e) {
@@ -97,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadDiarySilently() async {
     try {
-      final diary = await widget.apiClient.getDiary(DateTime.now());
+      final diary = await widget.apiClient.getDiary(_activeDate);
       if (!mounted) return;
       setState(() => _diary = diary);
     } catch (_) {
@@ -138,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<bool> _handleHabitUpdate(HabitStatus status) async {
     try {
       final ok = await widget.apiClient.updateHabits(
-        DateTime.now(),
+        _activeDate,
         water: status.water,
         steps: status.steps,
         reading: status.reading,
@@ -200,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _handleEntryDelete(String sectionKey, String rawLine) async {
     final ok = await widget.apiClient.deleteEntry(
-      DateTime.now(),
+      _activeDate,
       section: sectionKey,
       line: rawLine,
     );
@@ -224,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
       tags: tags,
     );
     final ok = await widget.apiClient.editEntry(
-      DateTime.now(),
+      _activeDate,
       section: sectionKey,
       target: rawLine,
       replacement: replacement,
@@ -238,13 +240,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<bool> _replaceAnxiety(String content) async {
-    var success = await widget.apiClient.replaceAnxiety(
-      DateTime.now(),
-      content,
-    );
+    var success = await widget.apiClient.replaceAnxiety(_activeDate, content);
     if (!success) {
-      await widget.apiClient.ensureDiary(DateTime.now());
-      success = await widget.apiClient.replaceAnxiety(DateTime.now(), content);
+      await widget.apiClient.ensureDiary(_activeDate);
+      success = await widget.apiClient.replaceAnxiety(_activeDate, content);
     }
     return success;
   }
@@ -289,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return AnxietyComposer(
       onSubmit: _handleAnxietySubmit,
       onPolish: _handleAnxietyPolish,
-      date: DateTime.now(),
+      date: _activeDate,
       draftRepository: _draftRepository,
       initialAnswers: initialAnswers,
       isEdit: isEdit,
@@ -302,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _handleEntrySubmit(String content, List<String> tags) async {
     final success = await _appendEntry(
       _selectedEntryType,
-      DateTime.now(),
+      _activeDate,
       content,
       tags,
     );
@@ -332,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final compressService = const ImageCompressService();
       final base64 = compressService.compressToBase64(bytes);
 
-      await widget.apiClient.uploadImage(DateTime.now(), base64);
+      await widget.apiClient.uploadImage(_activeDate, base64);
 
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -399,19 +398,19 @@ class _HomeScreenState extends State<HomeScreen> {
           throw Exception('生成结果为空，请重试');
         }
 
-        if (actionContent.isNotEmpty) {
-          final ok = await widget.apiClient.replaceTomorrowSection(
-            DateTime.now(),
-            actionContent,
-          );
-          if (!ok) throw Exception('保存明日寄语失败');
-        }
-
         final ok = await widget.apiClient.replaceLizhiSays(
-          DateTime.now(),
+          _activeDate,
           lizhiContent,
         );
         if (!ok) throw Exception('保存人生教练失败');
+
+        if (actionContent.isNotEmpty) {
+          final tomorrowOk = await widget.apiClient.replaceTomorrowSection(
+            _activeDate,
+            actionContent,
+          );
+          if (!tomorrowOk) throw Exception('保存明日寄语失败');
+        }
       } finally {
         service.dispose();
       }
@@ -462,10 +461,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _todayString() {
-    final now = DateTime.now();
+    final now = _activeDate;
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     return '${now.year}年${now.month}月${now.day}日 星期${weekdays[now.weekday - 1]}';
   }
+
+  DateTime get _activeDate => _diaryDate ?? DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -522,7 +523,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onEntryEdit: _handleEntryEdit,
                       tagConfig: _tagConfig,
                       apiClient: widget.apiClient,
-                      date: DateTime.now(),
+                      date: _activeDate,
                       onGenerateCoach: _handleGenerateCoach,
                       generatingCoach: _generatingCoach,
                     ),
@@ -594,7 +595,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: QuickNoteComposer(
                             onSubmit: _handleEntrySubmit,
                             onPolish: _handlePolish,
-                            date: DateTime.now(),
+                            date: _activeDate,
                             entryType: _selectedEntryType,
                             draftRepository: _draftRepository,
                             tagConfig: _tagConfig,

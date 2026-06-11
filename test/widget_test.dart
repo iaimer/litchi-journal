@@ -21,8 +21,10 @@ import 'package:litchi_journal_flutter/services/image_compress_service.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
+import 'package:litchi_journal_flutter/services/past_memory_service.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
+import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
@@ -163,6 +165,55 @@ class _CapturingClient extends http.BaseClient {
   }
 }
 
+class _PastMemoryRetryClient extends http.BaseClient {
+  int historyCalls = 0;
+  final DateTime memoryDate;
+
+  _PastMemoryRetryClient(this.memoryDate);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (request.url.path.contains('/api/v1/history/')) {
+      historyCalls++;
+      if (historyCalls <= 2) {
+        return http.StreamedResponse(Stream.value(utf8.encode('error')), 500);
+      }
+      final body = jsonEncode({
+        'year': memoryDate.year,
+        'month': memoryDate.month,
+        'diaries': [
+          {
+            'date': ApiClient.formatDate(memoryDate),
+            'hasContent': true,
+            'exists': true,
+          },
+        ],
+      });
+      return http.StreamedResponse(
+        Stream.value(utf8.encode(body)),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
+
+    if (request.url.path.contains('/api/v1/diary/')) {
+      final body = jsonEncode({
+        'date': ApiClient.formatDate(memoryDate),
+        'title': '旧日记',
+        'raw': '# 今天\n\n## ✍️ 随手记 & 灵感\n- **09:30** 一段旧时光 #记录',
+        'sections': {},
+      });
+      return http.StreamedResponse(
+        Stream.value(utf8.encode(body)),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
+
+    return http.StreamedResponse(Stream.value(utf8.encode('{}')), 404);
+  }
+}
+
 void _fillSolidImage(img.Image image) {
   for (var y = 0; y < image.height; y++) {
     for (var x = 0; x < image.width; x++) {
@@ -274,7 +325,60 @@ void main() {
       final listView = tester.widget<ListView>(find.byType(ListView));
       expect(listView.physics, isA<AlwaysScrollableScrollPhysics>());
     });
+
+    testWidgets(
+      'ReadOnlyDiaryScreen keeps refresh available for short content',
+      (tester) async {
+        final client = clientWithBody(
+          jsonEncode({
+            'date': '2026-06-08',
+            'title': '旧日记',
+            'raw': '# 今天\n\n### 🧠 人生教练\n📌 模式识别\n旧内容',
+            'sections': {},
+          }),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ReadOnlyDiaryScreen(
+              date: DateTime(2026, 6, 8),
+              apiClient: client,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final listView = tester.widget<ListView>(find.byType(ListView));
+        expect(listView.physics, isA<AlwaysScrollableScrollPhysics>());
+      },
+    );
   });
+
+  test(
+    'PastMemoryService retries month loading after transient failure',
+    () async {
+      final now = DateTime.now();
+      final memoryDate = DateTime(
+        now.year,
+        now.month,
+        now.day == 1 ? 2 : now.day - 1,
+      );
+      final httpClient = _PastMemoryRetryClient(memoryDate);
+      final apiClient = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: httpClient,
+      );
+      final service = PastMemoryService(apiClient);
+
+      final first = await service.getRandomMemory();
+      final second = await service.getRandomMemory();
+
+      expect(first, isNull);
+      expect(second, isNotNull);
+      expect(second!.date, memoryDate);
+      expect(httpClient.historyCalls, greaterThan(2));
+    },
+  );
 
   test('MarkdownParser maps diary markdown to domain sections', () {
     const markdown = '''

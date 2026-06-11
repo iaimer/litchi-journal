@@ -168,7 +168,7 @@ class PastMemoryService {
       }
       _monthCache[key] = _CachedMonth(datesWithContent: datesWithContent);
     } catch (_) {
-      _monthCache[key] = _CachedMonth(datesWithContent: []);
+      _monthCache.remove(key);
     }
   }
 

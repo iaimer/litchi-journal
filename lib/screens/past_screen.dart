@@ -115,6 +115,7 @@ class _PastScreenState extends State<PastScreen> {
                   : RefreshIndicator(
                       onRefresh: _load,
                       child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
                           // 区块一：今天曾经发生过

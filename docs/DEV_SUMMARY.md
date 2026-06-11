@@ -819,7 +819,7 @@ flutter install --release
 adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-`adb install -r` 是覆盖安装，不会先卸载旧版，能保留本地配置和 token。
+`adb install -r` 是覆盖安装，不会先卸载旧版。在同 packageId、同签名、非降级安装时，它能保留本地配置和 token。
 
 ### 23.5 验证状态
 

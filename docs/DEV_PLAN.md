@@ -426,6 +426,6 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 
 - 如果只构建 debug，却安装 release，会导致真机不是最新代码。
 - 日常覆盖安装不要使用 `flutter install --release`，因为它可能先卸载旧版并清空本地 baseUrl/token。
-- 使用 `adb install -r` 覆盖安装可以保留本地配置和 token。
+- 使用 `adb install -r` 覆盖安装在同 packageId、同签名、非降级安装时可以保留本地配置和 token。
 - 当前环境有时会出现 ADB daemon 无法绑定本机端口：`could not install *smartsocket* listener: Operation not permitted`。这属于本地执行环境限制，不代表 App 崩溃。
 - 手机上 App 名称是「荔枝日记 dev」，applicationId 是 `com.example.litchi_journal_flutter`。

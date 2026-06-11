@@ -474,7 +474,12 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         toolbarHeight: 72,
         centerTitle: false,
-        title: Text(_todayString(), style: theme.textTheme.headlineLarge),
+        title: Text(
+          _todayString(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleLarge,
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),

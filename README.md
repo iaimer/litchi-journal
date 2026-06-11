@@ -51,7 +51,7 @@
 adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-注意：真机验证前必须先构建对应模式。覆盖安装要用 `adb install -r`，这样会保留本地 baseUrl/token。不要用 `flutter install --release` 做日常覆盖安装，因为它可能先卸载旧版，导致 token 丢失。
+注意：真机验证前必须先构建对应模式。日常覆盖安装要用 `adb install -r`，在同 packageId、同签名、非降级安装时会保留本地 baseUrl/token。不要用 `flutter install --release` 做日常覆盖安装，因为它可能先卸载旧版，导致 token 丢失。
 
 ## 后续方向
 

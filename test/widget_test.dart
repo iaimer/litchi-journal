@@ -226,6 +226,9 @@ void main() {
 
       expect(find.text('荔枝日记'), findsNothing);
       expect(find.text(today), findsOneWidget);
+      final title = tester.widget<Text>(find.text(today));
+      expect(title.maxLines, 1);
+      expect(title.overflow, TextOverflow.ellipsis);
       expect(find.text('已连接服务器'), findsNothing);
       expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
     });
@@ -268,6 +271,8 @@ void main() {
         ),
         findsOneWidget,
       );
+      final listView = tester.widget<ListView>(find.byType(ListView));
+      expect(listView.physics, isA<AlwaysScrollableScrollPhysics>());
     });
   });
 

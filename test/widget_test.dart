@@ -21,6 +21,8 @@ import 'package:litchi_journal_flutter/services/image_compress_service.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
+import 'package:litchi_journal_flutter/screens/home_screen.dart';
+import 'package:litchi_journal_flutter/screens/past_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
@@ -193,6 +195,62 @@ void main() {
     expect(entry.raw, '');
     expect(entry.sections, {});
     expect(entry.isEmpty, isTrue);
+  });
+
+  group('Top page headers', () {
+    ApiClient clientWithBody(String body) {
+      return ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _FakeHttpClient(body: body),
+      );
+    }
+
+    testWidgets('HomeScreen uses date as title and hides connection label', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+      final today =
+          '${now.year}年${now.month}月${now.day}日 星期${weekdays[now.weekday - 1]}';
+      final client = clientWithBody(
+        jsonEncode({
+          'date': ApiClient.formatDate(now),
+          'title': '今天',
+          'raw': '# 今天\n',
+          'sections': {},
+        }),
+      );
+
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(apiClient: client)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('荔枝日记'), findsNothing);
+      expect(find.text(today), findsOneWidget);
+      expect(find.text('已连接服务器'), findsNothing);
+      expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+    });
+
+    testWidgets('PastScreen keeps header content inside SafeArea', (
+      tester,
+    ) async {
+      final client = clientWithBody(
+        jsonEncode({
+          'year': DateTime.now().year,
+          'month': DateTime.now().month,
+          'diaries': [],
+          'raw': '',
+        }),
+      );
+
+      await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SafeArea), findsOneWidget);
+      expect(find.text('过往'), findsOneWidget);
+      expect(find.text('看看那些已经走过的日子'), findsOneWidget);
+      expect(find.text('今天曾经发生过'), findsOneWidget);
+      expect(find.text('随便走走'), findsOneWidget);
+    });
   });
 
   test('MarkdownParser maps diary markdown to domain sections', () {

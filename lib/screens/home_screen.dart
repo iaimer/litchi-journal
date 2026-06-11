@@ -102,8 +102,9 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _diary = diary);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已保存，但刷新失败')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已保存，但刷新失败')));
     }
   }
 
@@ -152,7 +153,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<PolishResult> _handlePolish(
-      String content, EntryType entryType) async {
+    String content,
+    EntryType entryType,
+  ) async {
     final aiRepo = AIConfigRepository();
     final aiConfig = await aiRepo.loadAIConfig();
 
@@ -189,17 +192,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final service = PolisherService();
     try {
-      return await service.polishPlainText(
-        content: content,
-        config: aiConfig,
-      );
+      return await service.polishPlainText(content: content, config: aiConfig);
     } finally {
       service.dispose();
     }
   }
 
-  Future<void> _handleEntryDelete(
-      String sectionKey, String rawLine) async {
+  Future<void> _handleEntryDelete(String sectionKey, String rawLine) async {
     final ok = await widget.apiClient.deleteEntry(
       DateTime.now(),
       section: sectionKey,
@@ -207,8 +206,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (!ok) throw Exception('删除失败');
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已删除')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已删除')));
     _loadDiarySilently();
   }
 
@@ -231,13 +231,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (!ok) throw Exception('更新失败');
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已更新')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已更新')));
     _loadDiarySilently();
   }
 
   Future<bool> _replaceAnxiety(String content) async {
-    var success = await widget.apiClient.replaceAnxiety(DateTime.now(), content);
+    var success = await widget.apiClient.replaceAnxiety(
+      DateTime.now(),
+      content,
+    );
     if (!success) {
       await widget.apiClient.ensureDiary(DateTime.now());
       success = await widget.apiClient.replaceAnxiety(DateTime.now(), content);
@@ -245,13 +249,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return success;
   }
 
-  Future<void> _handleAnxietySubmit(
-      String content, List<String> tags) async {
+  Future<void> _handleAnxietySubmit(String content, List<String> tags) async {
     final success = await _replaceAnxiety(content);
     if (!success) throw Exception('保存失败');
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已保存')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已保存')));
     _loadDiarySilently();
   }
 
@@ -264,8 +268,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_diary == null || _diary!.raw.isEmpty) return null;
 
     final document = const MarkdownParser().parse(_diary!.raw);
-    final anxietySections =
-        document.sections.whereType<AnxietySection>().toList();
+    final anxietySections = document.sections
+        .whereType<AnxietySection>()
+        .toList();
     if (anxietySections.isEmpty) return null;
     final anxietySection = anxietySections.first;
 
@@ -294,8 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _handleEntrySubmit(
-      String content, List<String> tags) async {
+  Future<void> _handleEntrySubmit(String content, List<String> tags) async {
     final success = await _appendEntry(
       _selectedEntryType,
       DateTime.now(),
@@ -304,8 +308,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (!success) throw Exception('保存失败');
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已保存')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已保存')));
     _loadDiarySilently();
   }
 
@@ -330,13 +335,15 @@ class _HomeScreenState extends State<HomeScreen> {
       await widget.apiClient.uploadImage(DateTime.now(), base64);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已添加照片')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已添加照片')));
       _loadDiarySilently();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('上传失败: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('上传失败: $e')));
     } finally {
       if (mounted) setState(() => _imageUploading = false);
     }
@@ -410,15 +417,19 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('教练反馈已生成')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('教练反馈已生成')));
       _loadDiarySilently();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-            '生成失败: ${e.toString().replaceFirst('Exception: ', '')}'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '生成失败: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _generatingCoach = false);
     }
@@ -461,19 +472,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('荔枝日记'),
+        toolbarHeight: 72,
+        centerTitle: false,
+        title: Text(_todayString(), style: theme.textTheme.headlineLarge),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => SettingsScreen(
-                  apiConfig: ApiConfig(
-                    baseUrl: widget.apiClient.baseUrl,
-                    token: '',
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SettingsScreen(
+                    apiConfig: ApiConfig(
+                      baseUrl: widget.apiClient.baseUrl,
+                      token: '',
+                    ),
                   ),
                 ),
-              ));
+              );
             },
           ),
         ],
@@ -487,24 +502,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   const SizedBox(height: 16),
-                  Text(
-                    _todayString(),
-                    style: theme.textTheme.headlineLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '已连接服务器',
-                    style: TextStyle(
-                      color: AppColors.success,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
                   if (_error != null) ...[
                     Text(
                       _error!,
-                      style:
-                          TextStyle(color: theme.colorScheme.error),
+                      style: TextStyle(color: theme.colorScheme.error),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -531,11 +532,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: theme.colorScheme.surface,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Row(
                         children: [
-                          const Icon(Icons.add_a_photo_outlined,
-                              size: 20, color: AppColors.textSecondary),
+                          const Icon(
+                            Icons.add_a_photo_outlined,
+                            size: 20,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
@@ -547,14 +553,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           TextButton(
-                            onPressed:
-                                _imageUploading ? null : _handleImageUpload,
+                            onPressed: _imageUploading
+                                ? null
+                                : _handleImageUpload,
                             child: _imageUploading
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2),
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Text('选择图片'),
                           ),
@@ -577,20 +585,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         _buildAnxietyInput(),
                       ] else
                         KeyedSubtree(
-                          key: ValueKey(
-                              'composer_${_selectedEntryType.name}'),
-                        child: QuickNoteComposer(
-                          onSubmit: _handleEntrySubmit,
-                          onPolish: _handlePolish,
-                          date: DateTime.now(),
+                          key: ValueKey('composer_${_selectedEntryType.name}'),
+                          child: QuickNoteComposer(
+                            onSubmit: _handleEntrySubmit,
+                            onPolish: _handlePolish,
+                            date: DateTime.now(),
                             entryType: _selectedEntryType,
                             draftRepository: _draftRepository,
                             tagConfig: _tagConfig,
-                            tagHint: _tagConfigFailed
-                                ? '标签暂不可用'
-                                : null,
-                            placeholder:
-                                _selectedEntryType.placeholder,
+                            tagHint: _tagConfigFailed ? '标签暂不可用' : null,
+                            placeholder: _selectedEntryType.placeholder,
                           ),
                         ),
                     ],

@@ -88,70 +88,72 @@ class _PastScreenState extends State<PastScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  const SizedBox(height: 16),
-                  // 标题区域
-                  Text('过往', style: theme.textTheme.headlineLarge),
-                  const SizedBox(height: 4),
-                  Text(
-                    '看看那些已经走过的日子',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // 区块一：今天曾经发生过
-                  Text('今天曾经发生过', style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  if (_todayLoading)
-                    _buildLoadingCard()
-                  else if (_todayMemory != null)
-                    MemoryCard(
-                      entry: _todayMemory!,
-                      apiClient: widget.apiClient,
-                      onTap: () => _openDiary(_todayMemory!),
-                    )
-                  else
-                    _buildEmptyState('这一天还没有旧时光。\n要不要随便走走？'),
-
-                  const SizedBox(height: 24),
-
-                  // 区块二：随便走走
-                  Text('随便走走', style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  if (_randomLoading)
-                    _buildLoadingCard()
-                  else if (_randomMemory != null)
-                    MemoryCard(
-                      entry: _randomMemory!,
-                      apiClient: widget.apiClient,
-                      onTap: () => _openDiary(_randomMemory!),
-                    )
-                  else
-                    _buildEmptyState('还没有找到可以回看的旧时光。'),
-                  const SizedBox(height: 12),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: _randomLoading ? null : _loadRandomMemory,
-                      icon: const Icon(Icons.shuffle, size: 18),
-                      label: const Text('再走一段'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primary,
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    const SizedBox(height: 16),
+                    // 标题区域
+                    Text('过往', style: theme.textTheme.headlineLarge),
+                    const SizedBox(height: 4),
+                    Text(
+                      '看看那些已经走过的日子',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 14,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                    const SizedBox(height: 24),
+
+                    // 区块一：今天曾经发生过
+                    Text('今天曾经发生过', style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    if (_todayLoading)
+                      _buildLoadingCard()
+                    else if (_todayMemory != null)
+                      MemoryCard(
+                        entry: _todayMemory!,
+                        apiClient: widget.apiClient,
+                        onTap: () => _openDiary(_todayMemory!),
+                      )
+                    else
+                      _buildEmptyState('这一天还没有旧时光。\n要不要随便走走？'),
+
+                    const SizedBox(height: 24),
+
+                    // 区块二：随便走走
+                    Text('随便走走', style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    if (_randomLoading)
+                      _buildLoadingCard()
+                    else if (_randomMemory != null)
+                      MemoryCard(
+                        entry: _randomMemory!,
+                        apiClient: widget.apiClient,
+                        onTap: () => _openDiary(_randomMemory!),
+                      )
+                    else
+                      _buildEmptyState('还没有找到可以回看的旧时光。'),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _randomLoading ? null : _loadRandomMemory,
+                        icon: const Icon(Icons.shuffle, size: 18),
+                        label: const Text('再走一段'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 

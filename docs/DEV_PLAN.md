@@ -349,6 +349,8 @@ Open Design UI 重设计尚未开始。
 - 过往页记忆卡片
 - 过往日记只读详情
 - 过往详情隐藏明日寄语和习惯追踪
+- 今天页 header 简化为日期 + 设置按钮
+- 过往页 header 固定并避开系统状态栏
 - release 版 Android 网络权限
 
 因此旧计划中的「P1 图片添加能力分析与实现」和「P2 人生教练功能」已完成；「P2 历史页 / 过往日记」已完成第一版，但不是完整日历历史页。
@@ -366,16 +368,17 @@ Open Design UI 重设计尚未开始。
 ```text
 b19105c Fix past diary read-only rendering
 428e313 Fix coach fallback and past habit hiding
+dd5adef Fix top headers on today and past pages
+17f75c1 Keep past page header fixed
 ```
 
-截至 `428e313`：
+截至 `17f75c1`：
 
 - `dart analyze lib test` 通过
 - `flutter analyze` 通过
-- `flutter test` 238 个测试全部通过
+- `flutter test` 240 个测试全部通过
 - `flutter build apk --release` 通过
-- 最新 release APK 已安装到 PLG110
-- 用户真机确认过往回归修复成功
+- 用户确认过往 header 固定与 UI 修复成功
 
 ### 16.3 下一阶段推荐方向
 
@@ -414,13 +417,15 @@ b19105c Fix past diary read-only rendering
 
 ### 16.6 已知注意事项
 
-- `flutter install` 默认可能安装旧的 `app-release.apk`。真机验证前必须先构建对应模式，例如：
+- 真机验证前必须先构建对应模式，例如：
 
 ```bash
 /Users/yezi/development/flutter/bin/flutter build apk --release
-/Users/yezi/development/flutter/bin/flutter install --release -d <device-id>
+adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
 - 如果只构建 debug，却安装 release，会导致真机不是最新代码。
+- 日常覆盖安装不要使用 `flutter install --release`，因为它可能先卸载旧版并清空本地 baseUrl/token。
+- 使用 `adb install -r` 覆盖安装可以保留本地配置和 token。
 - 当前环境有时会出现 ADB daemon 无法绑定本机端口：`could not install *smartsocket* listener: Operation not permitted`。这属于本地执行环境限制，不代表 App 崩溃。
 - 手机上 App 名称是「荔枝日记 dev」，applicationId 是 `com.example.litchi_journal_flutter`。

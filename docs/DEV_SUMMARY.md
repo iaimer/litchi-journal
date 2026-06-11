@@ -740,3 +740,93 @@ release 版曾出现无法连接远程服务端。根因是 Android Manifest 缺
 - 习惯管理设置
 - 远程 API 配置编辑
 - Open Design 全局 UI 重设计
+
+---
+
+## 23. Sprint 14：顶部 UI 小修与真机安装方式修正
+
+对应提交：
+
+```text
+dd5adef Fix top headers on today and past pages
+17f75c1 Keep past page header fixed
+```
+
+这一阶段只做 UI 修复，不改服务端、不改 Markdown、不改记录、图片、习惯、焦虑、人生教练等业务逻辑。
+
+### 23.1 今天页 header 调整
+
+今天页原来顶部同时显示：
+
+```text
+荔枝日记
+YYYY年M月D日 星期X
+已连接服务器
+```
+
+修复后：
+
+- 不再显示顶部「荔枝日记」。
+- 不再显示「已连接服务器」提示文案。
+- 当前日期作为 AppBar 主标题显示。
+- 右上角设置按钮保留。
+- 仅隐藏连接状态 UI 文案，不影响 API 连接和错误提示逻辑。
+
+根因：`HomeScreen` 的 `AppBar.title` 仍写死为 `荔枝日记`，body 里又重复显示日期和连接状态。
+
+### 23.2 过往页状态栏重叠
+
+过往页标题曾与系统状态栏重叠。
+
+修复方式：
+
+- `PastScreen` 外层使用 `SafeArea`。
+- 页面内容从安全区域下方开始显示。
+
+根因：`PastScreen` 没有 AppBar，也没有 SafeArea，ListView 从 Scaffold 顶部直接开始布局。
+
+### 23.3 过往页 header 固定
+
+用户进一步确认：`过往 / 看看那些已经走过的日子` 应固定在页面顶部，不随下面记忆内容滚动。
+
+最终结构：
+
+```text
+SafeArea
+└── Column
+    ├── 固定 header：过往 + 副标题
+    └── Expanded
+        └── RefreshIndicator
+            └── ListView：今天曾经发生过 / 随便走走 / 记忆卡
+```
+
+这样滚动时只滚动记忆内容，header 保持固定。
+
+### 23.4 真机安装方式修正
+
+此前每次真机验证后都需要重新输入远程 token。根因是使用了：
+
+```bash
+flutter install --release
+```
+
+该命令日志中会出现 `Uninstalling old version...`，卸载旧版会清空 App 本地数据，包括 `flutter_secure_storage` 中保存的 baseUrl/token。
+
+后续真机覆盖安装应使用：
+
+```bash
+/Users/yezi/development/flutter/bin/flutter build apk --release
+adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+`adb install -r` 是覆盖安装，不会先卸载旧版，能保留本地配置和 token。
+
+### 23.5 验证状态
+
+截至提交 `17f75c1`：
+
+- `dart analyze lib test`：通过
+- `flutter analyze`：通过
+- `flutter test`：240 个测试全部通过
+- `flutter build apk --release`：通过
+- 用户确认本轮 UI 修复成功

@@ -12,7 +12,7 @@
 文字 + 图片 + 过往回看功能对齐版
 ```
 
-截至提交 `428e313`，已完成：
+截至提交 `17f75c1`，已完成：
 
 - 今日页日记读取与结构化展示
 - 随手记、觉察、小确幸、焦虑四问写入
@@ -25,6 +25,7 @@
 - 过往页记忆卡片
 - 过往只读详情
 - 过往详情隐藏明日寄语和习惯追踪
+- 过往页固定 header，不随内容滚动
 - Android release 版远程服务端连接
 
 ## 关键文档
@@ -47,10 +48,10 @@
 
 ```bash
 /Users/yezi/development/flutter/bin/flutter build apk --release
-/Users/yezi/development/flutter/bin/flutter install --release -d <device-id>
+adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-注意：真机验证前必须先构建对应模式。只构建 debug 却安装 release，会导致手机上不是最新代码。
+注意：真机验证前必须先构建对应模式。覆盖安装要用 `adb install -r`，这样会保留本地 baseUrl/token。不要用 `flutter install --release` 做日常覆盖安装，因为它可能先卸载旧版，导致 token 丢失。
 
 ## 后续方向
 

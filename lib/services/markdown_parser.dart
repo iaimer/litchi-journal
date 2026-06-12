@@ -10,7 +10,9 @@ final _tagPattern = RegExp(r'#(\S+)');
 final _horizontalRule = RegExp(r'^[-*_]{3,}$');
 
 bool _isStandaloneSubSection(String title) {
-  return title.contains('觉察') ||
+  return title.contains('习惯打卡') ||
+      title.contains('习惯追踪') ||
+      title.contains('觉察') ||
       title.contains('人生教练') ||
       title.contains('荔枝喵说') ||
       title.contains('明日寄语') ||

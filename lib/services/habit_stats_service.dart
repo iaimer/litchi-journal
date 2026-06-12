@@ -29,6 +29,12 @@ class HabitStatsService {
 
   HabitStatsService(this._apiClient);
 
+  String get _cacheNamespace => identityHashCode(_apiClient).toString();
+
+  String _dayCacheKey(DateTime date) => '$_cacheNamespace:${_dateKey(date)}';
+
+  String _monthCacheKey(String monthKey) => '$_cacheNamespace:$monthKey';
+
   // ── 公开方法：分阶段加载 ──
 
   /// 阶段 1：优先加载最近 7 天。
@@ -109,7 +115,7 @@ class HabitStatsService {
 
     // 找出未缓存的日期
     final missing = all30Dates
-        .where((d) => !_dayCache.containsKey(_dateKey(d)))
+        .where((d) => !_dayCache.containsKey(_dayCacheKey(d)))
         .toList();
 
     final existingDates = await _loadHistoryMonths(all30Dates);
@@ -125,7 +131,7 @@ class HabitStatsService {
     // 组装完整 30 天
     final days30 = <HabitDayRecord>[];
     for (final d in all30Dates) {
-      final key = _dateKey(d);
+      final key = _dayCacheKey(d);
       days30.add(_dayCache[key] ?? _emptyDayRecord(d));
     }
 
@@ -192,15 +198,16 @@ class HabitStatsService {
     for (final mk in monthKeys) {
       try {
         HistoryMonthResult result;
-        if (_historyMonthCache.containsKey(mk)) {
-          result = _historyMonthCache[mk]!;
+        final cacheKey = _monthCacheKey(mk);
+        if (_historyMonthCache.containsKey(cacheKey)) {
+          result = _historyMonthCache[cacheKey]!;
         } else {
           final parts = mk.split('-');
           result = await _apiClient.fetchHistoryMonth(
             int.parse(parts[0]),
             int.parse(parts[1]),
           );
-          _historyMonthCache[mk] = result;
+          _historyMonthCache[cacheKey] = result;
         }
         for (final d in result.diaries) {
           if (d.exists || d.hasContent) {
@@ -218,7 +225,7 @@ class HabitStatsService {
     DateTime d,
     Set<DateTime> existingDates,
   ) async {
-    final key = _dateKey(d);
+    final key = _dayCacheKey(d);
     if (_dayCache.containsKey(key)) return _dayCache[key]!;
     if (!existingDates.contains(d)) {
       final empty = _emptyDayRecord(d);
@@ -339,8 +346,7 @@ class HabitStatsService {
           }
         }
         longestStreak30 = longest;
-        completionRate30 =
-            days30.isNotEmpty ? completed30 / days30.length : 0;
+        completionRate30 = days30.isNotEmpty ? completed30 / days30.length : 0;
       }
 
       return HabitItemStats(
@@ -428,8 +434,7 @@ class HabitStatsService {
       if (improvement.key == 'water') {
         suggestion = '「${improvement.displayName}」有些少，明天可以先从上午一杯水开始。';
       } else if (improvement.key == 'supplements') {
-        suggestion =
-            '「${improvement.displayName}」有些起伏，可以先把它放在早餐旁边，降低记起来的难度。';
+        suggestion = '「${improvement.displayName}」有些起伏，可以先把它放在早餐旁边，降低记起来的难度。';
       } else {
         suggestion = '「${improvement.displayName}」有些起伏，可以从一次很小的行动开始。';
       }

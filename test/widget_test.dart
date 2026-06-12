@@ -6674,6 +6674,9 @@ tags:
 
       // 还没 settle，应显示 loading
       expect(find.text('正在看看最近的生活节奏…'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('30-day loading does not block rhythm grid', (tester) async {

@@ -923,3 +923,42 @@ d5b23c6 fix: heatmap overflow + cross-month test client
 - `dart analyze lib/ test/`：通过
 - `flutter test`：268 个测试全部通过
 - 用户真机验收通过
+
+---
+
+## 25. Sprint 16：导航结构调整——移除设置 Tab
+
+### 25.1 背景
+
+设置页被放入了底部导航栏作为第 4 个 Tab，不符合最终产品设计。设置属于配置入口，不应与今天、过往、习惯三个核心工作区平级。
+
+### 25.2 改动内容
+
+导航结构调整：
+
+- 底部导航栏从 4 个 Tab 恢复为 3 个：今天 / 过往 / 习惯
+- 移除设置 Tab 及其对应的 `SettingsPage` 路由
+- 今天页右上角齿轮按钮 `IconButton(icon: Icons.settings_outlined)` 从跳转 `AiSettingsScreen` 改为跳转 `SettingsPage`
+- `SettingsPage` 内容完全保留（外观占位、习惯设置占位、标签设置占位、远程 API、AI 服务配置、润色提示词、图片压缩、关于）
+
+### 25.3 文件修改
+
+| 文件 | 改动 |
+|------|------|
+| `lib/main.dart` | 移除设置 Tab 的 NavigationDestination 和 SettingsPage screen；清理不再使用的 `settings_page.dart` import |
+| `lib/screens/home_screen.dart` | 齿轮按钮导航目标从 `AiSettingsScreen` 改为 `SettingsPage`；添加 `settings_page.dart` import；移除不再使用的 `ai_settings_screen.dart` import |
+
+### 25.4 未改动
+
+- `SettingsPage` 内容
+- 子页面（远程 API、AI 服务配置、图片压缩、关于）
+- `IndexedStack` 结构（仍保持 3 个页面状态）
+- 今天页/过往页/习惯页内部逻辑
+
+### 25.5 验证状态
+
+对应提交：`6c69ab8`
+
+- `flutter analyze`：零问题
+- `flutter test`：285 个测试全部通过
+- 模拟器真机运行验证通过（Android 16, API 36）

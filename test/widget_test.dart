@@ -3637,6 +3637,11 @@ tags:
       expect(str, contains('gpt-4'));
       expect(str, isNot(contains('sk-secret-key')));
     });
+
+    test('DeepSeek preset defaults to deepseek-v4-flash', () {
+      final deepseekPreset = aiPresets.firstWhere((p) => p.name == 'DeepSeek');
+      expect(deepseekPreset.model, 'deepseek-v4-flash');
+    });
   });
 
   group('AIConfigRepository', () {
@@ -5017,7 +5022,7 @@ tags:
             .widget<TextField>(find.widgetWithText(TextField, 'Model'))
             .controller
             ?.text,
-        'deepseek-chat',
+        'deepseek-v4-flash',
       );
     });
 
@@ -5268,17 +5273,16 @@ tags:
       },
     );
 
-    testWidgets('GenericSectionCard timeline shows delete button', (
-      tester,
-    ) async {
+    testWidgets('GenericSectionCard single happiness shows plain text',
+        (tester) async {
       final section = HappinessSection(
         title: '小确幸',
         contents: [
           TimelineContent(
             time: '14:00',
-            text: '小确幸内容',
+            text: '下班看到晚霞',
             tags: ['#生活'],
-            rawLine: '> **14:00** 小确幸内容 #生活',
+            rawLine: '> **14:00** 下班看到晚霞 #生活',
           ),
         ],
       );
@@ -5286,29 +5290,35 @@ tags:
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: GenericSectionCard(
-              section: section,
-              onTimelineDelete: (_) async {},
-            ),
+            body: GenericSectionCard(section: section),
           ),
         ),
       );
 
-      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+      // 单条显示纯文本，无项目符号
+      expect(find.text('下班看到晚霞'), findsOneWidget);
+      expect(find.text('•'), findsNothing);
+      // 无 timeline 图标
+      expect(find.byIcon(Icons.more_horiz), findsNothing);
     });
 
     testWidgets(
-      'GenericSectionCard happiness delete calls onDelete with rawLine',
+      'GenericSectionCard multiple happiness shows bullet list',
       (tester) async {
-        String? deletedRawLine;
         final section = HappinessSection(
           title: '小确幸',
           contents: [
             TimelineContent(
               time: '14:00',
-              text: '小确幸内容',
-              tags: ['#生活'],
-              rawLine: '> **14:00** 小确幸内容 #生活',
+              text: '下班看到晚霞',
+              tags: [],
+              rawLine: '> **14:00** 下班看到晚霞',
+            ),
+            TimelineContent(
+              time: '15:00',
+              text: '女儿收拾玩具',
+              tags: [],
+              rawLine: '> **15:00** 女儿收拾玩具',
             ),
           ],
         );
@@ -5316,28 +5326,62 @@ tags:
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
-              body: GenericSectionCard(
-                section: section,
-                onTimelineDelete: (rawLine) async {
-                  deletedRawLine = rawLine;
-                },
-              ),
+              body: GenericSectionCard(section: section),
             ),
           ),
         );
 
-        await tester.tap(find.byIcon(Icons.more_horiz));
-        await tester.pumpAndSettle();
+        // 多条显示 bullet list
+        expect(find.text('•'), findsNWidgets(2));
+        expect(find.text('下班看到晚霞'), findsOneWidget);
+        expect(find.text('女儿收拾玩具'), findsOneWidget);
+        // 无 timeline 样式
+        expect(find.text('14:00'), findsNothing);
+        expect(find.text('15:00'), findsNothing);
+        expect(find.byIcon(Icons.more_horiz), findsNothing);
+      },
+    );
 
-        // Tap delete in popup menu
-        await tester.tap(find.text('删除'));
-        await tester.pumpAndSettle();
+    testWidgets(
+      'GenericSectionCard happiness no longer shows timeline',
+      (tester) async {
+        final section = HappinessSection(
+          title: '小确幸',
+          contents: [
+            TimelineContent(
+              time: '20:00',
+              text: '散步很快乐',
+              tags: [],
+              rawLine: '> **20:00** 散步很快乐',
+            ),
+            TimelineContent(
+              time: '21:00',
+              text: '喝了杯热茶',
+              tags: [],
+              rawLine: '> **21:00** 喝了杯热茶',
+            ),
+            TimelineContent(
+              time: '22:00',
+              text: '看了本好书',
+              tags: [],
+              rawLine: '> **22:00** 看了本好书',
+            ),
+          ],
+        );
 
-        // Tap delete in confirm dialog
-        await tester.tap(find.text('删除'));
-        await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: GenericSectionCard(section: section),
+            ),
+          ),
+        );
 
-        expect(deletedRawLine, '> **14:00** 小确幸内容 #生活');
+        // 三条都是 bullet，不是时间标签
+        expect(find.text('•'), findsNWidgets(3));
+        expect(find.text('20:00'), findsNothing);
+        expect(find.text('21:00'), findsNothing);
+        expect(find.text('22:00'), findsNothing);
       },
     );
 

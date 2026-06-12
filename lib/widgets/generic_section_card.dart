@@ -28,11 +28,9 @@ class GenericSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (section.isEmpty) return const SizedBox.shrink();
 
-    // 单条小确幸：简洁卡片，不用 Timeline
-    if (section is HappinessSection &&
-        section.contents.length == 1 &&
-        section.contents.first is TimelineContent) {
-      return _buildSingleHappiness(context, section.contents.first as TimelineContent);
+    // 小确幸：全部走专用渲染（单条纯文本，多条 bullet list，不用 Timeline）
+    if (section is HappinessSection) {
+      return _buildHappinessSection(context, section);
     }
 
     final children = <Widget>[];
@@ -210,31 +208,87 @@ class GenericSectionCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSingleHappiness(
-      BuildContext context, TimelineContent content) {
+  /// 小确幸专用渲染：单条纯文本，多条 bullet list，不用 Timeline。
+  Widget _buildHappinessSection(
+      BuildContext context, DiarySection section) {
     final theme = Theme.of(context);
-    final children = <Widget>[
-      Padding(
-        padding: EdgeInsets.only(bottom: content.tags.isNotEmpty ? 4 : 0),
-        child: Text(
-          content.text,
-          style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
-        ),
-      ),
-      if (content.tags.isNotEmpty)
-        Text(
-          content.tags.join(' '),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.primary.withAlpha(180),
-            fontSize: 11,
-          ),
-        ),
-    ];
+    final entries = section.contents
+        .whereType<TimelineContent>()
+        .toList();
 
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    if (entries.length == 1) {
+      // 单条：纯文本段落
+      final content = entries.first;
+      return SectionCard(
+        title: section.title.isEmpty ? null : section.title,
+        accentColor: AppColors.primary,
+        children: [
+          Text(
+            content.text,
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+          ),
+          if (content.tags.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                content.tags.join(' '),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary.withAlpha(180),
+                  fontSize: 11,
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    // 多条：bullet list
     return SectionCard(
       title: section.title.isEmpty ? null : section.title,
       accentColor: AppColors.primary,
-      children: children,
+      children: entries.map((entry) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2, right: 8),
+                child: Text(
+                  '•',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.text,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+                    ),
+                    if (entry.tags.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          entry.tags.join(' '),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary.withAlpha(180),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 

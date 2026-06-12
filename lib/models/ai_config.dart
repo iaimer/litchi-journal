@@ -68,7 +68,7 @@ const aiPresets = [
   AIPreset(
     name: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com',
-    model: 'deepseek-chat',
+    model: 'deepseek-v4-flash',
   ),
   AIPreset(
     name: 'Moonshot',

@@ -5,7 +5,6 @@ import 'services/api_client.dart';
 import 'screens/home_screen.dart';
 import 'screens/past_screen.dart';
 import 'screens/habit_stats_screen.dart';
-import 'screens/settings_page.dart';
 import 'theme/app_theme.dart';
 import 'screens/setup_screen.dart';
 
@@ -70,7 +69,7 @@ class _AppEntryState extends State<AppEntry> {
   }
 }
 
-/// 底部导航主页面，包含今天、过往、习惯、设置四个 tab。
+/// 底部导航主页面，包含今天、过往、习惯三个 tab。
 class MainScreen extends StatefulWidget {
   final ApiClient apiClient;
 
@@ -101,13 +100,7 @@ class _MainScreenState extends State<MainScreen> {
         key: const PageStorageKey('habits'),
         apiClient: widget.apiClient,
       ),
-      SettingsPage(
-        key: const PageStorageKey('settings'),
-        apiConfig: ApiConfig(
-          baseUrl: widget.apiClient.baseUrl,
-          token: '',
-        ),
-      ),
+
     ];
   }
 
@@ -135,11 +128,6 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.check_circle_outline_outlined),
             selectedIcon: Icon(Icons.check_circle_outline),
             label: '习惯',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: '设置',
           ),
         ],
       ),

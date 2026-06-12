@@ -4,7 +4,7 @@ import '../models/habit_stats.dart';
 import '../theme/app_theme.dart';
 
 /// 最近 7 天节奏谱。
-/// 行：习惯；列：7 天。用圆点表示完成情况。
+/// 行：习惯（icon + 名称）；列：7 天。用圆点表示完成情况，每个习惯使用自己的主题色。
 class HabitRhythmGrid extends StatelessWidget {
   final List<HabitDayRecord> days;
   final List<HabitItemStats> items;
@@ -28,20 +28,23 @@ class HabitRhythmGrid extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('最近 7 天', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 10),
             // 星期标题行
             Row(
               children: [
-                const SizedBox(width: 80),
+                const SizedBox(width: 72),
                 ...List.generate(days.length, (i) {
+                  final isToday = _isToday(i);
                   return Expanded(
                     child: Center(
                       child: Text(
                         weekdays[days[i].date.weekday - 1],
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight:
-                              _isToday(i) ? FontWeight.w700 : FontWeight.w400,
-                          color: _isToday(i)
+                              isToday ? FontWeight.w700 : FontWeight.w400,
+                          color: isToday
                               ? AppColors.primary
                               : AppColors.textSecondary,
                         ),
@@ -51,9 +54,9 @@ class HabitRhythmGrid extends StatelessWidget {
                 }),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             // 习惯行
-            ...items.map((item) => _buildHabitRow(item, _isToday)),
+            ...items.map((item) => _buildHabitRow(item)),
           ],
         ),
       ),
@@ -69,27 +72,35 @@ class HabitRhythmGrid extends StatelessWidget {
         d.date.day == today.day;
   }
 
-  Widget _buildHabitRow(
-      HabitItemStats item, bool Function(int) isToday) {
+  Widget _buildHabitRow(HabitItemStats item) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
           SizedBox(
-            width: 80,
-            child: Text(
-              item.title,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textPrimary,
-              ),
-              overflow: TextOverflow.ellipsis,
+            width: 72,
+            child: Row(
+              children: [
+                Text(item.icon, style: const TextStyle(fontSize: 14)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    item.displayName,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
           ...List.generate(item.recent7Values.length, (i) {
             final done = item.type == HabitStatType.boolean
                 ? item.recent7Values[i] == 1
                 : item.recent7Values[i] > 0;
+            final isToday = _isToday(i);
 
             return Expanded(
               child: Center(
@@ -99,9 +110,9 @@ class HabitRhythmGrid extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: done
-                        ? (isToday(i)
+                        ? (isToday
                             ? AppColors.primary
-                            : AppColors.success.withValues(alpha: 0.7))
+                            : item.color)
                         : AppColors.border,
                   ),
                 ),

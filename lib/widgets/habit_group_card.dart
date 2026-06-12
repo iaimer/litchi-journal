@@ -46,8 +46,8 @@ class HabitGroupCard extends StatelessWidget {
     String statText;
     String? subText;
     if (isNumeric) {
-      statText = '${item.averageValue.toStringAsFixed(0)}${_unit(item.key)}/天';
-      subText = '最高 ${item.recent7Values.fold<int>(0, (a, b) => a > b ? a : b)}${_unit(item.key)}';
+      statText =
+          '${item.averageValue.toStringAsFixed(0)}${_unit(item.key)}/天';
     } else {
       statText = '${item.completedDays}/${item.totalDays} 天';
       if (item.completedDays == 0) {
@@ -70,9 +70,11 @@ class HabitGroupCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
+                    Text(item.icon, style: const TextStyle(fontSize: 15)),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        item.title,
+                        item.displayName,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -89,13 +91,10 @@ class HabitGroupCard extends StatelessWidget {
                 ),
                 if (subText != null) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    subText,
-                    style: theme.textTheme.bodySmall,
-                  ),
+                  Text(subText, style: theme.textTheme.bodySmall),
                 ],
                 const SizedBox(height: 6),
-                // 7天小点阵
+                // 7天小点阵（使用习惯主题色）
                 Row(
                   children: List.generate(item.recent7Values.length, (i) {
                     final done = isNumeric
@@ -107,9 +106,7 @@ class HabitGroupCard extends StatelessWidget {
                       margin: const EdgeInsets.only(right: 6),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: done
-                            ? AppColors.success
-                            : AppColors.border,
+                        color: done ? item.color : AppColors.border,
                       ),
                     );
                   }),

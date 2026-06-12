@@ -24,6 +24,7 @@ import 'package:litchi_journal_flutter/services/polisher_service.dart';
 import 'package:litchi_journal_flutter/services/past_memory_service.dart';
 import 'package:litchi_journal_flutter/services/habit_stats_service.dart';
 import 'package:litchi_journal_flutter/models/habit_stats.dart';
+import 'package:litchi_journal_flutter/models/habit_visual_config.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
 import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
@@ -6136,7 +6137,10 @@ tags:
       final service = HabitStatsService(apiClient);
       final stats = await service.loadStats();
 
-      expect(stats.feedbackText, '这周还没有太多习惯记录。先从照顾今天开始。');
+      expect(
+        stats.feedbackSuggestion,
+        '先选一个最容易的小习惯照顾起来就很好。',
+      );
     });
 
     test('generates feedback text for stable week', () async {
@@ -6153,9 +6157,7 @@ tags:
       final service = HabitStatsService(apiClient);
       final stats = await service.loadStats();
 
-      expect(
-          stats.feedbackText,
-          contains('这周你把自己照顾得挺稳定，继续保持这种轻轻的节奏。'));
+      expect(stats.feedbackSummary, '这周你把自己照顾得挺稳定。');
     });
   });
 
@@ -6180,7 +6182,7 @@ tags:
       );
       await tester.pump();
 
-      expect(find.text('习惯'), findsOneWidget);
+      expect(find.text('习惯统计'), findsOneWidget);
       expect(find.text('看看最近的生活节奏'), findsOneWidget);
     });
 
@@ -6234,6 +6236,102 @@ tags:
       expect(find.text('编辑'), findsNothing);
       expect(find.text('删除'), findsNothing);
       expect(find.text('补打卡'), findsNothing);
+    });
+
+    testWidgets('supplement displays as 补充剂 not 鱼油/植物甾醇', (tester) async {
+      final now = DateTime.now();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {now.day - 1: true},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('补充剂'), findsWidgets);
+      expect(find.textContaining('鱼油'), findsNothing);
+      expect(find.textContaining('植物甾醇'), findsNothing);
+    });
+
+    testWidgets('habit heatmap shows tab for each habit', (tester) async {
+      final now = DateTime.now();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {now.day - 1: 1500},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('看看这 30 天的小痕迹'), findsOneWidget);
+    });
+
+    testWidgets('heatmap shows completion rate and longest streak',
+        (tester) async {
+      final now = DateTime.now();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {now.day - 1: 1500},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('完成率'), findsWidgets);
+      expect(find.textContaining('最长连续'), findsWidgets);
+    });
+  });
+
+  group('HabitVisualConfig', () {
+    test('supplements displayName is 补充剂', () {
+      final config = HabitVisualConfig.of('supplements');
+      expect(config.displayName, '补充剂');
+      expect(config.icon, '💊');
+    });
+
+    test('each habit has unique color', () {
+      final colors = HabitVisualConfig.defaults.values.map((c) => c.color).toSet();
+      expect(colors.length, 5);
+    });
+
+    test('water and steps are body group', () {
+      expect(HabitVisualConfig.of('water').group, HabitGroup.body);
+      expect(HabitVisualConfig.of('steps').group, HabitGroup.body);
+    });
+
+    test('reading and language are growth group', () {
+      expect(HabitVisualConfig.of('reading').group, HabitGroup.growth);
+      expect(HabitVisualConfig.of('language').group, HabitGroup.growth);
     });
   });
 }

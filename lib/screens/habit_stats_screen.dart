@@ -5,11 +5,11 @@ import '../services/api_client.dart';
 import '../services/habit_stats_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/habit_group_card.dart';
+import '../widgets/habit_heatmap_tabs.dart';
 import '../widgets/habit_rhythm_grid.dart';
 import '../widgets/habit_summary_card.dart';
-import '../widgets/monthly_habit_heatmap.dart';
 
-/// 习惯页面。
+/// 习惯统计页面。
 /// 只读展示长期生活节奏和习惯趋势。
 class HabitStatsScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -60,8 +60,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: RefreshIndicator(
-        onRefresh: _load,
+      body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
@@ -72,21 +71,10 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
   }
 
   Widget _buildError(ThemeData theme) {
-    return ListView(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 48),
-        Text(
-          '习惯',
-          style: theme.textTheme.headlineLarge,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '看看最近的生活节奏',
-          style: TextStyle(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontSize: 14,
-          ),
-        ),
+        _buildHeader(theme),
         const SizedBox(height: 32),
         Center(
           child: Padding(
@@ -104,22 +92,12 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
 
   Widget _buildContent(ThemeData theme) {
     final stats = _stats!;
-    final now = DateTime.now();
 
     if (stats.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
-          Text('习惯', style: theme.textTheme.headlineLarge),
-          const SizedBox(height: 4),
-          Text(
-            '看看最近的生活节奏',
-            style: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontSize: 14,
-            ),
-          ),
+          _buildHeader(theme),
           const SizedBox(height: 32),
           Center(
             child: Padding(
@@ -135,56 +113,71 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
-        // 标题区
-        Text('习惯', style: theme.textTheme.headlineLarge),
-        const SizedBox(height: 4),
-        Text(
-          '看看最近的生活节奏',
-          style: TextStyle(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontSize: 14,
+        _buildHeader(theme),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                const SizedBox(height: 4),
+                // 温柔反馈卡
+                HabitSummaryCard(stats: stats),
+
+                // 最近7天节奏谱
+                HabitRhythmGrid(
+                  days: stats.recentDays,
+                  items: stats.items,
+                ),
+
+                // 30天热力图（按习惯切换）
+                HabitHeatmapTabs(items: stats.items),
+
+                // 分组习惯卡 — 照顾身体
+                HabitGroupCard(
+                  groupLabel: '照顾身体',
+                  items: stats.items
+                      .where((i) => i.group == HabitGroup.body)
+                      .toList(),
+                ),
+
+                // 分组习惯卡 — 照顾成长
+                HabitGroupCard(
+                  groupLabel: '照顾成长',
+                  items: stats.items
+                      .where((i) => i.group == HabitGroup.growth)
+                      .toList(),
+                ),
+
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 20),
-
-        // 温柔反馈卡
-        HabitSummaryCard(stats: stats),
-
-        // 最近7天节奏谱
-        HabitRhythmGrid(
-          days: stats.recentDays,
-          items: stats.items,
-        ),
-
-        // 月度热力图
-        MonthlyHabitHeatmap(
-          monthDays: stats.monthDays,
-          year: now.year,
-          month: now.month,
-        ),
-
-        // 分组习惯卡 — 照顾身体
-        HabitGroupCard(
-          groupLabel: '照顾身体',
-          items: stats.items
-              .where((i) => i.group == HabitGroup.body)
-              .toList(),
-        ),
-
-        // 分组习惯卡 — 照顾成长
-        HabitGroupCard(
-          groupLabel: '照顾成长',
-          items: stats.items
-              .where((i) => i.group == HabitGroup.growth)
-              .toList(),
-        ),
-
-        const SizedBox(height: 32),
       ],
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('习惯统计', style: theme.textTheme.headlineLarge),
+          const SizedBox(height: 4),
+          Text(
+            '看看最近的生活节奏',
+            style: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

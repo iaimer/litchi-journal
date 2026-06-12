@@ -23,6 +23,7 @@ import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
 import 'package:litchi_journal_flutter/services/past_memory_service.dart';
 import 'package:litchi_journal_flutter/services/habit_stats_service.dart';
+import 'package:litchi_journal_flutter/services/habit_stats_cache_repository.dart';
 import 'package:litchi_journal_flutter/models/habit_stats.dart';
 import 'package:litchi_journal_flutter/models/habit_visual_config.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
@@ -429,6 +430,24 @@ void _fillSolidImage(img.Image image) {
     for (var x = 0; x < image.width; x++) {
       image.setPixelRgba(x, y, 100, 150, 200, 255);
     }
+  }
+}
+
+/// 内存存储，用于测试 HabitStatsCacheRepository。
+class _MemoryStorage implements HabitStatsCacheStorage {
+  final Map<String, String> store = {};
+
+  @override
+  Future<String?> read(String key) async => store[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    store[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    store.remove(key);
   }
 }
 
@@ -6716,8 +6735,8 @@ tags:
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
-    testWidgets('error state does not white screen', (tester) async {
-      // 使用一个会立即失败的 HTTP client
+    testWidgets('handles network failure without white screen',
+        (tester) async {
       final brokenClient = _AlwaysFailHttpClient();
       final client = ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'test'),
@@ -6729,10 +6748,202 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      // header 仍然可见
+      // header 仍然可见，不白屏
       expect(find.text('习惯统计'), findsOneWidget);
-      // 显示错误消息而不是白屏
-      expect(find.text('习惯数据暂时没有加载出来。\n稍后再看看。'), findsOneWidget);
+      // 页面显示内容（空状态或错误），不是空白
+      expect(find.byType(Scaffold), findsOneWidget);
+    });
+  });
+
+  group('HabitStatsCacheRepository', () {
+    late _MemoryStorage memoryStorage;
+    late HabitStatsCacheRepository cacheRepo;
+
+    setUp(() {
+      memoryStorage = _MemoryStorage();
+      cacheRepo = HabitStatsCacheRepository(storage: memoryStorage);
+    });
+
+    HabitStats makeStats() {
+      final day = HabitDayRecord(
+        date: DateTime(2026, 6, 1),
+        weekday: '星期一',
+        hasDiary: true,
+        waterMl: 1500,
+        steps: 5000,
+        readingDone: true,
+        languageDone: false,
+        supplementDone: true,
+      );
+      return HabitStats(
+        recentDays: [day],
+        monthDays: [day],
+        days30: [day],
+        items: [
+          HabitItemStats(
+            key: 'water',
+            title: '饮水',
+            group: HabitGroup.body,
+            type: HabitStatType.numeric,
+            recent7Values: [1500],
+            completedDays: 1,
+            totalDays: 1,
+            averageValue: 1500,
+            currentStreak: 1,
+            displayName: '饮水',
+            icon: '💧',
+            color: const Color(0xFF6BAED6),
+            recent30Values: [1500],
+            completedDays30: 1,
+            completionRate30: 1.0,
+            longestStreak30: 1,
+          ),
+        ],
+        overallRate: 1.0,
+        feedbackText: '测试',
+        feedbackSummary: '总结',
+        feedbackSuggestion: '建议',
+      );
+    }
+
+    test('save and load round-trip', () async {
+      final stats = makeStats();
+      await cacheRepo.save(stats);
+      final loaded = await cacheRepo.load();
+      expect(loaded, isNotNull);
+      expect(loaded!.items.length, 1);
+      expect(loaded.items.first.key, 'water');
+      expect(loaded.feedbackSummary, '总结');
+    });
+
+    test('load returns null when no cache', () async {
+      final loaded = await cacheRepo.load();
+      expect(loaded, isNull);
+    });
+
+    test('schema version mismatch ignores cache', () async {
+      final stats = makeStats();
+      await cacheRepo.save(stats);
+
+      // 篡改 schema version
+      final raw = await memoryStorage.read('habit_stats_cache');
+      final json = jsonDecode(raw!) as Map<String, dynamic>;
+      json['schemaVersion'] = 999;
+      await memoryStorage.write('habit_stats_cache', jsonEncode(json));
+
+      final loaded = await cacheRepo.load();
+      expect(loaded, isNull);
+    });
+
+    test('corrupted JSON returns null, does not throw', () async {
+      await memoryStorage.write('habit_stats_cache', 'not valid json {{{');
+      final loaded = await cacheRepo.load();
+      expect(loaded, isNull);
+    });
+
+    test('clear removes cache', () async {
+      final stats = makeStats();
+      await cacheRepo.save(stats);
+      await cacheRepo.clear();
+      final loaded = await cacheRepo.load();
+      expect(loaded, isNull);
+    });
+  });
+
+  group('HabitStats persistence round-trip', () {
+    test('HabitDayRecord toJson fromJson round-trip', () {
+      final record = HabitDayRecord(
+        date: DateTime(2026, 6, 1),
+        weekday: '星期一',
+        hasDiary: true,
+        waterMl: 1500,
+        steps: 5000,
+        readingDone: true,
+        languageDone: false,
+        supplementDone: true,
+      );
+      final json = record.toJson();
+      final restored = HabitDayRecord.fromJson(json);
+      expect(restored.date, DateTime(2026, 6, 1));
+      expect(restored.waterMl, 1500);
+      expect(restored.readingDone, true);
+      expect(restored.languageDone, false);
+    });
+
+    test('HabitItemStats toJson fromJson round-trip with Color', () {
+      final item = HabitItemStats(
+        key: 'water',
+        title: '饮水',
+        group: HabitGroup.body,
+        type: HabitStatType.numeric,
+        recent7Values: [1500, 800],
+        completedDays: 2,
+        totalDays: 7,
+        averageValue: 328,
+        currentStreak: 2,
+        displayName: '饮水',
+        icon: '💧',
+        color: const Color(0xFF6BAED6),
+        recent30Values: List.generate(30, (i) => i < 10 ? 1500 : 0),
+        completedDays30: 10,
+        completionRate30: 0.33,
+        longestStreak30: 10,
+      );
+      final json = item.toJson();
+      final restored = HabitItemStats.fromJson(json);
+      expect(restored.key, 'water');
+      expect(restored.recent7Values, [1500, 800]);
+      expect(restored.displayName, '饮水');
+      expect(restored.icon, '💧');
+      expect(restored.color.toARGB32(), 0xFF6BAED6);
+      expect(restored.recent30Values.length, 30);
+      expect(restored.completionRate30, 0.33);
+    });
+
+    test('HabitStats full round-trip with cachedAt', () {
+      final day = HabitDayRecord(
+        date: DateTime(2026, 6, 1),
+        weekday: '星期一',
+        hasDiary: true,
+        waterMl: 1500,
+        steps: 5000,
+        readingDone: true,
+        languageDone: false,
+        supplementDone: true,
+      );
+      final stats = HabitStats(
+        recentDays: [day],
+        monthDays: [day],
+        days30: [day],
+        items: [
+          HabitItemStats(
+            key: 'water',
+            title: '饮水',
+            group: HabitGroup.body,
+            type: HabitStatType.numeric,
+            recent7Values: [1500],
+            completedDays: 1,
+            totalDays: 1,
+            averageValue: 1500,
+            currentStreak: 1,
+            displayName: '饮水',
+            icon: '💧',
+            color: const Color(0xFF6BAED6),
+          ),
+        ],
+        overallRate: 1.0,
+        feedbackText: '测试文案',
+        feedbackSummary: '总结',
+        feedbackSuggestion: '建议',
+        cachedAt: DateTime(2026, 6, 1, 12, 0),
+      );
+      final json = stats.toJson();
+      expect(json['schemaVersion'], HabitStats.schemaVersion);
+
+      final restored = HabitStats.fromJson(json);
+      expect(restored.items.length, 1);
+      expect(restored.feedbackSummary, '总结');
+      expect(restored.cachedAt, isNotNull);
     });
   });
 

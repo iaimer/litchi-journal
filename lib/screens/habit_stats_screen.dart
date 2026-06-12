@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
 import '../services/api_client.dart';
+import '../services/habit_stats_cache_repository.dart';
 import '../services/habit_stats_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/habit_heatmap_tabs.dart';
@@ -11,14 +12,21 @@ import '../widgets/habit_summary_card.dart';
 /// 习惯统计页面。
 /// 只读展示长期生活节奏和习惯趋势。
 ///
-/// 分阶段加载：
-/// - 阶段 1：header 立即显示 + loading 骨架
-/// - 阶段 2：最近 7 天数据优先显示（反馈卡 + 节奏谱）
-/// - 阶段 3：最近 30 天热力图后台加载
+/// 加载策略（cache-first）：
+/// 1. 先读持久化缓存，有则立即显示
+/// 2. 无论有无缓存，后台刷新最新数据
+/// 3. 显示缓存时顶部显示轻量「正在更新最新节奏…」
+/// 4. 刷新成功后更新 UI 并写入缓存
+/// 5. 刷新失败保留旧缓存
 class HabitStatsScreen extends StatefulWidget {
   final ApiClient apiClient;
+  final HabitStatsCacheRepository? cacheRepo;
 
-  const HabitStatsScreen({super.key, required this.apiClient});
+  const HabitStatsScreen({
+    super.key,
+    required this.apiClient,
+    this.cacheRepo,
+  });
 
   @override
   State<HabitStatsScreen> createState() => _HabitStatsScreenState();
@@ -26,71 +34,99 @@ class HabitStatsScreen extends StatefulWidget {
 
 class _HabitStatsScreenState extends State<HabitStatsScreen> {
   late final HabitStatsService _service;
+  late final HabitStatsCacheRepository _cacheRepo;
 
-  /// 阶段 1 完成后的 7 天统计（null = 还在加载）
-  HabitStats? _stats7;
+  /// 当前展示的统计（可能是缓存，可能是最新）
+  HabitStats? _stats;
 
-  /// 阶段 2 完成后的完整统计（null = 还在加载）
-  HabitStats? _stats30;
+  /// 是否正在后台刷新
+  bool _refreshing = false;
 
-  /// 整体加载错误
+  /// 是否正在首次加载（无缓存时）
+  bool _loading = true;
+
+  /// 整体加载错误（仅无缓存时显示）
   String? _error;
 
-  /// 30 天模块加载失败（不影响 7 天显示）
-  bool _days30Failed = false;
+  /// 当前展示的是缓存数据
+  bool _isCached = false;
 
-  /// 持久化 Future，不在 build 中创建
+  /// 持久化 Future
   late Future<void> _loadFuture;
 
   @override
   void initState() {
     super.initState();
     _service = HabitStatsService(widget.apiClient);
-    _loadFuture = _load();
+    _cacheRepo = widget.cacheRepo ?? HabitStatsCacheRepository();
+    _loadFuture = _initLoad();
   }
 
-  Future<void> _load() async {
-    // 阶段 1：加载最近 7 天
-    try {
-      final stats7 = await _service.loadRecent7();
+  Future<void> _initLoad() async {
+    // 1. 尝试读缓存
+    final cached = await _cacheRepo.load();
+    if (cached != null) {
       if (!mounted) return;
       setState(() {
-        _stats7 = stats7;
+        _stats = cached;
+        _isCached = true;
+        _loading = false;
+        _refreshing = true;
       });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _error = '习惯数据暂时没有加载出来。\n稍后再看看。';
-      });
-      return;
     }
 
-    // 阶段 2：后台加载最近 30 天
+    // 2. 后台刷新最新数据
+    await _loadFresh();
+  }
+
+  Future<void> _loadFresh() async {
+    if (!_isCached && !_loading) return;
+
     try {
+      // 先加载 7 天，再加载 30 天
+      await _service.loadRecent7();
+      if (!mounted) return;
+
       final stats30 = await _service.loadRecent30();
       if (!mounted) return;
+
+      // 写入缓存
+      await _cacheRepo.save(stats30);
+
+      if (!mounted) return;
       setState(() {
-        _stats30 = stats30;
-        _days30Failed = false;
+        _stats = stats30;
+        _isCached = false;
+        _refreshing = false;
+        _loading = false;
+        _error = null;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _days30Failed = true;
-        // 仍然保留 7 天数据
-        _stats30 = _stats7;
-      });
+      if (_stats != null) {
+        // 有缓存：静默失败，保留缓存，去掉刷新标识
+        setState(() => _refreshing = false);
+      } else {
+        // 无缓存：显示错误
+        setState(() {
+          _error = '习惯数据暂时没有加载出来。\n稍后再看看。';
+          _loading = false;
+          _refreshing = false;
+        });
+      }
     }
   }
 
-  Future<void> _refresh() async {
+  Future<void> _pullRefresh() async {
     HabitStatsService.clearDayCache();
-    _stats7 = null;
-    _stats30 = null;
+    await _cacheRepo.clear();
+    _stats = null;
+    _isCached = false;
+    _refreshing = false;
+    _loading = true;
     _error = null;
-    _days30Failed = false;
-    _loadFuture = _load();
     setState(() {});
+    _loadFuture = _loadFresh();
     await _loadFuture;
   }
 
@@ -111,8 +147,8 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
   // ── 主体 ──
 
   Widget _buildBody(ThemeData theme) {
-    // 7 天数据未就绪：显示 loading 骨架
-    if (_stats7 == null) {
+    // 无缓存：显示 loading 骨架
+    if (_loading && _stats == null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -132,10 +168,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
       );
     }
 
-    // 7 天数据就绪，30 天可能还在加载
-    final stats = _stats30 ?? _stats7!;
-    final has30 = _stats30 != null && !_days30Failed;
-    final loading30 = !has30 && _days30Failed == false;
+    final stats = _stats!;
 
     if (stats.isEmpty) {
       return _buildEmptyState(theme);
@@ -145,9 +178,11 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildHeader(theme),
+        // 后台刷新中的轻量提示
+        if (_refreshing) _buildRefreshBanner(theme),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: _refresh,
+            onRefresh: _pullRefresh,
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
@@ -161,13 +196,8 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
                   items: stats.items,
                 ),
 
-                // 30 天热力图区域
-                if (has30)
-                  HabitHeatmapTabs(items: stats.items)
-                else if (loading30)
-                  _buildLoading30Card(theme)
-                else
-                  _build30FailedCard(theme),
+                // 30 天热力图
+                HabitHeatmapTabs(items: stats.items),
 
                 const SizedBox(height: 32),
               ],
@@ -193,6 +223,35 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
             style: TextStyle(
               color: theme.colorScheme.onSurfaceVariant,
               fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 后台刷新轻量提示 ──
+
+  Widget _buildRefreshBanner(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: AppColors.primary.withAlpha(20),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '正在更新最新节奏…',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.primary,
             ),
           ),
         ],
@@ -274,7 +333,6 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
           children: [
             Text('最近 7 天', style: theme.textTheme.titleLarge),
             const SizedBox(height: 16),
-            // 占位小点行
             ...List.generate(5, (_) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 3),
@@ -328,58 +386,6 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
               ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── 30 天 loading / error ──
-
-  Widget _buildLoading30Card(ThemeData theme) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('看看这 30 天的小痕迹', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  '正在整理这 30 天的小痕迹…',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _build30FailedCard(ThemeData theme) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('看看这 30 天的小痕迹', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 12),
-            const Text(
-              '30 天数据暂时没有加载出来，稍后再看看。',
-              style: TextStyle(color: AppColors.textSecondary),
             ),
           ],
         ),

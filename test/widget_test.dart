@@ -31,6 +31,7 @@ import 'package:litchi_journal_flutter/screens/past_screen.dart';
 import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
+import 'package:litchi_journal_flutter/screens/settings_page.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
@@ -4925,7 +4926,6 @@ tags:
     );
   });
 
-  group('SettingsScreen', () {
     Widget buildScreen({AIConfigRepository? aiRepo}) {
       return MaterialApp(
         home: SettingsScreen(
@@ -4946,7 +4946,158 @@ tags:
       expect(find.text('启用 AI 润色'), findsOneWidget);
       expect(find.text('快速选择预设'), findsOneWidget);
       expect(find.text('保存 AI 配置'), findsOneWidget);
+  group('AiSettingsScreen (former SettingsScreen)', () {
+    Widget buildScreen() {
+      return MaterialApp(
+        home: AiSettingsScreen(
+          apiConfig: ApiConfig(
+            baseUrl: 'https://obsidian.femkits.org',
+            token: '',
+          ),
+        ),
+      );
+    }
+
+    testWidgets('shows AI config fields', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      expect(find.text('AI 服务配置'), findsOneWidget);
+      expect(find.text('启用 AI 润色'), findsOneWidget);
+      expect(find.text('快速选择预设'), findsOneWidget);
+      expect(find.text('保存 AI 配置'), findsOneWidget);
     });
+
+    testWidgets('toggling AI switch disables fields', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      final fields =
+          tester.widgetList<TextField>(find.byType(TextField)).toList();
+      expect(fields[0].enabled, isTrue);
+      expect(fields[1].enabled, isTrue);
+      expect(fields[2].enabled, isTrue);
+      expect(fields[3].enabled, isTrue);
+    });
+
+    testWidgets('disabled fields preserve content', (tester) async {
+      await tester.pumpWidget(buildScreen());
+
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).first, 'OpenAI');
+      await tester.pump();
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller?.text,
+        'OpenAI',
+      );
+    });
+
+    testWidgets('preset chip fills name, baseUrl, and model', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+
+      await tester.tap(find.text('DeepSeek'));
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, '服务商名称'))
+            .controller
+            ?.text,
+        'DeepSeek',
+      );
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Base URL'))
+            .controller
+            ?.text,
+        'https://api.deepseek.com',
+      );
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Model'))
+            .controller
+            ?.text,
+        'deepseek-v4-flash',
+      );
+    });
+  });
+
+  group('SettingsPage', () {
+    Widget buildPage() {
+      return MaterialApp(
+        home: SettingsPage(
+          apiConfig: ApiConfig(
+            baseUrl: 'https://obsidian.femkits.org',
+            token: '',
+          ),
+        ),
+      );
+    }
+
+    testWidgets('shows header and section groups', (tester) async {
+      await tester.pumpWidget(buildPage());
+
+      expect(find.text('设置'), findsOneWidget);
+      expect(find.text('管理你的日记应用'), findsOneWidget);
+      expect(find.text('常用'), findsOneWidget);
+      expect(find.text('连接与智能'), findsOneWidget);
+      expect(find.text('媒体与应用'), findsOneWidget);
+    });
+
+    testWidgets('shows all menu items', (tester) async {
+      await tester.pumpWidget(buildPage());
+
+      expect(find.text('外观'), findsOneWidget);
+      expect(find.text('习惯设置'), findsOneWidget);
+      expect(find.text('标签设置'), findsOneWidget);
+      expect(find.text('远程 API'), findsOneWidget);
+      expect(find.text('AI 服务配置'), findsOneWidget);
+      expect(find.text('润色提示词'), findsOneWidget);
+      expect(find.text('图片压缩'), findsOneWidget);
+      expect(find.text('关于'), findsOneWidget);
+    });
+
+    testWidgets('tapping placeholder item navigates to placeholder',
+        (tester) async {
+      await tester.pumpWidget(buildPage());
+
+      await tester.tap(find.text('外观'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('正在建设中'), findsOneWidget);
+    });
+
+    testWidgets('tapping AI config navigates to AI settings', (tester) async {
+      await tester.pumpWidget(buildPage());
+
+      await tester.tap(find.text('AI 服务配置'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('保存 AI 配置'), findsOneWidget);
+    });
+
+    testWidgets('tapping about navigates to about page', (tester) async {
+      await tester.pumpWidget(buildPage());
+
+      await tester.tap(find.text('关于'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('荔枝日记'), findsOneWidget);
+    });
+
+    testWidgets('safe area prevents status bar overlap', (tester) async {
+      await tester.pumpWidget(buildPage());
+
+      expect(find.byType(SafeArea), findsOneWidget);
+    });
+  });
 
     testWidgets('does not show plain text Token', (tester) async {
       await tester.pumpWidget(buildScreen());

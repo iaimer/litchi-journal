@@ -5,7 +5,7 @@ import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
-import '../screens/settings_screen.dart';
+import '../screens/ai_settings_screen.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
 import '../services/api_config.dart';
@@ -487,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => SettingsScreen(
+                  builder: (_) => AiSettingsScreen(
                     apiConfig: ApiConfig(
                       baseUrl: widget.apiClient.baseUrl,
                       token: '',

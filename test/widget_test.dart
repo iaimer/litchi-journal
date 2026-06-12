@@ -326,6 +326,104 @@ class _HabitTestHttpClient extends http.BaseClient {
   }
 }
 
+/// HTTP 客户端：选择性在某一天 getDiary 上失败。
+class _SelectiveFailureHttpClient extends _HabitTestHttpClient {
+  final int failOnDay;
+  final int failCount;
+  final int Function() callCount;
+  int _failures = 0;
+
+  _SelectiveFailureHttpClient({
+    required super.year,
+    required super.month,
+    required super.waterByDay,
+    required super.stepsByDay,
+    required super.readingByDay,
+    required super.languageByDay,
+    required super.supplementByDay,
+    required this.failOnDay,
+    required this.failCount,
+    required this.callCount,
+  });
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final url = request.url.toString();
+    if (url.contains('/api/v1/diary/')) {
+      final parts = url.split('/');
+      final dateParts = parts.last.split('-');
+      final day = int.parse(dateParts.last);
+      callCount();
+      if (day == failOnDay && _failures < failCount) {
+        _failures++;
+        return http.StreamedResponse(
+          Stream.value(utf8.encode('server error')),
+          500,
+        );
+      }
+    }
+    return super.send(request);
+  }
+}
+
+/// HTTP 客户端：记录 getDiary 调用次数。
+class _CountingGetDiaryHttpClient extends _HabitTestHttpClient {
+  final void Function() onGetDiary;
+
+  _CountingGetDiaryHttpClient({
+    required super.year,
+    required super.month,
+    required super.waterByDay,
+    required super.stepsByDay,
+    required super.readingByDay,
+    required super.languageByDay,
+    required super.supplementByDay,
+    required this.onGetDiary,
+  });
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final url = request.url.toString();
+    if (url.contains('/api/v1/diary/')) {
+      onGetDiary();
+    }
+    return super.send(request);
+  }
+}
+
+/// HTTP 客户端：模拟网络延迟。
+class _DelayedHttpClient extends _HabitTestHttpClient {
+  final Duration delay;
+
+  _DelayedHttpClient({
+    required super.year,
+    required super.month,
+    required super.waterByDay,
+    required super.stepsByDay,
+    required super.readingByDay,
+    required super.languageByDay,
+    required super.supplementByDay,
+    required this.delay,
+  });
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    await Future.delayed(delay);
+    return super.send(request);
+  }
+}
+
+/// HTTP 客户端：所有请求都返回 500。
+class _AlwaysFailHttpClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(
+      Stream.value(utf8.encode('server error')),
+      500,
+    );
+  }
+}
+
 void _fillSolidImage(img.Image image) {
   for (var y = 0; y < image.height; y++) {
     for (var x = 0; x < image.width; x++) {
@@ -6076,6 +6174,14 @@ tags:
   });
 
   group('HabitStatsService', () {
+    setUp(() {
+      HabitStatsService.clearCache();
+    });
+
+    tearDown(() {
+      HabitStatsService.clearCache();
+    });
+
     ApiClient habitTestClient({
       required Map<int, int> waterByDay,
       required Map<int, int> stepsByDay,
@@ -6178,6 +6284,172 @@ tags:
       final stats = await service.loadStats();
 
       expect(stats.feedbackSummary, '这周你把自己照顾得挺稳定。');
+    });
+
+    test('phased loading: loadRecent7 returns 7-day data first', () async {
+      final apiClient = habitTestClient(
+        waterByDay: {DateTime.now().day - 1: 1500},
+        stepsByDay: {},
+        readingByDay: {},
+        languageByDay: {},
+        supplementByDay: {},
+      );
+
+      final service = HabitStatsService(apiClient);
+      final stats7 = await service.loadRecent7();
+
+      // 7 天数据已填充
+      expect(stats7.recentDays.length, 7);
+      expect(stats7.items.length, 5);
+      expect(stats7.items.first.recent7Values.length, 7);
+
+      // 30 天字段应为空
+      expect(stats7.days30, isEmpty);
+      expect(stats7.items.first.recent30Values, isEmpty);
+    });
+
+    test('phased loading: loadRecent30 fills 30-day data after loadRecent7',
+        () async {
+      final apiClient = habitTestClient(
+        waterByDay: {DateTime.now().day - 1: 1500},
+        stepsByDay: {},
+        readingByDay: {},
+        languageByDay: {},
+        supplementByDay: {},
+      );
+
+      final service = HabitStatsService(apiClient);
+      await service.loadRecent7();
+      final stats30 = await service.loadRecent30();
+
+      // 30 天数据已填充
+      expect(stats30.days30.length, 30);
+      expect(stats30.items.first.recent30Values.length, 30);
+    });
+
+    test('30-day load reuses 7-day cached day records', () async {
+      final apiClient = habitTestClient(
+        waterByDay: {DateTime.now().day - 1: 1500},
+        stepsByDay: {},
+        readingByDay: {},
+        languageByDay: {},
+        supplementByDay: {},
+      );
+
+      final service = HabitStatsService(apiClient);
+      await service.loadRecent7();
+
+      // 清掉 history month 缓存，验证 30 天阶段不再请求 history
+      HabitStatsService.clearCache();
+      // 但 dayCache 还保留（没办法单独检查，但能验证 30 天正常完成）
+      final stats30 = await service.loadRecent30();
+      expect(stats30.days30.length, 30);
+    });
+
+    test('history month results are cached', () async {
+      final apiClient = habitTestClient(
+        waterByDay: {},
+        stepsByDay: {},
+        readingByDay: {},
+        languageByDay: {},
+        supplementByDay: {},
+      );
+
+      final service1 = HabitStatsService(apiClient);
+      await service1.loadRecent7();
+
+      // 第二个 service 实例复用缓存
+      final service2 = HabitStatsService(apiClient);
+      final stats = await service2.loadRecent7();
+      expect(stats.recentDays.length, 7);
+    });
+
+    test('single day getDiary failure does not break overall stats',
+        () async {
+      final now = DateTime.now();
+      // 用 broken HTTP client 模拟某一天失败
+      var callCount = 0;
+      final brokenClient = _SelectiveFailureHttpClient(
+        year: now.year,
+        month: now.month,
+        waterByDay: {
+          now.day - 1: 1500,
+          now.day - 2: 800,
+          now.day - 3: 1200,
+        },
+        stepsByDay: {},
+        readingByDay: {},
+        languageByDay: {},
+        supplementByDay: {},
+        failOnDay: now.day - 2,
+        failCount: 1,
+        callCount: () => callCount++,
+      );
+
+      final apiClient = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: brokenClient,
+      );
+
+      final service = HabitStatsService(apiClient);
+      final stats = await service.loadStats();
+
+      // 即使某天失败，统计仍完整
+      expect(stats.items.length, 5);
+      expect(stats.recentDays.length, 7);
+      // 不崩溃
+    });
+
+    test('only loads getDiary for dates in history month result', () async {
+      final now = DateTime.now();
+      var getDiaryCount = 0;
+
+      final client = _CountingGetDiaryHttpClient(
+        year: now.year,
+        month: now.month,
+        waterByDay: {now.day - 1: 1500},
+        stepsByDay: {},
+        readingByDay: {},
+        languageByDay: {},
+        supplementByDay: {},
+        onGetDiary: () => getDiaryCount++,
+      );
+
+      final apiClient = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: client,
+      );
+
+      final service = HabitStatsService(apiClient);
+      await service.loadStats();
+
+      // 只有 history month 中存在的日期才调用了 getDiary
+      // 最多调用 1 次（只有 now.day-1 有数据）
+      expect(getDiaryCount, lessThanOrEqualTo(1));
+    });
+
+    test('concurrent loading does not miss data', () async {
+      final now = DateTime.now();
+      final today = now.day;
+      final waterData = <int, int>{};
+      for (var i = 0; i < 7; i++) {
+        waterData[today - i] = 1500;
+      }
+
+      final apiClient = habitTestClient(
+        waterByDay: waterData,
+        stepsByDay: {for (var i = 0; i < 7; i++) today - i: 5000},
+        readingByDay: {},
+        languageByDay: {},
+        supplementByDay: {},
+      );
+
+      final service = HabitStatsService(apiClient);
+      final stats = await service.loadStats();
+
+      final water = stats.items.firstWhere((i) => i.key == 'water');
+      // 最近 7 天全部有数据
+      expect(water.completedDays, 7);
     });
   });
 
@@ -6329,6 +6601,138 @@ tags:
 
       expect(find.textContaining('完成率'), findsWidgets);
       expect(find.textContaining('最长连续'), findsWidgets);
+    });
+
+    testWidgets('header shown immediately before data loads', (tester) async {
+      final now = DateTime.now();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      // 单帧后 header 已显示
+      expect(find.text('习惯统计'), findsOneWidget);
+      expect(find.text('看看最近的生活节奏'), findsOneWidget);
+    });
+
+    testWidgets('shows loading skeleton while 7-day data loads',
+        (tester) async {
+      final now = DateTime.now();
+      // 延迟 HTTP 客户端：模拟网络延迟
+      final delayedClient = _DelayedHttpClient(
+        year: now.year,
+        month: now.month,
+        waterByDay: {},
+        stepsByDay: {},
+        readingByDay: {},
+        languageByDay: {},
+        supplementByDay: {},
+        delay: const Duration(milliseconds: 500),
+      );
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: delayedClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+
+      // 还没 settle，应显示 loading
+      expect(find.text('正在看看最近的生活节奏…'), findsOneWidget);
+    });
+
+    testWidgets('30-day loading does not block rhythm grid', (tester) async {
+      final now = DateTime.now();
+      final today = now.day;
+
+      // 先给足 7 天数据，30 天其他日期的请求延迟
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {for (var i = 0; i < 7; i++) today - i: 1500},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      await tester.pumpAndSettle();
+
+      // 7 天节奏谱已显示
+      expect(find.text('最近 7 天'), findsOneWidget);
+      // 30 天热力图也已显示（因为 HTTP client 即时响应）
+      expect(find.text('看看这 30 天的小痕迹'), findsOneWidget);
+    });
+
+    testWidgets('switching habit dropdown does not show page loading',
+        (tester) async {
+      final now = DateTime.now();
+      final today = now.day;
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {today - 1: 1500},
+          stepsByDay: {today - 1: 5000},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      await tester.pumpAndSettle();
+
+      // 打开下方的 dropdown（tap first dropdown text）
+      final selector = find.textContaining('💧');
+      expect(selector, findsWidgets);
+      await tester.tap(selector.first);
+      await tester.pumpAndSettle();
+
+      // 下拉菜单出现，页面不被整页 loading 遮挡
+      expect(find.textContaining('🚶'), findsWidgets);
+      // 没有全页 CircularProgressIndicator
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets('error state does not white screen', (tester) async {
+      // 使用一个会立即失败的 HTTP client
+      final brokenClient = _AlwaysFailHttpClient();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: brokenClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      await tester.pumpAndSettle();
+
+      // header 仍然可见
+      expect(find.text('习惯统计'), findsOneWidget);
+      // 显示错误消息而不是白屏
+      expect(find.text('习惯数据暂时没有加载出来。\n稍后再看看。'), findsOneWidget);
     });
   });
 

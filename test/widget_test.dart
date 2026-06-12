@@ -242,6 +242,26 @@ class _HabitTestHttpClient extends http.BaseClient {
     final url = request.url.toString();
 
     if (url.contains('/api/v1/history/')) {
+      // Parse requested year/month from URL path
+      final uri = Uri.parse(url);
+      final segments = uri.pathSegments;
+      final reqYear = int.tryParse(segments[segments.length - 2]) ?? year;
+      final reqMonth = int.tryParse(segments.last) ?? month;
+
+      // Only return data for the month matching test config
+      if (reqYear != year || reqMonth != month) {
+        final body = jsonEncode({
+          'year': reqYear,
+          'month': reqMonth,
+          'diaries': <Map<String, dynamic>>[],
+        });
+        return http.StreamedResponse(
+          Stream.value(utf8.encode(body)),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+
       // Return all days that have any habit data
       final allDays = <int>{};
       allDays.addAll(waterByDay.keys);

@@ -65,7 +65,7 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs>
             const SizedBox(height: 12),
             // 内容区
             SizedBox(
-              height: 180,
+              height: 130,
               child: TabBarView(
                 controller: _tabController,
                 children: widget.items.map((item) {
@@ -91,17 +91,17 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs>
         Row(
           children: [
             Text(
-              '最近 30 天完成率：$ratePercent%',
-              style: theme.textTheme.bodyMedium,
+              '完成率 $ratePercent%',
+              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Text(
-              '最长连续：${item.longestStreak30} 天',
-              style: theme.textTheme.bodyMedium,
+              '最长连续 ${item.longestStreak30} 天',
+              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         // 30 天小格子
         Expanded(
           child: LayoutBuilder(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
 import '../services/api_client.dart';
+import '../services/habit_settings_repository.dart';
 import '../services/habit_stats_cache_repository.dart';
 import '../services/habit_stats_service.dart';
 import '../theme/app_theme.dart';
@@ -21,11 +22,13 @@ import '../widgets/habit_summary_card.dart';
 class HabitStatsScreen extends StatefulWidget {
   final ApiClient apiClient;
   final HabitStatsCacheRepository? cacheRepo;
+  final HabitSettingsRepository? habitSettingsRepo;
 
   const HabitStatsScreen({
     super.key,
     required this.apiClient,
     this.cacheRepo,
+    this.habitSettingsRepo,
   });
 
   @override
@@ -38,6 +41,9 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
 
   /// 当前展示的统计（可能是缓存，可能是最新）
   HabitStats? _stats;
+
+  /// 上次加载时使用的 active keys 快照（用于检测变更）
+  List<String>? _lastActiveKeys;
 
   /// 是否正在后台刷新
   bool _refreshing = false;
@@ -54,6 +60,15 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
   /// 持久化 Future
   late Future<void> _loadFuture;
 
+  /// 活跃习惯 key 列表
+  List<String> _activeHabitKeys = const [
+    'water',
+    'steps',
+    'reading',
+    'language',
+    'supplements',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +78,15 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
   }
 
   Future<void> _initLoad() async {
+    // 0. 加载习惯设置
+    try {
+      final settingsRepo = widget.habitSettingsRepo ?? HabitSettingsRepository();
+      final settings = await settingsRepo.load();
+      _activeHabitKeys = settings.activeKeys;
+    } catch (_) {
+      // 加载失败保持默认全部活跃
+    }
+
     // 1. 尝试读缓存
     final cached = await _cacheRepo.load();
     if (cached != null) {
@@ -80,14 +104,18 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
   }
 
   Future<void> _loadFresh() async {
+    // 每次刷新都重新读取习惯设置（用户可能在设置页已修改）
+    await _reloadActiveKeys();
+    if (!mounted) return;
+
     if (!_isCached && !_loading) return;
 
     try {
       // 先加载 7 天，再加载 30 天
-      await _service.loadRecent7();
+      await _service.loadRecent7(activeHabitKeys: _activeHabitKeys);
       if (!mounted) return;
 
-      final stats30 = await _service.loadRecent30();
+      final stats30 = await _service.loadRecent30(activeHabitKeys: _activeHabitKeys);
       if (!mounted) return;
 
       // 写入缓存
@@ -96,6 +124,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
       if (!mounted) return;
       setState(() {
         _stats = stats30;
+        _lastActiveKeys = List<String>.from(_activeHabitKeys);
         _isCached = false;
         _refreshing = false;
         _loading = false;
@@ -117,7 +146,44 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
     }
   }
 
+  Future<void> _reloadActiveKeys() async {
+    try {
+      final settingsRepo =
+          widget.habitSettingsRepo ?? HabitSettingsRepository();
+      final settings = await settingsRepo.load();
+      if (!mounted) return;
+      _activeHabitKeys = settings.activeKeys;
+    } catch (_) {
+      // 静默失败，保持现有过滤状态
+    }
+  }
+
+  /// 如果习惯设置已变更，触发后台刷新。
+  void _checkStaleSettings() {
+    if (_loading || _refreshing || _stats == null) return;
+    final lastKeys = _lastActiveKeys;
+    if (lastKeys == null) return;
+    final currentKeys = _activeHabitKeys;
+    if (lastKeys.length != currentKeys.length) {
+      _loadFresh();
+      return;
+    }
+    for (var i = 0; i < currentKeys.length; i++) {
+      if (lastKeys[i] != currentKeys[i]) {
+        _loadFresh();
+        return;
+      }
+    }
+  }
+
   Future<void> _pullRefresh() async {
+    // 重新加载习惯设置
+    try {
+      final settingsRepo = widget.habitSettingsRepo ?? HabitSettingsRepository();
+      final settings = await settingsRepo.load();
+      _activeHabitKeys = settings.activeKeys;
+    } catch (_) {}
+
     HabitStatsService.clearDayCache();
     await _cacheRepo.clear();
     _stats = null;
@@ -132,6 +198,9 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 检查习惯设置是否已变更（从设置页归档/恢复后切 tab 回来）
+    _checkStaleSettings();
+
     final theme = Theme.of(context);
 
     return Scaffold(

@@ -28,6 +28,13 @@ class GenericSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (section.isEmpty) return const SizedBox.shrink();
 
+    // 单条小确幸：简洁卡片，不用 Timeline
+    if (section is HappinessSection &&
+        section.contents.length == 1 &&
+        section.contents.first is TimelineContent) {
+      return _buildSingleHappiness(context, section.contents.first as TimelineContent);
+    }
+
     final children = <Widget>[];
     if (_hasCollapsibleCallout(section)) {
       children.add(_buildCollapsedCallout(context, section));
@@ -200,6 +207,34 @@ class GenericSectionCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildSingleHappiness(
+      BuildContext context, TimelineContent content) {
+    final theme = Theme.of(context);
+    final children = <Widget>[
+      Padding(
+        padding: EdgeInsets.only(bottom: content.tags.isNotEmpty ? 4 : 0),
+        child: Text(
+          content.text,
+          style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+        ),
+      ),
+      if (content.tags.isNotEmpty)
+        Text(
+          content.tags.join(' '),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.primary.withAlpha(180),
+            fontSize: 11,
+          ),
+        ),
+    ];
+
+    return SectionCard(
+      title: section.title.isEmpty ? null : section.title,
+      accentColor: AppColors.primary,
+      children: children,
     );
   }
 

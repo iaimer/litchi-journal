@@ -6473,6 +6473,10 @@ tags:
   });
 
   group('HabitStatsScreen', () {
+    /// 返回一个不会在测试中挂起的内存缓存仓库。
+    HabitStatsCacheRepository testCacheRepo() =>
+        HabitStatsCacheRepository(storage: _MemoryStorage());
+
     testWidgets('shows title and subtitle', (tester) async {
       final now = DateTime.now();
       final client = ApiClient(
@@ -6489,7 +6493,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       await tester.pump();
 
@@ -6513,7 +6517,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       await tester.pumpAndSettle();
 
@@ -6539,7 +6543,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       await tester.pumpAndSettle();
 
@@ -6565,7 +6569,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       await tester.pumpAndSettle();
 
@@ -6590,7 +6594,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       await tester.pumpAndSettle();
 
@@ -6614,7 +6618,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       await tester.pumpAndSettle();
 
@@ -6638,7 +6642,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       // 单帧后 header 已显示
       expect(find.text('习惯统计'), findsOneWidget);
@@ -6665,7 +6669,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
 
       // 还没 settle，应显示 loading
@@ -6691,7 +6695,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       await tester.pumpAndSettle();
 
@@ -6719,7 +6723,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       await tester.pumpAndSettle();
 
@@ -6744,7 +6748,7 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
       );
       await tester.pumpAndSettle();
 

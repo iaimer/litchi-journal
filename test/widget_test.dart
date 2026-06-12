@@ -6283,7 +6283,7 @@ tags:
       expect(find.textContaining('植物甾醇'), findsNothing);
     });
 
-    testWidgets('habit heatmap shows tab for each habit', (tester) async {
+    testWidgets('habit heatmap shows title and selector', (tester) async {
       final now = DateTime.now();
       final client = ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'test'),

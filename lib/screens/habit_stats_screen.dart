@@ -4,7 +4,6 @@ import '../models/habit_stats.dart';
 import '../services/api_client.dart';
 import '../services/habit_stats_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/habit_group_card.dart';
 import '../widgets/habit_heatmap_tabs.dart';
 import '../widgets/habit_rhythm_grid.dart';
 import '../widgets/habit_summary_card.dart';
@@ -135,22 +134,6 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
 
                 // 30天热力图（按习惯切换）
                 HabitHeatmapTabs(items: stats.items),
-
-                // 分组习惯卡 — 照顾身体
-                HabitGroupCard(
-                  groupLabel: '照顾身体',
-                  items: stats.items
-                      .where((i) => i.group == HabitGroup.body)
-                      .toList(),
-                ),
-
-                // 分组习惯卡 — 照顾成长
-                HabitGroupCard(
-                  groupLabel: '照顾成长',
-                  items: stats.items
-                      .where((i) => i.group == HabitGroup.growth)
-                      .toList(),
-                ),
 
                 const SizedBox(height: 32),
               ],

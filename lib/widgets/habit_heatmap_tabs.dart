@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/habit_stats.dart';
 import '../theme/app_theme.dart';
 
-/// 30 天热力图，按习惯 tab 切换。
-/// 展示每个习惯最近 30 天的完成情况、完成率和最长连续天数。
+/// 30 天热力图，按习惯下拉选择器切换。
+/// 展示选中习惯最近 30 天的热力图、完成率、最长连续天数和平均值。
 class HabitHeatmapTabs extends StatefulWidget {
   final List<HabitItemStats> items;
 
@@ -14,26 +14,29 @@ class HabitHeatmapTabs extends StatefulWidget {
   State<HabitHeatmapTabs> createState() => _HabitHeatmapTabsState();
 }
 
-class _HabitHeatmapTabsState extends State<HabitHeatmapTabs>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
+  late HabitItemStats _selected;
 
   @override
   void initState() {
     super.initState();
-    _tabController =
-        TabController(length: widget.items.length, vsync: this);
+    _selected = widget.items.first;
   }
 
   @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  void didUpdateWidget(covariant HabitHeatmapTabs oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.items.isNotEmpty &&
+        !widget.items.contains(_selected)) {
+      _selected = widget.items.first;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -42,108 +45,169 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '看看这 30 天的小痕迹',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('看看这 30 天的小痕迹', style: theme.textTheme.titleLarge),
             const SizedBox(height: 12),
-            // Tab 标签栏
-            TabBar(
-              controller: _tabController,
-              isScrollable: false,
-              labelStyle: const TextStyle(fontSize: 12),
-              unselectedLabelStyle: const TextStyle(fontSize: 12),
-              indicatorSize: TabBarIndicatorSize.label,
-              indicatorColor: AppColors.primary,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: AppColors.textSecondary,
-              dividerColor: Colors.transparent,
-              tabs: widget.items.map((item) {
-                return Tab(text: '${item.icon} ${item.displayName}');
-              }).toList(),
-            ),
+            // 习惯选择器
+            _buildSelector(theme),
             const SizedBox(height: 12),
-            // 内容区
-            SizedBox(
-              height: 130,
-              child: TabBarView(
-                controller: _tabController,
-                children: widget.items.map((item) {
-                  return _buildItemTab(item);
-                }).toList(),
-              ),
-            ),
+            // 统计概要
+            _buildStatsRow(theme),
+            const SizedBox(height: 8),
+            // 30 天热力图
+            _buildHeatmap(theme),
+            const SizedBox(height: 8),
+            // 平均值文案
+            _buildAverageText(theme),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildItemTab(HabitItemStats item) {
-    final theme = Theme.of(context);
-    final rate = item.completionRate30;
-    final ratePercent = (rate * 100).toStringAsFixed(0);
+  Widget _buildSelector(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: DropdownButton<HabitItemStats>(
+        value: _selected,
+        isDense: true,
+        isExpanded: false,
+        underline: const SizedBox.shrink(),
+        icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+        selectedItemBuilder: (context) {
+          return widget.items.map((item) {
+            return DropdownMenuItem<HabitItemStats>(
+              value: item,
+              child: Text(
+                '${item.icon} ${item.displayName}',
+                style: theme.textTheme.bodyMedium,
+              ),
+            );
+          }).toList();
+        },
+        items: widget.items.map((item) {
+          return DropdownMenuItem<HabitItemStats>(
+            value: item,
+            child: Text('${item.icon} ${item.displayName}'),
+          );
+        }).toList(),
+        onChanged: (item) {
+          if (item != null) setState(() => _selected = item);
+        },
+      ),
+    );
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildStatsRow(ThemeData theme) {
+    final ratePercent =
+        (_selected.completionRate30 * 100).toStringAsFixed(0);
+
+    return Row(
       children: [
-        // 统计概要
-        Row(
-          children: [
-            Text(
-              '完成率 $ratePercent%',
-              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              '最长连续 ${item.longestStreak30} 天',
-              style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
-            ),
-          ],
+        Text(
+          '完成率 $ratePercent%',
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
         ),
-        const SizedBox(height: 8),
-        // 30 天小格子
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              const cols = 10;
-              final rows = (item.recent30Values.length / cols).ceil();
-              final cellSize = (constraints.maxWidth) / cols - 2;
-
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(rows, (row) {
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: List.generate(cols, (col) {
-                      final index = row * cols + col;
-                      if (index >= item.recent30Values.length) {
-                        return SizedBox(
-                            width: cellSize + 2, height: cellSize + 2);
-                      }
-                      final done = item.type == HabitStatType.boolean
-                          ? item.recent30Values[index] == 1
-                          : item.recent30Values[index] > 0;
-
-                      return Container(
-                        width: cellSize,
-                        height: cellSize,
-                        margin: const EdgeInsets.all(1),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(2),
-                          color: done
-                              ? item.color
-                              : AppColors.border,
-                        ),
-                      );
-                    }),
-                  );
-                }),
-              );
-            },
+        const SizedBox(width: 12),
+        Text(
+          '最长连续 ${_selected.longestStreak30} 天',
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildHeatmap(ThemeData theme) {
+    final values = _selected.recent30Values;
+    final color = _selected.color;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const cols = 10;
+        const gap = 2.0;
+        final rows = (values.length / cols).ceil();
+        final cellSize = (constraints.maxWidth / cols) - gap;
+
+        if (cellSize <= 0) return const SizedBox.shrink();
+
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(rows, (row) {
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: List.generate(cols, (col) {
+                final index = row * cols + col;
+                if (index >= values.length) {
+                  return SizedBox(
+                    width: cellSize + gap,
+                    height: cellSize + gap,
+                  );
+                }
+                final done = _selected.type == HabitStatType.boolean
+                    ? values[index] == 1
+                    : values[index] > 0;
+
+                return Container(
+                  width: cellSize,
+                  height: cellSize,
+                  margin: const EdgeInsets.all(1),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(2),
+                    color: done ? color : AppColors.border,
+                  ),
+                );
+              }),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  Widget _buildAverageText(ThemeData theme) {
+    String text;
+    final daysWithValue = _selected.recent30Values.where((v) => v > 0).length;
+
+    if (_selected.type == HabitStatType.numeric) {
+      if (daysWithValue == 0) {
+        text = '最近 30 天还没有记录。';
+      } else {
+        var sum = 0;
+        for (final v in _selected.recent30Values) {
+          sum += v;
+        }
+        final avg = (sum / daysWithValue).toStringAsFixed(0);
+        final unit = _unit(_selected.key);
+        text = '最近 30 天，平均每天${_selected.displayName} $avg $unit。';
+      }
+    } else {
+      text = '最近 30 天，完成了 ${_selected.completedDays30}/30 天。';
+    }
+
+    return Text(
+      text,
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: AppColors.textSecondary,
+        height: 1.6,
+      ),
+    );
+  }
+
+  String _unit(String key) {
+    switch (key) {
+      case 'water':
+        return 'mL';
+      case 'steps':
+        return '步';
+      default:
+        return '';
+    }
   }
 }

@@ -830,3 +830,96 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 - `flutter test`：240 个测试全部通过
 - `flutter build apk --release`：通过
 - 用户确认本轮 UI 修复成功
+
+---
+
+## 24. Sprint 15：习惯统计页面完整优化
+
+对应提交：
+
+```text
+b731b60 refactor: dropdown habit selector + remove group cards + avg text
+be29c5c perf: phased loading + concurrency + static cache for habit stats
+c2dfb67 feat: persistent cache for habit stats cold-start
+718f700 fix: inject mock cache repo in HabitStatsScreen widget tests
+3196c7a chore: cache namespace scoping, habit section parsing, test settle
+d5b23c6 fix: heatmap overflow + cross-month test client
+```
+
+这一阶段对「习惯统计」页面进行了三轮迭代优化：UI 结构重设计 → 加载性能 → 持久化缓存。
+
+### 24.1 UI 结构重设计
+
+原有问题：
+- 30 天热力图用 TabBar 横向切换，页面宽度不足时图标文字显示不全
+- 仍有「照顾身体」「照顾成长」两个独立分组卡，信息重复
+- 没有 30 天平均值描述
+
+修复后：
+- TabBar → `DropdownButton` 下拉选择器，单一习惯展示
+- 删除 `HabitGroupCard` 文件，分组统计融入热力图下方
+- 新增 30 天平均值文案：数值型「最近 30 天，平均每天饮水 xxxx mL」、布尔型「最近 30 天，完成了 x/30 天」
+- 固定 header 标题「习惯统计」，副标题「看看最近的生活节奏」
+
+### 24.2 加载性能优化
+
+根因分析：
+- `loadStats()` 一次性串行加载全部 30 天日记（`for` + 逐日 `await getDiary`）
+- 30 个网络请求串行等待，首帧白屏十几秒
+
+优化方案：
+- 新增 `lib/services/concurrent.dart`：`mapWithConcurrency(concurrency: 4)` 并发工具
+- `HabitStatsService` 拆分为 `loadRecent7()` + `loadRecent30()` 两阶段
+  - 阶段 1：优先加载 7 天，并发 4，先显示反馈卡 + 节奏谱
+  - 阶段 2：后台加载剩余 23 天，复用已缓存的 7 天记录
+- 静态 `_dayCache` + `_historyMonthCache`，跨 tab 切换复用
+- 屏幕端分阶段 UI：header 立即显示 → skeleton → 7 天优先 → 30 天后台
+
+### 24.3 持久化缓存
+
+根因：静态内存缓存在 App 进程内有效，但冷启动时丢失。
+
+方案：
+- 新建 `lib/services/habit_stats_cache_repository.dart`
+- 使用 `flutter_secure_storage`（已有依赖），序列化完整 `HabitStats`
+- `HabitStatsCacheStorage` 可注入接口，支持测试 mock
+- `HabitStatsScreen` cache-first 加载：
+  - 有缓存 → 立即显示 + 轻量横幅「正在更新最新节奏…」+ 后台刷新
+  - 无缓存 → skeleton loading
+  - 刷新成功 → 更新 UI + 写入缓存
+  - 刷新失败 → 保留旧缓存，不白屏
+- schema version 校验，不匹配时安全忽略
+
+### 24.4 辅助修正
+
+- `_HabitTestHttpClient` 跨月请求返回正确数据
+- 热力图 `SizedBox` 高度 180 → 130，修复测试 overflow
+- 缓存 namespace 隔离（`identityHashCode`），防止不同 `ApiClient` 实例缓存污染
+- `MarkdownParser`：`习惯打卡`/`习惯追踪` 纳入独立 section 识别
+
+### 24.5 小确幸展示优化 + DeepSeek 模型修正
+
+对应提交：
+
+```text
+1c49772 feat: happiness rendering rewrite + DeepSeek default model fix
+002556c feat: DeepSeek model empty fallback to deepseek-v4-flash
+```
+
+**小确幸**：不再使用 Timeline UI。
+- 单条：纯文本段落展示
+- 多条（≥2）：bullet list（`•` 前缀）
+- 新增 `_buildHappinessSection()`，`HappinessSection` 全部走此路径
+
+**DeepSeek**：
+- `ai_config.dart` → `aiPresets` 中 DeepSeek 模型 `deepseek-chat` → `deepseek-v4-flash`
+- 新增 `AIConfig.resolvedModel`：baseUrl 含 `deepseek` 且 model 为空时自动 fallback
+- 用户已保存的模型配置不受影响
+
+### 24.6 验证状态
+
+截至提交 `002556c`：
+
+- `dart analyze lib/ test/`：通过
+- `flutter test`：268 个测试全部通过
+- 用户真机验收通过

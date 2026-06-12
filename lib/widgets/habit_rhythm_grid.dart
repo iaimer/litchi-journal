@@ -20,14 +20,6 @@ class HabitRhythmGrid extends StatelessWidget {
     if (days.isEmpty || items.isEmpty) return const SizedBox.shrink();
 
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-    final today = DateTime.now();
-    final isToday = (int index) {
-      if (index >= days.length) return false;
-      final d = days[index];
-      return d.date.year == today.year &&
-          d.date.month == today.month &&
-          d.date.day == today.day;
-    };
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -48,8 +40,8 @@ class HabitRhythmGrid extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight:
-                              isToday(i) ? FontWeight.w700 : FontWeight.w400,
-                          color: isToday(i)
+                              _isToday(i) ? FontWeight.w700 : FontWeight.w400,
+                          color: _isToday(i)
                               ? AppColors.primary
                               : AppColors.textSecondary,
                         ),
@@ -61,11 +53,20 @@ class HabitRhythmGrid extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             // 习惯行
-            ...items.map((item) => _buildHabitRow(item, isToday)),
+            ...items.map((item) => _buildHabitRow(item, _isToday)),
           ],
         ),
       ),
     );
+  }
+
+  bool _isToday(int index) {
+    if (index >= days.length) return false;
+    final today = DateTime.now();
+    final d = days[index];
+    return d.date.year == today.year &&
+        d.date.month == today.month &&
+        d.date.day == today.day;
   }
 
   Widget _buildHabitRow(

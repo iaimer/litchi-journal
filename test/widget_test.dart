@@ -22,9 +22,12 @@ import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
 import 'package:litchi_journal_flutter/services/past_memory_service.dart';
+import 'package:litchi_journal_flutter/services/habit_stats_service.dart';
+import 'package:litchi_journal_flutter/models/habit_stats.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
 import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
+import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
@@ -201,6 +204,94 @@ class _PastMemoryRetryClient extends http.BaseClient {
         'date': ApiClient.formatDate(memoryDate),
         'title': '旧日记',
         'raw': '# 今天\n\n## ✍️ 随手记 & 灵感\n- **09:30** 一段旧时光 #记录',
+        'sections': {},
+      });
+      return http.StreamedResponse(
+        Stream.value(utf8.encode(body)),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
+
+    return http.StreamedResponse(Stream.value(utf8.encode('{}')), 404);
+  }
+}
+
+class _HabitTestHttpClient extends http.BaseClient {
+  final int year;
+  final int month;
+  final Map<int, int> waterByDay;
+  final Map<int, int> stepsByDay;
+  final Map<int, bool> readingByDay;
+  final Map<int, bool> languageByDay;
+  final Map<int, bool> supplementByDay;
+
+  _HabitTestHttpClient({
+    required this.year,
+    required this.month,
+    required this.waterByDay,
+    required this.stepsByDay,
+    required this.readingByDay,
+    required this.languageByDay,
+    required this.supplementByDay,
+  });
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final url = request.url.toString();
+
+    if (url.contains('/api/v1/history/')) {
+      // Return all days that have any habit data
+      final allDays = <int>{};
+      allDays.addAll(waterByDay.keys);
+      allDays.addAll(stepsByDay.keys);
+      allDays.addAll(readingByDay.keys);
+      allDays.addAll(languageByDay.keys);
+      allDays.addAll(supplementByDay.keys);
+
+      final diaries = allDays.map((day) {
+        final dayStr = day.toString().padLeft(2, '0');
+        return {
+          'date': '$year-${month.toString().padLeft(2, '0')}-$dayStr',
+          'hasContent': true,
+          'exists': true,
+        };
+      }).toList();
+
+      final body = jsonEncode({
+        'year': year,
+        'month': month,
+        'diaries': diaries,
+      });
+      return http.StreamedResponse(
+        Stream.value(utf8.encode(body)),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
+
+    if (url.contains('/api/v1/diary/')) {
+      // Extract day from URL
+      final parts = url.split('/');
+      final dateStr = parts.last;
+      final dateParts = dateStr.split('-');
+      final day = int.parse(dateParts.last);
+
+      final water = waterByDay[day] ?? 0;
+      final steps = stepsByDay[day] ?? 0;
+      final reading = readingByDay[day] ?? false;
+      final language = languageByDay[day] ?? false;
+      final supp = supplementByDay[day] ?? false;
+
+      final readingCheck = reading ? 'x' : ' ';
+      final languageCheck = language ? 'x' : ' ';
+      final suppCheck = supp ? 'x' : ' ';
+
+      final body = jsonEncode({
+        'date': dateStr,
+        'title': '今天',
+        'raw':
+            '# 今天\n\n### 📋 习惯打卡\n- [$readingCheck] 阅读 30 分钟\n- [$languageCheck] 学语言\n- [$suppCheck] 鱼油 / 植物甾醇\n- 饮水 $water mL\n- 运动 $steps 步',
         'sections': {},
       });
       return http.StreamedResponse(
@@ -5960,6 +6051,189 @@ tags:
 
       expect(result['data'], 'data:image/jpeg;base64,test123');
       expect(result['mimeType'], 'image/jpeg');
+    });
+  });
+
+  group('HabitStatsService', () {
+    ApiClient habitTestClient({
+      required Map<int, int> waterByDay,
+      required Map<int, int> stepsByDay,
+      required Map<int, bool> readingByDay,
+      required Map<int, bool> languageByDay,
+      required Map<int, bool> supplementByDay,
+    }) {
+      final now = DateTime.now();
+      return ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: waterByDay,
+          stepsByDay: stepsByDay,
+          readingByDay: readingByDay,
+          languageByDay: languageByDay,
+          supplementByDay: supplementByDay,
+        ),
+      );
+    }
+
+    test('generates correct 7-day date range', () {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final days = <DateTime>[];
+      for (var i = 6; i >= 0; i--) {
+        days.add(today.subtract(Duration(days: i)));
+      }
+      expect(days.length, 7);
+      // No future dates
+      for (final d in days) {
+        expect(d.isAfter(today), false);
+      }
+    });
+
+    test('parses numeric and boolean habits correctly', () async {
+      final now = DateTime.now();
+      final today = now.day;
+      final apiClient = habitTestClient(
+        waterByDay: {today - 1: 1500, today - 2: 800},
+        stepsByDay: {today - 1: 6000},
+        readingByDay: {today - 1: true, today - 2: true},
+        languageByDay: {today - 1: true},
+        supplementByDay: {today - 1: true, today - 2: true, today - 3: true},
+      );
+
+      final service = HabitStatsService(apiClient);
+      final stats = await service.loadStats();
+
+      expect(stats.items.length, 5);
+
+      // 饮水
+      final water = stats.items.firstWhere((i) => i.key == 'water');
+      expect(water.type, HabitStatType.numeric);
+      expect(water.completedDays, 2);
+
+      // 亲子共读
+      final reading = stats.items.firstWhere((i) => i.key == 'reading');
+      expect(reading.type, HabitStatType.boolean);
+      expect(reading.completedDays, 2);
+
+      // 鱼油
+      final supp = stats.items.firstWhere((i) => i.key == 'supplements');
+      expect(supp.type, HabitStatType.boolean);
+      expect(supp.completedDays, 3);
+      expect(supp.currentStreak, 3);
+    });
+
+    test('returns empty stats when no habit data', () async {
+      final apiClient = habitTestClient(
+        waterByDay: {},
+        stepsByDay: {},
+        readingByDay: {},
+        languageByDay: {},
+        supplementByDay: {},
+      );
+
+      final service = HabitStatsService(apiClient);
+      final stats = await service.loadStats();
+
+      expect(stats.feedbackText, '这周还没有太多习惯记录。先从照顾今天开始。');
+    });
+
+    test('generates feedback text for stable week', () async {
+      final now = DateTime.now();
+      final today = now.day;
+      final apiClient = habitTestClient(
+        waterByDay: {for (var i = 1; i <= 6; i++) today - i: 1500},
+        stepsByDay: {for (var i = 1; i <= 6; i++) today - i: 5000},
+        readingByDay: {for (var i = 1; i <= 6; i++) today - i: true},
+        languageByDay: {for (var i = 1; i <= 6; i++) today - i: true},
+        supplementByDay: {for (var i = 1; i <= 6; i++) today - i: true},
+      );
+
+      final service = HabitStatsService(apiClient);
+      final stats = await service.loadStats();
+
+      expect(
+          stats.feedbackText,
+          contains('这周你把自己照顾得挺稳定，继续保持这种轻轻的节奏。'));
+    });
+  });
+
+  group('HabitStatsScreen', () {
+    testWidgets('shows title and subtitle', (tester) async {
+      final now = DateTime.now();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      await tester.pump();
+
+      expect(find.text('习惯'), findsOneWidget);
+      expect(find.text('看看最近的生活节奏'), findsOneWidget);
+    });
+
+    testWidgets('shows empty state when no data', (tester) async {
+      final now = DateTime.now();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('还没有足够的习惯记录。\n今天先照顾一个小习惯就很好。'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('no edit/delete/patch buttons present', (tester) async {
+      final now = DateTime.now();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: HabitStatsScreen(apiClient: client)),
+      );
+      await tester.pumpAndSettle();
+
+      // 不应该有任何编辑/删除按钮
+      expect(find.text('编辑'), findsNothing);
+      expect(find.text('删除'), findsNothing);
+      expect(find.text('补打卡'), findsNothing);
     });
   });
 }

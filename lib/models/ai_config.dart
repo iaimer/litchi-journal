@@ -20,6 +20,13 @@ class AIConfig {
   bool get isUsable =>
       enabled && baseUrl.isNotEmpty && apiKey.isNotEmpty && model.isNotEmpty;
 
+  /// 解析后的模型名，DeepSeek 且 model 为空时回退到 deepseek-v4-flash。
+  String get resolvedModel {
+    if (model.isNotEmpty) return model;
+    if (baseUrl.contains('deepseek')) return 'deepseek-v4-flash';
+    return model;
+  }
+
   factory AIConfig.fromJson(Map<String, dynamic> json) {
     return AIConfig(
       enabled: json['enabled'] as bool? ?? false,

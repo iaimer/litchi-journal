@@ -3642,6 +3642,41 @@ tags:
       final deepseekPreset = aiPresets.firstWhere((p) => p.name == 'DeepSeek');
       expect(deepseekPreset.model, 'deepseek-v4-flash');
     });
+
+    test('resolvedModel falls back for DeepSeek with empty model', () {
+      final config = AIConfig(
+        enabled: true,
+        name: 'DeepSeek',
+        baseUrl: 'https://api.deepseek.com',
+        apiKey: 'sk-test',
+        model: '',
+      );
+      expect(config.resolvedModel, 'deepseek-v4-flash');
+    });
+
+    test('resolvedModel keeps user model when set', () {
+      final config = AIConfig(
+        enabled: true,
+        name: 'DeepSeek',
+        baseUrl: 'https://api.deepseek.com',
+        apiKey: 'sk-test',
+        model: 'deepseek-v4-expensive',
+      );
+      // 用户已保存的模型不被覆盖
+      expect(config.resolvedModel, 'deepseek-v4-expensive');
+    });
+
+    test('resolvedModel does not affect OpenAI', () {
+      final config = AIConfig(
+        enabled: true,
+        name: 'OpenAI',
+        baseUrl: 'https://api.openai.com',
+        apiKey: 'sk-test',
+        model: '',
+      );
+      // OpenAI 不受 DeepSeek fallback 影响
+      expect(config.resolvedModel, '');
+    });
   });
 
   group('AIConfigRepository', () {

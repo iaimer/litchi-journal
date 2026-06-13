@@ -23,8 +23,10 @@ import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
 import 'package:litchi_journal_flutter/services/past_memory_service.dart';
 import 'package:litchi_journal_flutter/services/habit_stats_service.dart';
+import 'package:litchi_journal_flutter/services/habit_settings_repository.dart';
 import 'package:litchi_journal_flutter/services/habit_stats_cache_repository.dart';
 import 'package:litchi_journal_flutter/models/habit_stats.dart';
+import 'package:litchi_journal_flutter/models/habit_settings.dart';
 import 'package:litchi_journal_flutter/models/habit_visual_config.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
@@ -32,6 +34,7 @@ import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_page.dart';
+import 'package:litchi_journal_flutter/screens/remote_api_page.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
@@ -84,7 +87,8 @@ TagConfig _polishTagConfig() {
   );
 }
 
-class _TestStorage implements DraftStorage, AIConfigStorage {
+class _TestStorage
+    implements DraftStorage, AIConfigStorage, HabitSettingsStorage {
   final Map<String, String> data;
   _TestStorage([Map<String, String>? data]) : data = data ?? {};
 
@@ -502,7 +506,14 @@ void main() {
         }),
       );
 
-      await tester.pumpWidget(MaterialApp(home: HomeScreen(apiClient: client)));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            apiClient: client,
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('荔枝日记'), findsNothing);
@@ -2958,8 +2969,8 @@ tags:
         ),
       );
 
-      expect(find.text('阅读/亲子共读'), findsOneWidget);
-      await tester.tap(find.text('阅读/亲子共读'));
+      expect(find.text('亲子共读'), findsOneWidget);
+      await tester.tap(find.text('亲子共读'));
       await tester.pump();
 
       expect(called, isNotNull);
@@ -3128,7 +3139,7 @@ tags:
         ),
       );
 
-      expect(find.text('运动/拉伸/快走 8000 步'), findsOneWidget);
+      expect(find.text('运动 8000 步'), findsOneWidget);
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
 
@@ -3174,7 +3185,7 @@ tags:
         ),
       );
 
-      await tester.tap(find.text('阅读/亲子共读'));
+      await tester.tap(find.text('亲子共读'));
       await tester.pumpAndSettle();
 
       expect(find.text('更新失败'), findsOneWidget);
@@ -3208,7 +3219,7 @@ tags:
         ),
       );
 
-      await tester.tap(find.text('阅读/亲子共读'));
+      await tester.tap(find.text('亲子共读'));
       await tester.pumpAndSettle();
 
       expect(find.text('更新失败'), findsOneWidget);
@@ -4921,7 +4932,7 @@ tags:
         expect(find.text('🌙 明日寄语'), findsOneWidget);
         expect(find.text('明天完成重要任务'), findsOneWidget);
         expect(find.text('🏃 习惯打卡'), findsOneWidget);
-        expect(find.text('📖 阅读/亲子共读'), findsOneWidget);
+        expect(find.text('亲子共读'), findsOneWidget);
       },
     );
   });
@@ -4932,7 +4943,7 @@ tags:
         home: SettingsScreen(
           apiConfig: ApiConfig(
             baseUrl: 'https://obsidian.femkits.org',
-            token: '',
+            token: 'secret-token',
           ),
         ),
       );
@@ -4949,7 +4960,7 @@ tags:
 
     testWidgets('does not show plain text Token', (tester) async {
       await tester.pumpWidget(buildScreen());
-      expect(find.text('已配置'), findsOneWidget);
+      expect(find.text('secret-token'), findsNothing);
     });
 
     testWidgets('toggling AI switch disables AI fields', (tester) async {
@@ -5061,8 +5072,8 @@ tags:
     testWidgets('Server address and Token not editable', (tester) async {
       await tester.pumpWidget(buildScreen());
 
-      expect(find.text('https://obsidian.femkits.org'), findsOneWidget);
-      expect(find.text('已配置'), findsOneWidget);
+      expect(find.text('https://obsidian.femkits.org'), findsNothing);
+      expect(find.text('secret-token'), findsNothing);
     });
 
     testWidgets('shows polish and coach prompt fields with labels', (
@@ -5072,53 +5083,10 @@ tags:
       await tester.tap(find.byType(SwitchListTile));
       await tester.pump();
 
-      expect(find.text('润色提示词'), findsOneWidget);
-      expect(find.text('人生教练提示词'), findsOneWidget);
-      expect(find.text('恢复默认润色提示词'), findsOneWidget);
-      expect(find.text('恢复默认人生教练提示词'), findsOneWidget);
-    });
-
-    testWidgets('restore default polish prompt fills default', (tester) async {
-      await tester.pumpWidget(buildScreen());
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pump();
-
-      final promptField = find.byKey(const Key('polishPromptField'));
-      await tester.enterText(promptField, '自定义提示词');
-      await tester.pump();
-
-      // Scroll to make restore button visible
-      await tester.ensureVisible(find.text('恢复默认润色提示词'));
-      await tester.pump();
-
-      await tester.tap(find.text('恢复默认润色提示词'));
-      await tester.pump();
-
-      expect(
-        tester.widget<TextField>(promptField).controller?.text,
-        PolisherService.defaultPolishPrompt,
-      );
-    });
-
-    testWidgets('restore default coach prompt fills default', (tester) async {
-      await tester.pumpWidget(buildScreen());
-      await tester.tap(find.byType(SwitchListTile));
-      await tester.pump();
-
-      final coachField = find.byKey(const Key('coachPromptField'));
-      await tester.enterText(coachField, '自定义教练');
-      await tester.pump();
-
-      await tester.ensureVisible(find.text('恢复默认人生教练提示词'));
-      await tester.pump();
-
-      await tester.tap(find.text('恢复默认人生教练提示词'));
-      await tester.pump();
-
-      expect(
-        tester.widget<TextField>(coachField).controller?.text,
-        PolisherService.defaultCoachPrompt,
-      );
+      expect(find.text('润色提示词'), findsNothing);
+      expect(find.text('人生教练提示词'), findsNothing);
+      expect(find.text('恢复默认润色提示词'), findsNothing);
+      expect(find.text('恢复默认人生教练提示词'), findsNothing);
     });
   });
 
@@ -5305,8 +5273,9 @@ tags:
       },
     );
 
-    testWidgets('GenericSectionCard single happiness shows plain text',
-        (tester) async {
+    testWidgets('GenericSectionCard single happiness shows plain text', (
+      tester,
+    ) async {
       final section = HappinessSection(
         title: '小确幸',
         contents: [
@@ -5321,9 +5290,7 @@ tags:
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: GenericSectionCard(section: section),
-          ),
+          home: Scaffold(body: GenericSectionCard(section: section)),
         ),
       );
 
@@ -5334,88 +5301,82 @@ tags:
       expect(find.byIcon(Icons.more_horiz), findsNothing);
     });
 
-    testWidgets(
-      'GenericSectionCard multiple happiness shows bullet list',
-      (tester) async {
-        final section = HappinessSection(
-          title: '小确幸',
-          contents: [
-            TimelineContent(
-              time: '14:00',
-              text: '下班看到晚霞',
-              tags: [],
-              rawLine: '> **14:00** 下班看到晚霞',
-            ),
-            TimelineContent(
-              time: '15:00',
-              text: '女儿收拾玩具',
-              tags: [],
-              rawLine: '> **15:00** 女儿收拾玩具',
-            ),
-          ],
-        );
-
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: GenericSectionCard(section: section),
-            ),
+    testWidgets('GenericSectionCard multiple happiness shows bullet list', (
+      tester,
+    ) async {
+      final section = HappinessSection(
+        title: '小确幸',
+        contents: [
+          TimelineContent(
+            time: '14:00',
+            text: '下班看到晚霞',
+            tags: [],
+            rawLine: '> **14:00** 下班看到晚霞',
           ),
-        );
-
-        // 多条显示 bullet list
-        expect(find.text('•'), findsNWidgets(2));
-        expect(find.text('下班看到晚霞'), findsOneWidget);
-        expect(find.text('女儿收拾玩具'), findsOneWidget);
-        // 无 timeline 样式
-        expect(find.text('14:00'), findsNothing);
-        expect(find.text('15:00'), findsNothing);
-        expect(find.byIcon(Icons.more_horiz), findsNothing);
-      },
-    );
-
-    testWidgets(
-      'GenericSectionCard happiness no longer shows timeline',
-      (tester) async {
-        final section = HappinessSection(
-          title: '小确幸',
-          contents: [
-            TimelineContent(
-              time: '20:00',
-              text: '散步很快乐',
-              tags: [],
-              rawLine: '> **20:00** 散步很快乐',
-            ),
-            TimelineContent(
-              time: '21:00',
-              text: '喝了杯热茶',
-              tags: [],
-              rawLine: '> **21:00** 喝了杯热茶',
-            ),
-            TimelineContent(
-              time: '22:00',
-              text: '看了本好书',
-              tags: [],
-              rawLine: '> **22:00** 看了本好书',
-            ),
-          ],
-        );
-
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: GenericSectionCard(section: section),
-            ),
+          TimelineContent(
+            time: '15:00',
+            text: '女儿收拾玩具',
+            tags: [],
+            rawLine: '> **15:00** 女儿收拾玩具',
           ),
-        );
+        ],
+      );
 
-        // 三条都是 bullet，不是时间标签
-        expect(find.text('•'), findsNWidgets(3));
-        expect(find.text('20:00'), findsNothing);
-        expect(find.text('21:00'), findsNothing);
-        expect(find.text('22:00'), findsNothing);
-      },
-    );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: GenericSectionCard(section: section)),
+        ),
+      );
+
+      // 多条显示 bullet list
+      expect(find.text('•'), findsNWidgets(2));
+      expect(find.text('下班看到晚霞'), findsOneWidget);
+      expect(find.text('女儿收拾玩具'), findsOneWidget);
+      // 无 timeline 样式
+      expect(find.text('14:00'), findsNothing);
+      expect(find.text('15:00'), findsNothing);
+      expect(find.byIcon(Icons.more_horiz), findsNothing);
+    });
+
+    testWidgets('GenericSectionCard happiness no longer shows timeline', (
+      tester,
+    ) async {
+      final section = HappinessSection(
+        title: '小确幸',
+        contents: [
+          TimelineContent(
+            time: '20:00',
+            text: '散步很快乐',
+            tags: [],
+            rawLine: '> **20:00** 散步很快乐',
+          ),
+          TimelineContent(
+            time: '21:00',
+            text: '喝了杯热茶',
+            tags: [],
+            rawLine: '> **21:00** 喝了杯热茶',
+          ),
+          TimelineContent(
+            time: '22:00',
+            text: '看了本好书',
+            tags: [],
+            rawLine: '> **22:00** 看了本好书',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: GenericSectionCard(section: section)),
+        ),
+      );
+
+      // 三条都是 bullet，不是时间标签
+      expect(find.text('•'), findsNWidgets(3));
+      expect(find.text('20:00'), findsNothing);
+      expect(find.text('21:00'), findsNothing);
+      expect(find.text('22:00'), findsNothing);
+    });
 
     testWidgets(
       'GenericSectionCard reflection delete calls onDelete with rawLine',
@@ -6358,10 +6319,7 @@ tags:
       final service = HabitStatsService(apiClient);
       final stats = await service.loadStats();
 
-      expect(
-        stats.feedbackSuggestion,
-        '先选一个最容易的小习惯照顾起来就很好。',
-      );
+      expect(stats.feedbackSuggestion, '先选一个最容易的小习惯照顾起来就很好。');
     });
 
     test('generates feedback text for stable week', () async {
@@ -6403,24 +6361,26 @@ tags:
       expect(stats7.items.first.recent30Values, isEmpty);
     });
 
-    test('phased loading: loadRecent30 fills 30-day data after loadRecent7',
-        () async {
-      final apiClient = habitTestClient(
-        waterByDay: {DateTime.now().day - 1: 1500},
-        stepsByDay: {},
-        readingByDay: {},
-        languageByDay: {},
-        supplementByDay: {},
-      );
+    test(
+      'phased loading: loadRecent30 fills 30-day data after loadRecent7',
+      () async {
+        final apiClient = habitTestClient(
+          waterByDay: {DateTime.now().day - 1: 1500},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        );
 
-      final service = HabitStatsService(apiClient);
-      await service.loadRecent7();
-      final stats30 = await service.loadRecent30();
+        final service = HabitStatsService(apiClient);
+        await service.loadRecent7();
+        final stats30 = await service.loadRecent30();
 
-      // 30 天数据已填充
-      expect(stats30.days30.length, 30);
-      expect(stats30.items.first.recent30Values.length, 30);
-    });
+        // 30 天数据已填充
+        expect(stats30.days30.length, 30);
+        expect(stats30.items.first.recent30Values.length, 30);
+      },
+    );
 
     test('30-day load reuses 7-day cached day records', () async {
       final apiClient = habitTestClient(
@@ -6459,19 +6419,14 @@ tags:
       expect(stats.recentDays.length, 7);
     });
 
-    test('single day getDiary failure does not break overall stats',
-        () async {
+    test('single day getDiary failure does not break overall stats', () async {
       final now = DateTime.now();
       // 用 broken HTTP client 模拟某一天失败
       var callCount = 0;
       final brokenClient = _SelectiveFailureHttpClient(
         year: now.year,
         month: now.month,
-        waterByDay: {
-          now.day - 1: 1500,
-          now.day - 2: 800,
-          now.day - 3: 1200,
-        },
+        waterByDay: {now.day - 1: 1500, now.day - 2: 800, now.day - 3: 1200},
         stepsByDay: {},
         readingByDay: {},
         languageByDay: {},
@@ -6569,7 +6524,13 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       await tester.pump();
 
@@ -6593,14 +6554,17 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('还没有足够的习惯记录。\n今天先照顾一个小习惯就很好。'),
-        findsOneWidget,
-      );
+      expect(find.text('还没有足够的习惯记录。\n今天先照顾一个小习惯就很好。'), findsOneWidget);
     });
 
     testWidgets('no edit/delete/patch buttons present', (tester) async {
@@ -6619,7 +6583,13 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -6645,7 +6615,13 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -6670,15 +6646,22 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('看看这 30 天的小痕迹'), findsOneWidget);
     });
 
-    testWidgets('heatmap shows completion rate and longest streak',
-        (tester) async {
+    testWidgets('heatmap shows completion rate and longest streak', (
+      tester,
+    ) async {
       final now = DateTime.now();
       final client = ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'test'),
@@ -6694,7 +6677,13 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -6718,15 +6707,22 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       // 单帧后 header 已显示
       expect(find.text('习惯统计'), findsOneWidget);
       expect(find.text('看看最近的生活节奏'), findsOneWidget);
     });
 
-    testWidgets('shows loading skeleton while 7-day data loads',
-        (tester) async {
+    testWidgets('shows loading skeleton while 7-day data loads', (
+      tester,
+    ) async {
       final now = DateTime.now();
       // 延迟 HTTP 客户端：模拟网络延迟
       final delayedClient = _DelayedHttpClient(
@@ -6745,7 +6741,13 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
 
       // 还没 settle，应显示 loading
@@ -6774,7 +6776,13 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -6784,8 +6792,9 @@ tags:
       expect(find.text('看看这 30 天的小痕迹'), findsOneWidget);
     });
 
-    testWidgets('switching habit dropdown does not show page loading',
-        (tester) async {
+    testWidgets('switching habit dropdown does not show page loading', (
+      tester,
+    ) async {
       final now = DateTime.now();
       final today = now.day;
       final client = ApiClient(
@@ -6802,7 +6811,13 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -6818,8 +6833,71 @@ tags:
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
-    testWidgets('handles network failure without white screen',
-        (tester) async {
+    testWidgets('refresh token reloads archived habit settings', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      final today = now.day;
+      final storage = _TestStorage();
+      final settingsRepo = HabitSettingsRepository(storage: storage);
+      final cacheRepo = testCacheRepo();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {today - 1: 1500},
+          stepsByDay: {today - 1: 5000},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: cacheRepo,
+            habitSettingsRepo: settingsRepo,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('🚶'), findsWidgets);
+
+      await storage.write(
+        'habit_settings',
+        jsonEncode(
+          const HabitSettings(
+            statusMap: {
+              'water': true,
+              'steps': false,
+              'reading': true,
+              'language': true,
+              'supplements': true,
+            },
+          ).toJson(),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: cacheRepo,
+            habitSettingsRepo: settingsRepo,
+            refreshToken: 1,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('🚶'), findsNothing);
+    });
+
+    testWidgets('handles network failure without white screen', (tester) async {
       final brokenClient = _AlwaysFailHttpClient();
       final client = ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'test'),
@@ -6827,7 +6905,13 @@ tags:
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: HabitStatsScreen(apiClient: client, cacheRepo: testCacheRepo())),
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -7038,7 +7122,9 @@ tags:
     });
 
     test('each habit has unique color', () {
-      final colors = HabitVisualConfig.defaults.values.map((c) => c.color).toSet();
+      final colors = HabitVisualConfig.defaults.values
+          .map((c) => c.color)
+          .toSet();
       expect(colors.length, 5);
     });
 
@@ -7072,6 +7158,10 @@ tags:
       expect(find.text('管理你的日记应用'), findsOneWidget);
       expect(find.text('常用'), findsOneWidget);
       expect(find.text('连接与智能'), findsOneWidget);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+
       expect(find.text('媒体与应用'), findsOneWidget);
     });
 
@@ -7084,12 +7174,35 @@ tags:
       expect(find.text('远程 API'), findsOneWidget);
       expect(find.text('AI 服务配置'), findsOneWidget);
       expect(find.text('润色提示词'), findsOneWidget);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+
       expect(find.text('图片压缩'), findsOneWidget);
       expect(find.text('关于'), findsOneWidget);
     });
 
-    testWidgets('tapping placeholder item navigates to placeholder',
-        (tester) async {
+    testWidgets('remote api page shows token configured state', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RemoteApiPage(
+            apiConfig: ApiConfig(
+              baseUrl: 'https://obsidian.femkits.org',
+              token: '',
+            ),
+            tokenConfigured: false,
+          ),
+        ),
+      );
+
+      expect(find.text('Token 状态'), findsOneWidget);
+      expect(find.text('未配置'), findsOneWidget);
+      expect(find.text('已配置'), findsNothing);
+    });
+
+    testWidgets('tapping placeholder item navigates to placeholder', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildPage());
 
       await tester.tap(find.text('外观'));
@@ -7110,6 +7223,9 @@ tags:
     testWidgets('tapping about navigates to about page', (tester) async {
       await tester.pumpWidget(buildPage());
 
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+
       await tester.tap(find.text('关于'));
       await tester.pumpAndSettle();
 
@@ -7119,7 +7235,7 @@ tags:
     testWidgets('safe area prevents status bar overlap', (tester) async {
       await tester.pumpWidget(buildPage());
 
-      expect(find.byType(SafeArea), findsOneWidget);
+      expect(find.byType(SafeArea), findsWidgets);
     });
   });
 }

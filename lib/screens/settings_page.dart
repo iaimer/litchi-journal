@@ -1,19 +1,59 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_config.dart';
+import '../services/habit_settings_repository.dart';
 import '../theme/app_theme.dart';
 import 'about_page.dart';
 import 'ai_settings_screen.dart';
+import 'habit_settings_screen.dart';
 import 'image_compress_page.dart';
 import 'placeholder_page.dart';
 import 'polish_prompt_page.dart';
 import 'remote_api_page.dart';
 
 /// 设置页主框架，底部导航第 4 个 Tab。
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   final ApiConfig apiConfig;
+  final bool tokenConfigured;
 
-  const SettingsPage({super.key, required this.apiConfig});
+  const SettingsPage({
+    super.key,
+    required this.apiConfig,
+    this.tokenConfigured = true,
+  });
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  final _habitSettingsRepo = HabitSettingsRepository();
+  int _activeHabitCount = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHabitCount();
+  }
+
+  Future<void> _loadHabitCount() async {
+    try {
+      final settings = await _habitSettingsRepo.load();
+      if (!mounted) return;
+      setState(() => _activeHabitCount = settings.activeCount);
+    } catch (_) {
+      // 静默失败，保持默认
+    }
+  }
+
+  Future<void> _openHabitSettings() async {
+    final screen = HabitSettingsScreen();
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => screen),
+    );
+    // 返回后刷新习惯数量
+    await _loadHabitCount();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,8 +84,8 @@ class SettingsPage extends StatelessWidget {
                     context,
                     icon: '🌱',
                     title: '习惯设置',
-                    subtitle: '已启用 5 项',
-                    onTap: () => _push(context, PlaceholderPage(title: '习惯设置')),
+                    subtitle: '已启用 $_activeHabitCount 项',
+                    onTap: _openHabitSettings,
                   ),
                   _buildMenuItem(
                     context,
@@ -62,17 +102,22 @@ class SettingsPage extends StatelessWidget {
                     context,
                     icon: '☁️',
                     title: '远程 API',
-                    subtitle: apiConfig.baseUrl,
+                    subtitle: widget.apiConfig.baseUrl,
                     onTap: () => _push(
-                        context, RemoteApiPage(apiConfig: apiConfig)),
+                      context,
+                      RemoteApiPage(
+                        apiConfig: widget.apiConfig,
+                        tokenConfigured: widget.tokenConfigured,
+                      ),
+                    ),
                   ),
                   _buildMenuItem(
                     context,
                     icon: '✨',
                     title: 'AI 服务配置',
                     subtitle: 'deepseek-v4-flash',
-                    onTap: () => _push(
-                        context, AiSettingsScreen(apiConfig: apiConfig)),
+                    onTap: () =>
+                        _push(context, AiSettingsScreen(apiConfig: widget.apiConfig)),
                   ),
                   _buildMenuItem(
                     context,
@@ -110,9 +155,7 @@ class SettingsPage extends StatelessWidget {
   }
 
   void _push(BuildContext context, Widget page) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => page),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
   Widget _buildHeader(ThemeData theme) {
@@ -170,7 +213,10 @@ class SettingsPage extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: AppColors.textSecondary,
+        ),
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),

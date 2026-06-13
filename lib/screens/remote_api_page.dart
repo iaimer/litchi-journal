@@ -6,8 +6,13 @@ import '../theme/app_theme.dart';
 /// 远程 API 信息页，只读展示当前连接配置。
 class RemoteApiPage extends StatelessWidget {
   final ApiConfig apiConfig;
+  final bool tokenConfigured;
 
-  const RemoteApiPage({super.key, required this.apiConfig});
+  const RemoteApiPage({
+    super.key,
+    required this.apiConfig,
+    this.tokenConfigured = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +26,7 @@ class RemoteApiPage extends StatelessWidget {
         children: [
           _buildInfoRow(theme, '服务器地址', apiConfig.baseUrl),
           const SizedBox(height: 16),
-          _buildInfoRow(theme, 'Token 状态', '已配置'),
+          _buildInfoRow(theme, 'Token 状态', tokenConfigured ? '已配置' : '未配置'),
         ],
       ),
     );
@@ -38,10 +43,7 @@ class RemoteApiPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium,
-        ),
+        Text(value, style: theme.textTheme.bodyMedium),
       ],
     );
   }

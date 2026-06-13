@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/habit_settings.dart';
 import '../models/habit_stats.dart';
 import '../services/api_client.dart';
 import '../services/habit_settings_repository.dart';
@@ -23,12 +24,14 @@ class HabitStatsScreen extends StatefulWidget {
   final ApiClient apiClient;
   final HabitStatsCacheRepository? cacheRepo;
   final HabitSettingsRepository? habitSettingsRepo;
+  final int refreshToken;
 
   const HabitStatsScreen({
     super.key,
     required this.apiClient,
     this.cacheRepo,
     this.habitSettingsRepo,
+    this.refreshToken = 0,
   });
 
   @override
@@ -41,9 +44,6 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
 
   /// 当前展示的统计（可能是缓存，可能是最新）
   HabitStats? _stats;
-
-  /// 上次加载时使用的 active keys 快照（用于检测变更）
-  List<String>? _lastActiveKeys;
 
   /// 是否正在后台刷新
   bool _refreshing = false;
@@ -59,6 +59,9 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
 
   /// 持久化 Future
   late Future<void> _loadFuture;
+
+  /// 习惯设置
+  HabitSettings _habitSettings = HabitSettings.defaults;
 
   /// 活跃习惯 key 列表
   List<String> _activeHabitKeys = const [
@@ -77,10 +80,19 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
     _loadFuture = _initLoad();
   }
 
+  @override
+  void didUpdateWidget(covariant HabitStatsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshToken != oldWidget.refreshToken) {
+      _loadFuture = _loadFresh(force: true);
+    }
+  }
+
   Future<void> _initLoad() async {
     // 0. 加载习惯设置
     try {
-      final settingsRepo = widget.habitSettingsRepo ?? HabitSettingsRepository();
+      final settingsRepo =
+          widget.habitSettingsRepo ?? HabitSettingsRepository();
       final settings = await settingsRepo.load();
       _activeHabitKeys = settings.activeKeys;
     } catch (_) {
@@ -100,22 +112,32 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
     }
 
     // 2. 后台刷新最新数据
-    await _loadFresh();
+    await _loadFresh(force: true);
   }
 
-  Future<void> _loadFresh() async {
+  Future<void> _loadFresh({bool force = false}) async {
     // 每次刷新都重新读取习惯设置（用户可能在设置页已修改）
     await _reloadActiveKeys();
     if (!mounted) return;
 
-    if (!_isCached && !_loading) return;
+    if (!force && !_isCached && !_loading) return;
 
     try {
+      if (force && _stats != null && !_refreshing) {
+        setState(() => _refreshing = true);
+      }
+
       // 先加载 7 天，再加载 30 天
-      await _service.loadRecent7(activeHabitKeys: _activeHabitKeys);
+      await _service.loadRecent7(
+        activeHabitKeys: _activeHabitKeys,
+        habitSettings: _habitSettings,
+      );
       if (!mounted) return;
 
-      final stats30 = await _service.loadRecent30(activeHabitKeys: _activeHabitKeys);
+      final stats30 = await _service.loadRecent30(
+        activeHabitKeys: _activeHabitKeys,
+        habitSettings: _habitSettings,
+      );
       if (!mounted) return;
 
       // 写入缓存
@@ -124,7 +146,6 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
       if (!mounted) return;
       setState(() {
         _stats = stats30;
-        _lastActiveKeys = List<String>.from(_activeHabitKeys);
         _isCached = false;
         _refreshing = false;
         _loading = false;
@@ -158,30 +179,14 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
     }
   }
 
-  /// 如果习惯设置已变更，触发后台刷新。
-  void _checkStaleSettings() {
-    if (_loading || _refreshing || _stats == null) return;
-    final lastKeys = _lastActiveKeys;
-    if (lastKeys == null) return;
-    final currentKeys = _activeHabitKeys;
-    if (lastKeys.length != currentKeys.length) {
-      _loadFresh();
-      return;
-    }
-    for (var i = 0; i < currentKeys.length; i++) {
-      if (lastKeys[i] != currentKeys[i]) {
-        _loadFresh();
-        return;
-      }
-    }
-  }
-
   Future<void> _pullRefresh() async {
     // 重新加载习惯设置
     try {
-      final settingsRepo = widget.habitSettingsRepo ?? HabitSettingsRepository();
+      final settingsRepo =
+          widget.habitSettingsRepo ?? HabitSettingsRepository();
       final settings = await settingsRepo.load();
       _activeHabitKeys = settings.activeKeys;
+      _habitSettings = settings;
     } catch (_) {}
 
     HabitStatsService.clearDayCache();
@@ -192,23 +197,18 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
     _loading = true;
     _error = null;
     setState(() {});
-    _loadFuture = _loadFresh();
+    _loadFuture = _loadFresh(force: true);
     await _loadFuture;
   }
 
   @override
   Widget build(BuildContext context) {
-    // 检查习惯设置是否已变更（从设置页归档/恢复后切 tab 回来）
-    _checkStaleSettings();
-
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: _error != null
-            ? _buildError(theme)
-            : _buildBody(theme),
+        child: _error != null ? _buildError(theme) : _buildBody(theme),
       ),
     );
   }
@@ -260,10 +260,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
                 HabitSummaryCard(stats: stats),
 
                 // 最近7天节奏谱
-                HabitRhythmGrid(
-                  days: stats.recentDays,
-                  items: stats.items,
-                ),
+                HabitRhythmGrid(days: stats.recentDays, items: stats.items),
 
                 // 30 天热力图
                 HabitHeatmapTabs(items: stats.items),

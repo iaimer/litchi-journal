@@ -81,13 +81,10 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  int _habitRefreshToken = 0;
 
-  late final List<Widget> _screens;
-
-  @override
-  void initState() {
-    super.initState();
-    _screens = [
+  List<Widget> _buildScreens() {
+    return [
       HomeScreen(
         key: const PageStorageKey('home'),
         apiClient: widget.apiClient,
@@ -99,19 +96,25 @@ class _MainScreenState extends State<MainScreen> {
       HabitStatsScreen(
         key: const PageStorageKey('habits'),
         apiClient: widget.apiClient,
+        refreshToken: _habitRefreshToken,
       ),
-
     ];
   }
 
   @override
   Widget build(BuildContext context) {
+    final screens = _buildScreens();
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
+          setState(() {
+            _currentIndex = index;
+            if (index == 2) {
+              _habitRefreshToken++;
+            }
+          });
         },
         destinations: const [
           NavigationDestination(

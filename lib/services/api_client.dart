@@ -15,6 +15,7 @@ class ApiClient {
   late final Map<String, String> _headers;
 
   String get baseUrl => _baseUrl;
+  bool get hasToken => _config.token.trim().isNotEmpty;
 
   ApiClient(this._config, {http.Client? httpClient}) {
     _http = httpClient ?? http.Client();

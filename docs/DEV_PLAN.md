@@ -361,7 +361,7 @@ Open Design UI 重设计尚未开始。
 当前版本定位：
 
 ```text
-荔枝日记 Flutter 文字 + 图片 + 过往回看 + 习惯统计 + 3 Tab 导航对齐版
+荔枝日记 Flutter 文字 + 图片 + 过往回看 + 习惯统计 + 习惯归档刷新修正版
 ```
 
 当前稳定提交：
@@ -370,11 +370,22 @@ Open Design UI 重设计尚未开始。
 6c69ab8 导航结构调整：移除设置Tab，设置入口改为今天页齿轮按钮
 ```
 
+当前工作区在此基础上已补充：
+
+- 习惯设置归档/恢复后，切到「习惯」Tab 会重新读取 active keys 并刷新统计。
+- 统计服务缓存按 active habit keys 区分，避免已归档习惯继续残留。
+- 远程 API 页只展示 token 是否已配置，不展示真实 token，也不再固定写死。
+
 截至 `6c69ab8`：
 
 - `flutter analyze`：零问题
 - `flutter test`：285 个测试全部通过
 - 模拟器真机运行验证通过
+
+截至当前工作区：
+
+- `flutter analyze lib/ test/`：零问题
+- `flutter test`：287 个测试全部通过
 
 ### 16.3 下一阶段推荐方向
 
@@ -399,6 +410,7 @@ Open Design UI 重设计尚未开始。
 - 习惯管理设置：当前 API 仍是固定字段，动态习惯需要服务端先支持。
 - DeepSeek 默认模型：✅ 已统一为 `deepseek-v4-flash`，含空 model fallback。
 - 远程 API 配置编辑：SettingsScreen 当前仍以只读展示为主。
+- 远程 API Token 状态：当前只读展示“已配置/未配置”，不展示真实 token。
 - Open Design：功能稳定后统一设计，不要在小修中顺手大改。
 
 ### 16.5 重要技术边界

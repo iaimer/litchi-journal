@@ -962,3 +962,65 @@ d5b23c6 fix: heatmap overflow + cross-month test client
 - `flutter analyze`：零问题
 - `flutter test`：285 个测试全部通过
 - 模拟器真机运行验证通过（Android 16, API 36）
+
+---
+
+## 26. Sprint 17：习惯设置归档刷新与设置页状态修复
+
+### 26.1 背景
+
+代码审查发现近期习惯设置相关改动存在几个风险：
+
+- 习惯设置文件已在工作区存在，但统计页刷新链路没有可靠接入新的活跃习惯列表。
+- `HabitStatsScreen` 在 `build()` 中触发异步刷新，且没有先重新读取设置，导致归档后统计页可能继续显示旧习惯。
+- `HabitStatsService` 会复用内存中的完整统计结果，但没有区分不同 active habit keys。
+- 远程 API 页固定显示 `Token 状态：已配置`，在排查真机连接问题时容易误导。
+
+### 26.2 改动内容
+
+习惯统计刷新：
+
+- `MainScreen` 增加 `refreshToken` 机制：切到「习惯」Tab 时通知 `HabitStatsScreen` 刷新。
+- `HabitStatsScreen` 移除 `build()` 中的异步检查逻辑，改为在 `didUpdateWidget()` 中响应明确刷新信号。
+- `_loadFresh(force: true)` 每次都会重新读取 `HabitSettingsRepository`，并使用最新 active keys 重新计算统计。
+- 下拉刷新也继续清理缓存并重新读取习惯设置。
+
+统计服务缓存：
+
+- `HabitStatsService` 增加 active key signature。
+- 只有当完整统计缓存和当前 active keys 匹配时才复用内存统计。
+- 当归档/恢复习惯后，统计项会基于同一批日记数据重新计算，不再残留已归档习惯。
+
+设置页状态：
+
+- `ApiClient` 增加 `hasToken` 只读状态。
+- `SettingsPage` / `RemoteApiPage` 只传递 token 是否已配置，不展示真实 token。
+- 远程 API 页根据真实配置状态显示 `已配置` 或 `未配置`，不再固定写死。
+
+### 26.3 文件修改
+
+| 文件 | 改动 |
+|------|------|
+| `lib/main.dart` | 为习惯 Tab 增加刷新 token |
+| `lib/screens/habit_stats_screen.dart` | 接收刷新 token；移除 build 异步副作用；强制刷新时重读习惯设置 |
+| `lib/services/habit_stats_service.dart` | 增加 active key signature，避免复用不匹配的统计缓存 |
+| `lib/services/habit_settings_repository.dart` | 保存失败向上抛出，交给页面现有回滚逻辑处理 |
+| `lib/services/api_client.dart` | 增加 `hasToken` |
+| `lib/screens/home_screen.dart` | 设置页入口传递 token 配置状态 |
+| `lib/screens/settings_page.dart` | 透传 token 配置状态到远程 API 页 |
+| `lib/screens/remote_api_page.dart` | 按真实状态显示 Token 状态 |
+| `test/widget_test.dart` | 增加习惯归档刷新与远程 API 状态测试 |
+
+### 26.4 验证状态
+
+截至当前工作区：
+
+- `flutter analyze lib/ test/`：通过
+- `flutter test`：287 个测试全部通过
+
+### 26.5 注意事项
+
+- 本次不修改服务端。
+- 本次不修改 Markdown 原文。
+- 习惯归档仍然只是客户端显示/统计过滤，不删除历史习惯数据。
+- 真机覆盖安装继续使用 `adb install -r` 或等价覆盖方式，避免清空本地 baseUrl/token。

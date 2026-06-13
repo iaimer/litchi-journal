@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/diary_document.dart';
+import '../models/habit_settings.dart';
 import '../models/tag_config.dart';
 import '../services/api_client.dart';
 import '../services/markdown_parser.dart';
@@ -30,6 +31,10 @@ class DiaryMarkdownView extends StatelessWidget {
   final bool generatingCoach;
   final bool readOnly;
   final Set<String> hiddenSections;
+  /// 活跃习惯 key 集合（null = 显示全部）
+  final Set<String>? activeHabitKeys;
+  /// 习惯设置（用于自定义显示名称和图标）
+  final HabitSettings? habitSettings;
 
   const DiaryMarkdownView({
     super.key,
@@ -44,6 +49,8 @@ class DiaryMarkdownView extends StatelessWidget {
     this.generatingCoach = false,
     this.readOnly = false,
     this.hiddenSections = const {},
+    this.activeHabitKeys,
+    this.habitSettings,
   });
 
   @override
@@ -126,6 +133,8 @@ class DiaryMarkdownView extends StatelessWidget {
           section: section,
           onUpdate: onHabitUpdate ?? (_) async => true,
           readOnly: readOnly,
+          activeHabitKeys: activeHabitKeys,
+          habitSettings: habitSettings,
         );
       case QuickNoteSection():
         return QuickNoteTimeline(

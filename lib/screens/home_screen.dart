@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
+import '../models/habit_settings.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../screens/settings_page.dart';
@@ -11,6 +12,7 @@ import '../services/api_client.dart';
 import '../services/api_config.dart';
 import '../services/draft_repository.dart';
 import '../services/entry_line_builder.dart';
+import '../services/habit_settings_repository.dart';
 import '../services/image_compress_service.dart';
 import '../services/markdown_parser.dart';
 import '../services/polisher_service.dart';
@@ -25,8 +27,13 @@ import '../widgets/section_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient apiClient;
+  final HabitSettingsRepository? habitSettingsRepo;
 
-  const HomeScreen({super.key, required this.apiClient});
+  const HomeScreen({
+    super.key,
+    required this.apiClient,
+    this.habitSettingsRepo,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -44,6 +51,14 @@ class _HomeScreenState extends State<HomeScreen> {
   final _imagePicker = ImagePicker();
   bool _imageUploading = false;
   bool _generatingCoach = false;
+  late HabitSettings _habitSettings;
+  Set<String> _activeHabitKeys = const {
+    'water',
+    'steps',
+    'reading',
+    'language',
+    'supplements',
+  };
 
   @override
   void initState() {
@@ -82,11 +97,18 @@ class _HomeScreenState extends State<HomeScreen> {
         diary = await widget.apiClient.getDiary(date);
       }
 
+      // 加载习惯设置
+      final settingsRepo =
+          widget.habitSettingsRepo ?? HabitSettingsRepository();
+      final settings = await settingsRepo.load();
+
       if (!mounted) return;
       setState(() {
         _diary = diary;
         _diaryDate = date;
         _loading = false;
+        _habitSettings = settings;
+        _activeHabitKeys = settings.activeKeys.toSet();
       });
     } catch (e) {
       if (!mounted) return;
@@ -94,6 +116,18 @@ class _HomeScreenState extends State<HomeScreen> {
         _error = '加载失败';
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _reloadHabitSettings() async {
+    try {
+      final settingsRepo =
+          widget.habitSettingsRepo ?? HabitSettingsRepository();
+      final settings = await settingsRepo.load();
+      if (!mounted) return;
+      setState(() => _activeHabitKeys = settings.activeKeys.toSet());
+    } catch (_) {
+      // 静默失败，保持现有过滤状态
     }
   }
 
@@ -484,17 +518,20 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.of(context).push(
+            onPressed: () async {
+              await Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => SettingsPage(
                     apiConfig: ApiConfig(
                       baseUrl: widget.apiClient.baseUrl,
                       token: '',
                     ),
+                    tokenConfigured: widget.apiClient.hasToken,
                   ),
                 ),
               );
+              // 从设置页返回后，重新加载习惯设置（可能已变更）
+              _reloadHabitSettings();
             },
           ),
         ],
@@ -526,6 +563,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       date: _activeDate,
                       onGenerateCoach: _handleGenerateCoach,
                       generatingCoach: _generatingCoach,
+                      activeHabitKeys: _activeHabitKeys,
+                      habitSettings: _habitSettings,
                     ),
                   ] else ...[
                     const Text(

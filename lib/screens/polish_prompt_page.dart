@@ -105,18 +105,6 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('润色提示词'),
-        actions: [
-          TextButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('保存'),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -179,6 +167,18 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
               onPressed: _resetCoachPrompt,
               child: const Text('恢复默认人生教练提示词'),
             ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('保存'),
           ),
         ],
       ),

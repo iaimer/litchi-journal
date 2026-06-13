@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import '../models/diary_document.dart';
+import '../models/habit_settings.dart';
 import '../models/habit_stats.dart';
 import '../models/habit_visual_config.dart';
 import '../models/history_month_result.dart';
@@ -23,6 +26,7 @@ class HabitStatsService {
 
   /// 最近 7 天统计（loadRecent7 填充，loadRecent30 更新）
   HabitStats? _cachedStats;
+  String? _cachedActiveKeySignature;
 
   /// 最近 30 天日期列表（loadRecent7 填充）
   List<DateTime>? _recent30Dates;
@@ -35,13 +39,27 @@ class HabitStatsService {
 
   String _monthCacheKey(String monthKey) => '$_cacheNamespace:$monthKey';
 
+  String _activeKeySignature(List<String>? activeHabitKeys) {
+    if (activeHabitKeys == null) return '*';
+    return activeHabitKeys.join('|');
+  }
+
   // ── 公开方法：分阶段加载 ──
 
   /// 阶段 1：优先加载最近 7 天。
   /// 返回部分 HabitStats（30 天字段为空），UI 先显示反馈卡 + 节奏谱。
-  Future<HabitStats> loadRecent7() async {
+  /// [activeHabitKeys] 可选，用于过滤只统计活跃习惯。null 表示统计全部 5 个。
+  /// [habitSettings] 可选，用于自定义显示名称/图标/颜色。
+  Future<HabitStats> loadRecent7({
+    List<String>? activeHabitKeys,
+    HabitSettings? habitSettings,
+  }) async {
+    final activeSignature = _activeKeySignature(activeHabitKeys);
+
     // 如果有完整缓存（30 天已加载），直接返回
-    if (_cachedStats != null && _cachedStats!.days30.isNotEmpty) {
+    if (_cachedStats != null &&
+        _cachedStats!.days30.isNotEmpty &&
+        _cachedActiveKeySignature == activeSignature) {
       return _cachedStats!;
     }
 
@@ -82,7 +100,12 @@ class HabitStatsService {
     }
     dayRecords.sort((a, b) => a.date.compareTo(b.date));
 
-    final items = _buildItemStats(dayRecords, []);
+    final items = _buildItemStats(
+      dayRecords,
+      [],
+      activeHabitKeys: activeHabitKeys,
+      habitSettings: habitSettings,
+    );
 
     final (summary, suggestion) = _buildFeedback(dayRecords, items);
     final feedbackText = summary.isNotEmpty
@@ -100,17 +123,24 @@ class HabitStatsService {
       feedbackSuggestion: suggestion,
     );
     _cachedStats = stats;
+    _cachedActiveKeySignature = activeSignature;
     return stats;
   }
 
   /// 阶段 2：后台加载剩余 23 天，更新完整统计。
   /// 调用前必须已调用 [loadRecent7]。
-  Future<HabitStats> loadRecent30() async {
+  /// [activeHabitKeys] 可选，用于过滤只统计活跃习惯。
+  /// [habitSettings] 可选，用于自定义显示名称/图标/颜色。
+  Future<HabitStats> loadRecent30({
+    List<String>? activeHabitKeys,
+    HabitSettings? habitSettings,
+  }) async {
+    final activeSignature = _activeKeySignature(activeHabitKeys);
     final stats7 = _cachedStats;
     final all30Dates = _recent30Dates;
     if (stats7 == null || all30Dates == null) {
       // 未调用 loadRecent7，fallback
-      return loadStats();
+      return loadStats(activeHabitKeys: activeHabitKeys);
     }
 
     // 找出未缓存的日期
@@ -144,7 +174,12 @@ class HabitStatsService {
     final dayRecords7 = stats7.recentDays;
 
     // 重新计算完整 items
-    final items = _buildItemStats(dayRecords7, days30);
+    final items = _buildItemStats(
+      dayRecords7,
+      days30,
+      activeHabitKeys: activeHabitKeys,
+      habitSettings: habitSettings,
+    );
 
     final (summary, suggestion) = _buildFeedback(dayRecords7, items);
     final feedbackText = summary.isNotEmpty
@@ -162,14 +197,20 @@ class HabitStatsService {
       feedbackSuggestion: suggestion,
     );
     _cachedStats = stats;
+    _cachedActiveKeySignature = activeSignature;
     return stats;
   }
 
   /// 一次性加载全部统计（保留向后兼容，内部调用分阶段方法）。
-  Future<HabitStats> loadStats() async {
-    // 先加在 7 天，然后加在 30 天
-    await loadRecent7();
-    return loadRecent30();
+  /// [activeHabitKeys] 可选，用于过滤只统计活跃习惯。
+  /// [habitSettings] 可选，用于自定义显示名称/图标/颜色。
+  Future<HabitStats> loadStats({
+    List<String>? activeHabitKeys,
+    HabitSettings? habitSettings,
+  }) async {
+    // 先加载 7 天，然后加载 30 天
+    await loadRecent7(activeHabitKeys: activeHabitKeys, habitSettings: habitSettings);
+    return loadRecent30(activeHabitKeys: activeHabitKeys, habitSettings: habitSettings);
   }
 
   // ── 缓存管理 ──
@@ -281,11 +322,20 @@ class HabitStatsService {
 
   List<HabitItemStats> _buildItemStats(
     List<HabitDayRecord> days7,
-    List<HabitDayRecord> days30,
-  ) {
+    List<HabitDayRecord> days30, {
+    List<String>? activeHabitKeys,
+    HabitSettings? habitSettings,
+  }) {
     final has30 = days30.isNotEmpty;
 
-    return _habitKeys.map((key) {
+    // 按活跃状态过滤
+    final filteredKeys = activeHabitKeys != null
+        ? _habitKeys.where((k) => activeHabitKeys.contains(k)).toList()
+        : _habitKeys.toList();
+
+    final settings = habitSettings ?? HabitSettings.defaults;
+
+    return filteredKeys.map((key) {
       final config = HabitVisualConfig.of(key);
       final type = _habitTypes[key]!;
       final getter = _habitGetters[key]!;
@@ -359,9 +409,9 @@ class HabitStatsService {
         totalDays: days7.length,
         averageValue: avg,
         currentStreak: streak7,
-        displayName: config.displayName,
-        icon: config.icon,
-        color: config.color,
+        displayName: settings.displayNameFor(key),
+        icon: settings.iconFor(key),
+        color: Color(settings.colorFor(key)),
         recent30Values: reversed30,
         completedDays30: completed30,
         completionRate30: completionRate30,

@@ -361,7 +361,7 @@ Open Design UI 重设计尚未开始。
 当前版本定位：
 
 ```text
-荔枝日记 Flutter 文字 + 图片 + 过往回看 + 习惯统计 + 习惯归档刷新修正版
+荔枝日记 Flutter 文字 + 图片 + 过往回看 + 习惯统计 + 习惯视觉配置修正版
 ```
 
 当前稳定提交：
@@ -374,6 +374,8 @@ Open Design UI 重设计尚未开始。
 
 - 习惯设置归档/恢复后，切到「习惯」Tab 会重新读取 active keys 并刷新统计。
 - 统计服务缓存按 active habit keys 区分，避免已归档习惯继续残留。
+- 习惯统计页同步完整 `HabitSettings`，自定义名称/图标/颜色可进入统计项。
+- 今天页习惯卡默认显示对应图标，自定义图标优先。
 - 远程 API 页只展示 token 是否已配置，不展示真实 token，也不再固定写死。
 
 截至 `6c69ab8`：
@@ -385,7 +387,8 @@ Open Design UI 重设计尚未开始。
 截至当前工作区：
 
 - `flutter analyze lib/ test/`：零问题
-- `flutter test`：287 个测试全部通过
+- `flutter test`：289 个测试全部通过
+- `flutter build apk --release`：通过
 
 ### 16.3 下一阶段推荐方向
 
@@ -437,4 +440,5 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 - 日常覆盖安装不要使用 `flutter install --release`，因为它可能先卸载旧版并清空本地 baseUrl/token。
 - 使用 `adb install -r` 覆盖安装在同 packageId、同签名、非降级安装时可以保留本地配置和 token。
 - 当前环境有时会出现 ADB daemon 无法绑定本机端口：`could not install *smartsocket* listener: Operation not permitted`。这属于本地执行环境限制，不代表 App 崩溃。
+- 如果 Codex 环境内 `adb install -r` 被 ADB daemon 权限限制挡住，可在本机终端执行相同覆盖安装命令后继续真机验收。
 - 手机上 App 名称是「荔枝日记 dev」，applicationId 是 `com.example.litchi_journal_flutter`。

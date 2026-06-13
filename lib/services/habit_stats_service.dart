@@ -33,15 +33,34 @@ class HabitStatsService {
 
   HabitStatsService(this._apiClient);
 
+  /// 重置实例级缓存，确保下次加载重新构建全部统计。
+  void resetInstanceCache() {
+    _cachedStats = null;
+    _cachedActiveKeySignature = null;
+    _recent30Dates = null;
+  }
+
   String get _cacheNamespace => identityHashCode(_apiClient).toString();
 
   String _dayCacheKey(DateTime date) => '$_cacheNamespace:${_dateKey(date)}';
 
   String _monthCacheKey(String monthKey) => '$_cacheNamespace:$monthKey';
 
-  String _activeKeySignature(List<String>? activeHabitKeys) {
+  String _activeKeySignature(
+    List<String>? activeHabitKeys, {
+    HabitSettings? habitSettings,
+  }) {
     if (activeHabitKeys == null) return '*';
-    return activeHabitKeys.join('|');
+    final keys = activeHabitKeys.join('|');
+    if (habitSettings == null) return keys;
+    // 包含视觉配置签名，使名称/图标/颜色变更触发缓存失效
+    final visual = activeHabitKeys
+        .map(
+          (k) =>
+              '${habitSettings.displayNameFor(k)}|${habitSettings.iconFor(k)}|${habitSettings.colorFor(k)}',
+        )
+        .join('||');
+    return '$keys||$visual';
   }
 
   // ── 公开方法：分阶段加载 ──
@@ -54,7 +73,10 @@ class HabitStatsService {
     List<String>? activeHabitKeys,
     HabitSettings? habitSettings,
   }) async {
-    final activeSignature = _activeKeySignature(activeHabitKeys);
+    final activeSignature = _activeKeySignature(
+      activeHabitKeys,
+      habitSettings: habitSettings,
+    );
 
     // 如果有完整缓存（30 天已加载），直接返回
     if (_cachedStats != null &&
@@ -135,12 +157,18 @@ class HabitStatsService {
     List<String>? activeHabitKeys,
     HabitSettings? habitSettings,
   }) async {
-    final activeSignature = _activeKeySignature(activeHabitKeys);
+    final activeSignature = _activeKeySignature(
+      activeHabitKeys,
+      habitSettings: habitSettings,
+    );
     final stats7 = _cachedStats;
     final all30Dates = _recent30Dates;
     if (stats7 == null || all30Dates == null) {
       // 未调用 loadRecent7，fallback
-      return loadStats(activeHabitKeys: activeHabitKeys);
+      return loadStats(
+        activeHabitKeys: activeHabitKeys,
+        habitSettings: habitSettings,
+      );
     }
 
     // 找出未缓存的日期
@@ -209,8 +237,14 @@ class HabitStatsService {
     HabitSettings? habitSettings,
   }) async {
     // 先加载 7 天，然后加载 30 天
-    await loadRecent7(activeHabitKeys: activeHabitKeys, habitSettings: habitSettings);
-    return loadRecent30(activeHabitKeys: activeHabitKeys, habitSettings: habitSettings);
+    await loadRecent7(
+      activeHabitKeys: activeHabitKeys,
+      habitSettings: habitSettings,
+    );
+    return loadRecent30(
+      activeHabitKeys: activeHabitKeys,
+      habitSettings: habitSettings,
+    );
   }
 
   // ── 缓存管理 ──

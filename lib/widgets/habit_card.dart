@@ -10,8 +10,10 @@ class HabitCard extends StatefulWidget {
   final HabitSection section;
   final Future<bool> Function(HabitStatus) onUpdate;
   final bool readOnly;
+
   /// 活跃习惯 key 集合（null 表示不过滤，显示全部）
   final Set<String>? activeHabitKeys;
+
   /// 习惯设置（用于自定义显示名称和图标）
   final HabitSettings? habitSettings;
 
@@ -31,8 +33,7 @@ class HabitCard extends StatefulWidget {
 class _HabitCardState extends State<HabitCard> {
   String? _updatingField;
 
-  HabitSettings get _settings =>
-      widget.habitSettings ?? HabitSettings.defaults;
+  HabitSettings get _settings => widget.habitSettings ?? HabitSettings.defaults;
 
   Future<void> _update(HabitStatus next, String field) async {
     setState(() => _updatingField = field);
@@ -130,13 +131,11 @@ class _HabitCardState extends State<HabitCard> {
     return item.label;
   }
 
-  /// 获取自定义图标（优先 settings，否则返回空字符串表示不覆盖）
+  /// 获取习惯图标（自定义优先，否则使用默认图标）。
   String? _icon(HabitItem item) {
     final key = keyForHabit(item);
     if (key != null) {
-      final icon = _settings.iconFor(key);
-      // 只在有自定义时返回图标
-      if (icon != HabitVisualConfig.of(key).icon) return icon;
+      return _settings.iconFor(key);
     }
     return null;
   }

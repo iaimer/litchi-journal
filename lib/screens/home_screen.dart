@@ -125,7 +125,10 @@ class _HomeScreenState extends State<HomeScreen> {
           widget.habitSettingsRepo ?? HabitSettingsRepository();
       final settings = await settingsRepo.load();
       if (!mounted) return;
-      setState(() => _activeHabitKeys = settings.activeKeys.toSet());
+      setState(() {
+        _habitSettings = settings;
+        _activeHabitKeys = settings.activeKeys.toSet();
+      });
     } catch (_) {
       // 静默失败，保持现有过滤状态
     }

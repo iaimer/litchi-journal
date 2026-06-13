@@ -1024,3 +1024,44 @@ d5b23c6 fix: heatmap overflow + cross-month test client
 - 本次不修改 Markdown 原文。
 - 习惯归档仍然只是客户端显示/统计过滤，不删除历史习惯数据。
 - 真机覆盖安装继续使用 `adb install -r` 或等价覆盖方式，避免清空本地 baseUrl/token。
+
+---
+
+## 27. Sprint 17 补充：习惯视觉配置回归修复
+
+### 27.1 背景
+
+习惯设置页面真机验证通过后，代码审查继续发现两个体验/一致性问题：
+
+- 习惯统计页重新读取设置时只同步 active keys，未同步完整 `HabitSettings`，导致自定义名称、图标、颜色可能没有进入统计页。
+- 今天页习惯卡只显示自定义图标，不显示默认图标；默认习惯缺少 `💧`、`🚶`、`📖` 等视觉锚点，不利于快速扫读。
+
+### 27.2 改动内容
+
+- `HabitStatsScreen` 在初次加载和刷新设置时同步完整 `HabitSettings`。
+- `HabitStatsService` 增加实例级缓存重置和视觉配置签名，确保名称/图标/颜色变更后重新构建统计项。
+- `HomeScreen` 从设置页返回后同步完整 `HabitSettings`，今天页可立即使用最新视觉配置。
+- `HabitCard` 默认显示习惯图标：自定义图标优先，否则显示默认图标。
+
+### 27.3 测试补充
+
+- `HabitStatsScreen uses custom habit visual settings in stats`：覆盖统计页使用自定义名称、图标、颜色。
+- `HabitCard shows default habit icons`：覆盖今天页习惯卡显示默认图标。
+
+### 27.4 验证状态
+
+截至当前提交前：
+
+- `flutter analyze lib/ test/`：通过
+- `flutter test`：289 个测试全部通过
+- `flutter build apk --release`：通过，生成 `build/app/outputs/flutter-apk/app-release.apk`
+
+### 27.5 真机验证说明
+
+本轮尝试使用 `adb install -r` 覆盖安装真机包，但当前执行环境仍出现：
+
+```text
+could not install *smartsocket* listener: Operation not permitted
+```
+
+因此 APK 已构建完成，但安装环节需在本机终端执行覆盖安装后继续验收。该问题属于本地 ADB daemon 权限限制，不是 Flutter 构建失败。

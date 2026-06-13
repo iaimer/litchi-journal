@@ -2981,6 +2981,52 @@ tags:
       expect(called!.steps, 0);
     });
 
+    testWidgets('shows default habit icons', (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '阅读/亲子共读',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 阅读/亲子共读',
+          ),
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '运动/拉伸/快走',
+            checked: false,
+            checkable: false,
+            rawLine: '- 运动/拉伸/快走 8000 步',
+            value: 8000,
+            unit: '步',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(section: section, onUpdate: (_) async => true),
+          ),
+        ),
+      );
+
+      expect(find.text('📖'), findsOneWidget);
+      expect(find.text('💧'), findsOneWidget);
+      expect(find.text('🚶'), findsOneWidget);
+    });
+
     testWidgets('water +250 button increments water and calls onUpdate', (
       tester,
     ) async {
@@ -6895,6 +6941,58 @@ tags:
       await tester.pumpAndSettle();
 
       expect(find.textContaining('🚶'), findsNothing);
+    });
+
+    testWidgets('uses custom habit visual settings in stats', (tester) async {
+      final now = DateTime.now();
+      final today = now.day;
+      final storage = _TestStorage();
+      await storage.write(
+        'habit_settings',
+        jsonEncode(
+          const HabitSettings(
+            statusMap: {
+              'water': true,
+              'steps': true,
+              'reading': true,
+              'language': true,
+              'supplements': true,
+            },
+            displayNameMap: {'water': '喝水啦'},
+            iconMap: {'water': '🥤'},
+            colorMap: {'water': 0xFF9B8EC4},
+          ).toJson(),
+        ),
+      );
+      final settingsRepo = HabitSettingsRepository(storage: storage);
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {today - 1: 1500},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: testCacheRepo(),
+            habitSettingsRepo: settingsRepo,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('喝水啦'), findsWidgets);
+      expect(find.text('🥤'), findsWidgets);
+      expect(find.text('饮水'), findsNothing);
+      expect(find.text('💧'), findsNothing);
     });
 
     testWidgets('handles network failure without white screen', (tester) async {

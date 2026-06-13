@@ -95,6 +95,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
           widget.habitSettingsRepo ?? HabitSettingsRepository();
       final settings = await settingsRepo.load();
       _activeHabitKeys = settings.activeKeys;
+      _habitSettings = settings;
     } catch (_) {
       // 加载失败保持默认全部活跃
     }
@@ -117,6 +118,8 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
 
   Future<void> _loadFresh({bool force = false}) async {
     // 每次刷新都重新读取习惯设置（用户可能在设置页已修改）
+    // 同时重置实例级缓存，确保完全重新构建（包含最新视觉配置）
+    _service.resetInstanceCache();
     await _reloadActiveKeys();
     if (!mounted) return;
 
@@ -174,6 +177,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
       final settings = await settingsRepo.load();
       if (!mounted) return;
       _activeHabitKeys = settings.activeKeys;
+      _habitSettings = settings;
     } catch (_) {
       // 静默失败，保持现有过滤状态
     }

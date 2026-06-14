@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _imagePicker = ImagePicker();
   bool _imageUploading = false;
   bool _generatingCoach = false;
-  late HabitSettings _habitSettings;
+  HabitSettings? _habitSettings;
   Set<String> _activeHabitKeys = const {
     'water',
     'steps',
@@ -567,7 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onGenerateCoach: _handleGenerateCoach,
                       generatingCoach: _generatingCoach,
                       activeHabitKeys: _activeHabitKeys,
-                      habitSettings: _habitSettings,
+                      habitSettings: _habitSettings ?? HabitSettings.defaults,
                     ),
                   ] else ...[
                     const Text(

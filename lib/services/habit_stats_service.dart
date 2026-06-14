@@ -40,7 +40,7 @@ class HabitStatsService {
     _recent30Dates = null;
   }
 
-  String get _cacheNamespace => identityHashCode(_apiClient).toString();
+  String get _cacheNamespace => _apiClient.cacheNamespace;
 
   String _dayCacheKey(DateTime date) => '$_cacheNamespace:${_dateKey(date)}';
 

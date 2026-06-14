@@ -232,6 +232,8 @@ class _HabitTestHttpClient extends http.BaseClient {
   final Map<int, bool> readingByDay;
   final Map<int, bool> languageByDay;
   final Map<int, bool> supplementByDay;
+  int historyRequestCount = 0;
+  int diaryRequestCount = 0;
 
   _HabitTestHttpClient({
     required this.year,
@@ -248,6 +250,7 @@ class _HabitTestHttpClient extends http.BaseClient {
     final url = request.url.toString();
 
     if (url.contains('/api/v1/history/')) {
+      historyRequestCount++;
       // Parse requested year/month from URL path
       final uri = Uri.parse(url);
       final segments = uri.pathSegments;
@@ -298,6 +301,7 @@ class _HabitTestHttpClient extends http.BaseClient {
     }
 
     if (url.contains('/api/v1/diary/')) {
+      diaryRequestCount++;
       // Extract day from URL
       final parts = url.split('/');
       final dateStr = parts.last;
@@ -6465,6 +6469,51 @@ tags:
       expect(stats.recentDays.length, 7);
     });
 
+    test(
+      'static cache is reused across ApiClient instances with same baseUrl',
+      () async {
+        final now = DateTime.now();
+        final today = now.day;
+        final firstHttpClient = _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {today - 1: 1500},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        );
+        final firstApiClient = ApiClient(
+          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+          httpClient: firstHttpClient,
+        );
+
+        final service1 = HabitStatsService(firstApiClient);
+        await service1.loadRecent7();
+
+        final secondHttpClient = _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        );
+        final secondApiClient = ApiClient(
+          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+          httpClient: secondHttpClient,
+        );
+
+        final service2 = HabitStatsService(secondApiClient);
+        final stats = await service2.loadRecent7();
+
+        expect(stats.recentDays.length, 7);
+        expect(secondHttpClient.historyRequestCount, 0);
+        expect(secondHttpClient.diaryRequestCount, 0);
+      },
+    );
+
     test('single day getDiary failure does not break overall stats', () async {
       final now = DateTime.now();
       // 用 broken HTTP client 模拟某一天失败
@@ -6550,6 +6599,14 @@ tags:
   });
 
   group('HabitStatsScreen', () {
+    setUp(() {
+      HabitStatsService.clearCache();
+    });
+
+    tearDown(() {
+      HabitStatsService.clearCache();
+    });
+
     /// 返回一个不会在测试中挂起的内存缓存仓库。
     HabitStatsCacheRepository testCacheRepo() =>
         HabitStatsCacheRepository(storage: _MemoryStorage());

@@ -31,8 +31,10 @@ class DiaryMarkdownView extends StatelessWidget {
   final bool generatingCoach;
   final bool readOnly;
   final Set<String> hiddenSections;
+
   /// 活跃习惯 key 集合（null = 显示全部）
   final Set<String>? activeHabitKeys;
+
   /// 习惯设置（用于自定义显示名称和图标）
   final HabitSettings? habitSettings;
 
@@ -100,28 +102,20 @@ class DiaryMarkdownView extends StatelessWidget {
 
   bool _isHiddenSection(DiarySection section) {
     if (hiddenSections.isEmpty) return false;
+    final type = section.sectionType;
     final normalized = hiddenSections.map((s) => s.toLowerCase()).toSet();
-    final title = section.title.toLowerCase();
+
     final hideHabit =
         normalized.contains('habit') ||
         normalized.contains('habits') ||
-        normalized.contains('习惯追踪') ||
-        normalized.contains('习惯打卡');
-    if (hideHabit &&
-        (section is HabitSection ||
-            title.contains('habit') ||
-            title.contains('习惯追踪') ||
-            title.contains('习惯打卡'))) {
-      return true;
-    }
+        hiddenSections.contains('习惯追踪') ||
+        hiddenSections.contains('习惯打卡');
+    if (type == 'habit' && hideHabit) return true;
+
     final hideTomorrow =
-        normalized.contains('tomorrow') || normalized.contains('明日寄语');
-    if (hideTomorrow &&
-        (section is TomorrowSection ||
-            title.contains('tomorrow') ||
-            title.contains('明日寄语'))) {
-      return true;
-    }
+        normalized.contains('tomorrow') || hiddenSections.contains('明日寄语');
+    if (type == 'tomorrow' && hideTomorrow) return true;
+
     return false;
   }
 

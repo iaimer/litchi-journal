@@ -23,6 +23,9 @@ abstract class DiarySection {
     required this.contents,
   });
 
+  /// 区域类型标识，用于隐藏逻辑等条件判断。
+  String get sectionType;
+
   bool get isEmpty => contents.every((content) => !content.hasRealContent);
 }
 
@@ -34,6 +37,9 @@ class HabitSection extends DiarySection {
     required super.contents,
     required this.habits,
   });
+
+  @override
+  String get sectionType => 'habit';
 }
 
 class QuickNoteSection extends DiarySection {
@@ -44,34 +50,58 @@ class QuickNoteSection extends DiarySection {
     required super.contents,
     required this.notes,
   });
+
+  @override
+  String get sectionType => 'quickNote';
 }
 
 class AnxietySection extends DiarySection {
   const AnxietySection({required super.title, required super.contents});
+
+  @override
+  String get sectionType => 'anxiety';
 }
 
 class HappinessSection extends DiarySection {
   const HappinessSection({required super.title, required super.contents});
+
+  @override
+  String get sectionType => 'happiness';
 }
 
 class ReviewSection extends DiarySection {
   const ReviewSection({required super.title, required super.contents});
+
+  @override
+  String get sectionType => 'review';
 }
 
 class CoachSection extends DiarySection {
   const CoachSection({required super.title, required super.contents});
+
+  @override
+  String get sectionType => 'coach';
 }
 
 class TomorrowSection extends DiarySection {
   const TomorrowSection({required super.title, required super.contents});
+
+  @override
+  String get sectionType => 'tomorrow';
 }
 
 class MediaSection extends DiarySection {
   const MediaSection({required super.title, required super.contents});
+
+  @override
+  String get sectionType => 'media';
 }
 
 class GenericDiarySection extends DiarySection {
   const GenericDiarySection({required super.title, required super.contents});
+
+  @override
+  String get sectionType => 'generic';
 }
 
 abstract class DiaryContent {
@@ -169,6 +199,20 @@ class HabitItem {
     this.value,
     this.unit,
   });
+
+  /// 从 label 推断习惯 key，用于数据映射和 UI 过滤。
+  /// 包含关系匹配：'饮' 匹配 '饮水'、'运动' 匹配 '运动步数' 等。
+  static String? keyForLabel(String label) {
+    if (label.contains('饮')) return 'water';
+    if (label.contains('运动')) return 'steps';
+    if (label.contains('阅读')) return 'reading';
+    if (label.contains('语言')) return 'language';
+    if (label.contains('鱼油') || label.contains('植物甾醇')) return 'supplements';
+    return null;
+  }
+
+  /// 当前习惯的 key，可能为 null（未知/自定义习惯）。
+  String? get habitKey => keyForLabel(label);
 }
 
 class HabitStatus {
@@ -194,17 +238,19 @@ class HabitStatus {
     bool supplements = false;
 
     for (final item in section.habits) {
-      final label = item.label;
-      if (_containsAny(label, ['饮'])) {
-        water = item.value ?? 0;
-      } else if (_containsAny(label, ['运动'])) {
-        steps = item.value ?? 0;
-      } else if (_containsAny(label, ['阅读'])) {
-        reading = item.checked;
-      } else if (_containsAny(label, ['语言'])) {
-        language = item.checked;
-      } else if (_containsAny(label, ['鱼油', '植物甾醇'])) {
-        supplements = item.checked;
+      switch (item.habitKey) {
+        case 'water':
+          water = item.value ?? 0;
+        case 'steps':
+          steps = item.value ?? 0;
+        case 'reading':
+          reading = item.checked;
+        case 'language':
+          language = item.checked;
+        case 'supplements':
+          supplements = item.checked;
+        default:
+          break;
       }
     }
 
@@ -233,12 +279,6 @@ class HabitStatus {
     );
   }
 
-  static bool _containsAny(String text, List<String> substrings) {
-    for (final s in substrings) {
-      if (text.contains(s)) return true;
-    }
-    return false;
-  }
 }
 
 class QuickNoteItem {

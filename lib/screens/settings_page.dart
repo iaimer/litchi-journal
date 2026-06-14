@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
 import '../services/habit_settings_repository.dart';
 import '../theme/app_theme.dart';
@@ -28,12 +29,15 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final _habitSettingsRepo = HabitSettingsRepository();
+  final _aiConfigRepo = AIConfigRepository();
   int _activeHabitCount = 5;
+  String _aiModelName = '';
 
   @override
   void initState() {
     super.initState();
     _loadHabitCount();
+    _loadAIModelName();
   }
 
   Future<void> _loadHabitCount() async {
@@ -46,11 +50,19 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _loadAIModelName() async {
+    try {
+      final config = await _aiConfigRepo.loadAIConfig();
+      if (!mounted) return;
+      setState(() => _aiModelName = config.resolvedModel);
+    } catch (_) {
+      // 静默失败，保持默认空
+    }
+  }
+
   Future<void> _openHabitSettings() async {
     final screen = HabitSettingsScreen();
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     // 返回后刷新习惯数量
     await _loadHabitCount();
   }
@@ -115,9 +127,14 @@ class _SettingsPageState extends State<SettingsPage> {
                     context,
                     icon: '✨',
                     title: 'AI 服务配置',
-                    subtitle: 'deepseek-v4-flash',
-                    onTap: () =>
-                        _push(context, AiSettingsScreen(apiConfig: widget.apiConfig)),
+                    subtitle: _aiModelName.isNotEmpty ? _aiModelName : '未配置',
+                    onTap: () async {
+                      await _push(
+                        context,
+                        AiSettingsScreen(apiConfig: widget.apiConfig),
+                      );
+                      await _loadAIModelName();
+                    },
                   ),
                   _buildMenuItem(
                     context,
@@ -154,8 +171,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  void _push(BuildContext context, Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  Future<void> _push(BuildContext context, Widget page) {
+    return Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
   Widget _buildHeader(ThemeData theme) {

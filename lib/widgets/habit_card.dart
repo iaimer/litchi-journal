@@ -103,28 +103,9 @@ class _HabitCardState extends State<HabitCard> {
     }
   }
 
-  /// 从 HabitItem 反推习惯 key（与 HabitStatus.fromHabitSection 一致）。
-  /// 基于原始 Markdown 标签，不依赖用户自定义 displayName。
-  static String? keyForHabit(HabitItem item) {
-    final label = item.label;
-    if (label.contains('饮')) return 'water';
-    if (label.contains('运动')) return 'steps';
-    if (label.contains('阅读')) return 'reading';
-    if (label.contains('语言')) return 'language';
-    if (label.contains('鱼油') || label.contains('植物甾醇')) return 'supplements';
-    return null;
-  }
-
-  static String? _fieldForLabel(String label) {
-    if (label.contains('阅读')) return 'reading';
-    if (label.contains('语言')) return 'language';
-    if (label.contains('鱼油') || label.contains('植物甾醇')) return 'supplements';
-    return null;
-  }
-
   /// 获取自定义显示名称（优先 settings，否则用原始 label）
   String _displayName(HabitItem item) {
-    final key = keyForHabit(item);
+    final key = item.habitKey;
     if (key != null) {
       return _settings.displayNameFor(key);
     }
@@ -133,7 +114,7 @@ class _HabitCardState extends State<HabitCard> {
 
   /// 获取习惯图标（自定义优先，否则使用默认图标）。
   String? _icon(HabitItem item) {
-    final key = keyForHabit(item);
+    final key = item.habitKey;
     if (key != null) {
       return _settings.iconFor(key);
     }
@@ -142,7 +123,7 @@ class _HabitCardState extends State<HabitCard> {
 
   /// 获取自定义颜色
   Color? _color(HabitItem item) {
-    final key = keyForHabit(item);
+    final key = item.habitKey;
     if (key != null) {
       final defaultColor = HabitVisualConfig.of(key).color;
       final customArgb = _settings.colorFor(key);
@@ -153,12 +134,10 @@ class _HabitCardState extends State<HabitCard> {
     return null;
   }
 
-  String? _checkboxField(HabitItem item) => _fieldForLabel(item.label);
+  String? _checkboxField(HabitItem item) => item.habitKey;
 
   HabitStatus? _toggleCheckbox(HabitItem item, HabitStatus status) {
-    final field = _fieldForLabel(item.label);
-    if (field == null) return null;
-    switch (field) {
+    switch (item.habitKey) {
       case 'reading':
         return status.copyWith(reading: !status.reading);
       case 'language':
@@ -187,7 +166,7 @@ class _HabitCardState extends State<HabitCard> {
     // 按活跃状态过滤
     final activeHabits = widget.section.habits.where((h) {
       if (widget.activeHabitKeys == null) return true;
-      final key = keyForHabit(h);
+      final key = h.habitKey;
       return key == null || widget.activeHabitKeys!.contains(key);
     }).toList();
 
@@ -279,7 +258,7 @@ class _HabitCardState extends State<HabitCard> {
     }
   }
 
-  bool _isWaterHabit(HabitItem item) => item.label.contains('饮');
+  bool _isWaterHabit(HabitItem item) => item.habitKey == 'water';
 }
 
 class _CheckboxRow extends StatelessWidget {
@@ -300,9 +279,7 @@ class _CheckboxRow extends StatelessWidget {
   });
 
   bool get _checked {
-    final field = _HabitCardState._fieldForLabel(habit.label);
-    if (field == null) return habit.checked;
-    switch (field) {
+    switch (habit.habitKey) {
       case 'reading':
         return status.reading;
       case 'language':

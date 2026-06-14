@@ -13,6 +13,7 @@ import '../services/api_config.dart';
 import '../services/draft_repository.dart';
 import '../services/entry_line_builder.dart';
 import '../services/habit_settings_repository.dart';
+import '../services/habit_stats_service.dart';
 import '../services/image_compress_service.dart';
 import '../services/markdown_parser.dart';
 import '../services/polisher_service.dart';
@@ -138,6 +139,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final diary = await widget.apiClient.getDiary(_activeDate);
       if (!mounted) return;
+      // 日记内容更新后清除习惯统计日缓存，避免显示旧数据
+      HabitStatsService.clearDayCache();
       setState(() => _diary = diary);
     } catch (_) {
       if (!mounted) return;
@@ -379,7 +382,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('上传失败: $e')));
+      ).showSnackBar(const SnackBar(content: Text('上传失败，请重试')));
     } finally {
       if (mounted) setState(() => _imageUploading = false);
     }

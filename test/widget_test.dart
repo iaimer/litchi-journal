@@ -3896,7 +3896,7 @@ tags:
           isA<Exception>().having(
             (e) => e.toString(),
             'message',
-            contains('未返回润色结果'),
+            contains('未返回结果'),
           ),
         ),
       );
@@ -4944,6 +4944,40 @@ tags:
 
       expect(find.text('🧠 人生教练'), findsOneWidget);
       expect(find.text('📌 习惯追踪'), findsNothing);
+      expect(find.text('📖 阅读/亲子共读'), findsNothing);
+    });
+
+    testWidgets('hiddenSections accepts Chinese section keys', (tester) async {
+      const markdown = '''
+# 今天
+
+## 🏃 习惯打卡
+- [x] 📖 阅读/亲子共读
+
+### 🌙 明日寄语
+- 明天完成重要任务
+
+### 🧠 人生教练
+📌 模式识别
+你今天表现很好
+''';
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: markdown,
+              readOnly: true,
+              hiddenSections: {'明日寄语', '习惯打卡'},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('🌙 明日寄语'), findsNothing);
+      expect(find.text('🏃 习惯打卡'), findsNothing);
       expect(find.text('📖 阅读/亲子共读'), findsNothing);
     });
 

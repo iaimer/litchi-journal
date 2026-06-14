@@ -81,15 +81,9 @@ class PolisherService {
       customPrompt: config.polishPrompt,
     );
 
-    final chatUrl = PolisherService.chatUrl(config.baseUrl);
-    final headers = {
-      'Authorization': 'Bearer ${config.apiKey}',
-      'Content-Type': 'application/json',
-    };
-
     // First attempt
     var rawContent =
-        await _callAI(chatUrl, headers, config.model, systemPrompt, content);
+        await _callAI(config: config, systemPrompt: systemPrompt, userContent: content);
     var result = const PolishResultParser().parse(rawContent, tagConfig);
 
     if (result.tags.isNotEmpty) return result;
@@ -97,47 +91,51 @@ class PolisherService {
     // Retry with stronger tag instruction
     final retryPrompt = '$systemPrompt\n\n$_retryInstruction';
     rawContent =
-        await _callAI(chatUrl, headers, config.model, retryPrompt, content);
+        await _callAI(config: config, systemPrompt: retryPrompt, userContent: content);
     result = const PolishResultParser().parse(rawContent, tagConfig);
 
     return result;
   }
 
-  Future<String> _callAI(
-    String chatUrl,
-    Map<String, String> headers,
-    String model,
-    String systemPrompt,
-    String userContent,
-  ) async {
+  Future<String> _callAI({
+    required AIConfig config,
+    required String systemPrompt,
+    required String userContent,
+    int maxTokens = 2000,
+    String userPrefix = '原文：',
+  }) async {
+    final chatUrl = PolisherService.chatUrl(config.baseUrl);
     final response = await _http.post(
       Uri.parse(chatUrl),
-      headers: headers,
+      headers: {
+        'Authorization': 'Bearer ${config.apiKey}',
+        'Content-Type': 'application/json',
+      },
       body: jsonEncode({
-        'model': model,
+        'model': config.model.isNotEmpty ? config.model : config.resolvedModel,
         'messages': [
           {'role': 'system', 'content': systemPrompt},
-          {'role': 'user', 'content': '原文：$userContent'},
+          {'role': 'user', 'content': '$userPrefix$userContent'},
         ],
-        'max_tokens': 2000,
+        'max_tokens': maxTokens,
       }),
     );
 
     if (response.statusCode != 200) {
-      throw Exception('AI 润色请求失败 (${response.statusCode})');
+      throw Exception('AI 请求失败 (${response.statusCode})');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     final choices = json['choices'] as List?;
     if (choices == null || choices.isEmpty) {
-      throw Exception('AI 未返回润色结果');
+      throw Exception('AI 未返回结果');
     }
 
     final message =
         (choices[0] as Map<String, dynamic>)['message'] as Map<String, dynamic>?;
     final rawContent = message?['content'] as String?;
     if (rawContent == null || rawContent.trim().isEmpty) {
-      throw Exception('AI 润色结果为空');
+      throw Exception('AI 结果为空');
     }
 
     return rawContent.trim();
@@ -158,42 +156,12 @@ class PolisherService {
     final effectivePrompt =
         (trimmed != null && trimmed.isNotEmpty) ? trimmed : defaultPolishPrompt;
 
-    final chatUrl = PolisherService.chatUrl(config.baseUrl);
-
-    final response = await _http.post(
-      Uri.parse(chatUrl),
-      headers: {
-        'Authorization': 'Bearer ${config.apiKey}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': config.model,
-        'messages': [
-          {'role': 'system', 'content': effectivePrompt},
-          {'role': 'user', 'content': '原文：$content'},
-        ],
-        'max_tokens': 500,
-      }),
+    return _callAI(
+      config: config,
+      systemPrompt: effectivePrompt,
+      userContent: content,
+      maxTokens: 500,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception('AI 润色请求失败 (${response.statusCode})');
-    }
-
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final choices = json['choices'] as List?;
-    if (choices == null || choices.isEmpty) {
-      throw Exception('AI 未返回润色结果');
-    }
-
-    final message =
-        (choices[0] as Map<String, dynamic>)['message'] as Map<String, dynamic>?;
-    final rawContent = message?['content'] as String?;
-    if (rawContent == null || rawContent.trim().isEmpty) {
-      throw Exception('AI 润色结果为空');
-    }
-
-    return rawContent.trim();
   }
 
   Future<String> generateCoach({
@@ -211,45 +179,13 @@ class PolisherService {
         ? trimmed
         : defaultCoachPrompt;
 
-    final chatUrl = PolisherService.chatUrl(config.baseUrl);
-
-    final response = await _http.post(
-      Uri.parse(chatUrl),
-      headers: {
-        'Authorization': 'Bearer ${config.apiKey}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': config.model,
-        'messages': [
-          {'role': 'system', 'content': effectivePrompt},
-          {
-            'role': 'user',
-            'content': '今天日记内容：\n$diaryContext',
-          },
-        ],
-        'max_tokens': 800,
-      }),
+    return _callAI(
+      config: config,
+      systemPrompt: effectivePrompt,
+      userContent: diaryContext,
+      maxTokens: 800,
+      userPrefix: '今天日记内容：\n',
     );
-
-    if (response.statusCode != 200) {
-      throw Exception('AI 教练生成失败 (${response.statusCode})');
-    }
-
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final choices = json['choices'] as List?;
-    if (choices == null || choices.isEmpty) {
-      throw Exception('AI 未返回教练结果');
-    }
-
-    final message =
-        (choices[0] as Map<String, dynamic>)['message'] as Map<String, dynamic>?;
-    final rawContent = message?['content'] as String?;
-    if (rawContent == null || rawContent.trim().isEmpty) {
-      throw Exception('AI 教练结果为空');
-    }
-
-    return rawContent.trim();
   }
 
   static CoachGenerationParts splitCoachResultLikeWeb(String raw) {

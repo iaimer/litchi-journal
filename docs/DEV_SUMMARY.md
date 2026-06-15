@@ -1065,3 +1065,59 @@ could not install *smartsocket* listener: Operation not permitted
 ```
 
 因此 APK 已构建完成，但安装环节需在本机终端执行覆盖安装后继续验收。该问题属于本地 ADB daemon 权限限制，不是 Flutter 构建失败。
+
+---
+
+## 28. Sprint 28：标签设置 MVP
+
+### 28.1 目标
+
+实现标签设置 MVP，允许用户管理标签配置：编辑显示名称、启用/隐藏标签、恢复默认。不修改服务端，不修改历史 Markdown，不新增/删除标签。
+
+### 28.2 新增文件
+
+| 文件 | 职责 |
+|------|------|
+| `lib/models/tag_settings.dart` | TagSettings 数据模型，以 id 为稳定 key |
+| `lib/services/tag_settings_repository.dart` | 本地 FlutterSecureStorage 持久化 |
+| `lib/screens/tag_settings_page.dart` | 标签设置 UI：编辑名称、Switch 启用、恢复默认 |
+| `lib/services/tag_settings_helper.dart` | 辅助函数：effectiveTagConfig、hiddenInitialTags、countEnabled、validateDisplayName |
+
+### 28.3 关键设计决策
+
+- **稳定 key**：使用现有的 `id` 字段（如 `parenting-interact-play`），不引入新标识符。
+- **displayName 接入 TagPicker**：上层计算 `effectiveTagConfig`（过滤 disabled + name 替换为 displayName），TagPicker 无感知。
+- **hidden 标签处理**：编辑旧记录时，`TagSettingsHelper.hiddenInitialTags()` 找出隐藏标签，TagPicker 以灰色 `(已隐藏)` 芯片展示；用户不手动取消则保留在输出中。
+- **AI 润色过滤**：`PolishResultParser` 新增 `_getDisabledTagNames()`，返回 disabled 标签的 displayName + defaultName，disabled 标签既不被提取为 tag，也不保留在润色正文中。
+
+### 28.4 修改文件
+
+| 文件 | 改动 |
+|------|------|
+| `lib/screens/settings_page.dart` | 标签设置入口改为真实 TagSettingsPage，显示已启用标签数 |
+| `lib/widgets/tag_picker.dart` | 新增 hiddenInitialTags 参数，隐藏标签显示灰色芯片 |
+| `lib/widgets/entry_edit_sheet.dart` | 接受 TagSettings，计算 hiddenInitialTags |
+| `lib/services/polish_result_parser.dart` | 过滤 disabled 标签，匹配 displayName，清除正文 |
+| `lib/services/polisher_service.dart` | 传递 tagSettings 到 parser |
+| `lib/widgets/quick_note_timeline.dart` | 传递 tagSettings |
+| `lib/widgets/generic_section_card.dart` | 传递 tagSettings |
+| `lib/widgets/review_card.dart` | 传递 tagSettings |
+| `lib/widgets/diary_markdown_view.dart` | 接受 tagSettings 参数 |
+| `lib/screens/home_screen.dart` | 加载 TagSettings，设置页返回后刷新 |
+| `test/widget_test.dart` | 新增 12 个 TagSettings 测试 |
+
+### 28.5 验证状态
+
+截至当前：
+
+- `flutter analyze lib/ test/`：零问题
+- `flutter test`：303 个测试全部通过
+- `flutter build apk --release`：通过，55MB
+- 模拟器真机验证：修改标签名称、启用/隐藏、AI 润色过滤、编辑旧记录保留、恢复全部默认全部通过
+
+### 28.6 注意事项
+
+- TagSettings 由 settings_page 创建 ApiClient 加载 TagConfig，通过 TagSettingsRepository 读写本地存储。
+- home_screen 从设置页返回时调用 `_loadTagConfig()` 刷新 `_tagSettings`，触发 `_effectiveTagConfig` getter 重新计算。
+- 隐藏标签通过两层过滤：`_getAllKnownTags` 只含 enabled 标签 → 不会提取为 tag；`_getDisabledTagNames` 标记 disabled 标签 → 正文中清除。
+- 编辑旧记录时，`_TimelineDeleteRow` 和 `_QuickNoteRow` 均传递 tagSettings 到 EntryEditSheet。

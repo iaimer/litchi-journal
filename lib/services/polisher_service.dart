@@ -302,25 +302,57 @@ class PolisherService {
   }
 
   static String? _normalizeTitle(String cleaned) {
-    // Check for pattern recognition aliases
-    if (_matchesModule(cleaned, const ['模式识别', '主要模式', '主要模式与趋势'])) {
+    if (_matchesModuleTitle(cleaned, const ['模式识别', '主要模式', '主要模式与趋势'])) {
       return '📌 模式识别';
     }
-    if (_matchesModule(cleaned, const ['矛盾指出', '潜在矛盾', '可能的矛盾', '矛盾', '不一致'])) {
+    if (_matchesModuleTitle(cleaned, const ['矛盾指出', '潜在矛盾', '可能的矛盾'])) {
       return '⚠️ 矛盾指出';
     }
-    if (_matchesModule(cleaned,
-        const ['暖心鼓励', '温暖鼓励', '温暖结语', '最后，想对你说', '最后想对你说'])) {
+    if (_matchesModuleTitle(cleaned, const [
+      '暖心鼓励',
+      '温暖鼓励',
+      '温暖结语',
+      '最后，想对你说',
+      '最后想对你说',
+    ])) {
       return '💬 暖心鼓励';
     }
     return null;
   }
 
-  static bool _matchesModule(String text, List<String> aliases) {
-    for (final a in aliases) {
-      if (text.contains(a)) return true;
+  static bool _matchesModuleTitle(String text, List<String> aliases) {
+    final normalized = _stripLeadingModulePrefix(text);
+    for (final alias in aliases) {
+      if (normalized == alias) return true;
+      if (normalized.startsWith(alias) &&
+          _hasTitleBoundary(normalized, alias.length)) {
+        return true;
+      }
     }
     return false;
+  }
+
+  static String _stripLeadingModulePrefix(String text) {
+    var result = text
+        .replaceFirst(RegExp(r'^(?:[-•·.\s]+|\d+\.\s*)+'), '')
+        .trim();
+    for (final emoji in ['📌', '⚠️', '⚠', '🎯', '💬']) {
+      if (result.startsWith(emoji)) {
+        result = result.substring(emoji.length).trim();
+        break;
+      }
+    }
+    return result;
+  }
+
+  static bool _hasTitleBoundary(String text, int index) {
+    if (index >= text.length) return true;
+    final next = text[index];
+    return next.trim().isEmpty ||
+        next == ':' ||
+        next == '：' ||
+        next == '与' ||
+        next == '和';
   }
 
   static String _titleTextFor(String normTitle) {

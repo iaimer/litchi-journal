@@ -9,11 +9,11 @@ import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
 import '../theme/app_theme.dart';
 import 'about_page.dart';
+import 'appearance_settings_page.dart';
 import 'ai_settings_screen.dart';
 import 'habit_settings_screen.dart';
 import 'tag_settings_page.dart';
 import 'image_compress_page.dart';
-import 'placeholder_page.dart';
 import 'polish_prompt_page.dart';
 import 'remote_api_page.dart';
 
@@ -133,7 +133,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: '🎨',
                     title: '外观',
                     subtitle: '跟随系统',
-                    onTap: () => _push(context, PlaceholderPage(title: '外观')),
+                    onTap: () => _push(context, const AppearanceSettingsPage()),
                   ),
                   _buildMenuItem(
                     context,

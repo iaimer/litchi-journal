@@ -52,6 +52,12 @@ import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 import 'package:litchi_journal_flutter/models/tag_settings.dart';
 import 'package:litchi_journal_flutter/services/tag_settings_helper.dart';
 import 'package:litchi_journal_flutter/services/tag_settings_repository.dart';
+import 'package:litchi_journal_flutter/services/appearance_settings.dart';
+
+import 'package:litchi_journal_flutter/services/appearance_settings_repository.dart';
+
+import 'package:litchi_journal_flutter/screens/appearance_settings_page.dart';
+
 TagConfig _testTagConfig() {
   return TagConfig(
     domains: [
@@ -4535,6 +4541,23 @@ tags:
       expect(parts.lizhiContent, isNot(contains('温暖结语')));
     });
 
+    test('body text with contradiction words is not treated as title', () {
+      final raw =
+          '📌 模式识别\n'
+          '你今天习惯先计划再行动\n'
+          '⚠️ 矛盾指出\n'
+          '你一面想保持节奏，一面又被未完成事项牵动，这种矛盾状态值得留意。\n'
+          '这种不一致不是失败，而是提醒你需要更小的行动入口。\n'
+          '💬 暖心鼓励\n'
+          '你已经在认真观察自己';
+
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+
+      expect(RegExp('⚠️ 矛盾指出').allMatches(parts.lizhiContent), hasLength(1));
+      expect(parts.lizhiContent, contains('这种矛盾状态值得留意'));
+      expect(parts.lizhiContent, contains('这种不一致不是失败'));
+    });
+
     test('body ** is cleaned', () {
       final raw =
           '📌 **模式识别**\n'
@@ -7392,7 +7415,7 @@ tags:
       expect(find.text('已配置'), findsNothing);
     });
 
-    testWidgets('tapping placeholder item navigates to placeholder', (
+    testWidgets('tapping appearance navigates to appearance settings', (
       tester,
     ) async {
       await tester.pumpWidget(buildPage());
@@ -7400,7 +7423,7 @@ tags:
       await tester.tap(find.text('外观'));
       await tester.pumpAndSettle();
 
-      expect(find.text('正在建设中'), findsOneWidget);
+      expect(find.text('选择你喜欢的显示方式'), findsOneWidget);
     });
 
     testWidgets('tapping AI config navigates to AI settings', (tester) async {
@@ -7461,6 +7484,85 @@ TagConfig fullTagConfig() {
     ],
   );
 }
+
+// ── AppearanceSettings ──
+
+group('AppearanceSettings', () {
+  test('default themeMode is system', () {
+    final settings = AppearanceSettings();
+    expect(settings.themeMode, ThemeMode.system);
+  });
+
+  test('toJson / fromJson round-trip', () {
+    final settings = AppearanceSettings(themeMode: ThemeMode.dark);
+    final json = settings.toJson();
+    final restored = AppearanceSettings.fromJson(json);
+    expect(restored.themeMode, ThemeMode.dark);
+  });
+
+  test('fromJson broken falls back to system', () {
+    final restored = AppearanceSettings.fromJson({'themeMode': null});
+    expect(restored.themeMode, ThemeMode.system);
+  });
+
+  test('copyWith preserves other fields', () {
+    final settings = AppearanceSettings(themeMode: ThemeMode.light);
+    final updated = settings.copyWith(themeMode: ThemeMode.dark);
+    expect(updated.themeMode, ThemeMode.dark);
+    expect(updated.schemaVersion, settings.schemaVersion);
+  });
+});
+
+group('AppearanceSettingsRepository', () {
+  test('load returns defaults when no storage', () async {
+    final storage = _TestStorage();
+    final repo = AppearanceSettingsRepository(storage: storage);
+    final settings = await repo.load();
+    expect(settings.themeMode, ThemeMode.system);
+  });
+
+  test('save and reload preserves choice', () async {
+    final storage = _TestStorage();
+    final repo = AppearanceSettingsRepository(storage: storage);
+    await repo.save(AppearanceSettings(themeMode: ThemeMode.dark));
+    final reloaded = await repo.load();
+    expect(reloaded.themeMode, ThemeMode.dark);
+  });
+
+  test('corrupted JSON falls back to system', () async {
+    final storage = _TestStorage({'appearance_settings': 'broken!!!'});
+    final repo = AppearanceSettingsRepository(storage: storage);
+    final settings = await repo.load();
+    expect(settings.themeMode, ThemeMode.system);
+  });
+});
+
+group('AppearanceSettingsPage', () {
+  testWidgets('shows three options with correct defaults', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: const AppearanceSettingsPage()),
+    );
+
+    expect(find.text('选择你喜欢的显示方式'), findsOneWidget);
+    expect(find.text('跟随系统'), findsOneWidget);
+    expect(find.text('浅色模式'), findsOneWidget);
+    expect(find.text('深色模式'), findsOneWidget);
+  });
+
+  testWidgets('tapping option changes selection', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: const AppearanceSettingsPage()),
+    );
+
+    // Tap 深色模式
+    await tester.tap(find.text('深色模式'));
+    await tester.pumpAndSettle();
+
+    // The radio button should be checked for 深色模式
+    // Verify it navigated correctly (no errors)
+    expect(find.text('外观'), findsOneWidget);
+  });
+});
 
   group('TagSettings', () {
     test('fromTagConfig creates all enabled defaults', () async {

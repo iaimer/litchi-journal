@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import 'services/api_config.dart';
 import 'services/api_client.dart';
+import 'services/appearance_controller.dart';
 import 'screens/home_screen.dart';
 import 'screens/past_screen.dart';
 import 'screens/habit_stats_screen.dart';
 import 'theme/app_theme.dart';
 import 'screens/setup_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppearanceController.instance.init();
   runApp(const LitchiJournalApp());
 }
 
@@ -17,10 +20,17 @@ class LitchiJournalApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '荔枝日记',
-      theme: AppTheme.light,
-      home: const AppEntry(),
+    return ListenableBuilder(
+      listenable: AppearanceController.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          title: '荔枝日记',
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: AppearanceController.instance.themeMode,
+          home: const AppEntry(),
+        );
+      },
     );
   }
 }

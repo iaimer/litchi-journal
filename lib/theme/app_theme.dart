@@ -8,6 +8,14 @@ class AppColors {
   static const primary = Color(0xFFA26B59);
   static const border = Color(0xFFE5E0D8);
   static const success = Color(0xFF6B8E6B);
+
+  // Dark palette
+  static const darkBackground = Color(0xFF1C1B1A);
+  static const darkSurface = Color(0xFF2A2826);
+  static const darkTextPrimary = Color(0xFFE8E2DC);
+  static const darkTextSecondary = Color(0xFF9E948A);
+  static const darkPrimary = Color(0xFFCA9A84);
+  static const darkBorder = Color(0xFF3D3833);
 }
 
 class AppTheme {
@@ -101,6 +109,100 @@ class AppTheme {
           bodySmall: TextStyle(
             fontSize: 12,
             color: AppColors.textSecondary,
+          ),
+        ),
+      );
+
+  static ThemeData get dark => ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: AppColors.darkBackground,
+        colorScheme: ColorScheme(
+          brightness: Brightness.dark,
+          primary: AppColors.darkPrimary,
+          onPrimary: Colors.black,
+          secondary: AppColors.darkTextSecondary,
+          onSecondary: Colors.black,
+          surface: AppColors.darkSurface,
+          onSurface: AppColors.darkTextPrimary,
+          error: Colors.red.shade300,
+          onError: Colors.black,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.darkBackground,
+          elevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: AppColors.darkTextPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: AppColors.darkSurface,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.darkBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.darkBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.darkPrimary),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.darkPrimary,
+            foregroundColor: Colors.black,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          color: AppColors.darkSurface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: AppColors.darkBorder, width: 0.5),
+          ),
+        ),
+        dividerColor: AppColors.darkBorder,
+        textTheme: TextTheme(
+          headlineLarge: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: AppColors.darkTextPrimary,
+          ),
+          titleLarge: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkTextPrimary,
+          ),
+          titleMedium: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkTextSecondary,
+          ),
+          bodyLarge: TextStyle(
+            fontSize: 16,
+            color: AppColors.darkTextPrimary,
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 14,
+            color: AppColors.darkTextPrimary,
+            height: 1.6,
+          ),
+          bodySmall: TextStyle(
+            fontSize: 12,
+            color: AppColors.darkTextSecondary,
           ),
         ),
       );

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
-import '../theme/app_theme.dart';
 
 /// 温柔反馈卡。
 /// 展示稳定习惯总结和温和改进建议。
@@ -37,7 +36,7 @@ class HabitSummaryCard extends StatelessWidget {
                     child: Text(
                       stats.feedbackSummary,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: theme.colorScheme.onSurfaceVariant,
                         height: 1.7,
                       ),
                     ),
@@ -57,7 +56,7 @@ class HabitSummaryCard extends StatelessWidget {
                     child: Text(
                       stats.feedbackSuggestion,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: theme.colorScheme.onSurfaceVariant,
                         height: 1.7,
                       ),
                     ),

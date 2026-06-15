@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/diary_entry.dart';
 import '../services/api_client.dart';
-import '../theme/app_theme.dart';
 import '../widgets/diary_markdown_view.dart';
 
 /// 只读日记详情页。
@@ -75,9 +74,8 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_dateLabel()),
-        backgroundColor: AppColors.background,
       ),
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

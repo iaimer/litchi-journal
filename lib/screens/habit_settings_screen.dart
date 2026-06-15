@@ -53,7 +53,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('习惯设置')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -92,7 +92,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,8 +153,8 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
                       displayName,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: isActive
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -163,16 +163,16 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: isActive
                             ? AppColors.success
-                            : AppColors.textSecondary,
+                            : theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
               // 右箭头
-              const Icon(
+              Icon(
                 Icons.chevron_right,
-                color: AppColors.textSecondary,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),

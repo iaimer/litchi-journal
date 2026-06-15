@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
-
 /// 统一占位页，用于尚未实现的功能入口。
 class PlaceholderPage extends StatelessWidget {
   final String title;
@@ -13,7 +11,7 @@ class PlaceholderPage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: Text(title)),
       body: Center(
         child: Column(
@@ -24,14 +22,14 @@ class PlaceholderPage extends StatelessWidget {
             Text(
               '正在建设中',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               '这个功能即将到来。',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ],

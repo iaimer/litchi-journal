@@ -155,17 +155,17 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     if (!_loaded) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(title: const Text('编辑习惯')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('编辑习惯')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -208,7 +208,9 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                           ? AppColors.primary.withAlpha(30)
                           : Colors.transparent,
                       border: Border.all(
-                        color: selected ? AppColors.primary : AppColors.border,
+                        color: selected
+                            ? theme.colorScheme.primary
+                            : theme.dividerColor,
                         width: selected ? 2 : 1,
                       ),
                     ),
@@ -271,7 +273,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: theme.dividerColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +295,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                               '归档后，这个习惯会从今天页和习惯统计页隐藏，'
                               '历史记录仍会保留。',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
+                                color: theme.colorScheme.onSurfaceVariant,
                                 height: 1.4,
                               ),
                             ),
@@ -321,8 +323,8 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                 icon: const Icon(Icons.restart_alt, size: 18),
                 label: const Text('恢复默认'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textSecondary,
-                  side: BorderSide(color: AppColors.border),
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
+                  side: BorderSide(color: theme.dividerColor),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),

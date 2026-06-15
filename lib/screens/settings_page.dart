@@ -7,7 +7,6 @@ import '../services/api_client.dart';
 import '../services/tag_repository.dart';
 import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
-import '../theme/app_theme.dart';
 import 'about_page.dart';
 import 'appearance_settings_page.dart';
 import 'ai_settings_screen.dart';
@@ -115,7 +114,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,7 +243,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Text(
         title,
         style: theme.textTheme.titleSmall?.copyWith(
-          color: AppColors.textSecondary,
+          color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -268,14 +267,14 @@ class _SettingsPageState extends State<SettingsPage> {
         subtitle: Text(
           subtitle,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondary,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.chevron_right,
-          color: AppColors.textSecondary,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

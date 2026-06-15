@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/ai_config.dart';
 import '../services/ai_config_repository.dart';
 import '../services/polisher_service.dart';
-import '../theme/app_theme.dart';
 
 /// 润色提示词编辑页。
 class PolishPromptPage extends StatefulWidget {
@@ -102,7 +101,7 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('润色提示词'),
       ),

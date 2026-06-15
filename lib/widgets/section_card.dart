@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
-
 class SectionCard extends StatelessWidget {
   final String? title;
   final Color? accentColor;
@@ -21,14 +19,15 @@ class SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (children.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border, width: 0.5),
+          border: Border.all(color: theme.dividerColor, width: 0.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,7 +40,7 @@ class SectionCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: Border(
                     left: BorderSide(
-                      color: accentColor ?? AppColors.primary,
+                      color: accentColor ?? theme.colorScheme.primary,
                       width: 2,
                     ),
                   ),
@@ -51,10 +50,10 @@ class SectionCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -62,7 +61,7 @@ class SectionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.border),
+              Divider(height: 1, color: theme.dividerColor),
             ],
             Padding(
               padding: padding ?? const EdgeInsets.all(16),

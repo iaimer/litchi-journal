@@ -6,7 +6,6 @@ import '../services/api_client.dart';
 import '../services/habit_settings_repository.dart';
 import '../services/habit_stats_cache_repository.dart';
 import '../services/habit_stats_service.dart';
-import '../theme/app_theme.dart';
 import '../widgets/habit_heatmap_tabs.dart';
 import '../widgets/habit_rhythm_grid.dart';
 import '../widgets/habit_summary_card.dart';
@@ -210,7 +209,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: _error != null ? _buildError(theme) : _buildBody(theme),
       ),
@@ -306,7 +305,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      color: AppColors.primary.withAlpha(20),
+      color: theme.colorScheme.primary.withAlpha(25),
       child: Row(
         children: [
           SizedBox(
@@ -314,14 +313,14 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
             height: 14,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: AppColors.primary,
+              color: theme.colorScheme.primary,
             ),
           ),
           const SizedBox(width: 8),
           Text(
             '正在更新最新节奏…',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.primary,
+              color: theme.colorScheme.primary,
             ),
           ),
         ],
@@ -374,6 +373,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
   // ── Loading 骨架 ──
 
   Widget _buildLoadingCard(String text) {
+    final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -386,7 +386,10 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             const SizedBox(width: 12),
-            Text(text, style: const TextStyle(color: AppColors.textSecondary)),
+            Text(
+              text,
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+            ),
           ],
         ),
       ),
@@ -415,9 +418,9 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
                           child: Container(
                             width: 12,
                             height: 12,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: AppColors.border,
+                              color: theme.dividerColor,
                             ),
                           ),
                         ),
@@ -451,9 +454,9 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 const SizedBox(width: 12),
-                const Text(
+                Text(
                   '正在整理这 30 天的小痕迹…',
-                  style: TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),

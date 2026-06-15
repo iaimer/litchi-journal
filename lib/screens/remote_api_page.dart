@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_config.dart';
-import '../theme/app_theme.dart';
 
 /// 远程 API 信息页，只读展示当前连接配置。
 class RemoteApiPage extends StatelessWidget {
@@ -19,7 +18,7 @@ class RemoteApiPage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('远程 API')),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -39,7 +38,7 @@ class RemoteApiPage extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondary,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 4),

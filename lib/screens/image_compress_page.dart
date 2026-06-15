@@ -11,7 +11,7 @@ class ImageCompressPage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('图片压缩')),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -32,7 +32,7 @@ class ImageCompressPage extends StatelessWidget {
           Text(
             '图片上传时使用 ImageCompressService 自动压缩。\n后续会增加质量与尺寸设置。',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],

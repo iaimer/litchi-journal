@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
-import '../theme/app_theme.dart';
 
 /// 30 天热力图，按习惯下拉选择器切换。
 /// 展示选中习惯最近 30 天的热力图、完成率、最长连续天数和平均值。
@@ -68,7 +67,7 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: theme.dividerColor),
         borderRadius: BorderRadius.circular(4),
       ),
       child: DropdownButton<HabitItemStats>(
@@ -160,7 +159,7 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
                   margin: const EdgeInsets.all(1),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(2),
-                    color: done ? color : AppColors.border,
+                    color: done ? color : theme.dividerColor,
                   ),
                 );
               }),
@@ -194,7 +193,7 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
     return Text(
       text,
       style: theme.textTheme.bodySmall?.copyWith(
-        color: AppColors.textSecondary,
+        color: theme.colorScheme.onSurfaceVariant,
         height: 1.6,
       ),
     );

@@ -21,7 +21,6 @@ import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
 import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
-import '../theme/app_theme.dart';
 import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/entry_type.dart';
@@ -560,7 +559,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -592,9 +591,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       habitSettings: _habitSettings ?? HabitSettings.defaults,
                     ),
                   ] else ...[
-                    const Text(
+                    Text(
                       '今日还没有日记内容',
-                      style: TextStyle(color: AppColors.textSecondary),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 32),
@@ -607,17 +608,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.add_a_photo_outlined,
                             size: 20,
-                            color: AppColors.textSecondary,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               '添加照片',
                               style: TextStyle(
-                                color: AppColors.textSecondary,
+                                color: theme.colorScheme.onSurfaceVariant,
                                 fontSize: 14,
                               ),
                             ),

@@ -4,7 +4,6 @@ import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
-import '../theme/app_theme.dart';
 
 /// 标签设置页面。
 /// 允许修改标签的显示名称、启用 / 隐藏、恢复默认。
@@ -181,7 +180,7 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('标签设置'),
       ),
@@ -191,14 +190,14 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
           Text(
             '已启用 $_enabledCount 个标签',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             '修改后，新记录的标签选择会使用新名称。已有日记不受影响。',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
               fontSize: 12,
             ),
           ),
@@ -233,7 +232,7 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
                 child: Text(
                   d.displayName,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -300,7 +299,7 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
         title,
         style: theme.textTheme.titleSmall?.copyWith(
           fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
+          color: theme.colorScheme.onSurface,
         ),
       ),
     );
@@ -317,8 +316,8 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
   }) {
     final isDefault = name == defaultName;
     final textColor = enabled
-        ? AppColors.textPrimary
-        : AppColors.textSecondary.withAlpha(120);
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.onSurfaceVariant.withAlpha(120);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 4),
@@ -347,7 +346,7 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
               tooltip: '编辑名称',
               visualDensity: VisualDensity.compact,
               style: IconButton.styleFrom(
-                foregroundColor: AppColors.textSecondary,
+                foregroundColor: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             // 恢复默认（仅在非默认时显示）
@@ -358,7 +357,7 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
                 tooltip: '恢复默认',
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
-                  foregroundColor: AppColors.textSecondary,
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             // 启用 / 禁用 Switch

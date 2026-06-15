@@ -20,6 +20,7 @@ class AppColors {
 
 class AppTheme {
   static ThemeData get light => ThemeData(
+        brightness: Brightness.light,
         useMaterial3: true,
         scaffoldBackgroundColor: AppColors.background,
         colorScheme: ColorScheme(
@@ -35,8 +36,10 @@ class AppTheme {
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.background,
+          foregroundColor: AppColors.textPrimary,
           elevation: 0,
           centerTitle: false,
+          iconTheme: IconThemeData(color: AppColors.textPrimary),
           titleTextStyle: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 18,
@@ -72,6 +75,12 @@ class AppTheme {
             ),
           ),
         ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary, width: 0.5),
+          ),
+        ),
         cardTheme: CardThemeData(
           color: AppColors.surface,
           elevation: 0,
@@ -79,6 +88,24 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
             side: const BorderSide(color: AppColors.border, width: 0.5),
           ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: AppColors.surface,
+          indicatorColor: AppColors.primary.withAlpha(45),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return IconThemeData(
+              color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+            );
+          }),
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+            );
+          }),
         ),
         dividerColor: AppColors.border,
         textTheme: const TextTheme(
@@ -114,6 +141,7 @@ class AppTheme {
       );
 
   static ThemeData get dark => ThemeData(
+        brightness: Brightness.dark,
         useMaterial3: true,
         scaffoldBackgroundColor: AppColors.darkBackground,
         colorScheme: ColorScheme(
@@ -129,8 +157,10 @@ class AppTheme {
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.darkBackground,
+          foregroundColor: AppColors.darkTextPrimary,
           elevation: 0,
           centerTitle: false,
+          iconTheme: IconThemeData(color: AppColors.darkTextPrimary),
           titleTextStyle: TextStyle(
             color: AppColors.darkTextPrimary,
             fontSize: 18,
@@ -166,6 +196,12 @@ class AppTheme {
             ),
           ),
         ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.darkPrimary,
+            side: const BorderSide(color: AppColors.darkPrimary, width: 0.5),
+          ),
+        ),
         cardTheme: CardThemeData(
           color: AppColors.darkSurface,
           elevation: 0,
@@ -173,6 +209,28 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
             side: const BorderSide(color: AppColors.darkBorder, width: 0.5),
           ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: AppColors.darkSurface,
+          indicatorColor: AppColors.darkPrimary.withAlpha(70),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return IconThemeData(
+              color: selected
+                  ? AppColors.darkTextPrimary
+                  : AppColors.darkTextSecondary,
+            );
+          }),
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected
+                  ? AppColors.darkTextPrimary
+                  : AppColors.darkTextSecondary,
+            );
+          }),
         ),
         dividerColor: AppColors.darkBorder,
         textTheme: TextTheme(

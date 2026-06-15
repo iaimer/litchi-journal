@@ -72,10 +72,10 @@ class _MemoryCardState extends State<MemoryCard> {
       onTap: widget.onTap,
       child: Card(
         margin: const EdgeInsets.only(bottom: 16),
-        color: AppColors.surface,
+        color: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppColors.border, width: 0.5),
+          side: BorderSide(color: theme.dividerColor, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -213,11 +213,11 @@ class _MemoryCardState extends State<MemoryCard> {
   Widget _buildImagePlaceholder(ThemeData theme) {
     return Container(
       color: theme.colorScheme.surfaceContainerHighest,
-      child: const Center(
+      child: Center(
         child: Icon(
           Icons.image_outlined,
           size: 48,
-          color: AppColors.textSecondary,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -258,7 +258,7 @@ class _MemoryCardState extends State<MemoryCard> {
               Text(
                 '当天总结',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],

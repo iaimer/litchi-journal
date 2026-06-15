@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../services/appearance_controller.dart';
-import '../theme/app_theme.dart';
 
 /// 外观设置页面。
 /// 支持跟随系统 / 浅色模式 / 深色模式。
@@ -31,7 +30,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('外观')),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -41,7 +40,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             child: Text(
               '选择你喜欢的显示方式',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),

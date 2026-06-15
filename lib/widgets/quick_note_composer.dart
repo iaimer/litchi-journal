@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../services/draft_repository.dart';
-import '../theme/app_theme.dart';
 import 'entry_type.dart';
 import 'tag_picker.dart';
 
@@ -172,6 +171,7 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final tagConfig = widget.tagConfig;
 
     return Column(
@@ -204,10 +204,7 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
           Text(
             widget.tagHint!,
             style: TextStyle(
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withAlpha(100),
+              color: theme.colorScheme.onSurface.withAlpha(100),
               fontSize: 12,
               fontStyle: FontStyle.italic,
             ),
@@ -220,7 +217,7 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
             child: Text(
               _error!,
               style: TextStyle(
-                color: Theme.of(context).colorScheme.error,
+                color: theme.colorScheme.error,
                 fontSize: 13,
               ),
             ),
@@ -240,9 +237,9 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
                     : const Text('✨', style: TextStyle(fontSize: 14)),
                 label: const Text('润色'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(
-                      color: AppColors.primary, width: 0.5),
+                  foregroundColor: theme.colorScheme.primary,
+                  side: BorderSide(
+                      color: theme.colorScheme.primary, width: 0.5),
                 ),
               ),
             if (widget.onPolish != null && widget.entryType != null)
@@ -253,12 +250,12 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
                 child: ElevatedButton(
                   onPressed: _canSubmit ? _submit : null,
                   child: _saving
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: theme.colorScheme.onPrimary,
                           ),
                         )
                       : const Text('保存'),

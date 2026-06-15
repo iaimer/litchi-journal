@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
-import '../theme/app_theme.dart';
 
 /// 最近 7 天节奏谱。
 /// 行：习惯（icon + 名称）；列：7 天。用圆点表示完成情况，每个习惯使用自己的主题色。
@@ -19,6 +18,7 @@ class HabitRhythmGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     if (days.isEmpty || items.isEmpty) return const SizedBox.shrink();
 
+    final theme = Theme.of(context);
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
     return Card(
@@ -28,7 +28,7 @@ class HabitRhythmGrid extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('最近 7 天', style: Theme.of(context).textTheme.titleLarge),
+            Text('最近 7 天', style: theme.textTheme.titleLarge),
             const SizedBox(height: 10),
             // 星期标题行
             Row(
@@ -45,8 +45,8 @@ class HabitRhythmGrid extends StatelessWidget {
                           fontWeight:
                               isToday ? FontWeight.w700 : FontWeight.w400,
                           color: isToday
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -56,7 +56,7 @@ class HabitRhythmGrid extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             // 习惯行
-            ...items.map((item) => _buildHabitRow(item)),
+            ...items.map((item) => _buildHabitRow(theme, item)),
           ],
         ),
       ),
@@ -72,7 +72,7 @@ class HabitRhythmGrid extends StatelessWidget {
         d.date.day == today.day;
   }
 
-  Widget _buildHabitRow(HabitItemStats item) {
+  Widget _buildHabitRow(ThemeData theme, HabitItemStats item) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -86,9 +86,9 @@ class HabitRhythmGrid extends StatelessWidget {
                 Expanded(
                   child: Text(
                     item.displayName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: AppColors.textPrimary,
+                      color: theme.colorScheme.onSurface,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -111,9 +111,9 @@ class HabitRhythmGrid extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: done
                         ? (isToday
-                            ? AppColors.primary
+                            ? theme.colorScheme.primary
                             : item.color)
-                        : AppColors.border,
+                        : theme.dividerColor,
                   ),
                 ),
               ),

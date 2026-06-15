@@ -34,6 +34,7 @@ import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_page.dart';
+import 'package:litchi_journal_flutter/screens/about_page.dart';
 import 'package:litchi_journal_flutter/screens/remote_api_page.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
@@ -7451,6 +7452,42 @@ tags:
       await tester.pumpWidget(buildPage());
 
       expect(find.byType(SafeArea), findsWidgets);
+    });
+  });
+
+  group('AboutPage changelog parsing', () {
+    test('parses current version without v prefix', () {
+      const raw = '''
+# Changelog
+
+## 1.1.0
+
+- 当前版本内容
+
+## 1.0.0
+
+- 旧版本内容
+''';
+
+      expect(
+        AboutPage.parseCurrentVersion(raw, '1.1.0'),
+        '- 当前版本内容',
+      );
+    });
+
+    test('parses current version with v prefix', () {
+      const raw = '''
+# Changelog
+
+## v1.1.0
+
+- 当前版本内容
+''';
+
+      expect(
+        AboutPage.parseCurrentVersion(raw, '1.1.0'),
+        '- 当前版本内容',
+      );
     });
   });
 

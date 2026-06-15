@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/memory_entry.dart';
 import '../services/api_client.dart';
 import '../services/past_memory_service.dart';
-import '../theme/app_theme.dart';
 import '../widgets/memory_card.dart';
 import 'read_only_diary_screen.dart';
 
@@ -87,7 +86,7 @@ class _PastScreenState extends State<PastScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,7 +155,7 @@ class _PastScreenState extends State<PastScreen> {
                               icon: const Icon(Icons.shuffle, size: 18),
                               label: const Text('再走一段'),
                               style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primary,
+                                foregroundColor: theme.colorScheme.primary,
                               ),
                             ),
                           ),
@@ -172,12 +171,13 @@ class _PastScreenState extends State<PastScreen> {
   }
 
   Widget _buildLoadingCard() {
+    final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      color: AppColors.surface,
+      color: theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.border, width: 0.5),
+        side: BorderSide(color: theme.dividerColor, width: 0.5),
       ),
       child: const SizedBox(
         height: 120,

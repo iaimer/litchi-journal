@@ -8,6 +8,10 @@ class PolishResultParser {
   PolishResult parse(String rawText, TagConfig tagConfig,
       {TagSettings? tagSettings}) {
     final knownTags = _getAllKnownTags(tagConfig, tagSettings: tagSettings);
+    // disabledTags = 已隐藏标签，需要从正文中清除但不提取为 tag
+    final disabledTags = tagSettings != null
+        ? _getDisabledTagNames(tagSettings)
+        : <String>{};
 
     final tagRegex = RegExp(r'#([\p{L}\p{N}_/-]+)', unicode: true);
     final rawTags = <String>[];
@@ -16,6 +20,10 @@ class PolishResultParser {
       final tag = match.group(1)!.trim();
       if (knownTags.contains(tag)) {
         rawTags.add(tag);
+        return '';
+      }
+      // 隐藏标签也从正文中清除，不显示 #育儿 等原文
+      if (disabledTags.contains(tag)) {
         return '';
       }
       return match.group(0)!;
@@ -32,6 +40,43 @@ class PolishResultParser {
     final tags = _validateTags(rawTags, tagConfig, tagSettings: tagSettings);
 
     return PolishResult(content: content, tags: tags);
+  }
+
+  /// 构建已隐藏标签名称集合（含 displayName + defaultName）。
+  static Set<String> _getDisabledTagNames(TagSettings tagSettings) {
+    final names = <String>{};
+    for (final ds in tagSettings.domainSettings) {
+      if (!ds.enabled) {
+        names.add(ds.displayName);
+        if (ds.displayName != ds.defaultName) {
+          names.add(ds.defaultName);
+        }
+        for (final ts in ds.topics) {
+          names.add(ts.displayName);
+          if (ts.displayName != ts.defaultName) {
+            names.add(ts.defaultName);
+          }
+        }
+      } else {
+        for (final ts in ds.topics) {
+          if (!ts.enabled) {
+            names.add(ts.displayName);
+            if (ts.displayName != ts.defaultName) {
+              names.add(ts.defaultName);
+            }
+          }
+        }
+      }
+    }
+    for (final ms in tagSettings.methodSettings) {
+      if (!ms.enabled) {
+        names.add(ms.displayName);
+        if (ms.displayName != ms.defaultName) {
+          names.add(ms.defaultName);
+        }
+      }
+    }
+    return names;
   }
 
   static Set<String> _getAllKnownTags(TagConfig config,

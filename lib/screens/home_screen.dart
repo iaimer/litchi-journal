@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
 import '../models/habit_settings.dart';
+import '../models/image_settings.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
@@ -16,6 +17,7 @@ import '../services/entry_line_builder.dart';
 import '../services/habit_settings_repository.dart';
 import '../services/habit_stats_service.dart';
 import '../services/image_compress_service.dart';
+import '../services/image_settings_repository.dart';
 import '../services/markdown_parser.dart';
 import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
@@ -52,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _tagConfigFailed = false;
   EntryType _selectedEntryType = EntryType.quickNote;
   final _draftRepository = DraftRepository();
+  final _imageSettingsRepository = ImageSettingsRepository();
   final _imagePicker = ImagePicker();
   bool _imageUploading = false;
   bool _generatingCoach = false;
@@ -64,14 +67,12 @@ class _HomeScreenState extends State<HomeScreen> {
     'supplements',
   };
 
-
   /// 只含 enabled 标签、name 替换为 displayName 的 TagConfig。
   /// 用于 QuickNoteComposer（新建记录不需要隐藏标签）。
   TagConfig? get _effectiveTagConfig {
     if (_tagConfig == null || _tagSettings == null) return _tagConfig;
     return TagSettingsHelper.effectiveTagConfig(_tagConfig!, _tagSettings!);
   }
-
 
   @override
   void initState() {
@@ -372,11 +373,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _handleImageUpload() async {
     if (_imageUploading) return;
 
+    final imageSettings = await _loadImageSettings();
     final file = await _imagePicker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 2000,
-      maxHeight: 2000,
-      imageQuality: 70,
+      maxWidth: imageSettings.maxLongSidePx.toDouble(),
+      maxHeight: imageSettings.maxLongSidePx.toDouble(),
+      imageQuality: imageSettings.initialQuality,
     );
     if (file == null) return;
 
@@ -384,10 +386,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final bytes = await file.readAsBytes();
-      final compressService = const ImageCompressService();
+      final compressService = ImageCompressService.fromSettings(imageSettings);
       final base64 = compressService.compressToBase64(bytes);
 
-      await widget.apiClient.uploadImage(_activeDate, base64);
+      await widget.apiClient.uploadImage(
+        _activeDate,
+        base64,
+        imagePrefix: imageSettings.filenamePrefix,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -401,6 +407,14 @@ class _HomeScreenState extends State<HomeScreen> {
       ).showSnackBar(const SnackBar(content: Text('上传失败，请重试')));
     } finally {
       if (mounted) setState(() => _imageUploading = false);
+    }
+  }
+
+  Future<ImageSettings> _loadImageSettings() async {
+    try {
+      return await _imageSettingsRepository.load();
+    } catch (_) {
+      return ImageSettings.defaults();
     }
   }
 

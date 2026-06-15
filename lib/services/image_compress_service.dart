@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
+import '../models/image_settings.dart';
+
 class ImageCompressService {
   static const maxLongSide = 2000;
   static const minLongSide = 800;
@@ -15,11 +17,24 @@ class ImageCompressService {
 
   final int maxLongSidePx;
   final int initialQuality;
+  final int minLongSidePx;
+  final int targetSizeBytes;
 
   const ImageCompressService({
     this.maxLongSidePx = maxLongSide,
     this.initialQuality = jpegQuality,
+    this.minLongSidePx = minLongSide,
+    this.targetSizeBytes = targetBytes,
   });
+
+  factory ImageCompressService.fromSettings(ImageSettings settings) {
+    return ImageCompressService(
+      maxLongSidePx: settings.maxLongSidePx,
+      initialQuality: settings.initialQuality,
+      minLongSidePx: settings.minLongSidePx,
+      targetSizeBytes: settings.targetBytes,
+    );
+  }
 
   String compressToBase64(Uint8List bytes) {
     final decoded = img.decodeImage(bytes);
@@ -43,25 +58,26 @@ class ImageCompressService {
     }
 
     Uint8List encoded = img.encodeJpg(working, quality: initialQuality);
-    if (encoded.length <= targetBytes) {
+    if (encoded.length <= targetSizeBytes) {
       return _toBase64(encoded);
     }
 
     // Try lower quality steps at current size.
-    final qualityStartIndex =
-        _qualitySteps.indexOf(initialQuality).clamp(0, _qualitySteps.length);
+    final qualityStartIndex = _qualitySteps
+        .indexOf(initialQuality)
+        .clamp(0, _qualitySteps.length);
     for (var qi = qualityStartIndex; qi < _qualitySteps.length; qi++) {
       encoded = img.encodeJpg(working, quality: _qualitySteps[qi]);
-      if (encoded.length <= targetBytes) {
+      if (encoded.length <= targetSizeBytes) {
         return _toBase64(encoded);
       }
     }
 
-    // Still over 3MB: iteratively scale down and retry.
+    // Still over target size: iteratively scale down and retry.
     var currentLongSide = max(working.width, working.height);
-    while (currentLongSide > minLongSide) {
+    while (currentLongSide > minLongSidePx) {
       final nextLongSide = (currentLongSide * scaleDownRatio).round();
-      currentLongSide = max(nextLongSide, minLongSide);
+      currentLongSide = max(nextLongSide, minLongSidePx);
       final ratio = currentLongSide / max(working.width, working.height);
       working = img.copyResize(
         working,
@@ -72,7 +88,7 @@ class ImageCompressService {
       // Retry all quality steps at the new size.
       for (var qi = 0; qi < _qualitySteps.length; qi++) {
         encoded = img.encodeJpg(working, quality: _qualitySteps[qi]);
-        if (encoded.length <= targetBytes) {
+        if (encoded.length <= targetSizeBytes) {
           return _toBase64(encoded);
         }
       }

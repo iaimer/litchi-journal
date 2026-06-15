@@ -28,6 +28,7 @@ import 'package:litchi_journal_flutter/services/habit_stats_cache_repository.dar
 import 'package:litchi_journal_flutter/models/habit_stats.dart';
 import 'package:litchi_journal_flutter/models/habit_settings.dart';
 import 'package:litchi_journal_flutter/models/habit_visual_config.dart';
+import 'package:litchi_journal_flutter/models/image_settings.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
 import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
@@ -35,6 +36,7 @@ import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_page.dart';
 import 'package:litchi_journal_flutter/screens/about_page.dart';
+import 'package:litchi_journal_flutter/screens/image_compress_page.dart';
 import 'package:litchi_journal_flutter/screens/remote_api_page.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
@@ -54,6 +56,7 @@ import 'package:litchi_journal_flutter/models/tag_settings.dart';
 import 'package:litchi_journal_flutter/services/tag_settings_helper.dart';
 import 'package:litchi_journal_flutter/services/tag_settings_repository.dart';
 import 'package:litchi_journal_flutter/services/appearance_settings.dart';
+import 'package:litchi_journal_flutter/services/image_settings_repository.dart';
 
 import 'package:litchi_journal_flutter/services/appearance_settings_repository.dart';
 
@@ -98,7 +101,11 @@ TagConfig _polishTagConfig() {
 }
 
 class _TestStorage
-    implements DraftStorage, AIConfigStorage, HabitSettingsStorage {
+    implements
+        DraftStorage,
+        AIConfigStorage,
+        HabitSettingsStorage,
+        ImageSettingsStorage {
   final Map<String, String> data;
   _TestStorage([Map<String, String>? data]) : data = data ?? {};
 
@@ -450,6 +457,24 @@ void _fillSolidImage(img.Image image) {
       image.setPixelRgba(x, y, 100, 150, 200, 255);
     }
   }
+}
+
+img.Image _makeNoisyImage(int width, int height) {
+  final image = img.Image(width: width, height: height);
+  final rng = Random(42);
+  for (var y = 0; y < image.height; y++) {
+    for (var x = 0; x < image.width; x++) {
+      image.setPixelRgba(
+        x,
+        y,
+        rng.nextInt(256),
+        rng.nextInt(256),
+        rng.nextInt(256),
+        255,
+      );
+    }
+  }
+  return image;
 }
 
 /// 内存存储，用于测试 HabitStatsCacheRepository。
@@ -5849,6 +5874,80 @@ tags:
     });
   });
 
+  group('ImageSettings', () {
+    test('defaults are correct', () {
+      final settings = ImageSettings.defaults();
+      expect(settings.maxLongSidePx, 2000);
+      expect(settings.targetSizeMb, 3);
+      expect(settings.initialQuality, 70);
+      expect(settings.minLongSidePx, 800);
+      expect(settings.filenamePrefix, 'Image');
+    });
+
+    test('filename prefix validation accepts safe values', () {
+      expect(ImageSettings.isValidFilenamePrefix('Image'), isTrue);
+      expect(ImageSettings.isValidFilenamePrefix('Litchi_Img'), isTrue);
+      expect(ImageSettings.isValidFilenamePrefix('Diary-Image_01'), isTrue);
+    });
+
+    test('filename prefix validation rejects unsafe values', () {
+      expect(ImageSettings.isValidFilenamePrefix(''), isFalse);
+      expect(ImageSettings.isValidFilenamePrefix('My Image'), isFalse);
+      expect(ImageSettings.isValidFilenamePrefix('Image/2026'), isFalse);
+      expect(ImageSettings.isValidFilenamePrefix('图片'), isFalse);
+    });
+  });
+
+  group('ImageSettingsRepository', () {
+    test('save and reload preserves settings', () async {
+      final storage = _TestStorage();
+      final repo = ImageSettingsRepository(storage: storage);
+
+      await repo.save(
+        ImageSettings(
+          maxLongSidePx: 1600,
+          targetSizeMb: 2,
+          initialQuality: 80,
+          minLongSidePx: 600,
+          filenamePrefix: 'Litchi_Img',
+        ),
+      );
+
+      final reloaded = await repo.load();
+      expect(reloaded.maxLongSidePx, 1600);
+      expect(reloaded.targetSizeMb, 2);
+      expect(reloaded.initialQuality, 80);
+      expect(reloaded.minLongSidePx, 600);
+      expect(reloaded.filenamePrefix, 'Litchi_Img');
+    });
+
+    test('corrupted JSON falls back to defaults', () async {
+      final repo = ImageSettingsRepository(
+        storage: _TestStorage({'image_settings': 'broken'}),
+      );
+
+      final settings = await repo.load();
+      expect(settings.filenamePrefix, 'Image');
+      expect(settings.targetSizeMb, 3);
+    });
+
+    test('schema mismatch falls back to defaults', () async {
+      final repo = ImageSettingsRepository(
+        storage: _TestStorage({
+          'image_settings': jsonEncode({
+            'schemaVersion': 999,
+            'filenamePrefix': 'Litchi',
+            'targetSizeMb': 1,
+          }),
+        }),
+      );
+
+      final settings = await repo.load();
+      expect(settings.filenamePrefix, 'Image');
+      expect(settings.targetSizeMb, 3);
+    });
+  });
+
   group('ImageCompressService', () {
     const maxBytes = 3 * 1024 * 1024;
 
@@ -5891,6 +5990,52 @@ tags:
       expect(decoded, isNotNull);
       expect(decoded!.width, lessThanOrEqualTo(2000));
       expect(decoded.height, lessThanOrEqualTo(2000));
+    });
+
+    test('uses max long side from image settings', () {
+      final image = img.Image(width: 3000, height: 1200);
+      _fillSolidImage(image);
+      final bytes = img.encodeJpg(image, quality: 90);
+
+      final service = ImageCompressService.fromSettings(
+        ImageSettings(maxLongSidePx: 1280),
+      );
+      final result = service.compressToBase64(bytes);
+
+      final decoded = img.decodeImage(base64Decode(result.split(',').last));
+      expect(decoded, isNotNull);
+      expect(decoded!.width, lessThanOrEqualTo(1280));
+      expect(decoded.height, lessThanOrEqualTo(1280));
+    });
+
+    test('uses target size from image settings', () {
+      final image = _makeNoisyImage(1200, 1200);
+      final bytes = img.encodeJpg(image, quality: 100);
+
+      final service = ImageCompressService.fromSettings(
+        ImageSettings(targetSizeMb: 1, minLongSidePx: 600),
+      );
+      final result = service.compressToBase64(bytes);
+      final outputBytes = base64Decode(result.split(',').last);
+
+      expect(outputBytes.length, lessThanOrEqualTo(1 * 1024 * 1024));
+    });
+
+    test('uses initial quality from image settings', () {
+      final image = _makeNoisyImage(700, 700);
+      final bytes = img.encodeJpg(image, quality: 100);
+
+      final lowQuality = ImageCompressService.fromSettings(
+        ImageSettings(initialQuality: 50, targetSizeMb: 5),
+      ).compressToBase64(bytes);
+      final highQuality = ImageCompressService.fromSettings(
+        ImageSettings(initialQuality: 90, targetSizeMb: 5),
+      ).compressToBase64(bytes);
+
+      expect(
+        base64Decode(lowQuality.split(',').last).length,
+        lessThan(base64Decode(highQuality.split(',').last).length),
+      );
     });
 
     test('output fits under 3MB for a compressible large image', () {
@@ -6281,12 +6426,14 @@ tags:
       await api.uploadImage(
         DateTime(2026, 6, 8),
         'data:image/jpeg;base64,abc123',
+        imagePrefix: 'Litchi_Img',
       );
 
       expect(client.lastUrl, contains('/api/v1/diary/image/upload'));
       final body = jsonDecode(client.lastBody!) as Map<String, dynamic>;
       expect(body['date'], '2026-06-08');
       expect(body['imageData'], 'data:image/jpeg;base64,abc123');
+      expect(body['imagePrefix'], 'Litchi_Img');
     });
 
     test('uploadImage throws on non-200 response', () async {
@@ -7394,7 +7541,7 @@ tags:
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
 
-      expect(find.text('图片压缩'), findsOneWidget);
+      expect(find.text('图片设置'), findsOneWidget);
       expect(find.text('关于'), findsOneWidget);
     });
 
@@ -7469,10 +7616,7 @@ tags:
 - 旧版本内容
 ''';
 
-      expect(
-        AboutPage.parseCurrentVersion(raw, '1.1.0'),
-        '- 当前版本内容',
-      );
+      expect(AboutPage.parseCurrentVersion(raw, '1.1.0'), '- 当前版本内容');
     });
 
     test('parses current version with v prefix', () {
@@ -7484,126 +7628,159 @@ tags:
 - 当前版本内容
 ''';
 
-      expect(
-        AboutPage.parseCurrentVersion(raw, '1.1.0'),
-        '- 当前版本内容',
-      );
+      expect(AboutPage.parseCurrentVersion(raw, '1.1.0'), '- 当前版本内容');
     });
   });
 
-// ── TagSettings ──
+  // ── TagSettings ──
 
-
-TagConfig fullTagConfig() {
-  return TagConfig(
-    domains: [
-      TagDomain(
-        id: 'parenting',
-        name: '亲子',
-        order: 0,
-        topics: [
-          TagTopic(id: 'p-bonding', name: '陪伴互动', order: 0),
-          TagTopic(id: 'p-talk', name: '亲子沟通', order: 1),
-        ],
-      ),
-      TagDomain(
-        id: 'work',
-        name: '工作',
-        order: 1,
-        topics: [
-          TagTopic(id: 'work-task', name: '任务执行', order: 0),
-        ],
-      ),
-    ],
-    methods: [
-      TagMethod(id: 'reflect', name: '反思', order: 0),
-      TagMethod(id: 'methodology', name: '方法论', order: 1),
-    ],
-  );
-}
-
-// ── AppearanceSettings ──
-
-group('AppearanceSettings', () {
-  test('default themeMode is system', () {
-    final settings = AppearanceSettings();
-    expect(settings.themeMode, ThemeMode.system);
-  });
-
-  test('toJson / fromJson round-trip', () {
-    final settings = AppearanceSettings(themeMode: ThemeMode.dark);
-    final json = settings.toJson();
-    final restored = AppearanceSettings.fromJson(json);
-    expect(restored.themeMode, ThemeMode.dark);
-  });
-
-  test('fromJson broken falls back to system', () {
-    final restored = AppearanceSettings.fromJson({'themeMode': null});
-    expect(restored.themeMode, ThemeMode.system);
-  });
-
-  test('copyWith preserves other fields', () {
-    final settings = AppearanceSettings(themeMode: ThemeMode.light);
-    final updated = settings.copyWith(themeMode: ThemeMode.dark);
-    expect(updated.themeMode, ThemeMode.dark);
-    expect(updated.schemaVersion, settings.schemaVersion);
-  });
-});
-
-group('AppearanceSettingsRepository', () {
-  test('load returns defaults when no storage', () async {
-    final storage = _TestStorage();
-    final repo = AppearanceSettingsRepository(storage: storage);
-    final settings = await repo.load();
-    expect(settings.themeMode, ThemeMode.system);
-  });
-
-  test('save and reload preserves choice', () async {
-    final storage = _TestStorage();
-    final repo = AppearanceSettingsRepository(storage: storage);
-    await repo.save(AppearanceSettings(themeMode: ThemeMode.dark));
-    final reloaded = await repo.load();
-    expect(reloaded.themeMode, ThemeMode.dark);
-  });
-
-  test('corrupted JSON falls back to system', () async {
-    final storage = _TestStorage({'appearance_settings': 'broken!!!'});
-    final repo = AppearanceSettingsRepository(storage: storage);
-    final settings = await repo.load();
-    expect(settings.themeMode, ThemeMode.system);
-  });
-});
-
-group('AppearanceSettingsPage', () {
-  testWidgets('shows three options with correct defaults', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: const AppearanceSettingsPage()),
+  TagConfig fullTagConfig() {
+    return TagConfig(
+      domains: [
+        TagDomain(
+          id: 'parenting',
+          name: '亲子',
+          order: 0,
+          topics: [
+            TagTopic(id: 'p-bonding', name: '陪伴互动', order: 0),
+            TagTopic(id: 'p-talk', name: '亲子沟通', order: 1),
+          ],
+        ),
+        TagDomain(
+          id: 'work',
+          name: '工作',
+          order: 1,
+          topics: [TagTopic(id: 'work-task', name: '任务执行', order: 0)],
+        ),
+      ],
+      methods: [
+        TagMethod(id: 'reflect', name: '反思', order: 0),
+        TagMethod(id: 'methodology', name: '方法论', order: 1),
+      ],
     );
+  }
 
-    expect(find.text('选择你喜欢的显示方式'), findsOneWidget);
-    expect(find.text('跟随系统'), findsOneWidget);
-    expect(find.text('浅色模式'), findsOneWidget);
-    expect(find.text('深色模式'), findsOneWidget);
+  // ── AppearanceSettings ──
+
+  group('AppearanceSettings', () {
+    test('default themeMode is system', () {
+      final settings = AppearanceSettings();
+      expect(settings.themeMode, ThemeMode.system);
+    });
+
+    test('toJson / fromJson round-trip', () {
+      final settings = AppearanceSettings(themeMode: ThemeMode.dark);
+      final json = settings.toJson();
+      final restored = AppearanceSettings.fromJson(json);
+      expect(restored.themeMode, ThemeMode.dark);
+    });
+
+    test('fromJson broken falls back to system', () {
+      final restored = AppearanceSettings.fromJson({'themeMode': null});
+      expect(restored.themeMode, ThemeMode.system);
+    });
+
+    test('copyWith preserves other fields', () {
+      final settings = AppearanceSettings(themeMode: ThemeMode.light);
+      final updated = settings.copyWith(themeMode: ThemeMode.dark);
+      expect(updated.themeMode, ThemeMode.dark);
+      expect(updated.schemaVersion, settings.schemaVersion);
+    });
   });
 
-  testWidgets('tapping option changes selection', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: const AppearanceSettingsPage()),
-    );
+  group('AppearanceSettingsRepository', () {
+    test('load returns defaults when no storage', () async {
+      final storage = _TestStorage();
+      final repo = AppearanceSettingsRepository(storage: storage);
+      final settings = await repo.load();
+      expect(settings.themeMode, ThemeMode.system);
+    });
 
-    // Tap 深色模式
-    await tester.tap(find.text('深色模式'));
-    await tester.pumpAndSettle();
+    test('save and reload preserves choice', () async {
+      final storage = _TestStorage();
+      final repo = AppearanceSettingsRepository(storage: storage);
+      await repo.save(AppearanceSettings(themeMode: ThemeMode.dark));
+      final reloaded = await repo.load();
+      expect(reloaded.themeMode, ThemeMode.dark);
+    });
 
-    // The radio button should be checked for 深色模式
-    // Verify it navigated correctly (no errors)
-    expect(find.text('外观'), findsOneWidget);
+    test('corrupted JSON falls back to system', () async {
+      final storage = _TestStorage({'appearance_settings': 'broken!!!'});
+      final repo = AppearanceSettingsRepository(storage: storage);
+      final settings = await repo.load();
+      expect(settings.themeMode, ThemeMode.system);
+    });
   });
-});
+
+  group('ImageCompressPage', () {
+    testWidgets('shows filename preview', (tester) async {
+      final repo = ImageSettingsRepository(storage: _TestStorage());
+
+      await tester.pumpWidget(
+        MaterialApp(home: ImageCompressPage(repository: repo)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('图片设置'), findsOneWidget);
+      expect(find.text('图片压缩'), findsOneWidget);
+      expect(find.text('文件命名'), findsOneWidget);
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+      expect(find.text('Image-YYYYMMDD-NNN.jpg'), findsOneWidget);
+    });
+
+    testWidgets('reset default restores changed prefix preview', (
+      tester,
+    ) async {
+      final repo = ImageSettingsRepository(storage: _TestStorage());
+
+      await tester.pumpWidget(
+        MaterialApp(home: ImageCompressPage(repository: repo)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Litchi');
+      await tester.pump();
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+      expect(find.text('Litchi-YYYYMMDD-NNN.jpg'), findsOneWidget);
+
+      await tester.tap(find.text('恢复默认'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Image-YYYYMMDD-NNN.jpg'), findsOneWidget);
+    });
+  });
+
+  group('AppearanceSettingsPage', () {
+    testWidgets('shows three options with correct defaults', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: const AppearanceSettingsPage()),
+      );
+
+      expect(find.text('选择你喜欢的显示方式'), findsOneWidget);
+      expect(find.text('跟随系统'), findsOneWidget);
+      expect(find.text('浅色模式'), findsOneWidget);
+      expect(find.text('深色模式'), findsOneWidget);
+    });
+
+    testWidgets('tapping option changes selection', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: const AppearanceSettingsPage()),
+      );
+
+      // Tap 深色模式
+      await tester.tap(find.text('深色模式'));
+      await tester.pumpAndSettle();
+
+      // The radio button should be checked for 深色模式
+      // Verify it navigated correctly (no errors)
+      expect(find.text('外观'), findsOneWidget);
+    });
+  });
 
   group('TagSettings', () {
     test('fromTagConfig creates all enabled defaults', () async {
-
       final config = fullTagConfig();
       final settings = TagSettings.fromTagConfig(config);
       expect(settings.domainSettings.length, 2);
@@ -7615,7 +7792,6 @@ group('AppearanceSettingsPage', () {
     });
 
     test('toJson / fromJson round-trip preserves data', () async {
-
       final config = fullTagConfig();
       final settings = TagSettings.fromTagConfig(config);
       settings.domainSettings[0].displayName = '育儿';
@@ -7631,28 +7807,32 @@ group('AppearanceSettingsPage', () {
     });
 
     test('broken JSON falls back with fromJson defaults', () async {
-
-      final restored = TagSettings.fromJson({'schemaVersion': 0, 'domainSettings': null, 'methodSettings': null});
+      final restored = TagSettings.fromJson({
+        'schemaVersion': 0,
+        'domainSettings': null,
+        'methodSettings': null,
+      });
       expect(restored.domainSettings, isEmpty);
       expect(restored.methodSettings, isEmpty);
     });
 
-    test('toEffectiveTagConfig filters disabled and applies displayName', () async {
-
-      final config = fullTagConfig();
-      final settings = TagSettings.fromTagConfig(config);
-      settings.domainSettings[1].enabled = false;
-      settings.domainSettings[0].displayName = '育儿';
-      settings.domainSettings[0].topics[0].displayName = '共处时光';
-      final effective = settings.toEffectiveTagConfig(config);
-      expect(effective.domains.length, 1);
-      expect(effective.domains[0].name, '育儿');
-      expect(effective.domains[0].topics[0].name, '共处时光');
-      expect(effective.methods.length, 2);
-    });
+    test(
+      'toEffectiveTagConfig filters disabled and applies displayName',
+      () async {
+        final config = fullTagConfig();
+        final settings = TagSettings.fromTagConfig(config);
+        settings.domainSettings[1].enabled = false;
+        settings.domainSettings[0].displayName = '育儿';
+        settings.domainSettings[0].topics[0].displayName = '共处时光';
+        final effective = settings.toEffectiveTagConfig(config);
+        expect(effective.domains.length, 1);
+        expect(effective.domains[0].name, '育儿');
+        expect(effective.domains[0].topics[0].name, '共处时光');
+        expect(effective.methods.length, 2);
+      },
+    );
 
     test('countEnabled counts all enabled items', () async {
-
       final config = fullTagConfig();
       final settings = TagSettings.fromTagConfig(config);
       expect(TagSettingsHelper.countEnabled(settings), 7);
@@ -7660,35 +7840,37 @@ group('AppearanceSettingsPage', () {
       expect(TagSettingsHelper.countEnabled(settings), 4);
     });
 
-    test('hiddenInitialTags finds disabled tags by displayName or defaultName', () async {
-
-      final config = fullTagConfig();
-      final settings = TagSettings.fromTagConfig(config);
-      settings.domainSettings[0].enabled = false;
-      final hidden = TagSettingsHelper.hiddenInitialTags(
-        ['亲子', '陪伴互动', '反思'],
-        settings,
-      );
-      expect(hidden, contains('亲子'));
-      expect(hidden, contains('陪伴互动'));
-      expect(hidden.length, 2);
-    });
+    test(
+      'hiddenInitialTags finds disabled tags by displayName or defaultName',
+      () async {
+        final config = fullTagConfig();
+        final settings = TagSettings.fromTagConfig(config);
+        settings.domainSettings[0].enabled = false;
+        final hidden = TagSettingsHelper.hiddenInitialTags([
+          '亲子',
+          '陪伴互动',
+          '反思',
+        ], settings);
+        expect(hidden, contains('亲子'));
+        expect(hidden, contains('陪伴互动'));
+        expect(hidden.length, 2);
+      },
+    );
 
     test('hiddenInitialTags with renamed displayName still matches', () async {
-
       final config = fullTagConfig();
       final settings = TagSettings.fromTagConfig(config);
       settings.domainSettings[0].enabled = false;
       settings.domainSettings[0].displayName = '育儿';
-      final hidden = TagSettingsHelper.hiddenInitialTags(
-        ['亲子', '陪伴互动', '反思'],
-        settings,
-      );
+      final hidden = TagSettingsHelper.hiddenInitialTags([
+        '亲子',
+        '陪伴互动',
+        '反思',
+      ], settings);
       expect(hidden, contains('亲子'));
     });
 
     test('validateDisplayName rejects invalid names', () async {
-
       expect(TagSettingsHelper.validateDisplayName(''), isNotNull);
       expect(TagSettingsHelper.validateDisplayName('  '), isNotNull);
       expect(TagSettingsHelper.validateDisplayName('#tag'), isNotNull);
@@ -7698,18 +7880,19 @@ group('AppearanceSettingsPage', () {
       expect(TagSettingsHelper.validateDisplayName('valid'), isNull);
     });
 
-    test('effectiveTagConfig helper works same as toEffectiveTagConfig', () async {
-
-      final config = fullTagConfig();
-      final settings = TagSettings.fromTagConfig(config);
-      settings.methodSettings[0].enabled = false;
-      final result = TagSettingsHelper.effectiveTagConfig(config, settings);
-      expect(result.methods.length, 1);
-      expect(result.methods[0].id, 'methodology');
-    });
+    test(
+      'effectiveTagConfig helper works same as toEffectiveTagConfig',
+      () async {
+        final config = fullTagConfig();
+        final settings = TagSettings.fromTagConfig(config);
+        settings.methodSettings[0].enabled = false;
+        final result = TagSettingsHelper.effectiveTagConfig(config, settings);
+        expect(result.methods.length, 1);
+        expect(result.methods[0].id, 'methodology');
+      },
+    );
 
     test('loadTagSettings returns defaults when no storage', () async {
-
       final storage = _TestStorage();
       final repo = TagSettingsRepository(storage: storage);
       final config = fullTagConfig();
@@ -7719,7 +7902,6 @@ group('AppearanceSettingsPage', () {
     });
 
     test('save and reload preserves changes', () async {
-
       final storage = _TestStorage();
       final repo = TagSettingsRepository(storage: storage);
       final config = fullTagConfig();
@@ -7731,13 +7913,11 @@ group('AppearanceSettingsPage', () {
     });
 
     test('corrupted JSON falls back to defaults', () async {
-
       final storage = _TestStorage({'tag_settings': 'not json at all!!!'});
       final repo = TagSettingsRepository(storage: storage);
       final config = fullTagConfig();
       final settings = await repo.loadTagSettings(config);
       expect(settings.domainSettings.length, 2);
     });
-
   });
 }

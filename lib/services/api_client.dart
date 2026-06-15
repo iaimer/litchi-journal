@@ -176,6 +176,7 @@ class ApiClient {
     DateTime date,
     String imageBase64, {
     String? operationId,
+    String? imagePrefix,
   }) async {
     final response = await _http.post(
       Uri.parse('$_baseUrl/api/v1/diary/image/upload'),
@@ -183,6 +184,8 @@ class ApiClient {
       body: jsonEncode({
         'date': formatDate(date),
         'imageData': imageBase64,
+        if (imagePrefix != null && imagePrefix.trim().isNotEmpty)
+          'imagePrefix': imagePrefix.trim(),
         // ignore: use_null_aware_elements
         if (operationId != null) 'operationId': operationId,
       }),

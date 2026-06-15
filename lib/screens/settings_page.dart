@@ -192,8 +192,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildMenuItem(
                     context,
                     icon: '🖼️',
-                    title: '图片压缩',
-                    subtitle: '上传时自动压缩',
+                    title: '图片设置',
+                    subtitle: '压缩与文件命名',
                     onTap: () => _push(context, const ImageCompressPage()),
                   ),
                   _buildMenuItem(

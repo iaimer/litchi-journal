@@ -553,7 +553,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               );
-              // 从设置页返回后，重新加载习惯设置（可能已变更）
+              // 从设置页返回后，重新加载标签设置和习惯设置
+              await _loadTagConfig();
               _reloadHabitSettings();
             },
           ),

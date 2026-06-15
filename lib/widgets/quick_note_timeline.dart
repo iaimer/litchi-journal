@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/diary_document.dart';
 import '../models/tag_config.dart';
+import '../models/tag_settings.dart';
 import '../theme/app_theme.dart';
 import 'entry_edit_sheet.dart';
 import 'section_card.dart';
@@ -12,6 +13,7 @@ class QuickNoteTimeline extends StatelessWidget {
   final Future<void> Function(
       QuickNoteItem note, String content, List<String> tags)? onEdit;
   final TagConfig? tagConfig;
+  final TagSettings? tagSettings;
 
   const QuickNoteTimeline({
     super.key,
@@ -19,6 +21,7 @@ class QuickNoteTimeline extends StatelessWidget {
     this.onDelete,
     this.onEdit,
     this.tagConfig,
+    this.tagSettings,
   });
 
   @override
@@ -34,6 +37,7 @@ class QuickNoteTimeline extends StatelessWidget {
                 onDelete: onDelete,
                 onEdit: onEdit,
                 tagConfig: tagConfig,
+                tagSettings: tagSettings,
               ))
           .toList(growable: false),
     );
@@ -46,12 +50,14 @@ class _QuickNoteRow extends StatefulWidget {
   final Future<void> Function(
       QuickNoteItem note, String content, List<String> tags)? onEdit;
   final TagConfig? tagConfig;
+  final TagSettings? tagSettings;
 
   const _QuickNoteRow({
     required this.note,
     this.onDelete,
     this.onEdit,
     this.tagConfig,
+    this.tagSettings,
   });
 
   @override
@@ -107,6 +113,7 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
         initialContent: widget.note.content,
         initialTags: widget.note.tags,
         tagConfig: widget.tagConfig,
+        tagSettings: widget.tagSettings,
         onSave: (content, tags) async {
           await widget.onEdit!(widget.note, content, tags);
         },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/diary_document.dart';
 import '../models/tag_config.dart';
+import '../models/tag_settings.dart';
 import 'generic_section_card.dart';
 
 class ReviewCard extends StatelessWidget {
@@ -10,6 +11,7 @@ class ReviewCard extends StatelessWidget {
   final Future<void> Function(
       String rawLine, String content, List<String> tags)? onTimelineEdit;
   final TagConfig? tagConfig;
+  final TagSettings? tagSettings;
 
   const ReviewCard({
     super.key,
@@ -17,6 +19,7 @@ class ReviewCard extends StatelessWidget {
     this.onTimelineDelete,
     this.onTimelineEdit,
     this.tagConfig,
+    this.tagSettings,
   });
 
   @override
@@ -26,6 +29,7 @@ class ReviewCard extends StatelessWidget {
       onTimelineDelete: onTimelineDelete,
       onTimelineEdit: onTimelineEdit,
       tagConfig: tagConfig,
+      tagSettings: tagSettings,
     );
   }
 }

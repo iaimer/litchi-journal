@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../models/diary_document.dart';
 import '../models/tag_config.dart';
+import '../models/tag_settings.dart';
 import '../theme/app_theme.dart';
 import 'entry_edit_sheet.dart';
 import 'section_card.dart';
@@ -15,6 +16,7 @@ class GenericSectionCard extends StatelessWidget {
   final Future<void> Function(
       String rawLine, String content, List<String> tags)? onTimelineEdit;
   final TagConfig? tagConfig;
+  final TagSettings? tagSettings;
 
   const GenericSectionCard({
     super.key,
@@ -22,6 +24,7 @@ class GenericSectionCard extends StatelessWidget {
     this.onTimelineDelete,
     this.onTimelineEdit,
     this.tagConfig,
+    this.tagSettings,
   });
 
   @override
@@ -99,6 +102,7 @@ class GenericSectionCard extends StatelessWidget {
             onDelete: onTimelineDelete,
             onEdit: onTimelineEdit,
             tagConfig: tagConfig,
+            tagSettings: tagSettings,
           ),
         );
       case MarkdownContent():
@@ -428,12 +432,14 @@ class _TimelineDeleteRow extends StatefulWidget {
   final Future<void> Function(
       String rawLine, String content, List<String> tags)? onEdit;
   final TagConfig? tagConfig;
+  final TagSettings? tagSettings;
 
   const _TimelineDeleteRow({
     required this.content,
     this.onDelete,
     this.onEdit,
     this.tagConfig,
+    this.tagSettings,
   });
 
   @override
@@ -489,6 +495,7 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
         initialContent: widget.content.text,
         initialTags: widget.content.tags,
         tagConfig: widget.tagConfig,
+        tagSettings: widget.tagSettings,
         onSave: (content, tags) async {
           await widget.onEdit!(
               widget.content.rawLine, content, tags);

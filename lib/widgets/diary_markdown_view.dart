@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/diary_document.dart';
 import '../models/habit_settings.dart';
 import '../models/tag_config.dart';
+import '../models/tag_settings.dart';
 import '../services/api_client.dart';
 import '../services/markdown_parser.dart';
 import 'anxiety_card.dart';
@@ -25,6 +26,7 @@ class DiaryMarkdownView extends StatelessWidget {
   )?
   onEntryEdit;
   final TagConfig? tagConfig;
+  final TagSettings? tagSettings;
   final ApiClient? apiClient;
   final DateTime? date;
   final VoidCallback? onGenerateCoach;
@@ -45,6 +47,7 @@ class DiaryMarkdownView extends StatelessWidget {
     this.onEntryDelete,
     this.onEntryEdit,
     this.tagConfig,
+    this.tagSettings,
     this.apiClient,
     this.date,
     this.onGenerateCoach,
@@ -70,7 +73,11 @@ class DiaryMarkdownView extends StatelessWidget {
     );
 
     if (!preamble.isEmpty) {
-      widgets.add(GenericSectionCard(section: preamble));
+      widgets.add(GenericSectionCard(
+        section: preamble,
+        tagConfig: tagConfig,
+        tagSettings: tagSettings,
+      ));
     }
 
     var hasCoachSection = false;
@@ -141,6 +148,7 @@ class DiaryMarkdownView extends StatelessWidget {
                     onEntryEdit!('quick_notes', note.rawLine, content, tags)
               : null,
           tagConfig: tagConfig,
+          tagSettings: tagSettings,
         );
       case AnxietySection():
         return AnxietyCard(section: section);
@@ -155,6 +163,7 @@ class DiaryMarkdownView extends StatelessWidget {
                     onEntryEdit!('happiness', rawLine, content, tags)
               : null,
           tagConfig: tagConfig,
+          tagSettings: tagSettings,
         );
       case ReviewSection():
         return ReviewCard(
@@ -167,6 +176,7 @@ class DiaryMarkdownView extends StatelessWidget {
                     onEntryEdit!('reflection', rawLine, content, tags)
               : null,
           tagConfig: tagConfig,
+          tagSettings: tagSettings,
         );
       case CoachSection():
         return _buildCoachCard(section, context);
@@ -192,6 +202,16 @@ class DiaryMarkdownView extends StatelessWidget {
       default:
         return GenericSectionCard(section: section);
     }
+  }
+
+  static String _stripStorageListMarkers(String text) {
+    return text.split('\n').map((line) {
+      var trimmed = line.trimLeft();
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        return trimmed.substring(2);
+      }
+      return line;
+    }).join('\n');
   }
 
   Widget _buildCoachCard(CoachSection section, BuildContext context) {
@@ -401,20 +421,21 @@ class DiaryMarkdownView extends StatelessWidget {
 
     return SectionCard(
       title: section.title,
+      accentColor: theme.colorScheme.primary,
       children: [
-        Text(
-          contentTexts.join('\n\n'),
-          style: theme.textTheme.bodyMedium?.copyWith(height: 1.8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: contentTexts.map((text) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(text, style: theme.textTheme.bodyMedium),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
-  }
-
-  static String _stripStorageListMarkers(String text) {
-    return text
-        .split('\n')
-        .map((line) => line.trim().replaceFirst(RegExp(r'^-\s+'), ''))
-        .join('\n')
-        .trim();
   }
 }

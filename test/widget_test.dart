@@ -49,6 +49,9 @@ import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
 import 'package:litchi_journal_flutter/widgets/review_card.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 
+import 'package:litchi_journal_flutter/models/tag_settings.dart';
+import 'package:litchi_journal_flutter/services/tag_settings_helper.dart';
+import 'package:litchi_journal_flutter/services/tag_settings_repository.dart';
 TagConfig _testTagConfig() {
   return TagConfig(
     domains: [
@@ -7426,5 +7429,176 @@ tags:
 
       expect(find.byType(SafeArea), findsWidgets);
     });
+  });
+
+// ── TagSettings ──
+
+
+TagConfig fullTagConfig() {
+  return TagConfig(
+    domains: [
+      TagDomain(
+        id: 'parenting',
+        name: '亲子',
+        order: 0,
+        topics: [
+          TagTopic(id: 'p-bonding', name: '陪伴互动', order: 0),
+          TagTopic(id: 'p-talk', name: '亲子沟通', order: 1),
+        ],
+      ),
+      TagDomain(
+        id: 'work',
+        name: '工作',
+        order: 1,
+        topics: [
+          TagTopic(id: 'work-task', name: '任务执行', order: 0),
+        ],
+      ),
+    ],
+    methods: [
+      TagMethod(id: 'reflect', name: '反思', order: 0),
+      TagMethod(id: 'methodology', name: '方法论', order: 1),
+    ],
+  );
+}
+
+  group('TagSettings', () {
+    test('fromTagConfig creates all enabled defaults', () async {
+
+      final config = fullTagConfig();
+      final settings = TagSettings.fromTagConfig(config);
+      expect(settings.domainSettings.length, 2);
+      expect(settings.domainSettings.every((d) => d.enabled), true);
+      expect(settings.domainSettings[0].displayName, '亲子');
+      expect(settings.domainSettings[1].displayName, '工作');
+      expect(settings.methodSettings.length, 2);
+      expect(settings.methodSettings.every((m) => m.enabled), true);
+    });
+
+    test('toJson / fromJson round-trip preserves data', () async {
+
+      final config = fullTagConfig();
+      final settings = TagSettings.fromTagConfig(config);
+      settings.domainSettings[0].displayName = '育儿';
+      settings.domainSettings[0].enabled = false;
+      final json = settings.toJson();
+      final restored = TagSettings.fromJson(json);
+      expect(restored.schemaVersion, 1);
+      expect(restored.domainSettings[0].displayName, '育儿');
+      expect(restored.domainSettings[0].enabled, false);
+      expect(restored.domainSettings[0].defaultName, '亲子');
+      expect(restored.domainSettings[0].topics.length, 2);
+      expect(restored.methodSettings.length, 2);
+    });
+
+    test('broken JSON falls back with fromJson defaults', () async {
+
+      final restored = TagSettings.fromJson({'schemaVersion': 0, 'domainSettings': null, 'methodSettings': null});
+      expect(restored.domainSettings, isEmpty);
+      expect(restored.methodSettings, isEmpty);
+    });
+
+    test('toEffectiveTagConfig filters disabled and applies displayName', () async {
+
+      final config = fullTagConfig();
+      final settings = TagSettings.fromTagConfig(config);
+      settings.domainSettings[1].enabled = false;
+      settings.domainSettings[0].displayName = '育儿';
+      settings.domainSettings[0].topics[0].displayName = '共处时光';
+      final effective = settings.toEffectiveTagConfig(config);
+      expect(effective.domains.length, 1);
+      expect(effective.domains[0].name, '育儿');
+      expect(effective.domains[0].topics[0].name, '共处时光');
+      expect(effective.methods.length, 2);
+    });
+
+    test('countEnabled counts all enabled items', () async {
+
+      final config = fullTagConfig();
+      final settings = TagSettings.fromTagConfig(config);
+      expect(TagSettingsHelper.countEnabled(settings), 7);
+      settings.domainSettings[0].enabled = false;
+      expect(TagSettingsHelper.countEnabled(settings), 4);
+    });
+
+    test('hiddenInitialTags finds disabled tags by displayName or defaultName', () async {
+
+      final config = fullTagConfig();
+      final settings = TagSettings.fromTagConfig(config);
+      settings.domainSettings[0].enabled = false;
+      final hidden = TagSettingsHelper.hiddenInitialTags(
+        ['亲子', '陪伴互动', '反思'],
+        settings,
+      );
+      expect(hidden, contains('亲子'));
+      expect(hidden, contains('陪伴互动'));
+      expect(hidden.length, 2);
+    });
+
+    test('hiddenInitialTags with renamed displayName still matches', () async {
+
+      final config = fullTagConfig();
+      final settings = TagSettings.fromTagConfig(config);
+      settings.domainSettings[0].enabled = false;
+      settings.domainSettings[0].displayName = '育儿';
+      final hidden = TagSettingsHelper.hiddenInitialTags(
+        ['亲子', '陪伴互动', '反思'],
+        settings,
+      );
+      expect(hidden, contains('亲子'));
+    });
+
+    test('validateDisplayName rejects invalid names', () async {
+
+      expect(TagSettingsHelper.validateDisplayName(''), isNotNull);
+      expect(TagSettingsHelper.validateDisplayName('  '), isNotNull);
+      expect(TagSettingsHelper.validateDisplayName('#tag'), isNotNull);
+      expect(TagSettingsHelper.validateDisplayName('with space'), isNotNull);
+      expect(TagSettingsHelper.validateDisplayName('with\nnewline'), isNotNull);
+      expect(TagSettingsHelper.validateDisplayName('with\ttab'), isNotNull);
+      expect(TagSettingsHelper.validateDisplayName('valid'), isNull);
+    });
+
+    test('effectiveTagConfig helper works same as toEffectiveTagConfig', () async {
+
+      final config = fullTagConfig();
+      final settings = TagSettings.fromTagConfig(config);
+      settings.methodSettings[0].enabled = false;
+      final result = TagSettingsHelper.effectiveTagConfig(config, settings);
+      expect(result.methods.length, 1);
+      expect(result.methods[0].id, 'methodology');
+    });
+
+    test('loadTagSettings returns defaults when no storage', () async {
+
+      final storage = _TestStorage();
+      final repo = TagSettingsRepository(storage: storage);
+      final config = fullTagConfig();
+      final settings = await repo.loadTagSettings(config);
+      expect(settings.domainSettings.length, 2);
+      expect(settings.domainSettings[0].enabled, true);
+    });
+
+    test('save and reload preserves changes', () async {
+
+      final storage = _TestStorage();
+      final repo = TagSettingsRepository(storage: storage);
+      final config = fullTagConfig();
+      var settings = await repo.loadTagSettings(config);
+      settings.domainSettings[0].displayName = '育儿';
+      await repo.saveTagSettings(settings);
+      final reloaded = await repo.loadTagSettings(config);
+      expect(reloaded.domainSettings[0].displayName, '育儿');
+    });
+
+    test('corrupted JSON falls back to defaults', () async {
+
+      final storage = _TestStorage({'tag_settings': 'not json at all!!!'});
+      final repo = TagSettingsRepository(storage: storage);
+      final config = fullTagConfig();
+      final settings = await repo.loadTagSettings(config);
+      expect(settings.domainSettings.length, 2);
+    });
+
   });
 }

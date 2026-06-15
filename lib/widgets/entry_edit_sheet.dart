@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../models/tag_config.dart';
+import '../models/tag_settings.dart';
+import '../services/tag_settings_helper.dart';
 import 'tag_picker.dart';
 
 class EntryEditSheet extends StatefulWidget {
   final String initialContent;
   final List<String> initialTags;
   final TagConfig? tagConfig;
+  final TagSettings? tagSettings;
   final Future<void> Function(String content, List<String> tags) onSave;
 
   const EntryEditSheet({
@@ -14,6 +17,7 @@ class EntryEditSheet extends StatefulWidget {
     required this.initialContent,
     required this.initialTags,
     this.tagConfig,
+    this.tagSettings,
     required this.onSave,
   });
 
@@ -24,6 +28,7 @@ class EntryEditSheet extends StatefulWidget {
 class _EntryEditSheetState extends State<EntryEditSheet> {
   late final TextEditingController _controller;
   late List<String> _selectedTags;
+  late List<String> _hiddenInitialTags;
   bool _saving = false;
 
   bool get _canSave => _controller.text.trim().isNotEmpty && !_saving;
@@ -34,6 +39,12 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
     _controller = TextEditingController(text: widget.initialContent);
     _selectedTags =
         widget.initialTags.map((t) => t.startsWith('#') ? t.substring(1) : t).toList();
+
+    // 计算隐藏标签
+    _hiddenInitialTags = (widget.tagConfig != null && widget.tagSettings != null)
+        ? TagSettingsHelper.hiddenInitialTags(
+            _selectedTags, widget.tagSettings!)
+        : [];
   }
 
   @override
@@ -58,6 +69,10 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveTagConfig = (widget.tagConfig != null && widget.tagSettings != null)
+        ? TagSettingsHelper.effectiveTagConfig(widget.tagConfig!, widget.tagSettings!)
+        : widget.tagConfig;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.only(
@@ -86,11 +101,12 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
                     EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
-            if (widget.tagConfig != null) ...[
+            if (effectiveTagConfig != null) ...[
               const SizedBox(height: 12),
               TagPicker(
-                tagConfig: widget.tagConfig!,
+                tagConfig: effectiveTagConfig,
                 initialTags: _selectedTags,
+                hiddenInitialTags: _hiddenInitialTags,
                 onChanged: (tags) => _selectedTags = tags,
               ),
             ],

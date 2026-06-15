@@ -5,12 +5,18 @@ import '../models/tag_config.dart';
 class TagPicker extends StatefulWidget {
   final TagConfig tagConfig;
   final List<String> initialTags;
+
+  /// 旧记录中已有、但现已被隐藏的标签。
+  /// 显示为灰色"已隐藏"，由用户决定是否保留。
+  final List<String> hiddenInitialTags;
+
   final ValueChanged<List<String>> onChanged;
 
   const TagPicker({
     super.key,
     required this.tagConfig,
     this.initialTags = const [],
+    this.hiddenInitialTags = const [],
     required this.onChanged,
   });
 
@@ -24,16 +30,22 @@ class _TagPickerState extends State<TagPicker> {
   TagMethod? _selectedMethod;
   bool _expanded = false;
 
+  /// 用户尚未取消的隐藏标签（保留在输出中）。
+  late Set<String> _retainedHiddenTags;
+
   @override
   void initState() {
     super.initState();
+    _retainedHiddenTags = Set.from(widget.hiddenInitialTags);
     _restoreInitialTags();
   }
 
   @override
   void didUpdateWidget(covariant TagPicker oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialTags != widget.initialTags) {
+    if (oldWidget.initialTags != widget.initialTags ||
+        oldWidget.hiddenInitialTags != widget.hiddenInitialTags) {
+      _retainedHiddenTags = Set.from(widget.hiddenInitialTags);
       _restoreInitialTags();
     }
   }
@@ -77,6 +89,8 @@ class _TagPickerState extends State<TagPicker> {
     if (_selectedDomain != null) result.add(_selectedDomain!.name);
     if (_selectedTopic != null) result.add(_selectedTopic!.name);
     if (_selectedMethod != null) result.add(_selectedMethod!.name);
+    // 追加用户未取消的隐藏标签
+    result.addAll(_retainedHiddenTags);
     return result;
   }
 
@@ -110,6 +124,11 @@ class _TagPickerState extends State<TagPicker> {
     _emit();
   }
 
+  void _removeHiddenTag(String tag) {
+    setState(() => _retainedHiddenTags.remove(tag));
+    _emit();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -129,12 +148,18 @@ class _TagPickerState extends State<TagPicker> {
           ],
           const SizedBox(height: 4),
           _buildMethodRow(theme),
+          // 隐藏标签行
+          if (_retainedHiddenTags.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _buildHiddenTagRow(theme),
+          ],
         ],
       ],
     );
   }
 
   Widget _buildCollapsedBar(ThemeData theme, List<String> tags) {
+    final hidden = _retainedHiddenTags;
     return Row(
       children: [
         if (tags.isNotEmpty)
@@ -143,12 +168,17 @@ class _TagPickerState extends State<TagPicker> {
               spacing: 6,
               runSpacing: 4,
               children: tags.map((name) {
+                final isHidden = hidden.contains(name);
                 return Chip(
-                  label: Text(name, style: const TextStyle(fontSize: 12)),
+                  label: Text(
+                    isHidden ? '$name (已隐藏)' : name,
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
-                  backgroundColor:
-                      theme.colorScheme.primary.withAlpha(25),
+                  backgroundColor: isHidden
+                      ? Colors.grey.shade200
+                      : theme.colorScheme.primary.withAlpha(25),
                   side: BorderSide.none,
                 );
               }).toList(growable: false),
@@ -220,6 +250,42 @@ class _TagPickerState extends State<TagPicker> {
         final method = methods.firstWhere((m) => m.id == id);
         _toggleMethod(method);
       },
+    );
+  }
+
+  Widget _buildHiddenTagRow(ThemeData theme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(width: 36),
+        Expanded(
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: _retainedHiddenTags.map((tag) {
+              return Chip(
+                label: Text(
+                  '$tag (已隐藏)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                onDeleted: () => _removeHiddenTag(tag),
+                deleteIcon: Icon(
+                  Icons.close,
+                  size: 14,
+                  color: Colors.grey.shade500,
+                ),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Colors.grey.shade200,
+                side: BorderSide.none,
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 

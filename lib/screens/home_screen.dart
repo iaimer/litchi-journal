@@ -6,6 +6,7 @@ import '../models/diary_entry.dart';
 import '../models/habit_settings.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
+import '../models/tag_settings.dart';
 import '../screens/settings_page.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
@@ -18,6 +19,8 @@ import '../services/image_compress_service.dart';
 import '../services/markdown_parser.dart';
 import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
+import '../services/tag_settings_helper.dart';
+import '../services/tag_settings_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
@@ -46,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _error;
   TagConfig? _tagConfig;
+  TagSettings? _tagSettings;
   bool _tagConfigFailed = false;
   EntryType _selectedEntryType = EntryType.quickNote;
   final _draftRepository = DraftRepository();
@@ -61,6 +65,15 @@ class _HomeScreenState extends State<HomeScreen> {
     'supplements',
   };
 
+
+  /// 只含 enabled 标签、name 替换为 displayName 的 TagConfig。
+  /// 用于 QuickNoteComposer（新建记录不需要隐藏标签）。
+  TagConfig? get _effectiveTagConfig {
+    if (_tagConfig == null || _tagSettings == null) return _tagConfig;
+    return TagSettingsHelper.effectiveTagConfig(_tagConfig!, _tagSettings!);
+  }
+
+
   @override
   void initState() {
     super.initState();
@@ -71,10 +84,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadTagConfig() async {
     try {
       final repo = TagRepository(apiClient: widget.apiClient);
+      final tagSettingsRepo = TagSettingsRepository();
       final config = await repo.loadTagConfig();
+      final settings = await tagSettingsRepo.loadTagSettings(config);
       if (!mounted) return;
       setState(() {
         _tagConfig = config;
+        _tagSettings = settings;
         _tagConfigFailed = false;
       });
     } catch (_) {
@@ -217,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
         entryType: entryType,
         tagConfig: tagConfig,
         config: aiConfig,
+        tagSettings: _tagSettings,
       );
       return result;
     } finally {
@@ -565,6 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onEntryDelete: _handleEntryDelete,
                       onEntryEdit: _handleEntryEdit,
                       tagConfig: _tagConfig,
+                      tagSettings: _tagSettings,
                       apiClient: widget.apiClient,
                       date: _activeDate,
                       onGenerateCoach: _handleGenerateCoach,
@@ -643,7 +661,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             date: _activeDate,
                             entryType: _selectedEntryType,
                             draftRepository: _draftRepository,
-                            tagConfig: _tagConfig,
+                            tagConfig: _effectiveTagConfig,
                             tagHint: _tagConfigFailed ? '标签暂不可用' : null,
                             placeholder: _selectedEntryType.placeholder,
                           ),

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../models/ai_config.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
+import '../models/tag_settings.dart';
 import '../widgets/entry_type.dart';
 import 'polish_result_parser.dart';
 
@@ -67,6 +68,7 @@ class PolisherService {
     required EntryType entryType,
     required TagConfig tagConfig,
     required AIConfig config,
+    TagSettings? tagSettings,
   }) async {
     if (!config.isUsable) {
       throw Exception('AI 润色未启用或配置不完整');
@@ -84,7 +86,7 @@ class PolisherService {
     // First attempt
     var rawContent =
         await _callAI(config: config, systemPrompt: systemPrompt, userContent: content);
-    var result = const PolishResultParser().parse(rawContent, tagConfig);
+    var result = const PolishResultParser().parse(rawContent, tagConfig, tagSettings: tagSettings);
 
     if (result.tags.isNotEmpty) return result;
 
@@ -92,7 +94,7 @@ class PolisherService {
     final retryPrompt = '$systemPrompt\n\n$_retryInstruction';
     rawContent =
         await _callAI(config: config, systemPrompt: retryPrompt, userContent: content);
-    result = const PolishResultParser().parse(rawContent, tagConfig);
+    result = const PolishResultParser().parse(rawContent, tagConfig, tagSettings: tagSettings);
 
     return result;
   }

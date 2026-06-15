@@ -3,10 +3,15 @@ import 'package:flutter/material.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
 import '../services/habit_settings_repository.dart';
+import '../services/api_client.dart';
+import '../services/tag_repository.dart';
+import '../services/tag_settings_helper.dart';
+import '../services/tag_settings_repository.dart';
 import '../theme/app_theme.dart';
 import 'about_page.dart';
 import 'ai_settings_screen.dart';
 import 'habit_settings_screen.dart';
+import 'tag_settings_page.dart';
 import 'image_compress_page.dart';
 import 'placeholder_page.dart';
 import 'polish_prompt_page.dart';
@@ -31,12 +36,14 @@ class _SettingsPageState extends State<SettingsPage> {
   final _habitSettingsRepo = HabitSettingsRepository();
   final _aiConfigRepo = AIConfigRepository();
   int _activeHabitCount = 5;
+  int _tagCount = 0;
   String _aiModelName = '';
 
   @override
   void initState() {
     super.initState();
     _loadHabitCount();
+    _loadTagCount();
     _loadAIModelName();
   }
 
@@ -47,6 +54,42 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() => _activeHabitCount = settings.activeCount);
     } catch (_) {
       // 静默失败，保持默认
+    }
+  }
+
+  Future<void> _loadTagCount() async {
+    try {
+      final apiClient = ApiClient(widget.apiConfig);
+      final tagRepo = TagRepository(apiClient: apiClient);
+      final tagConfig = await tagRepo.loadTagConfig();
+      final tagSettingsRepo = TagSettingsRepository();
+      final tagSettings = await tagSettingsRepo.loadTagSettings(tagConfig);
+      if (!mounted) return;
+      setState(() => _tagCount = TagSettingsHelper.countEnabled(tagSettings));
+    } catch (_) {
+      // 静默失败，subtitle 保持"标签管理"
+    }
+  }
+
+  Future<void> _openTagSettings() async {
+    try {
+      final apiClient = ApiClient(widget.apiConfig);
+      final tagRepo = TagRepository(apiClient: apiClient);
+      final tagConfig = await tagRepo.loadTagConfig();
+      final tagSettingsRepo = TagSettingsRepository();
+      final tagSettings = await tagSettingsRepo.loadTagSettings(tagConfig);
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TagSettingsPage(
+            initialSettings: tagSettings,
+            tagConfig: tagConfig,
+          ),
+        ),
+      );
+      await _loadTagCount();
+    } catch (_) {
+      // 静默失败
     }
   }
 
@@ -103,8 +146,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     context,
                     icon: '🏷️',
                     title: '标签设置',
-                    subtitle: '标签管理',
-                    onTap: () => _push(context, PlaceholderPage(title: '标签设置')),
+                    subtitle: _tagCount > 0 ? '已启用 $_tagCount 个标签' : '标签管理',
+                    onTap: _openTagSettings,
                   ),
                   const SizedBox(height: 8),
 

@@ -33,11 +33,13 @@ import '../widgets/section_card.dart';
 class HomeScreen extends StatefulWidget {
   final ApiClient apiClient;
   final HabitSettingsRepository? habitSettingsRepo;
+  final Future<void> Function()? imageUploadHandler;
 
   const HomeScreen({
     super.key,
     required this.apiClient,
     this.habitSettingsRepo,
+    this.imageUploadHandler,
   });
 
   @override
@@ -56,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _draftRepository = DraftRepository();
   final _imageSettingsRepository = ImageSettingsRepository();
   final _imagePicker = ImagePicker();
+  final _scrollController = ScrollController();
   bool _imageUploading = false;
   bool _generatingCoach = false;
   HabitSettings? _habitSettings;
@@ -79,6 +82,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadDiary();
     _loadTagConfig();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTagConfig() async {
@@ -418,6 +427,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _startImageUpload() async {
+    final handler = widget.imageUploadHandler;
+    if (handler != null) {
+      await handler();
+      return;
+    }
+    await _handleImageUpload();
+  }
+
   Future<void> _handleGenerateCoach() async {
     if (_generatingCoach || _diary == null || _diary!.raw.isEmpty) return;
 
@@ -538,6 +556,105 @@ class _HomeScreenState extends State<HomeScreen> {
 
   DateTime get _activeDate => _diaryDate ?? DateTime.now();
 
+  Future<void> _showQuickRecordSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final theme = Theme.of(context);
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('快速记录', style: theme.textTheme.titleLarge),
+                  const SizedBox(height: 12),
+                  _buildQuickRecordItem(
+                    icon: '✍️',
+                    title: '随手记',
+                    key: const Key('quick_record_quick_note'),
+                    onTap: () => _selectQuickEntry(EntryType.quickNote),
+                  ),
+                  _buildQuickRecordItem(
+                    icon: '✨',
+                    title: '小确幸',
+                    key: const Key('quick_record_happiness'),
+                    onTap: () => _selectQuickEntry(EntryType.happiness),
+                  ),
+                  _buildQuickRecordItem(
+                    icon: '💡',
+                    title: '觉察',
+                    key: const Key('quick_record_reflection'),
+                    onTap: () => _selectQuickEntry(EntryType.reflection),
+                  ),
+                  _buildQuickRecordItem(
+                    icon: '😰',
+                    title: '焦虑四问',
+                    key: const Key('quick_record_anxiety'),
+                    onTap: () => _selectQuickEntry(EntryType.anxiety),
+                  ),
+                  _buildQuickRecordItem(
+                    icon: '📸',
+                    title: '添加图片',
+                    key: const Key('quick_record_image'),
+                    onTap: _selectImageUpload,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildQuickRecordItem({
+    required String icon,
+    required String title,
+    required Key key,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return ListTile(
+      key: key,
+      leading: Text(icon, style: const TextStyle(fontSize: 22)),
+      title: Text(title, style: theme.textTheme.bodyMedium),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+      minLeadingWidth: 28,
+      onTap: onTap,
+    );
+  }
+
+  void _selectQuickEntry(EntryType type) {
+    Navigator.of(context).pop();
+    setState(() => _selectedEntryType = type);
+    _scrollToComposer();
+  }
+
+  void _selectImageUpload() {
+    Navigator.of(context).pop();
+    _startImageUpload();
+  }
+
+  void _scrollToComposer() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -574,11 +691,20 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       backgroundColor: theme.scaffoldBackgroundColor,
+      floatingActionButton: FloatingActionButton(
+        key: const Key('quick_record_fab'),
+        tooltip: '快速记录',
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
+        onPressed: _showQuickRecordSheet,
+        child: const Icon(Icons.add),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadDiary,
               child: ListView(
+                controller: _scrollController,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   const SizedBox(height: 16),
@@ -640,7 +766,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           TextButton(
                             onPressed: _imageUploading
                                 ? null
-                                : _handleImageUpload,
+                                : _startImageUpload,
                             child: _imageUploading
                                 ? const SizedBox(
                                     width: 16,
@@ -684,7 +810,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 96),
                 ],
               ),
             ),

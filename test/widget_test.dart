@@ -137,6 +137,18 @@ class _FakeHttpClient extends http.BaseClient {
   }
 }
 
+class _RecordingHttpClient extends _FakeHttpClient {
+  final requestPaths = <String>[];
+
+  _RecordingHttpClient({required super.body});
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requestPaths.add('${request.method} ${request.url.path}');
+    return super.send(request);
+  }
+}
+
 class _CapturingHttpClient extends _FakeHttpClient {
   String? lastRequestBody;
 
@@ -634,6 +646,212 @@ void main() {
         expect(listView.physics, isA<AlwaysScrollableScrollPhysics>());
       },
     );
+  });
+
+  group('Quick record entry', () {
+    String todayDiaryBody() {
+      final now = DateTime.now();
+      return jsonEncode({
+        'date': ApiClient.formatDate(now),
+        'title': '今天',
+        'raw': '# 今天\n',
+        'sections': {},
+      });
+    }
+
+    ApiClient homeClient(http.BaseClient httpClient) {
+      return ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: httpClient,
+      );
+    }
+
+    Widget buildHome({
+      ThemeData? theme,
+      Future<void> Function()? imageUploadHandler,
+      http.BaseClient? httpClient,
+    }) {
+      return MaterialApp(
+        theme: theme,
+        home: HomeScreen(
+          apiClient: homeClient(
+            httpClient ?? _FakeHttpClient(body: todayDiaryBody()),
+          ),
+          habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          imageUploadHandler: imageUploadHandler,
+        ),
+      );
+    }
+
+    testWidgets('HomeScreen shows quick record FAB', (tester) async {
+      await tester.pumpWidget(buildHome());
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('quick_record_fab')), findsOneWidget);
+    });
+
+    testWidgets('PastScreen does not show quick record FAB', (tester) async {
+      final client = homeClient(
+        _FakeHttpClient(
+          body: jsonEncode({
+            'year': DateTime.now().year,
+            'month': DateTime.now().month,
+            'diaries': [],
+            'raw': '',
+          }),
+        ),
+      );
+
+      await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('quick_record_fab')), findsNothing);
+    });
+
+    testWidgets('HabitStatsScreen does not show quick record FAB', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _HabitTestHttpClient(
+          year: now.year,
+          month: now.month,
+          waterByDay: {},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HabitStatsScreen(
+            apiClient: client,
+            cacheRepo: HabitStatsCacheRepository(storage: _MemoryStorage()),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('quick_record_fab')), findsNothing);
+    });
+
+    testWidgets('FAB opens quick record bottom sheet with five entries', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildHome());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('快速记录'), findsWidgets);
+      expect(find.byKey(const Key('quick_record_quick_note')), findsOneWidget);
+      expect(find.byKey(const Key('quick_record_happiness')), findsOneWidget);
+      expect(find.byKey(const Key('quick_record_reflection')), findsOneWidget);
+      expect(find.byKey(const Key('quick_record_anxiety')), findsOneWidget);
+      expect(find.byKey(const Key('quick_record_image')), findsOneWidget);
+      expect(find.text('随手记'), findsWidgets);
+      expect(find.text('小确幸'), findsWidgets);
+      expect(find.text('觉察'), findsWidgets);
+      expect(find.text('焦虑四问'), findsOneWidget);
+      expect(find.text('添加图片'), findsWidgets);
+    });
+
+    testWidgets('image entry calls existing image upload handler', (
+      tester,
+    ) async {
+      var called = false;
+      await tester.pumpWidget(
+        buildHome(imageUploadHandler: () async => called = true),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_record_image')));
+      await tester.pumpAndSettle();
+
+      expect(called, isTrue);
+      expect(find.byKey(const Key('quick_record_image')), findsNothing);
+    });
+
+    testWidgets('anxiety entry opens existing anxiety flow', (tester) async {
+      await tester.pumpWidget(buildHome());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_record_anxiety')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
+    });
+
+    testWidgets('selecting text entries does not write empty content', (
+      tester,
+    ) async {
+      final httpClient = _RecordingHttpClient(body: todayDiaryBody());
+      await tester.pumpWidget(buildHome(httpClient: httpClient));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_record_happiness')));
+      await tester.pumpAndSettle();
+
+      expect(
+        httpClient.requestPaths.any(
+          (path) => path.startsWith('POST /api/v1/diary/happiness'),
+        ),
+        isFalse,
+      );
+      expect(find.text('今天有什么小确幸？'), findsOneWidget);
+    });
+
+    testWidgets('closing bottom sheet does not write content', (tester) async {
+      final httpClient = _RecordingHttpClient(body: todayDiaryBody());
+      await tester.pumpWidget(buildHome(httpClient: httpClient));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      expect(
+        httpClient.requestPaths.any(
+          (path) =>
+              path.startsWith('POST /api/v1/diary/quick-note') ||
+              path.startsWith('POST /api/v1/diary/happiness') ||
+              path.startsWith('POST /api/v1/diary/reflection') ||
+              path.startsWith('POST /api/v1/diary/anxiety'),
+        ),
+        isFalse,
+      );
+    });
+
+    testWidgets('FAB and bottom sheet are readable in dark mode', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildHome(theme: AppTheme.dark));
+      await tester.pumpAndSettle();
+
+      final fab = tester.widget<FloatingActionButton>(
+        find.byKey(const Key('quick_record_fab')),
+      );
+      expect(fab.backgroundColor, AppColors.darkPrimary);
+      expect(fab.foregroundColor, Colors.black);
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('快速记录'), findsWidgets);
+      expect(find.text('焦虑四问'), findsOneWidget);
+    });
   });
 
   test(

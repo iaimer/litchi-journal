@@ -63,11 +63,21 @@ Flutter 端已建立的领域组件：
 - 习惯打卡 → `HabitCard`（checkbox toggle + counter 快捷按钮）
 - 随手记 → `QuickNoteTimeline`（条目渲染 + 编辑/删除）
 - 焦虑时刻 → `AnxietyCard` / `AnxietyComposer`
+- 快速记录入口 → 今日页右下角 FAB 扇形菜单，统一进入 `QuickCaptureScreen`、`AnxietyScreen` 或图片上传
 - 觉察 → `ReviewCard` → `GenericSectionCard`（含 `_TimelineDeleteRow`）
 - 小确幸 → `GenericSectionCard`（含 `_TimelineDeleteRow`）
 - Callout → `_buildCallout`（在 `GenericSectionCard` 内）
 
 组件命名应表达产品语义，而不是 Markdown 语法。
+
+## 快速记录入口规则
+
+- 今天页只保留日记内容展示和右下角快速记录 FAB，不再放置首页内联快速记录输入区。
+- FAB 子入口只负责路由或调用已有处理函数，不重写保存逻辑。
+- 随手记、觉察、小确幸统一进入 `QuickCaptureScreen`。
+- 焦虑四问进入 `AnxietyScreen`，继续复用 `AnxietyComposer` 的逐问润色与保存逻辑。
+- 图片入口直接调用现有图片选择、压缩、上传、刷新流程。
+- FAB 扇形菜单使用极坐标计算位置；避免回退到手写固定 x/y 坐标。
 
 ## 开发约束
 

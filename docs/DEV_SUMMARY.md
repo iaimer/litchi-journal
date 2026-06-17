@@ -1121,3 +1121,61 @@ could not install *smartsocket* listener: Operation not permitted
 - home_screen 从设置页返回时调用 `_loadTagConfig()` 刷新 `_tagSettings`，触发 `_effectiveTagConfig` getter 重新计算。
 - 隐藏标签通过两层过滤：`_getAllKnownTags` 只含 enabled 标签 → 不会提取为 tag；`_getDisabledTagNames` 标记 disabled 标签 → 正文中清除。
 - 编辑旧记录时，`_TimelineDeleteRow` 和 `_QuickNoteRow` 均传递 tagSettings 到 EntryEditSheet。
+
+---
+
+## 29. Sprint 29：快速记录入口 V2/V3
+
+### 29.1 背景
+
+今天页早期存在内联快速记录卡片：通过 Tab 在随手记、觉察、小确幸、焦虑四问之间切换。真实使用后确认，首页内联输入区会挤压阅读空间，也让入口分散。
+
+本轮目标是让右下角 FAB 成为 Flora 唯一的快速记录入口。首页恢复为“内容展示 + FAB”，记录行为进入对应二级页面或调用既有图片上传流程。
+
+### 29.2 改动内容
+
+- 新增 `QuickCaptureScreen`：随手记、觉察、小确幸共用独立二级记录页。
+- 新增 `AnxietyScreen`：焦虑四问进入独立页面，继续复用 `AnxietyComposer` 的逐问润色、草稿、保存逻辑。
+- 今日页删除内联快速记录卡片，不再显示随手记/觉察/小确幸/焦虑 Tab。
+- FAB 展开为 icon-only 圆形子按钮：`✍️`、`💡`、`✨`、`😰`、`📸`。
+- FAB 子按钮改用极坐标计算位置，避免手写固定坐标。
+- 根据使用频率调整入口顺序：随手记、觉察、小确幸优先，焦虑四问和图片作为相对低频入口。
+- 焦虑四问输入区域放大：第一问 5 行，其余问题 4 行，保留最多 8 行自动扩展。
+
+### 29.3 当前 FAB 参数
+
+| 项目 | 数值 |
+|------|------|
+| 主按钮尺寸 | 56dp |
+| 子按钮视觉尺寸 | 42dp |
+| 子按钮点击热区 | 48dp |
+| 扇形半径 | 120dp |
+| 随手记角度 | 180° |
+| 觉察角度 | 155° |
+| 小确幸角度 | 130° |
+| 焦虑四问角度 | 105° |
+| 图片角度 | 82° |
+
+### 29.4 关键边界
+
+- 本轮不修改服务端。
+- 本轮不修改 Markdown 格式。
+- FAB 子入口不重写保存逻辑，只复用现有 `QuickCaptureScreen`、`AnxietyScreen` 和 `_handleImageUpload()`。
+- 焦虑四问不再回到首页旧快速记录区。
+
+### 29.5 验证状态
+
+- `dart analyze lib test`：通过
+- Flutter 级 `analyze --no-pub`：通过
+- `flutter build apk --release`：通过，生成 `build/app/outputs/flutter-apk/app-release.apk`
+- 真机验证：快速记录入口功能正常
+
+### 29.6 注意事项
+
+当前执行环境运行 `flutter test` 时，Flutter tester 无法创建本地临时 socket：
+
+```text
+Failed to create server socket (OS Error: Operation not permitted)
+```
+
+该限制来自当前沙箱环境，不是测试用例本身失败。相关 FAB 和焦虑页面测试已随实现更新，后续在本机普通终端可继续运行完整 `flutter test`。

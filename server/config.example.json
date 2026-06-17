@@ -1,0 +1,5 @@
+{
+  "vaultPath": "/path/to/your/Obsidian Vault",
+  "apiToken": "REPLACE_WITH_A_RANDOM_TOKEN",
+  "port": 4001
+}

@@ -1,8 +1,8 @@
-# 荔枝日记 Flutter 客户端项目规则
+# 荔枝日记项目规则
 
 ## 产品定位
 
-荔枝日记 Flutter 客户端是独立的原生产品，不是 Web 版复刻。
+荔枝日记当前仓库包含 Flutter 原生客户端和 `server/` API 服务端。Flutter 客户端是独立的原生产品，不是 Web 版复刻；原 Web 端服务端已经迁入本仓库，后续服务端开发以 `server/` 为准。
 
 Flutter 客户端负责：
 
@@ -26,6 +26,12 @@ Flutter 客户端不负责：
 - Obsidian Vault 兼容
 - 数据同步
 - API 输出
+
+服务端代码位置：
+
+- `server/` — TypeScript/Express API 服务端
+- `server/config.example.json` — 本地配置模板
+- `server/config.json` — 本地私有配置，禁止提交
 
 ## 架构原则
 
@@ -175,4 +181,3 @@ flutter test
 **全程使用中文。** 包括对话回复、代码注释、思考过程、agent 内部推理均使用中文。仅代码、标识符、文件路径、shell 命令、技术术语保留原文。
 
 除非用户明确要求使用英文，否则所有面向用户和非面向用户的输出都应使用中文。
-

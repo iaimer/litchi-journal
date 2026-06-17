@@ -1,0 +1,27 @@
+{
+  "name": "litchi-journal-api-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop diary-api",
+    "pm2:logs": "pm2 logs diary-api",
+    "pm2:restart": "pm2 restart diary-api",
+    "deploy": "./deploy.sh",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.8"
+  }
+}

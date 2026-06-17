@@ -1,15 +1,15 @@
-# 荔枝日记 Flutter 客户端
+# 荔枝日记
 
-荔枝日记 Flutter 客户端是独立的原生移动端产品，不是 Web 端复刻。
+荔枝日记当前仓库包含 Flutter 原生客户端和 API 服务端。
 
-客户端负责 UI、状态管理和 API 调用；服务端负责 Markdown 读写、Obsidian Vault 兼容和数据同步。
+Flutter 客户端负责 UI、状态管理和 API 调用；`server/` 负责 Markdown 读写、Obsidian Vault 兼容和数据同步。原 Web 端服务端已经迁入本仓库，后续服务端开发以这里为准。
 
 ## 当前状态
 
 当前版本定位：
 
 ```text
-文字 + 图片 + 过往回看功能对齐版
+Flutter 客户端 + 本仓库 API 服务端版
 ```
 
 截至提交 `17f75c1`，已完成：
@@ -66,3 +66,49 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 - 习惯管理设置
 - 远程 API 配置编辑
 - Open Design 全局 UI 重设计
+
+## 服务端
+
+服务端位于 `server/`，是从原 Web 项目迁入的 TypeScript/Express API。
+
+本地配置不会提交到 Git。第一次运行前复制模板：
+
+```bash
+cd server
+cp config.example.json config.json
+```
+
+然后编辑 `config.json`：
+
+```json
+{
+  "vaultPath": "/path/to/your/Obsidian Vault",
+  "apiToken": "<YOUR_PRIVATE_TOKEN>",
+  "port": 4001
+}
+```
+
+常用命令：
+
+```bash
+cd server
+npm install
+npm run build
+npm test
+npm run dev
+```
+
+Mac mini 部署：
+
+```bash
+cd server
+./deploy.sh
+```
+
+健康检查：
+
+```bash
+curl http://localhost:4001/health
+```
+
+图片上传接口已支持可选 `imagePrefix`。旧客户端不传时继续生成 `Image-YYYYMMDD-NNN.jpg`；Flutter 新客户端传入合法前缀时会生成 `{prefix}-YYYYMMDD-NNN.jpg`。

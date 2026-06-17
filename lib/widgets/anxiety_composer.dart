@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../services/draft_repository.dart';
-import '../theme/app_theme.dart';
 import 'entry_type.dart';
 
 const _questions = [
@@ -50,9 +49,11 @@ class AnxietyComposer extends StatefulWidget {
         if (line == '- $questionText' ||
             line.startsWith('- ') && line.contains(questionText)) {
           final buffer = StringBuffer();
-          for (int k = j + 1;
-              k < lines.length && lines[k].trim().startsWith('> ');
-              k++) {
+          for (
+            int k = j + 1;
+            k < lines.length && lines[k].trim().startsWith('> ');
+            k++
+          ) {
             if (buffer.isNotEmpty) buffer.write('\n');
             buffer.write(lines[k].trim().substring(2));
           }
@@ -219,9 +220,11 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
       _saveDraft();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString().contains('请先在设置中启用')
-          ? e.toString().replaceFirst('Exception: ', '')
-          : '润色失败，请重试');
+      setState(
+        () => _error = e.toString().contains('请先在设置中启用')
+            ? e.toString().replaceFirst('Exception: ', '')
+            : '润色失败，请重试',
+      );
     } finally {
       if (mounted) setState(() => _polishing = false);
     }
@@ -274,6 +277,10 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final progress = (_step + 1) / _questions.length;
+    final inputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -286,8 +293,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: progress,
-                  backgroundColor:
-                      theme.colorScheme.surfaceContainerHighest,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 ),
               ),
             ),
@@ -305,7 +311,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
             child: Text(
               '编辑今日焦虑记录',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.primary,
+                color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -320,8 +326,19 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
         const SizedBox(height: 8),
         TextField(
           controller: _controllers[_step],
+          style: TextStyle(color: theme.colorScheme.onSurface),
           decoration: InputDecoration(
             hintText: _placeholders[_step],
+            hintStyle: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
+            ),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+            enabledBorder: inputBorder,
+            disabledBorder: inputBorder,
+            focusedBorder: inputBorder.copyWith(
+              borderSide: BorderSide(color: theme.colorScheme.primary),
+            ),
           ),
           minLines: 2,
           maxLines: 8,
@@ -339,16 +356,13 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
                   ? const SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 1.5),
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
                     )
-                  : const Text('✨',
-                      style: TextStyle(fontSize: 14)),
+                  : const Text('✨', style: TextStyle(fontSize: 14)),
               label: const Text('润色当前回答'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(
-                    color: AppColors.primary, width: 0.5),
+                foregroundColor: theme.colorScheme.primary,
+                side: BorderSide(color: theme.colorScheme.primary, width: 0.5),
               ),
             ),
           ),
@@ -359,10 +373,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
               _error!,
-              style: TextStyle(
-                color: theme.colorScheme.error,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: theme.colorScheme.error, fontSize: 13),
             ),
           ),
         Row(
@@ -375,9 +386,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
               ),
             if (widget.onClose != null)
               TextButton(
-                onPressed: _saving
-                    ? null
-                    : () => widget.onClose?.call(),
+                onPressed: _saving ? null : () => widget.onClose?.call(),
                 child: const Text('关闭'),
               ),
             const Spacer(),

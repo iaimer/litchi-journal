@@ -122,11 +122,32 @@ class GenericSectionCard extends StatelessWidget {
 
   MarkdownStyleSheet _baseStyleSheet(BuildContext context, {Color? textColor}) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final quoteTextColor = textColor ?? theme.colorScheme.onSurface;
+    final quoteBackground = isDark
+        ? theme.colorScheme.primary.withAlpha(24)
+        : Colors.blue.shade50;
+    final quoteBorderColor = isDark
+        ? theme.colorScheme.primary.withAlpha(120)
+        : Colors.blue.shade200;
     var sheet = MarkdownStyleSheet.fromTheme(theme).copyWith(
       h2: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
       h3: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
       p: theme.textTheme.bodyMedium,
       listBullet: theme.textTheme.bodyMedium,
+      blockquote: theme.textTheme.bodyMedium?.copyWith(
+        color: quoteTextColor,
+        height: 1.6,
+      ),
+      blockquotePadding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
+      blockquoteDecoration: BoxDecoration(
+        color: quoteBackground,
+        borderRadius: BorderRadius.circular(4),
+        border: Border(left: BorderSide(color: quoteBorderColor, width: 3)),
+      ),
       horizontalRuleDecoration: BoxDecoration(
         border: Border(
           top: BorderSide(color: theme.dividerColor, width: 1),

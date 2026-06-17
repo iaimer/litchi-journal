@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
@@ -61,6 +62,7 @@ import 'package:litchi_journal_flutter/services/image_settings_repository.dart';
 import 'package:litchi_journal_flutter/services/appearance_settings_repository.dart';
 
 import 'package:litchi_journal_flutter/screens/appearance_settings_page.dart';
+import 'package:litchi_journal_flutter/theme/app_theme.dart';
 
 TagConfig _testTagConfig() {
   return TagConfig(
@@ -2095,8 +2097,10 @@ tags:
       DraftRepository? draftRepository,
       List<String>? initialAnswers,
       bool isEdit = false,
+      ThemeData? theme,
     }) {
       return MaterialApp(
+        theme: theme,
         home: Scaffold(
           body: AnxietyComposer(
             onSubmit: onSubmit,
@@ -2116,6 +2120,20 @@ tags:
 
       expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
       expect(find.text('1/4'), findsOneWidget);
+    });
+
+    testWidgets('dark mode keeps answer field readable', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        buildComposer(onSubmit: (_, _) async {}, theme: AppTheme.dark),
+      );
+
+      final textField = tester.widget<TextField>(find.byType(TextField));
+      final decoration = textField.decoration!;
+      expect(textField.style?.color, AppColors.darkTextPrimary);
+      expect(decoration.fillColor, AppColors.darkSurface);
+      expect(decoration.hintStyle?.color, isNot(AppColors.darkSurface));
     });
 
     testWidgets('next button advances to second question', (
@@ -2891,6 +2909,36 @@ tags:
     // Verify the card has content by checking SectionCard is rendered
     expect(find.byType(AnxietyCard), findsOneWidget);
   });
+
+  testWidgets(
+    'AnxietyCard keeps saved answer blockquote readable in dark mode',
+    (WidgetTester tester) async {
+      final section = AnxietySection(
+        title: '😰 焦虑时刻',
+        contents: [
+          MarkdownContent(
+            '- 今天什么时候我感到焦虑/紧张？\n'
+            '> 今天送小宝去幼儿园时，她迟到了。',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(body: AnxietyCard(section: section)),
+        ),
+      );
+
+      final markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+      final blockquoteDecoration =
+          markdown.styleSheet?.blockquoteDecoration as BoxDecoration?;
+
+      expect(markdown.styleSheet?.blockquote?.color, AppColors.darkTextPrimary);
+      expect(blockquoteDecoration?.color, AppColors.darkPrimary.withAlpha(24));
+      expect(blockquoteDecoration?.color, isNot(Colors.blue.shade50));
+    },
+  );
 
   group('HabitCard', () {
     test('HabitStatus.fromHabitSection maps 5 fields', () {
@@ -7514,11 +7562,12 @@ tags:
       );
     }
 
-    testWidgets('shows header and section groups', (tester) async {
+    testWidgets('shows app bar and section groups', (tester) async {
       await tester.pumpWidget(buildPage());
 
       expect(find.text('设置'), findsOneWidget);
-      expect(find.text('管理你的日记应用'), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      expect(find.text('管理你的日记应用'), findsNothing);
       expect(find.text('常用'), findsOneWidget);
       expect(find.text('连接与智能'), findsOneWidget);
 
@@ -7526,6 +7575,42 @@ tags:
       await tester.pumpAndSettle();
 
       expect(find.text('媒体与应用'), findsOneWidget);
+    });
+
+    testWidgets('back button pops SettingsPage', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SettingsPage(
+                        apiConfig: ApiConfig(
+                          baseUrl: 'https://obsidian.femkits.org',
+                          token: '',
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('打开设置'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('打开设置'));
+      await tester.pumpAndSettle();
+      expect(find.text('设置'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      expect(find.text('打开设置'), findsOneWidget);
+      expect(find.text('设置'), findsNothing);
     });
 
     testWidgets('shows all menu items', (tester) async {

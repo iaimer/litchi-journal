@@ -32,6 +32,7 @@ import 'package:litchi_journal_flutter/models/habit_visual_config.dart';
 import 'package:litchi_journal_flutter/models/image_settings.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
+import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
 import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
@@ -794,6 +795,46 @@ void main() {
       expect(find.byKey(const Key('quick_record_image')), findsNothing);
     });
 
+    testWidgets('quick note entry opens QuickCaptureScreen', (tester) async {
+      await tester.pumpWidget(buildHome());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_record_quick_note')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
+      expect(find.text('随手记'), findsOneWidget);
+      expect(find.text('记录时间'), findsOneWidget);
+    });
+
+    testWidgets('happiness entry opens QuickCaptureScreen', (tester) async {
+      await tester.pumpWidget(buildHome());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_record_happiness')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
+      expect(find.text('小确幸'), findsOneWidget);
+    });
+
+    testWidgets('reflection entry opens QuickCaptureScreen', (tester) async {
+      await tester.pumpWidget(buildHome());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_record_reflection')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
+      expect(find.text('觉察'), findsOneWidget);
+    });
+
     testWidgets('anxiety entry opens existing anxiety flow', (tester) async {
       await tester.pumpWidget(buildHome());
       await tester.pumpAndSettle();
@@ -804,6 +845,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
+      expect(find.text('记录时间'), findsNothing);
+      expect(find.byType(TagPicker), findsNothing);
     });
 
     testWidgets('selecting text entries does not write empty content', (
@@ -816,6 +859,9 @@ void main() {
       await tester.tap(find.byKey(const Key('quick_record_fab')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('quick_record_happiness')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
       expect(
@@ -867,6 +913,195 @@ void main() {
 
       expect(find.byKey(const Key('quick_record_quick_note')), findsOneWidget);
       expect(find.text('焦虑四问'), findsOneWidget);
+    });
+
+    testWidgets('quick capture save returns home and refreshes diary', (
+      tester,
+    ) async {
+      final httpClient = _RecordingHttpClient(body: todayDiaryBody());
+      await tester.pumpWidget(buildHome(httpClient: httpClient));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_record_quick_note')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), '统一记录测试');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickCaptureScreen), findsNothing);
+      expect(find.text('已保存'), findsOneWidget);
+      expect(
+        httpClient.requestPaths.any(
+          (path) => path.startsWith('POST /api/v1/diary/quick-note'),
+        ),
+        isTrue,
+      );
+      expect(
+        httpClient.requestPaths.where(
+          (path) => path.startsWith('GET /api/v1/diary/'),
+        ),
+        isNotEmpty,
+      );
+    });
+  });
+
+  group('QuickCaptureScreen', () {
+    Widget buildCapture({
+      EntryType entryType = EntryType.quickNote,
+      DateTime? openedAt,
+      TagConfig? tagConfig,
+      String? tagHint,
+      Future<PolishResult> Function(String content, EntryType entryType)?
+      onPolish,
+      Future<TimeOfDay?> Function(BuildContext, TimeOfDay)? timePicker,
+      Future<void> Function(String, List<String>, String)? onSave,
+    }) {
+      return MaterialApp(
+        home: QuickCaptureScreen(
+          entryType: entryType,
+          openedAt: openedAt ?? DateTime(2026, 6, 17, 21, 35),
+          tagConfig: tagConfig,
+          tagHint: tagHint,
+          onPolish: onPolish,
+          timePicker: timePicker,
+          onSave: onSave ?? (_, _, _) async {},
+        ),
+      );
+    }
+
+    testWidgets('shows time picker, polish button, and bottom save', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildCapture());
+
+      expect(find.text('随手记'), findsOneWidget);
+      expect(find.text('记录时间'), findsOneWidget);
+      expect(find.text('今天 21:35'), findsOneWidget);
+      expect(find.text('AI 润色'), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, '保存'), findsOneWidget);
+    });
+
+    testWidgets('default time is captured when screen opens', (tester) async {
+      String? savedTime;
+      await tester.pumpWidget(
+        buildCapture(
+          openedAt: DateTime(2026, 6, 17, 8, 5),
+          onSave: (_, _, time) async => savedTime = time,
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '早上的记录');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(savedTime, '08:05');
+    });
+
+    testWidgets('changed time is used when saving', (tester) async {
+      String? savedTime;
+      await tester.pumpWidget(
+        buildCapture(
+          timePicker: (_, _) async => const TimeOfDay(hour: 22, minute: 10),
+          onSave: (_, _, time) async => savedTime = time,
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('quick_capture_time_tile')));
+      await tester.pumpAndSettle();
+      expect(find.text('今天 22:10'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '晚上补记');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(savedTime, '22:10');
+    });
+
+    testWidgets('tags can be selected and saved', (tester) async {
+      List<String>? savedTags;
+      await tester.pumpWidget(
+        buildCapture(
+          tagConfig: _testTagConfig(),
+          onSave: (_, tags, _) async => savedTags = tags,
+        ),
+      );
+
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('工作'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '带标签的记录');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(savedTags, contains('工作'));
+    });
+
+    testWidgets('AI polish updates content and tags', (tester) async {
+      await tester.pumpWidget(
+        buildCapture(
+          tagConfig: _testTagConfig(),
+          onPolish: (_, entryType) async {
+            expect(entryType, EntryType.quickNote);
+            return const PolishResult(content: '润色后的内容', tags: ['工作']);
+          },
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '原始内容');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'AI 润色'));
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.controller?.text, '润色后的内容');
+      expect(find.text('工作'), findsWidgets);
+    });
+
+    testWidgets('save failure keeps content and tags', (tester) async {
+      await tester.pumpWidget(
+        buildCapture(
+          tagConfig: _testTagConfig(),
+          onSave: (_, _, _) async => throw Exception('fail'),
+        ),
+      );
+
+      await tester.tap(find.text('🏷️ 标签'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('工作'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '不要丢');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('保存失败，请重试', skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
+      expect(find.text('不要丢'), findsOneWidget);
+      expect(find.text('工作'), findsWidgets);
+    });
+
+    testWidgets('back with content asks before discard', (tester) async {
+      await tester.pumpWidget(buildCapture());
+
+      await tester.enterText(find.byType(TextField), '未保存内容');
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      expect(find.text('放弃记录？'), findsOneWidget);
+      await tester.tap(find.text('继续编辑'));
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
     });
   });
 
@@ -6153,6 +6388,31 @@ tags:
       final result = await api.replaceAnxiety(DateTime(2026, 6, 7), 'test');
 
       expect(result, isTrue);
+    });
+  });
+
+  group('ApiClient append entries', () {
+    test('appendQuickNote sends selected time when provided', () async {
+      final client = _CapturingClient();
+      final api = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: client,
+      );
+
+      await api.appendQuickNote(
+        DateTime(2026, 6, 17),
+        '测试',
+        tags: ['工作'],
+        time: '21:35',
+      );
+
+      final body = jsonDecode(client.lastBody!) as Map<String, dynamic>;
+      expect(client.lastUrl, contains('/api/v1/diary/quick-note'));
+      expect(body['date'], '2026-06-17');
+      expect(body['content'], '测试');
+      expect(body['tags'], ['工作']);
+      expect(body['time'], '21:35');
+      expect(body['operationId'], isA<String>());
     });
   });
 

@@ -8,6 +8,7 @@ import '../models/image_settings.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
+import '../screens/quick_capture_screen.dart';
 import '../screens/settings_page.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
@@ -180,18 +181,39 @@ class _HomeScreenState extends State<HomeScreen> {
     EntryType type,
     DateTime date,
     String content,
-    List<String> tags,
-  ) async {
+    List<String> tags, {
+    String? time,
+  }) async {
     Future<bool> call() {
       switch (type) {
         case EntryType.quickNote:
-          return widget.apiClient.appendQuickNote(date, content, tags: tags);
+          return widget.apiClient.appendQuickNote(
+            date,
+            content,
+            tags: tags,
+            time: time,
+          );
         case EntryType.reflection:
-          return widget.apiClient.appendReflection(date, content, tags: tags);
+          return widget.apiClient.appendReflection(
+            date,
+            content,
+            tags: tags,
+            time: time,
+          );
         case EntryType.happiness:
-          return widget.apiClient.appendHappiness(date, content, tags: tags);
+          return widget.apiClient.appendHappiness(
+            date,
+            content,
+            tags: tags,
+            time: time,
+          );
         case EntryType.anxiety:
-          return widget.apiClient.appendAnxiety(date, content, tags: tags);
+          return widget.apiClient.appendAnxiety(
+            date,
+            content,
+            tags: tags,
+            time: time,
+          );
       }
     }
 
@@ -378,6 +400,22 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
     ).showSnackBar(const SnackBar(content: Text('已保存')));
     _loadDiarySilently();
+  }
+
+  Future<void> _handleQuickCaptureSave(
+    EntryType type,
+    String content,
+    List<String> tags,
+    String time,
+  ) async {
+    final success = await _appendEntry(
+      type,
+      _activeDate,
+      content,
+      tags,
+      time: time,
+    );
+    if (!success) throw Exception('保存失败');
   }
 
   Future<void> _handleImageUpload() async {
@@ -664,11 +702,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _selectQuickEntry(EntryType type) {
-    setState(() {
-      _quickRecordExpanded = false;
-      _selectedEntryType = type;
-    });
-    _scrollToComposer();
+    if (type == EntryType.anxiety) {
+      setState(() {
+        _quickRecordExpanded = false;
+        _selectedEntryType = type;
+      });
+      _scrollToComposer();
+      return;
+    }
+
+    setState(() => _quickRecordExpanded = false);
+    _openQuickCapture(type);
+  }
+
+  Future<void> _openQuickCapture(EntryType type) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => QuickCaptureScreen(
+          entryType: type,
+          openedAt: DateTime.now(),
+          tagConfig: _effectiveTagConfig,
+          tagHint: _tagConfigFailed ? '标签暂不可用' : null,
+          onPolish: _handlePolish,
+          onSave: (content, tags, time) {
+            return _handleQuickCaptureSave(type, content, tags, time);
+          },
+        ),
+      ),
+    );
+
+    if (!mounted || saved != true) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已保存')));
+    _loadDiarySilently();
   }
 
   void _selectImageUpload() {
@@ -724,121 +791,131 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: _buildQuickRecordFab(theme),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadDiary,
-              child: ListView(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  const SizedBox(height: 16),
-                  if (_error != null) ...[
-                    Text(
-                      _error!,
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          if (_quickRecordExpanded) {
+            setState(() => _quickRecordExpanded = false);
+          }
+        },
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _loadDiary,
+                child: ListView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
                     const SizedBox(height: 16),
-                  ],
-                  if (_diary != null && _diary!.raw.isNotEmpty) ...[
-                    DiaryMarkdownView(
-                      markdown: _diary!.raw,
-                      onHabitUpdate: _handleHabitUpdate,
-                      onEntryDelete: _handleEntryDelete,
-                      onEntryEdit: _handleEntryEdit,
-                      tagConfig: _tagConfig,
-                      tagSettings: _tagSettings,
-                      apiClient: widget.apiClient,
-                      date: _activeDate,
-                      onGenerateCoach: _handleGenerateCoach,
-                      generatingCoach: _generatingCoach,
-                      activeHabitKeys: _activeHabitKeys,
-                      habitSettings: _habitSettings ?? HabitSettings.defaults,
-                    ),
-                  ] else ...[
-                    Text(
-                      '今日还没有日记内容',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    if (_error != null) ...[
+                      Text(
+                        _error!,
+                        style: TextStyle(color: theme.colorScheme.error),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 32),
-                  Card(
-                    color: theme.colorScheme.surface,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                      const SizedBox(height: 16),
+                    ],
+                    if (_diary != null && _diary!.raw.isNotEmpty) ...[
+                      DiaryMarkdownView(
+                        markdown: _diary!.raw,
+                        onHabitUpdate: _handleHabitUpdate,
+                        onEntryDelete: _handleEntryDelete,
+                        onEntryEdit: _handleEntryEdit,
+                        tagConfig: _tagConfig,
+                        tagSettings: _tagSettings,
+                        apiClient: widget.apiClient,
+                        date: _activeDate,
+                        onGenerateCoach: _handleGenerateCoach,
+                        generatingCoach: _generatingCoach,
+                        activeHabitKeys: _activeHabitKeys,
+                        habitSettings: _habitSettings ?? HabitSettings.defaults,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.add_a_photo_outlined,
-                            size: 20,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              '添加照片',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontSize: 14,
+                    ] else ...[
+                      Text(
+                        '今日还没有日记内容',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 32),
+                    Card(
+                      color: theme.colorScheme.surface,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.add_a_photo_outlined,
+                              size: 20,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '添加照片',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
-                          ),
-                          TextButton(
-                            onPressed: _imageUploading
-                                ? null
-                                : _startImageUpload,
-                            child: _imageUploading
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text('选择图片'),
-                          ),
-                        ],
+                            TextButton(
+                              onPressed: _imageUploading
+                                  ? null
+                                  : _startImageUpload,
+                              child: _imageUploading
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('选择图片'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  SectionCard(
-                    title: '快速记录',
-                    children: [
-                      EntryTypeSelector(
-                        selected: _selectedEntryType,
-                        onChanged: (type) {
-                          setState(() => _selectedEntryType = type);
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      if (_selectedEntryType == EntryType.anxiety) ...[
-                        _buildAnxietyInput(),
-                      ] else
-                        KeyedSubtree(
-                          key: ValueKey('composer_${_selectedEntryType.name}'),
-                          child: QuickNoteComposer(
-                            onSubmit: _handleEntrySubmit,
-                            onPolish: _handlePolish,
-                            date: _activeDate,
-                            entryType: _selectedEntryType,
-                            draftRepository: _draftRepository,
-                            tagConfig: _effectiveTagConfig,
-                            tagHint: _tagConfigFailed ? '标签暂不可用' : null,
-                            placeholder: _selectedEntryType.placeholder,
-                          ),
+                    const SizedBox(height: 16),
+                    SectionCard(
+                      title: '快速记录',
+                      children: [
+                        EntryTypeSelector(
+                          selected: _selectedEntryType,
+                          onChanged: (type) {
+                            setState(() => _selectedEntryType = type);
+                          },
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 96),
-                ],
+                        const SizedBox(height: 10),
+                        if (_selectedEntryType == EntryType.anxiety) ...[
+                          _buildAnxietyInput(),
+                        ] else
+                          KeyedSubtree(
+                            key: ValueKey(
+                              'composer_${_selectedEntryType.name}',
+                            ),
+                            child: QuickNoteComposer(
+                              onSubmit: _handleEntrySubmit,
+                              onPolish: _handlePolish,
+                              date: _activeDate,
+                              entryType: _selectedEntryType,
+                              draftRepository: _draftRepository,
+                              tagConfig: _effectiveTagConfig,
+                              tagHint: _tagConfigFailed ? '标签暂不可用' : null,
+                              placeholder: _selectedEntryType.placeholder,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 96),
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }

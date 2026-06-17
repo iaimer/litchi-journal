@@ -111,8 +111,9 @@ class ApiClient {
     String section,
     DateTime date,
     String content,
-    List<String> tags,
-  ) async {
+    List<String> tags, {
+    String? time,
+  }) async {
     final response = await _http.post(
       Uri.parse('$_baseUrl/api/v1/diary/$section'),
       headers: _headers,
@@ -120,7 +121,7 @@ class ApiClient {
         'date': formatDate(date),
         'content': content,
         'tags': tags,
-        'time': formatTime(DateTime.now()),
+        'time': time ?? formatTime(DateTime.now()),
         'operationId': generateUuidV4(),
       }),
     );
@@ -131,32 +132,36 @@ class ApiClient {
     DateTime date,
     String content, {
     List<String> tags = const [],
+    String? time,
   }) {
-    return _appendToSection('quick-note', date, content, tags);
+    return _appendToSection('quick-note', date, content, tags, time: time);
   }
 
   Future<bool> appendReflection(
     DateTime date,
     String content, {
     List<String> tags = const [],
+    String? time,
   }) {
-    return _appendToSection('reflection', date, content, tags);
+    return _appendToSection('reflection', date, content, tags, time: time);
   }
 
   Future<bool> appendHappiness(
     DateTime date,
     String content, {
     List<String> tags = const [],
+    String? time,
   }) {
-    return _appendToSection('happiness', date, content, tags);
+    return _appendToSection('happiness', date, content, tags, time: time);
   }
 
   Future<bool> appendAnxiety(
     DateTime date,
     String content, {
     List<String> tags = const [],
+    String? time,
   }) {
-    return _appendToSection('anxiety', date, content, tags);
+    return _appendToSection('anxiety', date, content, tags, time: time);
   }
 
   Future<bool> replaceAnxiety(DateTime date, String content) async {

@@ -764,12 +764,24 @@ void main() {
       expect(find.text('添加图片'), findsNothing);
 
       final noteButton = tester.widget<Material>(
-        find.byKey(const Key('quick_record_quick_note')),
+        find.descendant(
+          of: find.byKey(const Key('quick_record_quick_note')),
+          matching: find.byType(Material),
+        ),
       );
       expect(noteButton.shape, isA<CircleBorder>());
       expect(
         tester.getSize(find.byKey(const Key('quick_record_quick_note'))),
         const Size(48, 48),
+      );
+      expect(
+        tester.getSize(
+          find.descendant(
+            of: find.byKey(const Key('quick_record_quick_note')),
+            matching: find.byType(Material),
+          ),
+        ),
+        const Size(42, 42),
       );
 
       final fab = tester.widget<FloatingActionButton>(
@@ -812,8 +824,11 @@ void main() {
 
       expect(noteCenter.dx, lessThan(mainCenter.dx));
       expect(imageCenter.dy, lessThan(mainCenter.dy));
+      expect(imageCenter.dy, lessThan(anxietyCenter.dy));
+      expect(reflectionCenter.dy, lessThan(noteCenter.dy));
+      expect(happinessCenter.dy, lessThan(noteCenter.dy));
       for (final distance in distances) {
-        expect(distance, closeTo(104, 1));
+        expect(distance, closeTo(120, 1));
       }
     });
 

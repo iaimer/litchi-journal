@@ -555,44 +555,50 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildQuickRecordFab(ThemeData theme) {
     const mainButtonSize = 56.0;
-    const childButtonSize = 48.0;
-    const radius = 104.0;
+    const childVisualSize = 42.0;
+    const childHitSize = 48.0;
+    const radius = 120.0;
     final items = [
       _QuickRecordAction(
         icon: '✍️',
         title: '随手记',
         key: const Key('quick_record_quick_note'),
+        angleDegrees: 180,
         onTap: () => _selectQuickEntry(EntryType.quickNote),
-      ),
-      _QuickRecordAction(
-        icon: '✨',
-        title: '小确幸',
-        key: const Key('quick_record_happiness'),
-        onTap: () => _selectQuickEntry(EntryType.happiness),
       ),
       _QuickRecordAction(
         icon: '💡',
         title: '觉察',
         key: const Key('quick_record_reflection'),
+        angleDegrees: 155,
         onTap: () => _selectQuickEntry(EntryType.reflection),
+      ),
+      _QuickRecordAction(
+        icon: '✨',
+        title: '小确幸',
+        key: const Key('quick_record_happiness'),
+        angleDegrees: 130,
+        onTap: () => _selectQuickEntry(EntryType.happiness),
       ),
       _QuickRecordAction(
         icon: '😰',
         title: '焦虑四问',
         key: const Key('quick_record_anxiety'),
+        angleDegrees: 105,
         onTap: () => _selectQuickEntry(EntryType.anxiety),
       ),
       _QuickRecordAction(
-        icon: '📷',
+        icon: '📸',
         title: '添加图片',
         key: const Key('quick_record_image'),
+        angleDegrees: 82,
         onTap: _selectImageUpload,
       ),
     ];
 
     return SizedBox(
-      width: 180,
-      height: 180,
+      width: 210,
+      height: 210,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.bottomRight,
@@ -602,7 +608,8 @@ class _HomeScreenState extends State<HomeScreen> {
               items: items,
               radius: radius,
               mainButtonSize: mainButtonSize,
-              childButtonSize: childButtonSize,
+              childVisualSize: childVisualSize,
+              childHitSize: childHitSize,
             ),
           FloatingActionButton(
             key: const Key('quick_record_fab'),
@@ -624,46 +631,43 @@ class _HomeScreenState extends State<HomeScreen> {
     required List<_QuickRecordAction> items,
     required double radius,
     required double mainButtonSize,
-    required double childButtonSize,
+    required double childVisualSize,
+    required double childHitSize,
   }) {
-    const startDegrees = 180.0;
-    const endDegrees = 90.0;
     final mainCenter = mainButtonSize / 2;
-    final step = items.length == 1
-        ? 0.0
-        : (endDegrees - startDegrees) / (items.length - 1);
 
     return [
       for (var i = 0; i < items.length; i++)
         _buildQuickRecordFanItem(
           action: items[i],
-          angleDegrees: startDegrees + step * i,
           radius: radius,
           mainCenter: mainCenter,
-          childButtonSize: childButtonSize,
+          childVisualSize: childVisualSize,
+          childHitSize: childHitSize,
         ),
     ];
   }
 
   Widget _buildQuickRecordFanItem({
     required _QuickRecordAction action,
-    required double angleDegrees,
     required double radius,
     required double mainCenter,
-    required double childButtonSize,
+    required double childVisualSize,
+    required double childHitSize,
   }) {
-    final angle = angleDegrees * math.pi / 180;
+    final angle = action.angleDegrees * math.pi / 180;
     final dx = radius * math.cos(angle);
     final dy = radius * math.sin(angle);
     return Positioned(
-      right: mainCenter - dx - childButtonSize / 2,
-      bottom: mainCenter + dy - childButtonSize / 2,
+      right: mainCenter - dx - childHitSize / 2,
+      bottom: mainCenter + dy - childHitSize / 2,
       child: _buildQuickRecordItem(
         icon: action.icon,
         title: action.title,
         key: action.key,
         onTap: action.onTap,
-        size: childButtonSize,
+        visualSize: childVisualSize,
+        hitSize: childHitSize,
       ),
     );
   }
@@ -673,7 +677,8 @@ class _HomeScreenState extends State<HomeScreen> {
     required String title,
     required Key key,
     required VoidCallback onTap,
-    required double size,
+    required double visualSize,
+    required double hitSize,
   }) {
     final theme = Theme.of(context);
     return Tooltip(
@@ -681,19 +686,25 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Semantics(
         label: title,
         button: true,
-        child: Material(
+        child: SizedBox(
           key: key,
-          color: theme.colorScheme.surface,
-          elevation: 3,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onTap,
+          width: hitSize,
+          height: hitSize,
+          child: Center(
             child: SizedBox(
-              width: size,
-              height: size,
-              child: Center(
-                child: Text(icon, style: const TextStyle(fontSize: 20)),
+              width: visualSize,
+              height: visualSize,
+              child: Material(
+                color: theme.colorScheme.surface,
+                elevation: 2,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onTap,
+                  child: Center(
+                    child: Text(icon, style: const TextStyle(fontSize: 19)),
+                  ),
+                ),
               ),
             ),
           ),
@@ -861,12 +872,14 @@ class _QuickRecordAction {
   final String icon;
   final String title;
   final Key key;
+  final double angleDegrees;
   final VoidCallback onTap;
 
   const _QuickRecordAction({
     required this.icon,
     required this.title,
     required this.key,
+    required this.angleDegrees,
     required this.onTap,
   });
 }

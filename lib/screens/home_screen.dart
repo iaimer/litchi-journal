@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -8,6 +10,7 @@ import '../models/image_settings.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
+import '../screens/anxiety_screen.dart';
 import '../screens/quick_capture_screen.dart';
 import '../screens/settings_page.dart';
 import '../services/ai_config_repository.dart';
@@ -27,9 +30,6 @@ import '../services/tag_settings_repository.dart';
 import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/entry_type.dart';
-import '../widgets/entry_type_selector.dart';
-import '../widgets/quick_note_composer.dart';
-import '../widgets/section_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -55,7 +55,6 @@ class _HomeScreenState extends State<HomeScreen> {
   TagConfig? _tagConfig;
   TagSettings? _tagSettings;
   bool _tagConfigFailed = false;
-  EntryType _selectedEntryType = EntryType.quickNote;
   final _draftRepository = DraftRepository();
   final _imageSettingsRepository = ImageSettingsRepository();
   final _imagePicker = ImagePicker();
@@ -337,16 +336,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return success;
   }
 
-  Future<void> _handleAnxietySubmit(String content, List<String> tags) async {
-    final success = await _replaceAnxiety(content);
-    if (!success) throw Exception('保存失败');
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已保存')));
-    _loadDiarySilently();
-  }
-
   bool get _isAnxietyEdit {
     final answers = _anxietyInitialAnswers;
     return answers != null;
@@ -369,37 +358,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final hasRealAnswers = answers.any((a) => a.trim().isNotEmpty);
     return hasRealAnswers ? answers : null;
-  }
-
-  Widget _buildAnxietyInput() {
-    final isEdit = _isAnxietyEdit;
-    final initialAnswers = _anxietyInitialAnswers;
-    return AnxietyComposer(
-      onSubmit: _handleAnxietySubmit,
-      onPolish: _handleAnxietyPolish,
-      date: _activeDate,
-      draftRepository: _draftRepository,
-      initialAnswers: initialAnswers,
-      isEdit: isEdit,
-      onClose: () {
-        setState(() => _selectedEntryType = EntryType.quickNote);
-      },
-    );
-  }
-
-  Future<void> _handleEntrySubmit(String content, List<String> tags) async {
-    final success = await _appendEntry(
-      _selectedEntryType,
-      _activeDate,
-      content,
-      tags,
-    );
-    if (!success) throw Exception('保存失败');
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已保存')));
-    _loadDiarySilently();
   }
 
   Future<void> _handleQuickCaptureSave(
@@ -596,70 +554,62 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime get _activeDate => _diaryDate ?? DateTime.now();
 
   Widget _buildQuickRecordFab(ThemeData theme) {
+    const mainButtonSize = 56.0;
+    const childButtonSize = 48.0;
+    const radius = 104.0;
+    final items = [
+      _QuickRecordAction(
+        icon: '✍️',
+        title: '随手记',
+        key: const Key('quick_record_quick_note'),
+        onTap: () => _selectQuickEntry(EntryType.quickNote),
+      ),
+      _QuickRecordAction(
+        icon: '✨',
+        title: '小确幸',
+        key: const Key('quick_record_happiness'),
+        onTap: () => _selectQuickEntry(EntryType.happiness),
+      ),
+      _QuickRecordAction(
+        icon: '💡',
+        title: '觉察',
+        key: const Key('quick_record_reflection'),
+        onTap: () => _selectQuickEntry(EntryType.reflection),
+      ),
+      _QuickRecordAction(
+        icon: '😰',
+        title: '焦虑四问',
+        key: const Key('quick_record_anxiety'),
+        onTap: () => _selectQuickEntry(EntryType.anxiety),
+      ),
+      _QuickRecordAction(
+        icon: '📷',
+        title: '添加图片',
+        key: const Key('quick_record_image'),
+        onTap: _selectImageUpload,
+      ),
+    ];
+
     return SizedBox(
-      width: 230,
-      height: 300,
+      width: 180,
+      height: 180,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.bottomRight,
         children: [
-          if (_quickRecordExpanded) ...[
-            Positioned(
-              right: 86,
-              bottom: 42,
-              child: _buildQuickRecordItem(
-                icon: '✍️',
-                title: '随手记',
-                key: const Key('quick_record_quick_note'),
-                onTap: () => _selectQuickEntry(EntryType.quickNote),
-              ),
+          if (_quickRecordExpanded)
+            ..._buildQuickRecordFanItems(
+              items: items,
+              radius: radius,
+              mainButtonSize: mainButtonSize,
+              childButtonSize: childButtonSize,
             ),
-            Positioned(
-              right: 84,
-              bottom: 94,
-              child: _buildQuickRecordItem(
-                icon: '✨',
-                title: '小确幸',
-                key: const Key('quick_record_happiness'),
-                onTap: () => _selectQuickEntry(EntryType.happiness),
-              ),
-            ),
-            Positioned(
-              right: 64,
-              bottom: 144,
-              child: _buildQuickRecordItem(
-                icon: '💡',
-                title: '觉察',
-                key: const Key('quick_record_reflection'),
-                onTap: () => _selectQuickEntry(EntryType.reflection),
-              ),
-            ),
-            Positioned(
-              right: 30,
-              bottom: 186,
-              child: _buildQuickRecordItem(
-                icon: '😰',
-                title: '焦虑四问',
-                key: const Key('quick_record_anxiety'),
-                onTap: () => _selectQuickEntry(EntryType.anxiety),
-              ),
-            ),
-            Positioned(
-              right: 0,
-              bottom: 222,
-              child: _buildQuickRecordItem(
-                icon: '📸',
-                title: '添加图片',
-                key: const Key('quick_record_image'),
-                onTap: _selectImageUpload,
-              ),
-            ),
-          ],
           FloatingActionButton(
             key: const Key('quick_record_fab'),
             tooltip: '快速记录',
             backgroundColor: theme.colorScheme.primary,
             foregroundColor: theme.colorScheme.onPrimary,
+            shape: const CircleBorder(),
             onPressed: () {
               setState(() => _quickRecordExpanded = !_quickRecordExpanded);
             },
@@ -670,31 +620,82 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<Widget> _buildQuickRecordFanItems({
+    required List<_QuickRecordAction> items,
+    required double radius,
+    required double mainButtonSize,
+    required double childButtonSize,
+  }) {
+    const startDegrees = 180.0;
+    const endDegrees = 90.0;
+    final mainCenter = mainButtonSize / 2;
+    final step = items.length == 1
+        ? 0.0
+        : (endDegrees - startDegrees) / (items.length - 1);
+
+    return [
+      for (var i = 0; i < items.length; i++)
+        _buildQuickRecordFanItem(
+          action: items[i],
+          angleDegrees: startDegrees + step * i,
+          radius: radius,
+          mainCenter: mainCenter,
+          childButtonSize: childButtonSize,
+        ),
+    ];
+  }
+
+  Widget _buildQuickRecordFanItem({
+    required _QuickRecordAction action,
+    required double angleDegrees,
+    required double radius,
+    required double mainCenter,
+    required double childButtonSize,
+  }) {
+    final angle = angleDegrees * math.pi / 180;
+    final dx = radius * math.cos(angle);
+    final dy = radius * math.sin(angle);
+    return Positioned(
+      right: mainCenter - dx - childButtonSize / 2,
+      bottom: mainCenter + dy - childButtonSize / 2,
+      child: _buildQuickRecordItem(
+        icon: action.icon,
+        title: action.title,
+        key: action.key,
+        onTap: action.onTap,
+        size: childButtonSize,
+      ),
+    );
+  }
+
   Widget _buildQuickRecordItem({
     required String icon,
     required String title,
     required Key key,
     required VoidCallback onTap,
+    required double size,
   }) {
     final theme = Theme.of(context);
-    return Material(
-      key: key,
-      color: theme.colorScheme.surface,
-      elevation: 3,
-      borderRadius: BorderRadius.circular(24),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: SizedBox(
-          width: 128,
-          height: 44,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(icon, style: const TextStyle(fontSize: 18)),
-              const SizedBox(width: 8),
-              Text(title, style: theme.textTheme.bodyMedium),
-            ],
+    return Tooltip(
+      message: title,
+      child: Semantics(
+        label: title,
+        button: true,
+        child: Material(
+          key: key,
+          color: theme.colorScheme.surface,
+          elevation: 3,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Center(
+                child: Text(icon, style: const TextStyle(fontSize: 20)),
+              ),
+            ),
           ),
         ),
       ),
@@ -703,16 +704,37 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _selectQuickEntry(EntryType type) {
     if (type == EntryType.anxiety) {
-      setState(() {
-        _quickRecordExpanded = false;
-        _selectedEntryType = type;
-      });
-      _scrollToComposer();
+      setState(() => _quickRecordExpanded = false);
+      _openAnxietyCapture();
       return;
     }
 
     setState(() => _quickRecordExpanded = false);
     _openQuickCapture(type);
+  }
+
+  Future<void> _openAnxietyCapture() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AnxietyScreen(
+          date: _activeDate,
+          draftRepository: _draftRepository,
+          initialAnswers: _anxietyInitialAnswers,
+          isEdit: _isAnxietyEdit,
+          onPolish: _handleAnxietyPolish,
+          onSubmit: (content, _) async {
+            final success = await _replaceAnxiety(content);
+            if (!success) throw Exception('保存失败');
+          },
+        ),
+      ),
+    );
+
+    if (!mounted || saved != true) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已保存')));
+    _loadDiarySilently();
   }
 
   Future<void> _openQuickCapture(EntryType type) async {
@@ -741,17 +763,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void _selectImageUpload() {
     setState(() => _quickRecordExpanded = false);
     _startImageUpload();
-  }
-
-  void _scrollToComposer() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-      );
-    });
   }
 
   @override
@@ -837,80 +848,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 32),
-                    Card(
-                      color: theme.colorScheme.surface,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.add_a_photo_outlined,
-                              size: 20,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                '添加照片',
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: _imageUploading
-                                  ? null
-                                  : _startImageUpload,
-                              child: _imageUploading
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text('选择图片'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SectionCard(
-                      title: '快速记录',
-                      children: [
-                        EntryTypeSelector(
-                          selected: _selectedEntryType,
-                          onChanged: (type) {
-                            setState(() => _selectedEntryType = type);
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        if (_selectedEntryType == EntryType.anxiety) ...[
-                          _buildAnxietyInput(),
-                        ] else
-                          KeyedSubtree(
-                            key: ValueKey(
-                              'composer_${_selectedEntryType.name}',
-                            ),
-                            child: QuickNoteComposer(
-                              onSubmit: _handleEntrySubmit,
-                              onPolish: _handlePolish,
-                              date: _activeDate,
-                              entryType: _selectedEntryType,
-                              draftRepository: _draftRepository,
-                              tagConfig: _effectiveTagConfig,
-                              tagHint: _tagConfigFailed ? '标签暂不可用' : null,
-                              placeholder: _selectedEntryType.placeholder,
-                            ),
-                          ),
-                      ],
-                    ),
                     const SizedBox(height: 96),
                   ],
                 ),
@@ -918,4 +855,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+class _QuickRecordAction {
+  final String icon;
+  final String title;
+  final Key key;
+  final VoidCallback onTap;
+
+  const _QuickRecordAction({
+    required this.icon,
+    required this.title,
+    required this.key,
+    required this.onTap,
+  });
 }

@@ -31,6 +31,7 @@ import 'package:litchi_journal_flutter/models/habit_settings.dart';
 import 'package:litchi_journal_flutter/models/habit_visual_config.dart';
 import 'package:litchi_journal_flutter/models/image_settings.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
+import 'package:litchi_journal_flutter/screens/anxiety_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
 import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
 import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
@@ -756,11 +757,25 @@ void main() {
       expect(find.byKey(const Key('quick_record_reflection')), findsOneWidget);
       expect(find.byKey(const Key('quick_record_anxiety')), findsOneWidget);
       expect(find.byKey(const Key('quick_record_image')), findsOneWidget);
-      expect(find.text('随手记'), findsWidgets);
-      expect(find.text('小确幸'), findsWidgets);
-      expect(find.text('觉察'), findsWidgets);
-      expect(find.text('焦虑四问'), findsOneWidget);
-      expect(find.text('添加图片'), findsWidgets);
+      expect(find.text('随手记'), findsNothing);
+      expect(find.text('小确幸'), findsNothing);
+      expect(find.text('觉察'), findsNothing);
+      expect(find.text('焦虑四问'), findsNothing);
+      expect(find.text('添加图片'), findsNothing);
+
+      final noteButton = tester.widget<Material>(
+        find.byKey(const Key('quick_record_quick_note')),
+      );
+      expect(noteButton.shape, isA<CircleBorder>());
+      expect(
+        tester.getSize(find.byKey(const Key('quick_record_quick_note'))),
+        const Size(48, 48),
+      );
+
+      final fab = tester.widget<FloatingActionButton>(
+        find.byKey(const Key('quick_record_fab')),
+      );
+      expect(fab.shape, isA<CircleBorder>());
 
       final mainCenter = tester.getCenter(
         find.byKey(const Key('quick_record_fab')),
@@ -771,10 +786,35 @@ void main() {
       final imageCenter = tester.getCenter(
         find.byKey(const Key('quick_record_image')),
       );
+      final happinessCenter = tester.getCenter(
+        find.byKey(const Key('quick_record_happiness')),
+      );
+      final reflectionCenter = tester.getCenter(
+        find.byKey(const Key('quick_record_reflection')),
+      );
+      final anxietyCenter = tester.getCenter(
+        find.byKey(const Key('quick_record_anxiety')),
+      );
+
+      double distanceFromMain(Offset center) {
+        final dx = center.dx - mainCenter.dx;
+        final dy = center.dy - mainCenter.dy;
+        return sqrt(dx * dx + dy * dy);
+      }
+
+      final distances = [
+        noteCenter,
+        happinessCenter,
+        reflectionCenter,
+        anxietyCenter,
+        imageCenter,
+      ].map(distanceFromMain);
 
       expect(noteCenter.dx, lessThan(mainCenter.dx));
-      expect(noteCenter.dy, lessThan(mainCenter.dy));
-      expect(imageCenter.dy, lessThan(noteCenter.dy));
+      expect(imageCenter.dy, lessThan(mainCenter.dy));
+      for (final distance in distances) {
+        expect(distance, closeTo(104, 1));
+      }
     });
 
     testWidgets('image entry calls existing image upload handler', (
@@ -844,6 +884,8 @@ void main() {
       await tester.tap(find.byKey(const Key('quick_record_anxiety')));
       await tester.pumpAndSettle();
 
+      expect(find.byType(AnxietyScreen), findsOneWidget);
+      expect(find.text('焦虑四问'), findsOneWidget);
       expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
       expect(find.text('记录时间'), findsNothing);
       expect(find.byType(TagPicker), findsNothing);
@@ -861,7 +903,7 @@ void main() {
       await tester.tap(find.byKey(const Key('quick_record_happiness')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('保存'));
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
       await tester.pumpAndSettle();
 
       expect(
@@ -912,7 +954,20 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('quick_record_quick_note')), findsOneWidget);
-      expect(find.text('焦虑四问'), findsOneWidget);
+      expect(find.text('焦虑四问'), findsNothing);
+    });
+
+    testWidgets('HomeScreen no longer shows inline quick record card', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildHome());
+      await tester.pumpAndSettle();
+
+      expect(find.text('快速记录'), findsNothing);
+      expect(find.byType(EntryTypeSelector), findsNothing);
+      expect(find.byType(QuickNoteComposer), findsNothing);
+      expect(find.text('添加照片'), findsNothing);
+      expect(find.text('选择图片'), findsNothing);
     });
 
     testWidgets('quick capture save returns home and refreshes diary', (
@@ -1082,10 +1137,7 @@ void main() {
       await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('保存失败，请重试', skipOffstage: false),
-        findsOneWidget,
-      );
+      expect(find.text('保存失败，请重试', skipOffstage: false), findsOneWidget);
       expect(find.byType(QuickCaptureScreen), findsOneWidget);
       expect(find.text('不要丢'), findsOneWidget);
       expect(find.text('工作'), findsWidgets);
@@ -2591,6 +2643,21 @@ tags:
       expect(find.text('1/4'), findsOneWidget);
     });
 
+    testWidgets('uses larger input areas for standalone capture', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
+
+      var textField = tester.widget<TextField>(find.byType(TextField));
+      expect(textField.minLines, 5);
+
+      await tester.tap(find.text('下一步'));
+      await tester.pump();
+
+      textField = tester.widget<TextField>(find.byType(TextField));
+      expect(textField.minLines, 4);
+    });
+
     testWidgets('dark mode keeps answer field readable', (
       WidgetTester tester,
     ) async {
@@ -3090,11 +3157,13 @@ tags:
       expect(submitted, contains('- 当时我在担心什么？'));
     });
 
-    testWidgets('TextField auto-expands from 2 to 8 lines', (tester) async {
+    testWidgets('TextField auto-expands from larger minimum to 8 lines', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildComposer(onSubmit: (_, _) async {}));
 
       final textField = tester.widget<TextField>(find.byType(TextField));
-      expect(textField.minLines, 2);
+      expect(textField.minLines, 5);
       expect(textField.maxLines, 8);
       expect(textField.keyboardType, TextInputType.multiline);
     });

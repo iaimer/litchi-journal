@@ -277,6 +277,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final progress = (_step + 1) / _questions.length;
+    final minInputLines = _step == 0 ? 5 : 4;
     final inputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
@@ -334,13 +335,17 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
             ),
             filled: true,
             fillColor: theme.colorScheme.surface,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
+            ),
             enabledBorder: inputBorder,
             disabledBorder: inputBorder,
             focusedBorder: inputBorder.copyWith(
               borderSide: BorderSide(color: theme.colorScheme.primary),
             ),
           ),
-          minLines: 2,
+          minLines: minInputLines,
           maxLines: 8,
           keyboardType: TextInputType.multiline,
           textInputAction: TextInputAction.newline,

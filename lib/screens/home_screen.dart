@@ -61,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _scrollController = ScrollController();
   bool _imageUploading = false;
   bool _generatingCoach = false;
+  bool _quickRecordExpanded = false;
   HabitSettings? _habitSettings;
   Set<String> _activeHabitKeys = const {
     'water',
@@ -556,63 +557,78 @@ class _HomeScreenState extends State<HomeScreen> {
 
   DateTime get _activeDate => _diaryDate ?? DateTime.now();
 
-  Future<void> _showQuickRecordSheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final theme = Theme.of(context);
-        return SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('快速记录', style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  _buildQuickRecordItem(
-                    icon: '✍️',
-                    title: '随手记',
-                    key: const Key('quick_record_quick_note'),
-                    onTap: () => _selectQuickEntry(EntryType.quickNote),
-                  ),
-                  _buildQuickRecordItem(
-                    icon: '✨',
-                    title: '小确幸',
-                    key: const Key('quick_record_happiness'),
-                    onTap: () => _selectQuickEntry(EntryType.happiness),
-                  ),
-                  _buildQuickRecordItem(
-                    icon: '💡',
-                    title: '觉察',
-                    key: const Key('quick_record_reflection'),
-                    onTap: () => _selectQuickEntry(EntryType.reflection),
-                  ),
-                  _buildQuickRecordItem(
-                    icon: '😰',
-                    title: '焦虑四问',
-                    key: const Key('quick_record_anxiety'),
-                    onTap: () => _selectQuickEntry(EntryType.anxiety),
-                  ),
-                  _buildQuickRecordItem(
-                    icon: '📸',
-                    title: '添加图片',
-                    key: const Key('quick_record_image'),
-                    onTap: _selectImageUpload,
-                  ),
-                ],
+  Widget _buildQuickRecordFab(ThemeData theme) {
+    return SizedBox(
+      width: 230,
+      height: 300,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomRight,
+        children: [
+          if (_quickRecordExpanded) ...[
+            Positioned(
+              right: 86,
+              bottom: 42,
+              child: _buildQuickRecordItem(
+                icon: '✍️',
+                title: '随手记',
+                key: const Key('quick_record_quick_note'),
+                onTap: () => _selectQuickEntry(EntryType.quickNote),
               ),
             ),
+            Positioned(
+              right: 84,
+              bottom: 94,
+              child: _buildQuickRecordItem(
+                icon: '✨',
+                title: '小确幸',
+                key: const Key('quick_record_happiness'),
+                onTap: () => _selectQuickEntry(EntryType.happiness),
+              ),
+            ),
+            Positioned(
+              right: 64,
+              bottom: 144,
+              child: _buildQuickRecordItem(
+                icon: '💡',
+                title: '觉察',
+                key: const Key('quick_record_reflection'),
+                onTap: () => _selectQuickEntry(EntryType.reflection),
+              ),
+            ),
+            Positioned(
+              right: 30,
+              bottom: 186,
+              child: _buildQuickRecordItem(
+                icon: '😰',
+                title: '焦虑四问',
+                key: const Key('quick_record_anxiety'),
+                onTap: () => _selectQuickEntry(EntryType.anxiety),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              bottom: 222,
+              child: _buildQuickRecordItem(
+                icon: '📸',
+                title: '添加图片',
+                key: const Key('quick_record_image'),
+                onTap: _selectImageUpload,
+              ),
+            ),
+          ],
+          FloatingActionButton(
+            key: const Key('quick_record_fab'),
+            tooltip: '快速记录',
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: theme.colorScheme.onPrimary,
+            onPressed: () {
+              setState(() => _quickRecordExpanded = !_quickRecordExpanded);
+            },
+            child: Icon(_quickRecordExpanded ? Icons.close : Icons.add),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -623,24 +639,40 @@ class _HomeScreenState extends State<HomeScreen> {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    return ListTile(
+    return Material(
       key: key,
-      leading: Text(icon, style: const TextStyle(fontSize: 22)),
-      title: Text(title, style: theme.textTheme.bodyMedium),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      minLeadingWidth: 28,
-      onTap: onTap,
+      color: theme.colorScheme.surface,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: SizedBox(
+          width: 128,
+          height: 44,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(icon, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Text(title, style: theme.textTheme.bodyMedium),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   void _selectQuickEntry(EntryType type) {
-    Navigator.of(context).pop();
-    setState(() => _selectedEntryType = type);
+    setState(() {
+      _quickRecordExpanded = false;
+      _selectedEntryType = type;
+    });
     _scrollToComposer();
   }
 
   void _selectImageUpload() {
-    Navigator.of(context).pop();
+    setState(() => _quickRecordExpanded = false);
     _startImageUpload();
   }
 
@@ -691,14 +723,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       backgroundColor: theme.scaffoldBackgroundColor,
-      floatingActionButton: FloatingActionButton(
-        key: const Key('quick_record_fab'),
-        tooltip: '快速记录',
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        onPressed: _showQuickRecordSheet,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _buildQuickRecordFab(theme),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(

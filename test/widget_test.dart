@@ -739,16 +739,17 @@ void main() {
       expect(find.byKey(const Key('quick_record_fab')), findsNothing);
     });
 
-    testWidgets('FAB opens quick record bottom sheet with five entries', (
+    testWidgets('FAB expands five quick record entries in fan layout', (
       tester,
     ) async {
       await tester.pumpWidget(buildHome());
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const Key('quick_record_quick_note')), findsNothing);
+
       await tester.tap(find.byKey(const Key('quick_record_fab')));
       await tester.pumpAndSettle();
 
-      expect(find.text('快速记录'), findsWidgets);
       expect(find.byKey(const Key('quick_record_quick_note')), findsOneWidget);
       expect(find.byKey(const Key('quick_record_happiness')), findsOneWidget);
       expect(find.byKey(const Key('quick_record_reflection')), findsOneWidget);
@@ -759,6 +760,20 @@ void main() {
       expect(find.text('觉察'), findsWidgets);
       expect(find.text('焦虑四问'), findsOneWidget);
       expect(find.text('添加图片'), findsWidgets);
+
+      final mainCenter = tester.getCenter(
+        find.byKey(const Key('quick_record_fab')),
+      );
+      final noteCenter = tester.getCenter(
+        find.byKey(const Key('quick_record_quick_note')),
+      );
+      final imageCenter = tester.getCenter(
+        find.byKey(const Key('quick_record_image')),
+      );
+
+      expect(noteCenter.dx, lessThan(mainCenter.dx));
+      expect(noteCenter.dy, lessThan(mainCenter.dy));
+      expect(imageCenter.dy, lessThan(noteCenter.dy));
     });
 
     testWidgets('image entry calls existing image upload handler', (
@@ -812,16 +827,17 @@ void main() {
       expect(find.text('今天有什么小确幸？'), findsOneWidget);
     });
 
-    testWidgets('closing bottom sheet does not write content', (tester) async {
+    testWidgets('closing fan menu does not write content', (tester) async {
       final httpClient = _RecordingHttpClient(body: todayDiaryBody());
       await tester.pumpWidget(buildHome(httpClient: httpClient));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('quick_record_fab')));
       await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(20, 20));
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const Key('quick_record_quick_note')), findsNothing);
       expect(
         httpClient.requestPaths.any(
           (path) =>
@@ -834,7 +850,7 @@ void main() {
       );
     });
 
-    testWidgets('FAB and bottom sheet are readable in dark mode', (
+    testWidgets('FAB and fan entries are readable in dark mode', (
       tester,
     ) async {
       await tester.pumpWidget(buildHome(theme: AppTheme.dark));
@@ -849,7 +865,7 @@ void main() {
       await tester.tap(find.byKey(const Key('quick_record_fab')));
       await tester.pumpAndSettle();
 
-      expect(find.text('快速记录'), findsWidgets);
+      expect(find.byKey(const Key('quick_record_quick_note')), findsOneWidget);
       expect(find.text('焦虑四问'), findsOneWidget);
     });
   });

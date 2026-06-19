@@ -8,7 +8,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:litchi_journal_flutter/main.dart' as app;
 import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
 
 import 'package:litchi_journal_flutter/models/ai_config.dart';
@@ -525,6 +527,46 @@ class _MemoryStorage implements HabitStatsCacheStorage {
 }
 
 void main() {
+  group('AppEntry brand splash', () {
+    testWidgets('shows FloraSplash before setup when config is missing', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+
+      await tester.pumpWidget(const MaterialApp(home: app.AppEntry()));
+
+      expect(find.text('Flora'), findsOneWidget);
+      expect(find.text('记录 · 觉察 · 成长'), findsOneWidget);
+      expect(find.text('初始设置'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump();
+
+      expect(find.text('初始设置'), findsOneWidget);
+      expect(find.text('服务器地址'), findsOneWidget);
+    });
+
+    testWidgets('shows FloraSplash before main screen when config exists', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({
+        'api_base_url': 'http://127.0.0.1:9',
+        'api_token': 'test-token',
+      });
+
+      await tester.pumpWidget(const MaterialApp(home: app.AppEntry()));
+
+      expect(find.text('Flora'), findsOneWidget);
+      expect(find.byType(app.MainScreen), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump();
+
+      expect(find.byType(app.MainScreen), findsOneWidget);
+      expect(find.text('今天'), findsWidgets);
+    });
+  });
+
   test('DiaryEntry.fromJson parses valid data', () {
     final json = {
       'date': '2026-06-06',
@@ -7694,7 +7736,8 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('还没有足够的习惯记录。\n今天先照顾一个小习惯就很好。'), findsOneWidget);
+      expect(find.text('还没有习惯'), findsOneWidget);
+      expect(find.text('从最小的一步开始'), findsOneWidget);
     });
 
     testWidgets('no edit/delete/patch buttons present', (tester) async {
@@ -8563,6 +8606,48 @@ tags:
 ''';
 
       expect(AboutPage.parseCurrentVersion(raw, '1.1.0'), '- 当前版本内容');
+    });
+
+    testWidgets('shows redesigned brand copy', (tester) async {
+      PackageInfo.setMockInitialValues(
+        appName: '荔枝日记',
+        packageName: 'org.femkits.lizhidiary',
+        version: '1.1.0',
+        buildNumber: '1',
+        buildSignature: '',
+      );
+
+      await tester.pumpWidget(const MaterialApp(home: AboutPage()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('荔枝日记'), findsOneWidget);
+      expect(find.text('记录生活中的成长轨迹'), findsOneWidget);
+      expect(find.text('把每天的小事慢慢照亮'), findsOneWidget);
+      expect(find.textContaining('版本 v1.1.0 (1)'), findsOneWidget);
+      expect(find.text('更新内容'), findsOneWidget);
+      expect(find.textContaining('荔枝日记不是效率工具'), findsNothing);
+    });
+  });
+
+  group('FloraIcon brand icon', () {
+    testWidgets('renders brand PNG without theme tint', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: FloraIcon(
+              FloraIcons.brandIcon,
+              size: 80,
+              color: Colors.green,
+            ),
+          ),
+        ),
+      );
+
+      final image = tester.widget<Image>(find.byType(Image));
+      expect(FloraIcons.path(FloraIcons.brandIcon), 'assets/icon/app-icon.png');
+      expect(image.image, isA<AssetImage>());
+      expect((image.image as AssetImage).assetName, 'assets/icon/app-icon.png');
+      expect(image.color, isNull);
     });
   });
 

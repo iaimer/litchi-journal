@@ -8,6 +8,7 @@ import 'screens/past_screen.dart';
 import 'screens/habit_stats_screen.dart';
 import 'theme/app_theme.dart';
 import 'widgets/flora_icon.dart';
+import 'widgets/flora_splash.dart';
 import 'screens/setup_screen.dart';
 
 void main() async {
@@ -46,6 +47,7 @@ class AppEntry extends StatefulWidget {
 class _AppEntryState extends State<AppEntry> {
   ApiConfig? _config;
   bool _loading = true;
+  bool _showSplash = true;
   static const _configLoadTimeout = Duration(seconds: 5);
 
   @override
@@ -77,8 +79,18 @@ class _AppEntryState extends State<AppEntry> {
     });
   }
 
+  void _onSplashDone() {
+    if (!mounted) return;
+    setState(() {
+      _showSplash = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_showSplash) {
+      return FloraSplash(onDone: _onSplashDone);
+    }
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }

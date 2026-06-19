@@ -12,7 +12,7 @@ Flutter 客户端负责 UI、状态管理和 API 调用；`server/` 负责 Markd
 Flutter 客户端 + 本仓库 API 服务端版
 ```
 
-截至 2026-06-19，已完成：
+截至 2026-06-20，已完成：
 
 - 今日页日记读取与结构化展示
 - 随手记、觉察、小确幸、焦虑四问写入
@@ -32,6 +32,7 @@ Flutter 客户端 + 本仓库 API 服务端版
 - 过往页固定 header，不随内容滚动
 - Android release 版远程服务端连接
 - 启动配置读取、今日日记加载和标签配置加载的超时/兜底保护
+- 品牌视觉资源落地：启动页、App 图标、关于页品牌图均使用 `docs/design-reference/` 中的原始参考图派生
 
 ## 关键文档
 
@@ -39,6 +40,7 @@ Flutter 客户端 + 本仓库 API 服务端版
 - `docs/DEV_SUMMARY.md`：完整开发历程和已完成能力。
 - `docs/DEV_PLAN.md`：后续开发计划与当前待办。
 - `SESSION_LOG.md`：阶段性会话记录和验证状态。
+- `docs/design-reference/`：品牌视觉源图，更新启动页或 App 图标时优先读取这里。
 
 新 agent 接手前应先阅读以上四个文件。
 

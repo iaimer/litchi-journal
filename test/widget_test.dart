@@ -535,8 +535,12 @@ void main() {
 
       await tester.pumpWidget(const MaterialApp(home: app.AppEntry()));
 
-      expect(find.text('荔枝日记'), findsOneWidget);
-      expect(find.text('记录 · 成长 · 觉察'), findsOneWidget);
+      final splashImage = tester.widget<Image>(find.byType(Image).first);
+      expect(splashImage.image, isA<AssetImage>());
+      expect(
+        (splashImage.image as AssetImage).assetName,
+        'assets/icon/brand-splash-reference.png',
+      );
       expect(find.text('Flora'), findsNothing);
       expect(find.text('初始设置'), findsNothing);
 
@@ -557,7 +561,12 @@ void main() {
 
       await tester.pumpWidget(const MaterialApp(home: app.AppEntry()));
 
-      expect(find.text('荔枝日记'), findsOneWidget);
+      final splashImage = tester.widget<Image>(find.byType(Image).first);
+      expect(splashImage.image, isA<AssetImage>());
+      expect(
+        (splashImage.image as AssetImage).assetName,
+        'assets/icon/brand-splash-reference.png',
+      );
       expect(find.text('Flora'), findsNothing);
       expect(find.byType(app.MainScreen), findsNothing);
 

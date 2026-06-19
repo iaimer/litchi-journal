@@ -56,34 +56,10 @@ class _FloraSplashState extends State<FloraSplash>
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: Center(
+      body: SizedBox.expand(
         child: FadeTransition(
           opacity: _fadeIn,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (splashAsset.isNotEmpty)
-                Image.asset(splashAsset, width: 188, height: 188),
-              const SizedBox(height: 28),
-              Text(
-                '荔枝日记',
-                style: theme.textTheme.headlineLarge?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '记录 · 成长 · 觉察',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 16,
-                  letterSpacing: 4,
-                ),
-              ),
-            ],
-          ),
+          child: Image.asset(splashAsset, fit: BoxFit.cover),
         ),
       ),
     );

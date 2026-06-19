@@ -1280,3 +1280,36 @@ Failed to create server socket (OS Error: Operation not permitted)
 - 不要在习惯相关 UI 中直接 `Text(icon)`；统一走 `HabitIcon`。
 - 标签设置入口不要静默失败，至少应使用默认标签配置打开页面。
 - 快速记录页应优先保证可记录，不应因标签远程请求失败阻塞用户输入。
+
+---
+
+## 31. Sprint 31：品牌视觉源图落地
+
+### 31.1 背景
+
+品牌视觉重构过程中，启动页、桌面 App 图标和关于页品牌图一度使用了重新生成的近似图。用户明确要求不要重新设计品牌方向，也不要重新生成相似图，而是使用 `docs/design-reference/` 目录里的原始图作为权威来源。
+
+### 31.2 改动内容
+
+- `docs/design-reference/splash.png` 作为启动页源图，派生到 `assets/icon/brand-splash-reference.png`。
+- `docs/design-reference/icon.png` 作为 App 图标和关于页品牌图源图，派生到 `assets/icon/app-icon.png`、`assets/icon/app-launcher.png` 和 Android launcher mipmap 资源。
+- `docs/design-reference/reference.png` 保留为整体视觉参考，不作为直接切图资源。
+- `FloraSplash` 改为全屏展示 splash 原图，不再在 Flutter 里重新排版「荔枝日记」和副标题。
+- `AboutPage` 继续展示品牌图、版本与更新内容，品牌图尺寸真机调整到 168dp。
+- Android launcher 图标重新生成，保留原始视觉比例和系统桌面安全留白。
+
+### 31.3 项目规则更新
+
+- 品牌源图目录固定为 `docs/design-reference/`。
+- 启动页、App 图标、关于页品牌图后续都应从源图派生，不要手绘或 AI 生成近似版本。
+- 更换 launcher 图标后必须重新构建并重装 APK；桌面图标不会通过 hot reload 更新。
+
+### 31.4 当前验证状态
+
+截至本轮品牌视觉确认：
+
+- `flutter analyze --no-pub`：通过
+- `flutter test --no-pub`：364 项全部通过
+- `flutter build apk --release --no-pub`：通过
+- `adb install -r build/app/outputs/flutter-apk/app-release.apk`：成功
+- 真机验证：App 图标通过，关于页品牌图尺寸通过

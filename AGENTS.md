@@ -92,6 +92,15 @@ Flutter 端已建立的领域组件：
 - 习惯展示统一经过 `HabitIcon`：新配置渲染 SVG，旧用户配置中保存过的 emoji 继续兼容显示。
 - 不要在习惯卡、习惯设置页或习惯统计页直接 `Text(icon)`，否则会把 `habit-water` 等逻辑名称显示成文本。
 
+## 品牌资源规则
+
+- `docs/design-reference/` 是荔枝日记品牌视觉源图目录。
+- 启动页必须从 `docs/design-reference/splash.png` 派生到 `assets/icon/brand-splash-reference.png`，不要重新绘制近似版本。
+- App 图标和关于页品牌图必须从 `docs/design-reference/icon.png` 派生到 `assets/icon/app-icon.png`、`assets/icon/app-launcher.png` 和 Android launcher mipmap 资源。
+- `docs/design-reference/reference.png` 仅作为整体视觉参考，不作为直接切图资源。
+- 关于页品牌图当前使用 168dp 展示尺寸；如需调整，先真机比对后再改。
+- 更新品牌资源时必须重新构建并重装 APK，系统桌面图标不会只靠 hot reload 更新。
+
 ## 开发约束
 
 - 优先保持简单。

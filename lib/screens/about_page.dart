@@ -70,7 +70,7 @@ class _AboutPageState extends State<AboutPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final brandAsset = FloraIcons.path(FloraIcons.brandSplash);
+    final brandAsset = FloraIcons.path(FloraIcons.brandIcon);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -81,7 +81,12 @@ class _AboutPageState extends State<AboutPage> {
           Center(
             child: Column(
               children: [
-                Image.asset(brandAsset, width: 124, height: 124),
+                Image.asset(
+                  brandAsset,
+                  width: 168,
+                  height: 168,
+                  fit: BoxFit.contain,
+                ),
                 const SizedBox(height: 20),
                 Text(
                   '荔枝日记',

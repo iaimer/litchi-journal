@@ -4,6 +4,45 @@
 
 ---
 
+## 2026-06-20 品牌视觉源图落地与真机确认
+
+### 讨论内容
+
+- 启动页、桌面 App 图标和关于页品牌图必须严格使用参考设计图，不应重新生成近似图。
+- 用户指定 `docs/design-reference/` 中的原始图作为资源来源。
+- 桌面 App 图标首次更新后主体比例通过，但关于页品牌图先后出现过太小、太大的问题，需要真机微调。
+
+### 决策 & 原因
+
+- `docs/design-reference/splash.png` 作为启动页源图，派生到 `assets/icon/brand-splash-reference.png`。
+- `docs/design-reference/icon.png` 作为 App 图标和关于页品牌图源图，派生到 `assets/icon/app-icon.png`、`assets/icon/app-launcher.png` 和 Android mipmap launcher 资源。
+- `docs/design-reference/reference.png` 只作为整体视觉参考，不再用作直接裁切资源。
+- 启动页直接展示完整 splash 原图，不再由 Flutter 重新排版标题和副标题。
+- 关于页品牌图最终调整为 168dp，用户真机确认尺寸合适。
+
+### 改动文件清单
+
+- `android/app/src/main/res/mipmap-*/ic_launcher.png`
+- `android/app/src/main/res/mipmap-*/ic_launcher_foreground.png`
+- `android/app/src/main/res/mipmap-*/ic_launcher_foreground_bitmap.png`
+- `assets/icon/app-icon.png`
+- `assets/icon/app-launcher.png`
+- `assets/icon/brand-splash-reference.png`
+- `docs/design-reference/icon.png`
+- `docs/design-reference/splash.png`
+- `docs/design-reference/reference.png`
+- `lib/screens/about_page.dart`
+- `lib/widgets/flora_splash.dart`
+- `test/widget_test.dart`
+
+### 验证结果
+
+- `flutter analyze --no-pub` 通过。
+- `flutter test --no-pub` 364 项全部通过。
+- `flutter build apk --release --no-pub` 通过。
+- `adb install -r build/app/outputs/flutter-apk/app-release.apk` 成功。
+- 真机验证：App 图标通过，关于页品牌图尺寸通过。
+
 ## 2026-06-19 启动兜底、标签兜底与习惯图标替换
 
 ### 讨论内容

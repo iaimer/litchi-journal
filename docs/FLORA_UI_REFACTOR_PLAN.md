@@ -8,6 +8,16 @@
 
 荔枝日记是以日记为核心的个人成长 App。UI 目标是温暖、平静、有生命力、克制、不说教。它不是 Web 版复刻，也不是效率工具或任务管理器。
 
+### 1.1 当前品牌资源状态
+
+截至 2026-06-20，品牌源图已经收口到 `docs/design-reference/`：
+
+- `splash.png`：启动页源图，派生为 `assets/icon/brand-splash-reference.png`。
+- `icon.png`：App 图标与关于页品牌图源图，派生为 `assets/icon/app-icon.png`、`assets/icon/app-launcher.png` 和 Android launcher mipmap 资源。
+- `reference.png`：整体视觉参考图，仅用于比对设计方向。
+
+后续不要重新绘制或 AI 生成近似品牌图。启动页、桌面图标和关于页品牌图都应从以上源图派生。
+
 当前三份设计资料的关系如下：
 
 - `DESIGN_SPEC.md`：保留颜色、排版、间距、卡片、输入区、深色模式规则。其 Material Icon 替换方案属于 Phase A 过渡方案，不再作为最终方向。

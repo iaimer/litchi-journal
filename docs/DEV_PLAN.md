@@ -460,10 +460,10 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 荔枝日记 Flutter 日常使用稳定版：文字 + 图片 + 标签设置 + 习惯统计 + 快速记录 + 过往回看
 ```
 
-当前稳定提交：
+当前稳定基线：
 
 ```text
-85fb246 fix: stabilize startup tags and habit icons
+品牌视觉源图落地后，已完成 analyze、test、release build、adb install 和真机视觉确认。
 ```
 
 ### 17.2 已完成并应从旧待办中移除
@@ -481,6 +481,7 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 - 习惯统计页已完成第一版：7 天节奏谱、30 天热力图、反馈卡、缓存。
 - 过往页已完成第一版：记忆卡片、只读详情、详情隐藏明日寄语和习惯追踪。
 - 人生教练 Flutter 本地生成链路已接近 Web 逻辑，但后续如要彻底统一，仍建议下沉到服务端统一 API。
+- 品牌视觉源图已落地：启动页使用 `docs/design-reference/splash.png`，App 图标和关于页品牌图使用 `docs/design-reference/icon.png` 派生资源。
 
 ### 17.3 新增稳定性规则
 
@@ -495,15 +496,17 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 - SettingsPage 的「标签设置」入口不能静默失败；远程标签失败时使用默认标签配置打开。
 - 习惯图标渲染统一走 `HabitIcon`，不要直接 `Text(icon)`。
 - Flora 图标逻辑名和旧 emoji 用户配置需要并存兼容。
+- 品牌资源更新必须从 `docs/design-reference/` 源图派生，不要重新绘制近似图。
 
 ### 17.4 当前验证状态
 
-截至提交 `85fb246`：
+截至品牌视觉真机确认：
 
-- `dart analyze lib test`：通过
 - `flutter analyze --no-pub`：通过
-- `flutter test --no-pub`：359 项全部通过
-- `flutter build apk --release`：通过
+- `flutter test --no-pub`：364 项全部通过
+- `flutter build apk --release --no-pub`：通过
+- `adb install -r build/app/outputs/flutter-apk/app-release.apk`：成功
+- 真机验证：App 图标和关于页品牌图通过
 
 最新 release APK：
 
@@ -517,11 +520,10 @@ build/app/outputs/flutter-apk/app-release.apk
 
 建议优先级：
 
-1. 真机安装 `85fb246` 后验证：启动不转圈、标签设置可进入、快速记录页可选标签、空日记可打习惯。
-2. 继续观察 SVG 图标在深色/浅色模式下的可读性。
-3. 检查设置子页是否还有类似“静默失败”的入口。
-4. 整理真实使用中遇到的阻塞 bug，优先修复而不是新增页面。
-5. 功能稳定后，再规划完整日历历史页、画廊页或 Open Design 全局 UI 重设计。
+1. 继续观察 SVG 图标在深色/浅色模式下的可读性。
+2. 检查设置子页是否还有类似“静默失败”的入口。
+3. 整理真实使用中遇到的阻塞 bug，优先修复而不是新增页面。
+4. 功能稳定后，再规划完整日历历史页、画廊页或 Open Design 全局 UI 重设计。
 
 ### 17.6 仍未完成但可规划
 

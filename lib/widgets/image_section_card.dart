@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import 'flora_icon.dart';
+
 import '../models/diary_document.dart';
 import '../services/api_client.dart';
 
@@ -283,7 +285,7 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
               height: 28,
               child: PopupMenuButton<String>(
                 padding: EdgeInsets.zero,
-                icon: const Icon(Icons.more_horiz, size: 16),
+                icon: const FloraIcon(FloraIcons.more, size: 16),
                 color: theme.colorScheme.surface,
                 itemBuilder: (_) => [
                   PopupMenuItem(

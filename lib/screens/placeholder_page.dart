@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/flora_icon.dart';
+
+import '../theme/app_theme.dart';
+
 /// 统一占位页，用于尚未实现的功能入口。
 class PlaceholderPage extends StatelessWidget {
   final String title;
@@ -17,7 +21,7 @@ class PlaceholderPage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🌱', style: TextStyle(fontSize: 48)),
+            const FloraIcon(FloraIcons.brandIcon, size: 48, color: AppColors.primary),
             const SizedBox(height: 16),
             Text(
               '正在建设中',

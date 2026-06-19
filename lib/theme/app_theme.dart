@@ -1,21 +1,53 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const background = Color(0xFFFAF8F5);
-  static const surface = Color(0xFFFFFDF9);
+  // Light palette
+  static const background = Color(0xFFF7F5F0);
+  static const surface = Color(0xFFFEFCF8);
+  static const surfaceElevated = Color(0xFFFFFFFF);
   static const textPrimary = Color(0xFF3D3731);
   static const textSecondary = Color(0xFF8A8278);
+  static const muted = Color(0xFFA0988E);
   static const primary = Color(0xFFA26B59);
+  static const accentSoft = Color(0x1FA26B59);
   static const border = Color(0xFFE5E0D8);
   static const success = Color(0xFF6B8E6B);
+  static const red = Color(0xFFC44E4E);
+  static const tagBlue = Color(0xFF7A9CC6);
+  static const tagGreen = Color(0xFF7FB88A);
+  static const tagAmber = Color(0xFFC9A96E);
 
   // Dark palette
   static const darkBackground = Color(0xFF1C1B1A);
   static const darkSurface = Color(0xFF2A2826);
+  static const darkSurfaceElevated = Color(0xFF35322E);
   static const darkTextPrimary = Color(0xFFE8E2DC);
   static const darkTextSecondary = Color(0xFF9E948A);
+  static const darkMuted = Color(0xFF7A7168);
   static const darkPrimary = Color(0xFFCA9A84);
+  static const darkAccentSoft = Color(0x26CA9A84);
   static const darkBorder = Color(0xFF3D3833);
+  static const darkSuccess = Color(0xFF7DAF7D);
+  static const darkRed = Color(0xFFD47A7A);
+  static const darkTagBlue = Color(0xFF8AACD4);
+  static const darkTagGreen = Color(0xFF8DC498);
+  static const darkTagAmber = Color(0xFFD4B57A);
+}
+
+class FloraSpacing {
+  static const xs = 4.0;
+  static const sm = 8.0;
+  static const md = 12.0;
+  static const lg = 16.0;
+  static const xl = 24.0;
+  static const xxl = 32.0;
+}
+
+class FloraRadius {
+  static const sm = 8.0;
+  static const md = 12.0;
+  static const lg = 16.0;
+  static const pill = 9999.0;
 }
 
 class AppTheme {
@@ -31,7 +63,7 @@ class AppTheme {
           onSecondary: Colors.white,
           surface: AppColors.surface,
           onSurface: AppColors.textPrimary,
-          error: Colors.red.shade700,
+          error: AppColors.red,
           onError: Colors.white,
         ),
         appBarTheme: const AppBarTheme(
@@ -48,7 +80,7 @@ class AppTheme {
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppColors.surface,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: OutlineInputBorder(
@@ -152,7 +184,7 @@ class AppTheme {
           onSecondary: Colors.black,
           surface: AppColors.darkSurface,
           onSurface: AppColors.darkTextPrimary,
-          error: Colors.red.shade300,
+          error: AppColors.darkRed,
           onError: Colors.black,
         ),
         appBarTheme: const AppBarTheme(

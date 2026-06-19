@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/flora_icon.dart';
+
 import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
 import '../services/habit_settings_repository.dart';
@@ -117,7 +119,7 @@ class _SettingsPageState extends State<SettingsPage> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const FloraIcon(FloraIcons.back, size: 24),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text('设置'),
@@ -128,21 +130,21 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildSectionHeader(theme, '常用'),
           _buildMenuItem(
             context,
-            icon: '🎨',
+            icon: const FloraIcon(FloraIcons.settingAppearance, size: 22),
             title: '外观',
             subtitle: '跟随系统',
             onTap: () => _push(context, const AppearanceSettingsPage()),
           ),
           _buildMenuItem(
             context,
-            icon: '🌱',
+            icon: const FloraIcon(FloraIcons.settingHabits, size: 22),
             title: '习惯设置',
             subtitle: '已启用 $_activeHabitCount 项',
             onTap: _openHabitSettings,
           ),
           _buildMenuItem(
             context,
-            icon: '🏷️',
+            icon: const FloraIcon(FloraIcons.settingTags, size: 22),
             title: '标签设置',
             subtitle: _tagCount > 0 ? '已启用 $_tagCount 个标签' : '标签管理',
             onTap: _openTagSettings,
@@ -151,7 +153,7 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildSectionHeader(theme, '连接与智能'),
           _buildMenuItem(
             context,
-            icon: '☁️',
+            icon: const FloraIcon(FloraIcons.settingCloud, size: 22),
             title: '远程 API',
             subtitle: widget.apiConfig.baseUrl,
             onTap: () => _push(
@@ -164,7 +166,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           _buildMenuItem(
             context,
-            icon: '✨',
+            icon: const FloraIcon(FloraIcons.settingAi, size: 22),
             title: 'AI 服务配置',
             subtitle: _aiModelName.isNotEmpty ? _aiModelName : '未配置',
             onTap: () async {
@@ -177,7 +179,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           _buildMenuItem(
             context,
-            icon: '💬',
+            icon: const FloraIcon(FloraIcons.settingPrompt, size: 22),
             title: '润色提示词',
             subtitle: '编辑润色与人生教练提示词',
             onTap: () => _push(context, const PolishPromptPage()),
@@ -186,14 +188,14 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildSectionHeader(theme, '媒体与应用'),
           _buildMenuItem(
             context,
-            icon: '🖼️',
+            icon: const FloraIcon(FloraIcons.settingImage, size: 22),
             title: '图片设置',
             subtitle: '压缩与文件命名',
             onTap: () => _push(context, const ImageCompressPage()),
           ),
           _buildMenuItem(
             context,
-            icon: 'ℹ️',
+            icon: const FloraIcon(FloraIcons.settingAbout, size: 22),
             title: '关于',
             subtitle: '荔枝日记 Flutter 客户端',
             onTap: () => _push(context, const AboutPage()),
@@ -223,7 +225,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildMenuItem(
     BuildContext context, {
-    required String icon,
+    required Widget icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
@@ -233,7 +235,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Card(
       margin: const EdgeInsets.only(bottom: 4),
       child: ListTile(
-        leading: Text(icon, style: const TextStyle(fontSize: 22)),
+        leading: SizedBox(width: 22, height: 22, child: icon),
         title: Text(title, style: theme.textTheme.bodyMedium),
         subtitle: Text(
           subtitle,

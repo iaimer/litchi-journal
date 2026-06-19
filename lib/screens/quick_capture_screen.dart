@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/flora_icon.dart';
+
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../widgets/entry_type.dart';
@@ -163,7 +165,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const FloraIcon(FloraIcons.back, size: 24),
           onPressed: _handleBack,
         ),
         title: Text(widget.entryType.label),
@@ -195,7 +197,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 1.5),
                     )
-                  : const Text('✨', style: TextStyle(fontSize: 14)),
+                  : const FloraIcon(FloraIcons.coach, size: 14),
               label: const Text('AI 润色'),
             ),
           ),

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../widgets/flora_icon.dart';
+
+import '../theme/app_theme.dart';
+
 /// 关于页。
 /// 显示版本号（从 PackageInfo 读取）和当前版本更新内容（从 CHANGELOG.md 解析）。
 class AboutPage extends StatefulWidget {
@@ -79,7 +83,7 @@ class _AboutPageState extends State<AboutPage> {
             child: Column(
               children: [
                 const SizedBox(height: 32),
-                const Text('🌿', style: TextStyle(fontSize: 64)),
+                const FloraIcon(FloraIcons.brandIcon, size: 64, color: AppColors.primary),
                 const SizedBox(height: 16),
                 Text(
                   '荔枝日记',

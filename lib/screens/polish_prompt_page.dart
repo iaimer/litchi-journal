@@ -171,11 +171,11 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
           ElevatedButton(
             onPressed: _saving ? null : _save,
             child: _saving
-                ? const SizedBox(
+                ? SizedBox(
                     height: 20,
                     width: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2, color: theme.colorScheme.onPrimary),
                   )
                 : const Text('保存'),
           ),

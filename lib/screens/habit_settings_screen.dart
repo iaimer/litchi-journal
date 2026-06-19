@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/flora_icon.dart';
+
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 import '../services/habit_settings_repository.dart';
@@ -99,7 +101,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 2, right: 8),
-            child: Text('📋', style: TextStyle(fontSize: 16)),
+            child: FloraIcon(FloraIcons.settingHabits, size: 16),
           ),
           Expanded(
             child: Text(

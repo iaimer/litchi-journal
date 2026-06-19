@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/memory_entry.dart';
 import '../services/api_client.dart';
 import '../theme/app_theme.dart';
+import '../widgets/flora_icon.dart';
 
 class MemoryCard extends StatefulWidget {
   final MemoryEntry entry;
@@ -214,8 +215,8 @@ class _MemoryCardState extends State<MemoryCard> {
     return Container(
       color: theme.colorScheme.surfaceContainerHighest,
       child: Center(
-        child: Icon(
-          Icons.image_outlined,
+        child: FloraIcon(
+          FloraIcons.imagePlaceholder,
           size: 48,
           color: theme.colorScheme.onSurfaceVariant,
         ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/flora_icon.dart';
+
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 import '../services/habit_settings_repository.dart';
@@ -256,7 +258,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                           : null,
                     ),
                     child: selected
-                        ? const Icon(Icons.check, color: Colors.white, size: 20)
+                        ? const FloraIcon(FloraIcons.check, size: 20, color: Colors.white)
                         : null,
                   ),
                 );
@@ -320,7 +322,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _resetToDefault,
-                icon: const Icon(Icons.restart_alt, size: 18),
+                icon: const FloraIcon(FloraIcons.reset, size: 18),
                 label: const Text('恢复默认'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: theme.colorScheme.onSurfaceVariant,
@@ -339,11 +341,11 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                 child: ElevatedButton(
                   onPressed: _saving ? null : _save,
                   child: _saving
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                              strokeWidth: 2, color: theme.colorScheme.onPrimary),
                         )
                       : const Text('保存'),
                 ),

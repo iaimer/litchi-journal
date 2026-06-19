@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
+import 'flora_icon.dart';
+
 import '../models/diary_document.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
@@ -364,7 +366,7 @@ class GenericSectionCard extends StatelessWidget {
   Widget _buildCheckRow(BuildContext context, bool checked, String text) {
     final theme = Theme.of(context);
     final icon = checked ? Icons.check_box : Icons.check_box_outline_blank;
-    final color = checked ? Colors.green : theme.disabledColor;
+    final color = checked ? AppColors.success : theme.disabledColor;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -589,8 +591,7 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
                                 _TimelineAction>(
                               padding: EdgeInsets.zero,
                               iconSize: 16,
-                              icon: const Icon(Icons.more_horiz,
-                                  size: 16),
+                              icon: const FloraIcon(FloraIcons.more, size: 16),
                               onSelected: (action) {
                               if (action ==
                                   _TimelineAction.delete) {

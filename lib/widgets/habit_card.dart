@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'flora_icon.dart';
+
 import '../models/diary_document.dart';
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
@@ -306,7 +308,7 @@ class _CheckboxRow extends StatelessWidget {
             Icon(
               _checked ? Icons.check_box : Icons.check_box_outline_blank,
               size: 20,
-              color: _checked ? Colors.green : theme.disabledColor,
+              color: _checked ? AppColors.success : theme.disabledColor,
             ),
             const SizedBox(width: 8),
             if (icon != null) ...[
@@ -469,7 +471,7 @@ class _StepsCounterRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.edit, size: 14, color: AppColors.primary),
+            const FloraIcon(FloraIcons.edit, size: 14, color: AppColors.primary),
             if (loading) ...[
               const SizedBox(width: 8),
               const SizedBox(

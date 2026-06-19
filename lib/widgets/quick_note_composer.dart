@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'flora_icon.dart';
+
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../services/draft_repository.dart';
@@ -234,7 +236,7 @@ class _QuickNoteComposerState extends State<QuickNoteComposer> {
                         child:
                             CircularProgressIndicator(strokeWidth: 1.5),
                       )
-                    : const Text('✨', style: TextStyle(fontSize: 14)),
+                    : const FloraIcon(FloraIcons.coach, size: 14),
                 label: const Text('润色'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: theme.colorScheme.primary,

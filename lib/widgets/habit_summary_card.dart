@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'flora_icon.dart';
+
 import '../models/habit_stats.dart';
 
 /// 温柔反馈卡。
@@ -30,7 +32,7 @@ class HabitSummaryCard extends StatelessWidget {
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(top: 2, right: 12),
-                    child: Text('🌿', style: TextStyle(fontSize: 22)),
+                    child: FloraIcon(FloraIcons.candidateSprout, size: 22),
                   ),
                   Expanded(
                     child: Text(
@@ -50,7 +52,7 @@ class HabitSummaryCard extends StatelessWidget {
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(top: 2, right: 12),
-                    child: Text('💡', style: TextStyle(fontSize: 22)),
+                    child: FloraIcon(FloraIcons.coach, size: 22),
                   ),
                   Expanded(
                     child: Text(

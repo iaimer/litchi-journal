@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'flora_icon.dart';
+
 import '../models/diary_document.dart';
 import '../models/habit_settings.dart';
 import '../models/tag_config.dart';
@@ -62,7 +64,8 @@ class DiaryMarkdownView extends StatelessWidget {
   Widget build(BuildContext context) {
     final document = const MarkdownParser().parse(markdown);
     final canGenerateCoach = !readOnly && onGenerateCoach != null;
-    if (document.isEmpty && !canGenerateCoach) {
+    final canShowHabitFallback = !readOnly && onHabitUpdate != null;
+    if (document.isEmpty && !canGenerateCoach && !canShowHabitFallback) {
       return const SizedBox.shrink();
     }
 
@@ -73,15 +76,19 @@ class DiaryMarkdownView extends StatelessWidget {
     );
 
     if (!preamble.isEmpty) {
-      widgets.add(GenericSectionCard(
-        section: preamble,
-        tagConfig: tagConfig,
-        tagSettings: tagSettings,
-      ));
+      widgets.add(
+        GenericSectionCard(
+          section: preamble,
+          tagConfig: tagConfig,
+          tagSettings: tagSettings,
+        ),
+      );
     }
 
     var hasCoachSection = false;
+    var hasHabitSection = false;
     for (final section in document.sections) {
+      if (section is HabitSection) hasHabitSection = true;
       if (_isHiddenSection(section)) continue;
       if (section is CoachSection) hasCoachSection = true;
       if (section.isEmpty &&
@@ -89,6 +96,13 @@ class DiaryMarkdownView extends StatelessWidget {
         continue;
       }
       widgets.add(_buildSection(section, context));
+    }
+
+    final fallbackHabitSection = HabitSection.empty();
+    if (canShowHabitFallback &&
+        !hasHabitSection &&
+        !_isHiddenSection(fallbackHabitSection)) {
+      widgets.add(_buildSection(fallbackHabitSection, context));
     }
 
     if (canGenerateCoach && !hasCoachSection) {
@@ -205,13 +219,16 @@ class DiaryMarkdownView extends StatelessWidget {
   }
 
   static String _stripStorageListMarkers(String text) {
-    return text.split('\n').map((line) {
-      var trimmed = line.trimLeft();
-      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        return trimmed.substring(2);
-      }
-      return line;
-    }).join('\n');
+    return text
+        .split('\n')
+        .map((line) {
+          var trimmed = line.trimLeft();
+          if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            return trimmed.substring(2);
+          }
+          return line;
+        })
+        .join('\n');
   }
 
   Widget _buildCoachCard(CoachSection section, BuildContext context) {
@@ -249,7 +266,7 @@ class DiaryMarkdownView extends StatelessWidget {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 1.5),
                     )
-                  : const Text('🧠', style: TextStyle(fontSize: 14)),
+                  : const FloraIcon(FloraIcons.coach, size: 14),
               label: Text(
                 generatingCoach ? '生成中...' : (hasContent ? '重新生成' : '生成今日反馈'),
                 style: const TextStyle(fontSize: 13),

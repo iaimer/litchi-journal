@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'flora_icon.dart';
+
 import '../models/tag_config.dart';
 
 class TagPicker extends StatefulWidget {
@@ -177,7 +179,7 @@ class _TagPickerState extends State<TagPicker> {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                   backgroundColor: isHidden
-                      ? Colors.grey.shade200
+                      ? theme.colorScheme.surfaceContainerHighest
                       : theme.colorScheme.primary.withAlpha(25),
                   side: BorderSide.none,
                 );
@@ -192,9 +194,18 @@ class _TagPickerState extends State<TagPicker> {
             _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
             size: 16,
           ),
-          label: Text(
-            _expanded ? '收起' : '🏷️ 标签',
-            style: const TextStyle(fontSize: 12),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!_expanded) ...[
+                const FloraIcon(FloraIcons.settingTags, size: 16),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                _expanded ? '收起' : '标签',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
           ),
           style: TextButton.styleFrom(
             visualDensity: VisualDensity.compact,
@@ -268,18 +279,18 @@ class _TagPickerState extends State<TagPicker> {
                   '$tag (已隐藏)',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade600,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 onDeleted: () => _removeHiddenTag(tag),
                 deleteIcon: Icon(
                   Icons.close,
                   size: 14,
-                  color: Colors.grey.shade500,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 side: BorderSide.none,
               );
             }).toList(),

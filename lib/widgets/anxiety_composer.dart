@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'flora_icon.dart';
+
 import '../services/draft_repository.dart';
 import 'entry_type.dart';
 
@@ -278,10 +280,6 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
     final theme = Theme.of(context);
     final progress = (_step + 1) / _questions.length;
     final minInputLines = _step == 0 ? 5 : 4;
-    final inputBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
-    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -327,23 +325,8 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
         const SizedBox(height: 8),
         TextField(
           controller: _controllers[_step],
-          style: TextStyle(color: theme.colorScheme.onSurface),
           decoration: InputDecoration(
             hintText: _placeholders[_step],
-            hintStyle: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
-            ),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
-            ),
-            enabledBorder: inputBorder,
-            disabledBorder: inputBorder,
-            focusedBorder: inputBorder.copyWith(
-              borderSide: BorderSide(color: theme.colorScheme.primary),
-            ),
           ),
           minLines: minInputLines,
           maxLines: 8,
@@ -363,7 +346,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 1.5),
                     )
-                  : const Text('✨', style: TextStyle(fontSize: 14)),
+                  : const FloraIcon(FloraIcons.coach, size: 14),
               label: const Text('润色当前回答'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.colorScheme.primary,
@@ -408,12 +391,12 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
             ElevatedButton(
               onPressed: _saving ? null : _next,
               child: _saving
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: theme.colorScheme.onPrimary,
                       ),
                     )
                   : Text(_isLastStep ? '保存' : '下一步'),

@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../widgets/flora_icon.dart';
+
 import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
 import '../models/habit_settings.dart';
@@ -30,6 +32,7 @@ import '../services/tag_settings_repository.dart';
 import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/entry_type.dart';
+import '../widgets/habit_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -560,35 +563,35 @@ class _HomeScreenState extends State<HomeScreen> {
     const radius = 120.0;
     final items = [
       _QuickRecordAction(
-        icon: '✍️',
+        icon: const FloraIcon(FloraIcons.fabWrite, size: 19),
         title: '随手记',
         key: const Key('quick_record_quick_note'),
         angleDegrees: 180,
         onTap: () => _selectQuickEntry(EntryType.quickNote),
       ),
       _QuickRecordAction(
-        icon: '💡',
+        icon: const FloraIcon(FloraIcons.fabInsight, size: 19),
         title: '觉察',
         key: const Key('quick_record_reflection'),
         angleDegrees: 155,
         onTap: () => _selectQuickEntry(EntryType.reflection),
       ),
       _QuickRecordAction(
-        icon: '✨',
+        icon: const FloraIcon(FloraIcons.fabHappy, size: 19),
         title: '小确幸',
         key: const Key('quick_record_happiness'),
         angleDegrees: 130,
         onTap: () => _selectQuickEntry(EntryType.happiness),
       ),
       _QuickRecordAction(
-        icon: '😰',
+        icon: const FloraIcon(FloraIcons.fabAnxiety, size: 19),
         title: '焦虑四问',
         key: const Key('quick_record_anxiety'),
         angleDegrees: 105,
         onTap: () => _selectQuickEntry(EntryType.anxiety),
       ),
       _QuickRecordAction(
-        icon: '📸',
+        icon: const FloraIcon(FloraIcons.fabPhoto, size: 19),
         title: '添加图片',
         key: const Key('quick_record_image'),
         angleDegrees: 82,
@@ -620,7 +623,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               setState(() => _quickRecordExpanded = !_quickRecordExpanded);
             },
-            child: Icon(_quickRecordExpanded ? Icons.close : Icons.add),
+            child: FloraIcon(_quickRecordExpanded ? FloraIcons.close : FloraIcons.fabWrite, size: 24),
           ),
         ],
       ),
@@ -673,7 +676,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildQuickRecordItem({
-    required String icon,
+    required Widget icon,
     required String title,
     required Key key,
     required VoidCallback onTap,
@@ -701,9 +704,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: onTap,
-                  child: Center(
-                    child: Text(icon, style: const TextStyle(fontSize: 19)),
-                  ),
+                  child: Center(child: icon),
                 ),
               ),
             ),
@@ -791,7 +792,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: const FloraIcon(FloraIcons.settings, size: 24),
             onPressed: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute(
@@ -858,6 +859,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      HabitCard(
+                        key: const ValueKey('habit_card'),
+                        section: HabitSection.empty(),
+                        onUpdate: _handleHabitUpdate,
+                        activeHabitKeys: _activeHabitKeys,
+                        habitSettings: _habitSettings ?? HabitSettings.defaults,
+                      ),
                     ],
                     const SizedBox(height: 96),
                   ],
@@ -869,7 +878,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _QuickRecordAction {
-  final String icon;
+  final Widget icon;
   final String title;
   final Key key;
   final double angleDegrees;

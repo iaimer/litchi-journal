@@ -95,11 +95,6 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
               maxLines: 4,
               minLines: 2,
               autofocus: true,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              ),
             ),
             if (effectiveTagConfig != null) ...[
               const SizedBox(height: 12),
@@ -125,11 +120,11 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
                   child: ElevatedButton(
                     onPressed: _canSave ? _save : null,
                     child: _saving
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
+                                strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary),
                           )
                         : const Text('保存'),
                   ),

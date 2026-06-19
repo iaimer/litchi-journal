@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/flora_icon.dart';
+
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/tag_settings_helper.dart';
@@ -279,7 +281,7 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
           Center(
             child: TextButton.icon(
               onPressed: _restoreAll,
-              icon: const Icon(Icons.restore, size: 18),
+              icon: const FloraIcon(FloraIcons.restore, size: 18),
               label: const Text('恢复全部默认'),
               style: TextButton.styleFrom(
                 foregroundColor: theme.colorScheme.error,
@@ -341,7 +343,7 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
             ),
             // 编辑按钮
             IconButton(
-              icon: const Icon(Icons.edit, size: 16),
+              icon: const FloraIcon(FloraIcons.edit, size: 16),
               onPressed: onEdit,
               tooltip: '编辑名称',
               visualDensity: VisualDensity.compact,
@@ -352,7 +354,7 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
             // 恢复默认（仅在非默认时显示）
             if (!isDefault)
               IconButton(
-                icon: const Icon(Icons.restore, size: 16),
+                icon: const FloraIcon(FloraIcons.restore, size: 16),
                 onPressed: onRestore,
                 tooltip: '恢复默认',
                 visualDensity: VisualDensity.compact,

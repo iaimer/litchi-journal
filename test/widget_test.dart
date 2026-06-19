@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
 
+import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
+
 import 'package:litchi_journal_flutter/models/ai_config.dart';
 import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
@@ -577,7 +579,7 @@ void main() {
       expect(title.maxLines, 1);
       expect(title.overflow, TextOverflow.ellipsis);
       expect(find.text('已连接服务器'), findsNothing);
-      expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.settings), findsOneWidget);
     });
 
     testWidgets('PastScreen keeps header content inside SafeArea', (
@@ -690,6 +692,37 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('quick_record_fab')), findsOneWidget);
+    });
+
+    testWidgets('HomeScreen shows habit card when today diary is empty', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      final httpClient = _RecordingHttpClient(
+        body: jsonEncode({
+          'date': ApiClient.formatDate(now),
+          'title': '今天',
+          'raw': '',
+          'sections': {},
+        }),
+      );
+
+      await tester.pumpWidget(buildHome(httpClient: httpClient));
+      await tester.pumpAndSettle();
+
+      expect(find.text('今日还没有日记内容'), findsOneWidget);
+      expect(find.byKey(const ValueKey('habit_card')), findsOneWidget);
+      expect(find.text('亲子共读'), findsOneWidget);
+
+      await tester.tap(find.text('亲子共读'));
+      await tester.pumpAndSettle();
+
+      expect(
+        httpClient.requestPaths.any(
+          (path) => path.startsWith('POST /api/v1/diary/habit'),
+        ),
+        isTrue,
+      );
     });
 
     testWidgets('PastScreen does not show quick record FAB', (tester) async {
@@ -1102,7 +1135,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('工作'));
       await tester.pumpAndSettle();
@@ -1143,7 +1176,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('工作'));
       await tester.pumpAndSettle();
@@ -1162,7 +1195,7 @@ void main() {
       await tester.pumpWidget(buildCapture());
 
       await tester.enterText(find.byType(TextField), '未保存内容');
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.back));
       await tester.pumpAndSettle();
 
       expect(find.text('放弃记录？'), findsOneWidget);
@@ -1603,7 +1636,7 @@ tags:
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
@@ -1626,7 +1659,7 @@ tags:
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
@@ -1652,7 +1685,7 @@ tags:
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.pump();
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
@@ -1746,7 +1779,7 @@ tags:
         ),
       );
       await tester.pump();
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
@@ -2397,7 +2430,7 @@ tags:
       await tester.pumpWidget(buildPicker(onChanged: (_) {}));
       // Chips hidden by default
       expect(find.byType(ChoiceChip), findsNothing);
-      expect(find.text('🏷️ 标签'), findsOneWidget);
+      expect(find.text('标签'), findsOneWidget);
     });
 
     testWidgets('expands chips when toggle tapped', (
@@ -2405,7 +2438,7 @@ tags:
     ) async {
       await tester.pumpWidget(buildPicker(onChanged: (_) {}));
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
 
       expect(find.byType(ChoiceChip), findsWidgets);
@@ -2417,7 +2450,7 @@ tags:
     ) async {
       await tester.pumpWidget(buildPicker(onChanged: (_) {}));
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
@@ -2431,7 +2464,7 @@ tags:
       List<String>? output;
       await tester.pumpWidget(buildPicker(onChanged: (tags) => output = tags));
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
@@ -2448,7 +2481,7 @@ tags:
       List<String>? output;
       await tester.pumpWidget(buildPicker(onChanged: (tags) => output = tags));
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
@@ -2468,7 +2501,7 @@ tags:
       List<String>? output;
       await tester.pumpWidget(buildPicker(onChanged: (tags) => output = tags));
 
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
       await tester.tap(find.text('工作').last);
       await tester.pump();
@@ -2519,7 +2552,7 @@ tags:
       );
 
       // Expand and verify chips visible
-      await tester.tap(find.text('🏷️ 标签'));
+      await tester.tap(find.text('标签'));
       await tester.pump();
       expect(find.byType(ChoiceChip), findsWidgets);
 
@@ -2539,7 +2572,7 @@ tags:
 
       // Should be collapsed again
       expect(find.byType(ChoiceChip), findsNothing);
-      expect(find.text('🏷️ 标签'), findsOneWidget);
+      expect(find.text('标签'), findsOneWidget);
     });
   });
 
@@ -2680,11 +2713,10 @@ tags:
         buildComposer(onSubmit: (_, _) async {}, theme: AppTheme.dark),
       );
 
+      // 输入框使用主题默认样式（inputDecorationTheme），确保可交互
       final textField = tester.widget<TextField>(find.byType(TextField));
-      final decoration = textField.decoration!;
-      expect(textField.style?.color, AppColors.darkTextPrimary);
-      expect(decoration.fillColor, AppColors.darkSurface);
-      expect(decoration.hintStyle?.color, isNot(AppColors.darkSurface));
+      expect(textField.enabled, isTrue);
+      expect(textField.decoration?.hintText, isNotEmpty);
     });
 
     testWidgets('next button advances to second question', (
@@ -5672,6 +5704,27 @@ tags:
         expect(find.text('亲子共读'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'editable view adds fallback habit card when habit section missing',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: DiaryMarkdownView(
+                markdown: '# 今天\n',
+                onHabitUpdate: (_) async => true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('habit_card')), findsOneWidget);
+        expect(find.text('🏃 习惯打卡'), findsOneWidget);
+        expect(find.text('亲子共读'), findsOneWidget);
+      },
+    );
   });
 
   group('SettingsScreen', () {
@@ -5923,7 +5976,7 @@ tags:
         ),
       );
 
-      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsOneWidget);
     });
 
     testWidgets('QuickNoteTimeline delete button shows confirm dialog', (
@@ -5950,7 +6003,7 @@ tags:
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
       await tester.pumpAndSettle();
 
       // PopupMenu shows edit/delete items
@@ -5995,7 +6048,7 @@ tags:
           ),
         );
 
-        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
         await tester.pumpAndSettle();
 
         // Tap delete in popup menu
@@ -6035,7 +6088,7 @@ tags:
       expect(find.text('下班看到晚霞'), findsOneWidget);
       expect(find.text('•'), findsNothing);
       // 无 timeline 图标
-      expect(find.byIcon(Icons.more_horiz), findsNothing);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNothing);
     });
 
     testWidgets('GenericSectionCard multiple happiness shows bullet list', (
@@ -6072,7 +6125,7 @@ tags:
       // 无 timeline 样式
       expect(find.text('14:00'), findsNothing);
       expect(find.text('15:00'), findsNothing);
-      expect(find.byIcon(Icons.more_horiz), findsNothing);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNothing);
     });
 
     testWidgets('GenericSectionCard happiness no longer shows timeline', (
@@ -6144,7 +6197,7 @@ tags:
           ),
         );
 
-        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
         await tester.pumpAndSettle();
 
         // Tap delete in popup menu
@@ -6179,7 +6232,7 @@ tags:
         ),
       );
 
-      expect(find.byIcon(Icons.more_horiz), findsNothing);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNothing);
     });
 
     testWidgets('ReviewCard shows delete button via GenericSectionCard', (
@@ -6205,7 +6258,7 @@ tags:
         ),
       );
 
-      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsOneWidget);
     });
 
     testWidgets('ReviewCard delete passes rawLine with section reflection', (
@@ -6237,7 +6290,7 @@ tags:
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
       await tester.pumpAndSettle();
 
       // Tap delete in popup menu
@@ -6276,7 +6329,7 @@ tags:
         ),
       );
 
-      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsOneWidget);
     });
 
     testWidgets('PopupMenu shows edit and delete options', (tester) async {
@@ -6305,7 +6358,7 @@ tags:
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
       await tester.pumpAndSettle();
 
       expect(find.text('编辑'), findsOneWidget);
@@ -6339,7 +6392,7 @@ tags:
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('编辑'));
@@ -6866,7 +6919,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsOneWidget);
       expect(deleted, isNull);
     });
 
@@ -6885,7 +6938,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -6913,7 +6966,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -6944,7 +6997,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -6976,10 +7029,10 @@ tags:
       await tester.pumpAndSettle();
 
       // Two thumbnails → two delete menus
-      expect(find.byIcon(Icons.more_horiz), findsNWidgets(2));
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNWidgets(2));
 
       // Delete the first image
-      await tester.tap(find.byIcon(Icons.more_horiz).first);
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more).first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -7003,7 +7056,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.more_horiz), findsNothing);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNothing);
     });
 
     testWidgets('tap thumbnail opens preview with close gesture', (
@@ -8144,7 +8197,7 @@ tags:
       await tester.pumpWidget(buildPage());
 
       expect(find.text('设置'), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.back), findsOneWidget);
       expect(find.text('管理你的日记应用'), findsNothing);
       expect(find.text('常用'), findsOneWidget);
       expect(find.text('连接与智能'), findsOneWidget);
@@ -8184,7 +8237,7 @@ tags:
       await tester.pumpAndSettle();
       expect(find.text('设置'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.back));
       await tester.pumpAndSettle();
 
       expect(find.text('打开设置'), findsOneWidget);

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/flora_icon.dart';
+
 import '../models/memory_entry.dart';
 import '../services/api_client.dart';
 import '../services/past_memory_service.dart';
@@ -152,7 +154,7 @@ class _PastScreenState extends State<PastScreen> {
                               onPressed: _randomLoading
                                   ? null
                                   : _loadRandomMemory,
-                              icon: const Icon(Icons.shuffle, size: 18),
+                              icon: const FloraIcon(FloraIcons.shuffle, size: 18),
                               label: const Text('再走一段'),
                               style: TextButton.styleFrom(
                                 foregroundColor: theme.colorScheme.primary,

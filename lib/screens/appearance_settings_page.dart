@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/appearance_controller.dart';
+import '../widgets/flora_icon.dart';
 
 /// 外观设置页面。
 /// 支持跟随系统 / 浅色模式 / 深色模式。
@@ -45,19 +46,19 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             ),
           ),
           _buildOption(
-            icon: Icons.phone_android_outlined,
+            icon: const FloraIcon(FloraIcons.deviceSystem, size: 22),
             title: '跟随系统',
             subtitle: '跟随手机系统的深色或浅色设置。',
             mode: ThemeMode.system,
           ),
           _buildOption(
-            icon: Icons.light_mode_outlined,
+            icon: const FloraIcon(FloraIcons.theme, size: 22),
             title: '浅色模式',
             subtitle: '始终使用浅色外观。',
             mode: ThemeMode.light,
           ),
           _buildOption(
-            icon: Icons.dark_mode_outlined,
+            icon: const FloraIcon(FloraIcons.theme, size: 22),
             title: '深色模式',
             subtitle: '始终使用深色外观。',
             mode: ThemeMode.dark,
@@ -68,7 +69,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   }
 
   Widget _buildOption({
-    required IconData icon,
+    required Widget icon,
     required String title,
     required String subtitle,
     required ThemeMode mode,
@@ -78,7 +79,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: Icon(icon),
+        leading: icon,
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: Icon(

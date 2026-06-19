@@ -7,6 +7,7 @@ import 'screens/home_screen.dart';
 import 'screens/past_screen.dart';
 import 'screens/habit_stats_screen.dart';
 import 'theme/app_theme.dart';
+import 'widgets/flora_icon.dart';
 import 'screens/setup_screen.dart';
 
 void main() async {
@@ -126,20 +127,20 @@ class _MainScreenState extends State<MainScreen> {
             }
           });
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.edit_note_outlined),
-            selectedIcon: Icon(Icons.edit_note),
+            icon: FloraIcon(FloraIcons.diary, size: 24),
+            selectedIcon: FloraIcon(FloraIcons.diary, size: 24),
             label: '今天',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history),
+            icon: FloraIcon(FloraIcons.history, size: 24),
+            selectedIcon: FloraIcon(FloraIcons.history, size: 24),
             label: '过往',
           ),
           NavigationDestination(
-            icon: Icon(Icons.check_circle_outline_outlined),
-            selectedIcon: Icon(Icons.check_circle_outline),
+            icon: FloraIcon(FloraIcons.habits, size: 24),
+            selectedIcon: FloraIcon(FloraIcons.habits, size: 24),
             label: '习惯',
           ),
         ],

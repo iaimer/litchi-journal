@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'flora_icon.dart';
+
 import '../models/diary_document.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
@@ -186,7 +188,7 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                                 _QuickNoteAction>(
                               padding: EdgeInsets.zero,
                               iconSize: 16,
-                              icon: const Icon(Icons.more_horiz,
+                              icon: const FloraIcon(FloraIcons.more,
                                   size: 16),
                               onSelected: (action) {
                               if (action == _QuickNoteAction.delete) {

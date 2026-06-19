@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'flora_icon.dart';
 
@@ -64,7 +63,7 @@ class _FloraSplashState extends State<FloraSplash>
             mainAxisSize: MainAxisSize.min,
             children: [
               if (splashAsset.isNotEmpty)
-                SvgPicture.asset(splashAsset, width: 168, height: 168),
+                Image.asset(splashAsset, width: 188, height: 188),
               const SizedBox(height: 28),
               Text(
                 '荔枝日记',

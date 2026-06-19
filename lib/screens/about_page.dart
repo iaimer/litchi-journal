@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../widgets/flora_icon.dart';
@@ -82,7 +81,7 @@ class _AboutPageState extends State<AboutPage> {
           Center(
             child: Column(
               children: [
-                SvgPicture.asset(brandAsset, width: 112, height: 112),
+                Image.asset(brandAsset, width: 124, height: 124),
                 const SizedBox(height: 20),
                 Text(
                   '荔枝日记',

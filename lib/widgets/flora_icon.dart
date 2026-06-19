@@ -151,9 +151,6 @@ class FloraIcons {
     question: 'chat-question-svgrepo-com',
     reward: 'thumbs-up-svgrepo-com',
     target: 'target-04-svgrepo-com',
-    // ── Brand & empty states ──
-    brandSplash: 'brand-splash',
-    brandSplashDark: 'brand-splash-dark',
     emptyPast: 'empty-past',
     emptyTags: 'empty-tags',
     emptyHabits: 'empty-habits',
@@ -161,7 +158,11 @@ class FloraIcons {
   };
 
   /// Maps logical icon name → PNG filename (with extension).
-  static const Map<String, String> _pngFiles = {brandIcon: 'app-icon.png'};
+  static const Map<String, String> _pngFiles = {
+    brandIcon: 'app-icon.png',
+    brandSplash: 'brand-splash-reference.png',
+    brandSplashDark: 'brand-splash-reference.png',
+  };
 
   static const String _svgPrefix = 'assets/svg/';
   static const String _svgSuffix = '.svg';

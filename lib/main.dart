@@ -46,6 +46,7 @@ class AppEntry extends StatefulWidget {
 class _AppEntryState extends State<AppEntry> {
   ApiConfig? _config;
   bool _loading = true;
+  static const _configLoadTimeout = Duration(seconds: 5);
 
   @override
   void initState() {
@@ -54,12 +55,20 @@ class _AppEntryState extends State<AppEntry> {
   }
 
   Future<void> _loadConfig() async {
-    final config = await ApiConfig.load();
-    if (!mounted) return;
-    setState(() {
-      _config = config;
-      _loading = false;
-    });
+    try {
+      final config = await ApiConfig.load().timeout(_configLoadTimeout);
+      if (!mounted) return;
+      setState(() {
+        _config = config;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _config = null;
+        _loading = false;
+      });
+    }
   }
 
   void _onConfigured(ApiConfig config) {

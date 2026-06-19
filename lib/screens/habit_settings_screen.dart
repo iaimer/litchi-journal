@@ -6,6 +6,7 @@ import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 import '../services/habit_settings_repository.dart';
 import '../theme/app_theme.dart';
+import '../widgets/habit_icon.dart';
 import 'habit_edit_screen.dart';
 
 /// 习惯设置页面。
@@ -137,14 +138,11 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
               Container(
                 width: 10,
                 height: 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color,
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: color),
               ),
               const SizedBox(width: 10),
               // 图标
-              Text(icon, style: const TextStyle(fontSize: 22)),
+              HabitIcon(icon, size: 22, color: theme.colorScheme.onSurface),
               const SizedBox(width: 12),
               // 名称 + 状态
               Expanded(

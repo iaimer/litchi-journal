@@ -184,64 +184,66 @@ class FloraIcons {
     return '';
   }
 
+  static bool hasAsset(String name) => path(name).isNotEmpty;
+
   /// All available icon names (for previews, debug).
   static List<String> get all => [
-        diary,
-        history,
-        habits,
-        settings,
-        coach,
-        fabWrite,
-        fabInsight,
-        fabHappy,
-        fabAnxiety,
-        fabPhoto,
-        settingAppearance,
-        settingHabits,
-        settingTags,
-        settingCloud,
-        settingAi,
-        settingPrompt,
-        settingImage,
-        settingAbout,
-        edit,
-        restore,
-        reset,
-        more,
-        shuffle,
-        back,
-        close,
-        imagePlaceholder,
-        check,
-        deviceSystem,
-        theme,
-        habitWater,
-        habitWalk,
-        habitRead,
-        habitLanguage,
-        habitPill,
-        candidateRun,
-        candidateSprout,
-        candidateStar,
-        candidateSun,
-        candidateMoon,
-        candidateMeditate,
-        candidateLift,
-        candidateApple,
-        candidateBooks,
-        pin,
-        warning,
-        chatFeedback,
-        question,
-        reward,
-        target,
-        brandIcon,
-        brandSplash,
-        emptyPast,
-        emptyTags,
-        emptyHabits,
-        emptySearch,
-      ];
+    diary,
+    history,
+    habits,
+    settings,
+    coach,
+    fabWrite,
+    fabInsight,
+    fabHappy,
+    fabAnxiety,
+    fabPhoto,
+    settingAppearance,
+    settingHabits,
+    settingTags,
+    settingCloud,
+    settingAi,
+    settingPrompt,
+    settingImage,
+    settingAbout,
+    edit,
+    restore,
+    reset,
+    more,
+    shuffle,
+    back,
+    close,
+    imagePlaceholder,
+    check,
+    deviceSystem,
+    theme,
+    habitWater,
+    habitWalk,
+    habitRead,
+    habitLanguage,
+    habitPill,
+    candidateRun,
+    candidateSprout,
+    candidateStar,
+    candidateSun,
+    candidateMoon,
+    candidateMeditate,
+    candidateLift,
+    candidateApple,
+    candidateBooks,
+    pin,
+    warning,
+    chatFeedback,
+    question,
+    reward,
+    target,
+    brandIcon,
+    brandSplash,
+    emptyPast,
+    emptyTags,
+    emptyHabits,
+    emptySearch,
+  ];
 }
 
 /// Flora-branded SVG icon widget.
@@ -255,12 +257,7 @@ class FloraIcons {
 /// FloraIcon(FloraIcons.coach, size: 20, color: AppColors.primary)
 /// ```
 class FloraIcon extends StatelessWidget {
-  const FloraIcon(
-    this.name, {
-    super.key,
-    this.size = 24,
-    this.color,
-  });
+  const FloraIcon(this.name, {super.key, this.size = 24, this.color});
 
   /// The logical icon name (one of [FloraIcons] constants).
   final String name;
@@ -273,9 +270,11 @@ class FloraIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor =
-        color ?? Theme.of(context).colorScheme.onSurface;
+    final effectiveColor = color ?? Theme.of(context).colorScheme.onSurface;
     final assetPath = FloraIcons.path(name);
+    if (assetPath.isEmpty) {
+      return Icon(Icons.circle, size: size, color: effectiveColor);
+    }
     if (assetPath.endsWith('.png')) {
       return Image.asset(
         assetPath,

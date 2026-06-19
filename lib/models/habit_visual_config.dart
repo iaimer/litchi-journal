@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'habit_stats.dart';
+import '../widgets/flora_icon.dart';
 
 /// 习惯视觉配置：display name、icon、主题色、分组。
 /// 后续可从习惯设置中自定义，当前为固定映射。
@@ -23,35 +24,35 @@ class HabitVisualConfig {
     'water': HabitVisualConfig(
       key: 'water',
       displayName: '饮水',
-      icon: '💧',
+      icon: FloraIcons.habitWater,
       color: Color(0xFF6BAED6),
       group: HabitGroup.body,
     ),
     'steps': HabitVisualConfig(
       key: 'steps',
       displayName: '运动',
-      icon: '🚶',
+      icon: FloraIcons.habitWalk,
       color: Color(0xFFE8A87C),
       group: HabitGroup.body,
     ),
     'reading': HabitVisualConfig(
       key: 'reading',
       displayName: '亲子共读',
-      icon: '📖',
+      icon: FloraIcons.habitRead,
       color: Color(0xFF6B8E6B),
       group: HabitGroup.growth,
     ),
     'language': HabitVisualConfig(
       key: 'language',
       displayName: '学语言',
-      icon: '🗣️',
+      icon: FloraIcons.habitLanguage,
       color: Color(0xFF9B8EC4),
       group: HabitGroup.growth,
     ),
     'supplements': HabitVisualConfig(
       key: 'supplements',
       displayName: '补充剂',
-      icon: '💊',
+      icon: FloraIcons.habitPill,
       color: Color(0xFFC49B8C),
       group: HabitGroup.body,
     ),
@@ -63,7 +64,7 @@ class HabitVisualConfig {
         HabitVisualConfig(
           key: key,
           displayName: key,
-          icon: '✅',
+          icon: FloraIcons.check,
           color: const Color(0xFF8A8278),
           group: HabitGroup.body,
         );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
+import 'habit_icon.dart';
 
 /// 最近 7 天节奏谱。
 /// 行：习惯（icon + 名称）；列：7 天。用圆点表示完成情况，每个习惯使用自己的主题色。
@@ -8,11 +9,7 @@ class HabitRhythmGrid extends StatelessWidget {
   final List<HabitDayRecord> days;
   final List<HabitItemStats> items;
 
-  const HabitRhythmGrid({
-    super.key,
-    required this.days,
-    required this.items,
-  });
+  const HabitRhythmGrid({super.key, required this.days, required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -42,8 +39,9 @@ class HabitRhythmGrid extends StatelessWidget {
                         weekdays[days[i].date.weekday - 1],
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight:
-                              isToday ? FontWeight.w700 : FontWeight.w400,
+                          fontWeight: isToday
+                              ? FontWeight.w700
+                              : FontWeight.w400,
                           color: isToday
                               ? theme.colorScheme.primary
                               : theme.colorScheme.onSurfaceVariant,
@@ -81,7 +79,11 @@ class HabitRhythmGrid extends StatelessWidget {
             width: 72,
             child: Row(
               children: [
-                Text(item.icon, style: const TextStyle(fontSize: 14)),
+                HabitIcon(
+                  item.icon,
+                  size: 14,
+                  color: theme.colorScheme.onSurface,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -110,9 +112,7 @@ class HabitRhythmGrid extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: done
-                        ? (isToday
-                            ? theme.colorScheme.primary
-                            : item.color)
+                        ? (isToday ? theme.colorScheme.primary : item.color)
                         : theme.dividerColor,
                   ),
                 ),

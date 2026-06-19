@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:http/http.dart' as http;
@@ -11,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
 
 import 'package:litchi_journal_flutter/models/ai_config.dart';
+import 'package:litchi_journal_flutter/models/default_tag_config.dart';
 import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/polish_result.dart';
@@ -38,6 +40,7 @@ import 'package:litchi_journal_flutter/screens/past_screen.dart';
 import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
 import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
+import 'package:litchi_journal_flutter/screens/habit_edit_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_page.dart';
 import 'package:litchi_journal_flutter/screens/about_page.dart';
@@ -60,6 +63,7 @@ import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 import 'package:litchi_journal_flutter/models/tag_settings.dart';
 import 'package:litchi_journal_flutter/services/tag_settings_helper.dart';
 import 'package:litchi_journal_flutter/services/tag_settings_repository.dart';
+import 'package:litchi_journal_flutter/services/tag_repository.dart';
 import 'package:litchi_journal_flutter/services/appearance_settings.dart';
 import 'package:litchi_journal_flutter/services/image_settings_repository.dart';
 
@@ -150,6 +154,13 @@ class _RecordingHttpClient extends _FakeHttpClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     requestPaths.add('${request.method} ${request.url.path}');
     return super.send(request);
+  }
+}
+
+class _HangingHttpClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    return Completer<http.StreamedResponse>().future;
   }
 }
 
@@ -579,7 +590,12 @@ void main() {
       expect(title.maxLines, 1);
       expect(title.overflow, TextOverflow.ellipsis);
       expect(find.text('已连接服务器'), findsNothing);
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.settings), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.settings,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('PastScreen keeps header content inside SafeArea', (
@@ -723,6 +739,22 @@ void main() {
         ),
         isTrue,
       );
+    });
+
+    testWidgets('HomeScreen leaves loading state when diary request hangs', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildHome(httpClient: _HangingHttpClient()));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 13));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('加载失败'), findsOneWidget);
+      expect(find.byKey(const ValueKey('habit_card')), findsOneWidget);
     });
 
     testWidgets('PastScreen does not show quick record FAB', (tester) async {
@@ -895,6 +927,8 @@ void main() {
       expect(find.byType(QuickCaptureScreen), findsOneWidget);
       expect(find.text('随手记'), findsOneWidget);
       expect(find.text('记录时间'), findsOneWidget);
+      expect(find.text('标签暂不可用'), findsNothing);
+      expect(find.byType(TagPicker), findsOneWidget);
     });
 
     testWidgets('happiness entry opens QuickCaptureScreen', (tester) async {
@@ -1195,7 +1229,11 @@ void main() {
       await tester.pumpWidget(buildCapture());
 
       await tester.enterText(find.byType(TextField), '未保存内容');
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.back));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.back,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('放弃记录？'), findsOneWidget);
@@ -3694,9 +3732,24 @@ tags:
         ),
       );
 
-      expect(find.text('📖'), findsOneWidget);
-      expect(find.text('💧'), findsOneWidget);
-      expect(find.text('🚶'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.habitRead,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.habitWater,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.habitWalk,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('water +250 button increments water and calls onUpdate', (
@@ -5976,7 +6029,12 @@ tags:
         ),
       );
 
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('QuickNoteTimeline delete button shows confirm dialog', (
@@ -6003,7 +6061,11 @@ tags:
         ),
       );
 
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // PopupMenu shows edit/delete items
@@ -6048,7 +6110,11 @@ tags:
           ),
         );
 
-        await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
+        await tester.tap(
+          find.byWidgetPredicate(
+            (w) => w is FloraIcon && w.name == FloraIcons.more,
+          ),
+        );
         await tester.pumpAndSettle();
 
         // Tap delete in popup menu
@@ -6088,7 +6154,12 @@ tags:
       expect(find.text('下班看到晚霞'), findsOneWidget);
       expect(find.text('•'), findsNothing);
       // 无 timeline 图标
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('GenericSectionCard multiple happiness shows bullet list', (
@@ -6125,7 +6196,12 @@ tags:
       // 无 timeline 样式
       expect(find.text('14:00'), findsNothing);
       expect(find.text('15:00'), findsNothing);
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('GenericSectionCard happiness no longer shows timeline', (
@@ -6197,7 +6273,11 @@ tags:
           ),
         );
 
-        await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
+        await tester.tap(
+          find.byWidgetPredicate(
+            (w) => w is FloraIcon && w.name == FloraIcons.more,
+          ),
+        );
         await tester.pumpAndSettle();
 
         // Tap delete in popup menu
@@ -6232,7 +6312,12 @@ tags:
         ),
       );
 
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('ReviewCard shows delete button via GenericSectionCard', (
@@ -6258,7 +6343,12 @@ tags:
         ),
       );
 
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('ReviewCard delete passes rawLine with section reflection', (
@@ -6290,7 +6380,11 @@ tags:
         ),
       );
 
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Tap delete in popup menu
@@ -6329,7 +6423,12 @@ tags:
         ),
       );
 
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('PopupMenu shows edit and delete options', (tester) async {
@@ -6358,7 +6457,11 @@ tags:
         ),
       );
 
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('编辑'), findsOneWidget);
@@ -6392,7 +6495,11 @@ tags:
         ),
       );
 
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('编辑'));
@@ -6919,7 +7026,12 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsOneWidget,
+      );
       expect(deleted, isNull);
     });
 
@@ -6938,7 +7050,11 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -6966,7 +7082,11 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -6997,7 +7117,11 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -7029,10 +7153,21 @@ tags:
       await tester.pumpAndSettle();
 
       // Two thumbnails → two delete menus
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNWidgets(2));
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsNWidgets(2),
+      );
 
       // Delete the first image
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more).first);
+      await tester.tap(
+        find
+            .byWidgetPredicate(
+              (w) => w is FloraIcon && w.name == FloraIcons.more,
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
@@ -7056,7 +7191,12 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.more), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('tap thumbnail opens preview with close gesture', (
@@ -7811,14 +7951,14 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      // 打开下方的 dropdown（tap first dropdown text）
-      final selector = find.textContaining('💧');
+      // 打开下方的 dropdown。
+      final selector = find.byType(DropdownButton<HabitItemStats>);
       expect(selector, findsWidgets);
       await tester.tap(selector.first);
       await tester.pumpAndSettle();
 
       // 下拉菜单出现，页面不被整页 loading 遮挡
-      expect(find.textContaining('🚶'), findsWidgets);
+      expect(find.text('运动'), findsWidgets);
       // 没有全页 CircularProgressIndicator
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
@@ -7855,7 +7995,12 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('🚶'), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.habitWalk,
+        ),
+        findsWidgets,
+      );
 
       await storage.write(
         'habit_settings',
@@ -7884,7 +8029,12 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('🚶'), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.habitWalk,
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('uses custom habit visual settings in stats', (tester) async {
@@ -8160,7 +8310,13 @@ tags:
     test('supplements displayName is 补充剂', () {
       final config = HabitVisualConfig.of('supplements');
       expect(config.displayName, '补充剂');
-      expect(config.icon, '💊');
+      expect(config.icon, FloraIcons.habitPill);
+    });
+
+    test('default habit icons resolve to Flora assets', () {
+      for (final config in HabitVisualConfig.defaults.values) {
+        expect(FloraIcons.hasAsset(config.icon), isTrue);
+      }
     });
 
     test('each habit has unique color', () {
@@ -8178,6 +8334,32 @@ tags:
     test('reading and language are growth group', () {
       expect(HabitVisualConfig.of('reading').group, HabitGroup.growth);
       expect(HabitVisualConfig.of('language').group, HabitGroup.growth);
+    });
+
+    testWidgets('habit edit target candidate uses Flora icon and is tappable', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+
+      await tester.pumpWidget(
+        const MaterialApp(home: HabitEditScreen(habitKey: 'water')),
+      );
+      await tester.pumpAndSettle();
+
+      final targetIcon = find.byWidgetPredicate(
+        (w) => w is FloraIcon && w.name == FloraIcons.candidateStar,
+      );
+      expect(targetIcon, findsOneWidget);
+
+      await tester.tap(targetIcon);
+      await tester.pump();
+
+      final selectedContainer = tester.widget<Container>(
+        find.ancestor(of: targetIcon, matching: find.byType(Container)).first,
+      );
+      final decoration = selectedContainer.decoration as BoxDecoration;
+      final border = decoration.border as Border;
+      expect(border.top.width, 2);
     });
   });
 
@@ -8197,7 +8379,12 @@ tags:
       await tester.pumpWidget(buildPage());
 
       expect(find.text('设置'), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.back), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.back,
+        ),
+        findsOneWidget,
+      );
       expect(find.text('管理你的日记应用'), findsNothing);
       expect(find.text('常用'), findsOneWidget);
       expect(find.text('连接与智能'), findsOneWidget);
@@ -8237,7 +8424,11 @@ tags:
       await tester.pumpAndSettle();
       expect(find.text('设置'), findsOneWidget);
 
-      await tester.tap(find.byWidgetPredicate((w) => w is FloraIcon && w.name == FloraIcons.back));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.back,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('打开设置'), findsOneWidget);
@@ -8309,6 +8500,33 @@ tags:
       await tester.pumpAndSettle();
 
       expect(find.text('荔枝日记'), findsOneWidget);
+    });
+
+    testWidgets('tapping tag settings opens with fallback config', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _FakeHttpClient(statusCode: 500, body: '{}'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsPage(
+            apiConfig: ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+            apiClient: client,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('标签设置'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('标签设置'), findsWidgets);
+      expect(find.text('领域标签'), findsOneWidget);
+      expect(find.text('亲子'), findsWidgets);
     });
 
     testWidgets('safe area prevents status bar overlap', (tester) async {
@@ -8496,6 +8714,25 @@ tags:
   });
 
   group('TagSettings', () {
+    test(
+      'TagRepository falls back to default config on remote failure',
+      () async {
+        FlutterSecureStorage.setMockInitialValues({});
+        final repo = TagRepository(
+          apiClient: ApiClient(
+            ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+            httpClient: _FakeHttpClient(statusCode: 500, body: '{}'),
+          ),
+        );
+
+        final config = await repo.loadTagConfig();
+
+        expect(config.domains.length, DefaultTagConfig.value.domains.length);
+        expect(config.domains.first.name, '亲子');
+        expect(config.methods.map((m) => m.name), contains('反思'));
+      },
+    );
+
     test('fromTagConfig creates all enabled defaults', () async {
       final config = fullTagConfig();
       final settings = TagSettings.fromTagConfig(config);

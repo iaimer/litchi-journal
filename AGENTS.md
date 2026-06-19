@@ -79,6 +79,19 @@ Flutter 端已建立的领域组件：
 - 图片入口直接调用现有图片选择、压缩、上传、刷新流程。
 - FAB 扇形菜单使用极坐标计算位置；避免回退到手写固定 x/y 坐标。
 
+## 配置兜底规则
+
+- 启动配置、今日日记和标签配置加载都必须有超时或兜底，不能让 UI 无限 loading。
+- 标签配置优先使用服务端 `/api/v1/settings/tags` 或本地缓存；远程与缓存都不可用时，Flutter 使用 `DefaultTagConfig.value`。
+- 快速记录页不应因为远程标签配置暂不可用而显示「标签暂不可用」；默认标签至少要保证用户可以完成记录。
+- 设置页的「标签设置」入口不能静默失败；远程标签加载失败时也应打开基于默认标签配置的设置页。
+
+## Flora 图标规则
+
+- 习惯默认图标和习惯候选图标使用 `FloraIcon` 逻辑名称，而不是直接保存新的 emoji。
+- 习惯展示统一经过 `HabitIcon`：新配置渲染 SVG，旧用户配置中保存过的 emoji 继续兼容显示。
+- 不要在习惯卡、习惯设置页或习惯统计页直接 `Text(icon)`，否则会把 `habit-water` 等逻辑名称显示成文本。
+
 ## 开发约束
 
 - 优先保持简单。
@@ -178,6 +191,7 @@ flutter test
 - **跨日自动创建**：`_loadDiary()` 中如果 `getDiary(date)` 返回 null，须调用 `ensureDiary(date)` 后再重新读取。提交记录时首次失败须 ensureDiary 并重试。
 - **草稿 TTL 2 分钟**：草稿目的是短时保护（刷新/切换入口/短暂离开），不是长期草稿箱。过期自动清除。
 - **AI 润色分场景**：普通入口（quickNote/reflection/happiness）走 `polish()`，返回 tags；焦虑走 `polishPlainText()`，不含标签。
+- **标签配置兜底**：`TagRepository.loadTagConfig()` 失败时必须返回 `DefaultTagConfig.value`；缓存读写失败不能让标签功能不可用。
 - **create 文件格式**：Flutter 不本地拼 Markdown 模板，服务端 `POST /api/v1/diary/create` 负责生成。
 - **不泄露 API Key**：不在 toString、error、log、SnackBar、test failure message 中出现。
 

@@ -18,10 +18,7 @@ abstract class DiarySection {
   final String title;
   final List<DiaryContent> contents;
 
-  const DiarySection({
-    required this.title,
-    required this.contents,
-  });
+  const DiarySection({required this.title, required this.contents});
 
   /// 区域类型标识，用于隐藏逻辑等条件判断。
   String get sectionType;
@@ -37,6 +34,54 @@ class HabitSection extends DiarySection {
     required super.contents,
     required this.habits,
   });
+
+  factory HabitSection.empty({String title = '🏃 习惯打卡'}) {
+    return HabitSection(
+      title: title,
+      contents: const [],
+      habits: const [
+        HabitItem(
+          kind: HabitKind.counter,
+          label: '饮水',
+          checked: false,
+          checkable: false,
+          rawLine: '',
+          value: 0,
+          unit: 'mL',
+        ),
+        HabitItem(
+          kind: HabitKind.counter,
+          label: '运动/拉伸/快走',
+          checked: false,
+          checkable: false,
+          rawLine: '',
+          value: 0,
+          unit: '步',
+        ),
+        HabitItem(
+          kind: HabitKind.checkbox,
+          label: '📖 阅读/亲子共读',
+          checked: false,
+          checkable: true,
+          rawLine: '',
+        ),
+        HabitItem(
+          kind: HabitKind.checkbox,
+          label: '💡 学语言',
+          checked: false,
+          checkable: true,
+          rawLine: '',
+        ),
+        HabitItem(
+          kind: HabitKind.checkbox,
+          label: '💊 鱼油/植物甾醇',
+          checked: false,
+          checkable: true,
+          rawLine: '',
+        ),
+      ],
+    );
+  }
 
   @override
   String get sectionType => 'habit';
@@ -176,10 +221,7 @@ class SubSectionContent extends DiaryContent {
   bool get hasRealContent => false;
 }
 
-enum HabitKind {
-  checkbox,
-  counter,
-}
+enum HabitKind { checkbox, counter }
 
 class HabitItem {
   final HabitKind kind;
@@ -278,7 +320,6 @@ class HabitStatus {
       supplements: supplements ?? this.supplements,
     );
   }
-
 }
 
 class QuickNoteItem {

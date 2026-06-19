@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../widgets/flora_icon.dart';
 
+import '../models/default_tag_config.dart';
 import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
 import '../models/habit_settings.dart';
@@ -51,6 +52,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _diaryLoadTimeout = Duration(seconds: 12);
+
   DiaryEntry? _diary;
   DateTime? _diaryDate;
   bool _loading = true;
@@ -77,8 +80,9 @@ class _HomeScreenState extends State<HomeScreen> {
   /// 只含 enabled 标签、name 替换为 displayName 的 TagConfig。
   /// 用于 QuickNoteComposer（新建记录不需要隐藏标签）。
   TagConfig? get _effectiveTagConfig {
-    if (_tagConfig == null || _tagSettings == null) return _tagConfig;
-    return TagSettingsHelper.effectiveTagConfig(_tagConfig!, _tagSettings!);
+    final tagConfig = _tagConfig ?? DefaultTagConfig.value;
+    if (_tagSettings == null) return tagConfig;
+    return TagSettingsHelper.effectiveTagConfig(tagConfig, _tagSettings!);
   }
 
   @override
@@ -108,7 +112,11 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _tagConfigFailed = true);
+      setState(() {
+        _tagConfig = DefaultTagConfig.value;
+        _tagSettings = TagSettings.fromTagConfig(DefaultTagConfig.value);
+        _tagConfigFailed = false;
+      });
     }
   }
 
@@ -120,11 +128,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final date = DateTime.now();
-      var diary = await widget.apiClient.getDiary(date);
+      var diary = await widget.apiClient
+          .getDiary(date)
+          .timeout(_diaryLoadTimeout);
 
       if (diary == null) {
-        await widget.apiClient.ensureDiary(date);
-        diary = await widget.apiClient.getDiary(date);
+        await widget.apiClient.ensureDiary(date).timeout(_diaryLoadTimeout);
+        diary = await widget.apiClient
+            .getDiary(date)
+            .timeout(_diaryLoadTimeout);
       }
 
       // 加载习惯设置
@@ -623,7 +635,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               setState(() => _quickRecordExpanded = !_quickRecordExpanded);
             },
-            child: FloraIcon(_quickRecordExpanded ? FloraIcons.close : FloraIcons.fabWrite, size: 24),
+            child: FloraIcon(
+              _quickRecordExpanded ? FloraIcons.close : FloraIcons.fabWrite,
+              size: 24,
+            ),
           ),
         ],
       ),

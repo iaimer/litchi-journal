@@ -8,6 +8,7 @@ import '../services/habit_settings_repository.dart';
 import '../services/habit_stats_cache_repository.dart';
 import '../services/habit_stats_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/habit_icon.dart';
 
 /// 习惯编辑页。
 ///
@@ -33,11 +34,23 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
   bool _saving = false;
   bool _loaded = false;
 
-  /// 图标候选
+  /// 图标候选，对应 Flora Icon System 素材清单的习惯默认和候选图标。
   static const _iconCandidates = [
-    '💧', '🚶', '🏃', '📖', '📚',
-    '🇬🇧', '🗣️', '💊', '🌱', '⭐️',
-    '☀️', '🌙', '🧘', '🏋️', '🍎',
+    FloraIcons.habitWater,
+    FloraIcons.habitWalk,
+    FloraIcons.candidateRun,
+    FloraIcons.habitRead,
+    FloraIcons.candidateBooks,
+    FloraIcons.habitLanguage,
+    FloraIcons.chatFeedback,
+    FloraIcons.habitPill,
+    FloraIcons.candidateSprout,
+    FloraIcons.candidateStar,
+    FloraIcons.candidateSun,
+    FloraIcons.candidateMoon,
+    FloraIcons.candidateMeditate,
+    FloraIcons.candidateLift,
+    FloraIcons.candidateApple,
   ];
 
   /// 颜色候选（柔和色）
@@ -76,15 +89,15 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
   Future<void> _save() async {
     final trimmed = _nameController.text.trim();
     if (trimmed.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('名称不能为空')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('名称不能为空')));
       return;
     }
     if (trimmed.length > 12) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('名称最长 12 个字')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('名称最长 12 个字')));
       return;
     }
 
@@ -104,15 +117,15 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       HabitStatsService.clearDayCache();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已保存')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已保存')));
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('保存失败')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('保存失败')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -182,11 +195,19 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
               decoration: const InputDecoration(
                 hintText: '输入习惯名称',
                 border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               maxLength: 24,
-              buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+              buildCounter:
+                  (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    maxLength,
+                  }) => null,
             ),
 
             const SizedBox(height: 20),
@@ -197,10 +218,10 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _iconCandidates.map((emoji) {
-                final selected = _icon == emoji;
+              children: _iconCandidates.map((icon) {
+                final selected = _icon == icon;
                 return GestureDetector(
-                  onTap: () => setState(() => _icon = emoji),
+                  onTap: () => setState(() => _icon = icon),
                   child: Container(
                     width: 44,
                     height: 44,
@@ -217,7 +238,11 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                       ),
                     ),
                     child: Center(
-                      child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                      child: HabitIcon(
+                        icon,
+                        size: 22,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                   ),
                 );
@@ -244,7 +269,9 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                       shape: BoxShape.circle,
                       color: option.color,
                       border: Border.all(
-                        color: selected ? AppColors.primary : Colors.transparent,
+                        color: selected
+                            ? AppColors.primary
+                            : Colors.transparent,
                         width: selected ? 3 : 0,
                       ),
                       boxShadow: selected
@@ -258,7 +285,11 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                           : null,
                     ),
                     child: selected
-                        ? const FloraIcon(FloraIcons.check, size: 20, color: Colors.white)
+                        ? const FloraIcon(
+                            FloraIcons.check,
+                            size: 20,
+                            color: Colors.white,
+                          )
                         : null,
                   ),
                 );
@@ -345,7 +376,9 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: theme.colorScheme.onPrimary),
+                            strokeWidth: 2,
+                            color: theme.colorScheme.onPrimary,
+                          ),
                         )
                       : const Text('保存'),
                 ),
@@ -360,9 +393,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
   Widget _buildLabel(ThemeData theme, String text) {
     return Text(
       text,
-      style: theme.textTheme.titleSmall?.copyWith(
-        fontWeight: FontWeight.w600,
-      ),
+      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
     );
   }
 }

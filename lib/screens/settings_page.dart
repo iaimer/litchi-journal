@@ -21,11 +21,13 @@ import 'remote_api_page.dart';
 /// 设置页主框架。
 class SettingsPage extends StatefulWidget {
   final ApiConfig apiConfig;
+  final ApiClient? apiClient;
   final bool tokenConfigured;
 
   const SettingsPage({
     super.key,
     required this.apiConfig,
+    this.apiClient,
     this.tokenConfigured = true,
   });
 
@@ -39,6 +41,8 @@ class _SettingsPageState extends State<SettingsPage> {
   int _activeHabitCount = 5;
   int _tagCount = 0;
   String _aiModelName = '';
+
+  ApiClient get _apiClient => widget.apiClient ?? ApiClient(widget.apiConfig);
 
   @override
   void initState() {
@@ -60,8 +64,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadTagCount() async {
     try {
-      final apiClient = ApiClient(widget.apiConfig);
-      final tagRepo = TagRepository(apiClient: apiClient);
+      final tagRepo = TagRepository(apiClient: _apiClient);
       final tagConfig = await tagRepo.loadTagConfig();
       final tagSettingsRepo = TagSettingsRepository();
       final tagSettings = await tagSettingsRepo.loadTagSettings(tagConfig);
@@ -74,8 +77,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _openTagSettings() async {
     try {
-      final apiClient = ApiClient(widget.apiConfig);
-      final tagRepo = TagRepository(apiClient: apiClient);
+      final tagRepo = TagRepository(apiClient: _apiClient);
       final tagConfig = await tagRepo.loadTagConfig();
       final tagSettingsRepo = TagSettingsRepository();
       final tagSettings = await tagSettingsRepo.loadTagSettings(tagConfig);

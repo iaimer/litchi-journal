@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
+import 'habit_icon.dart';
 
 /// 30 天热力图，按习惯下拉选择器切换。
 /// 展示选中习惯最近 30 天的热力图、完成率、最长连续天数和平均值。
@@ -25,8 +26,7 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
   @override
   void didUpdateWidget(covariant HabitHeatmapTabs oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.items.isNotEmpty &&
-        !widget.items.contains(_selected)) {
+    if (widget.items.isNotEmpty && !widget.items.contains(_selected)) {
       _selected = widget.items.first;
     }
   }
@@ -80,17 +80,14 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
           return widget.items.map((item) {
             return DropdownMenuItem<HabitItemStats>(
               value: item,
-              child: Text(
-                '${item.icon} ${item.displayName}',
-                style: theme.textTheme.bodyMedium,
-              ),
+              child: _buildItemLabel(theme, item),
             );
           }).toList();
         },
         items: widget.items.map((item) {
           return DropdownMenuItem<HabitItemStats>(
             value: item,
-            child: Text('${item.icon} ${item.displayName}'),
+            child: _buildItemLabel(theme, item),
           );
         }).toList(),
         onChanged: (item) {
@@ -100,9 +97,19 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
     );
   }
 
+  Widget _buildItemLabel(ThemeData theme, HabitItemStats item) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        HabitIcon(item.icon, size: 16, color: theme.colorScheme.onSurface),
+        const SizedBox(width: 6),
+        Text(item.displayName, style: theme.textTheme.bodyMedium),
+      ],
+    );
+  }
+
   Widget _buildStatsRow(ThemeData theme) {
-    final ratePercent =
-        (_selected.completionRate30 * 100).toStringAsFixed(0);
+    final ratePercent = (_selected.completionRate30 * 100).toStringAsFixed(0);
 
     return Row(
       children: [

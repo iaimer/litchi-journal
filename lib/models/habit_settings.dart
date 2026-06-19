@@ -5,7 +5,7 @@ import 'habit_visual_config.dart';
 /// 支持：
 /// - statusMap: active / archived
 /// - displayNameMap: 自定义显示名称
-/// - iconMap: 自定义 emoji
+/// - iconMap: 自定义图标
 /// - colorMap: 自定义颜色（存储为 int ARGB）
 ///
 /// schemaVersion: 2（新增 displayNameMap / iconMap / colorMap）
@@ -19,7 +19,7 @@ class HabitSettings {
   /// 习惯 key → 自定义显示名称
   final Map<String, String> displayNameMap;
 
-  /// 习惯 key → 自定义 emoji
+  /// 习惯 key → 自定义图标
   final Map<String, String> iconMap;
 
   /// 习惯 key → 自定义颜色 ARGB int
@@ -62,8 +62,7 @@ class HabitSettings {
       displayNameMap[key] ?? HabitVisualConfig.of(key).displayName;
 
   /// 获取图标，无自定义时返回默认。
-  String iconFor(String key) =>
-      iconMap[key] ?? HabitVisualConfig.of(key).icon;
+  String iconFor(String key) => iconMap[key] ?? HabitVisualConfig.of(key).icon;
 
   /// 获取颜色，无自定义时返回默认。
   int colorFor(String key) =>
@@ -162,12 +161,12 @@ class HabitSettings {
   // ── 序列化 ──
 
   Map<String, dynamic> toJson() => {
-        'schemaVersion': schemaVersion,
-        'statusMap': statusMap,
-        'displayNameMap': displayNameMap,
-        'iconMap': iconMap,
-        'colorMap': colorMap,
-      };
+    'schemaVersion': schemaVersion,
+    'statusMap': statusMap,
+    'displayNameMap': displayNameMap,
+    'iconMap': iconMap,
+    'colorMap': colorMap,
+  };
 
   factory HabitSettings.fromJson(Map<String, dynamic> json) {
     final version = json['schemaVersion'] as int? ?? 0;

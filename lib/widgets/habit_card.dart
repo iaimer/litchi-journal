@@ -6,6 +6,7 @@ import '../models/diary_document.dart';
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 import '../theme/app_theme.dart';
+import 'habit_icon.dart';
 import 'section_card.dart';
 
 class HabitCard extends StatefulWidget {
@@ -312,7 +313,7 @@ class _CheckboxRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             if (icon != null) ...[
-              Text(icon!, style: const TextStyle(fontSize: 16)),
+              HabitIcon(icon!, size: 16, color: theme.colorScheme.onSurface),
               const SizedBox(width: 4),
             ],
             Expanded(
@@ -367,7 +368,7 @@ class _WaterCounterRow extends StatelessWidget {
           Row(
             children: [
               if (icon != null) ...[
-                Text(icon!, style: const TextStyle(fontSize: 16)),
+                HabitIcon(icon!, size: 16, color: theme.colorScheme.onSurface),
                 const SizedBox(width: 4),
               ],
               Expanded(
@@ -455,7 +456,7 @@ class _StepsCounterRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Text(icon!, style: const TextStyle(fontSize: 16)),
+              HabitIcon(icon!, size: 16, color: theme.colorScheme.onSurface),
               const SizedBox(width: 4),
             ],
             Expanded(
@@ -471,7 +472,11 @@ class _StepsCounterRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 2),
-            const FloraIcon(FloraIcons.edit, size: 14, color: AppColors.primary),
+            const FloraIcon(
+              FloraIcons.edit,
+              size: 14,
+              color: AppColors.primary,
+            ),
             if (loading) ...[
               const SizedBox(width: 8),
               const SizedBox(

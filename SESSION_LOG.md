@@ -4,6 +4,58 @@
 
 ---
 
+## 2026-06-19 启动兜底、标签兜底与习惯图标替换
+
+### 讨论内容
+
+- 真机替换 SVG 图标后，App 启动出现长时间转圈。
+- 有日志文件但没有正文记录时，今天页无法显示习惯入口。
+- 习惯设置里的默认图标和候选图标仍有 emoji 残留。
+- 标签设置入口点不开，快速记录页显示「标签暂不可用」。
+
+### 决策 & 原因
+
+- 启动配置读取和今日日记加载都增加超时/兜底，避免异步请求挂住导致无限 loading。
+- 空日记或缺少习惯 section 时，今天页使用 `HabitSection.empty()` 显示可操作的 `HabitCard`。
+- 习惯默认图标与候选图标统一切到 Flora SVG 图标；新增 `HabitIcon` 兼容旧用户配置中保存过的 emoji。
+- Flutter 端内置默认标签配置；远程标签接口或本地缓存不可用时，记录页和标签设置页仍可使用默认标签。
+
+### 改动文件清单
+
+- `lib/main.dart`
+- `lib/models/default_tag_config.dart`
+- `lib/models/diary_document.dart`
+- `lib/models/habit_settings.dart`
+- `lib/models/habit_visual_config.dart`
+- `lib/screens/home_screen.dart`
+- `lib/screens/settings_page.dart`
+- `lib/screens/habit_edit_screen.dart`
+- `lib/screens/habit_settings_screen.dart`
+- `lib/services/tag_repository.dart`
+- `lib/widgets/flora_icon.dart`
+- `lib/widgets/habit_icon.dart`
+- `lib/widgets/habit_card.dart`
+- `lib/widgets/habit_heatmap_tabs.dart`
+- `lib/widgets/habit_rhythm_grid.dart`
+- `test/widget_test.dart`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `README.md`
+- `SESSION_LOG.md`
+
+### 遇到的问题
+
+- `SettingsPage._openTagSettings()` 原先在标签配置加载失败时静默吞掉异常，导致用户感觉入口点不开。
+- `HomeScreen` 在标签配置异步加载完成前打开快速记录页时，可能传入空 `tagConfig`。
+- `TagRepository` 读取/写入安全存储缓存没有兜底，安全存储异常会让标签配置整体不可用。
+
+### 最终结果
+
+- `dart analyze lib test` 通过。
+- `flutter analyze --no-pub` 通过。
+- `flutter test --no-pub` 359 项全部通过。
+- `flutter build apk --release` 通过，APK 位于 `build/app/outputs/flutter-apk/app-release.apk`。
+
 ## 2026-06-18 快速记录入口 V2/V3
 
 ### 讨论内容

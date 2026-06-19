@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 米白底色 -->
+  <rect width="1024" height="1024" rx="200" fill="#F7F5F0"/>
+  
+  <!-- 荔枝果实主体 -->
+  <circle cx="512" cy="560" r="180" stroke="#3E2B1E" stroke-width="32" stroke-linecap="round"/>
+  
+  <!-- 果皮纹理 —— 温润弧线 -->
+  <path d="M430 490c30 45 90 70 170 25" stroke="#3E2B1E" stroke-width="22" stroke-linecap="round"/>
+  <path d="M420 550c45 35 120 45 170 10" stroke="#3E2B1E" stroke-width="22" stroke-linecap="round"/>
+  <path d="M425 610c35 20 105 25 155 5" stroke="#3E2B1E" stroke-width="22" stroke-linecap="round"/>
+  
+  <!-- 叶茎 -->
+  <path d="M555 395c0 0 30-55-20-95" stroke="#A26B59" stroke-width="24" stroke-linecap="round"/>
+  
+  <!-- 叶片 -->
+  <path d="M535 300c-45 20-80 80-60 140 10 30 20 45 35 50 30-30 50-75 55-110 5-25 5-40 0-50-5-10-15-15-25-10-10 5-5 30-5 30" stroke="#3E2B1E" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M490 410c-10 5-20 18-15 35" stroke="#A26B59" stroke-width="20" stroke-linecap="round"/>
+</svg>

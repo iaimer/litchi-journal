@@ -6,6 +6,7 @@ import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
+import '../widgets/flora_empty.dart';
 
 /// 标签设置页面。
 /// 允许修改标签的显示名称、启用 / 隐藏、恢复默认。
@@ -186,7 +187,9 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
       appBar: AppBar(
         title: const Text('标签设置'),
       ),
-      body: ListView(
+      body: _enabledCount == 0
+          ? Center(child: const FloraEmpty(name: FloraIcons.emptyTags))
+          : ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(

@@ -6,6 +6,8 @@ import '../services/api_client.dart';
 import '../services/habit_settings_repository.dart';
 import '../services/habit_stats_cache_repository.dart';
 import '../services/habit_stats_service.dart';
+import '../widgets/flora_empty.dart';
+import '../widgets/flora_icon.dart';
 import '../widgets/habit_heatmap_tabs.dart';
 import '../widgets/habit_rhythm_grid.dart';
 import '../widgets/habit_summary_card.dart';
@@ -333,16 +335,8 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildHeader(theme),
-        const SizedBox(height: 32),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Text(
-              '还没有足够的习惯记录。\n今天先照顾一个小习惯就很好。',
-              style: theme.textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-          ),
+        const Expanded(
+          child: Center(child: FloraEmpty(name: FloraIcons.emptyHabits)),
         ),
       ],
     );

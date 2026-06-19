@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/flora_icon.dart';
-
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 import '../services/habit_settings_repository.dart';
 import '../theme/app_theme.dart';
+import '../widgets/flora_empty.dart';
+import '../widgets/flora_icon.dart';
 import '../widgets/habit_icon.dart';
 import 'habit_edit_screen.dart';
 
@@ -58,7 +58,9 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('习惯设置')),
-      body: SingleChildScrollView(
+      body: HabitVisualConfig.defaults.isEmpty
+          ? Center(child: const FloraEmpty(name: FloraIcons.emptyHabits))
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

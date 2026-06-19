@@ -4,8 +4,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../widgets/flora_icon.dart';
 
-import '../theme/app_theme.dart';
-
 /// 关于页。
 /// 显示版本号（从 PackageInfo 读取）和当前版本更新内容（从 CHANGELOG.md 解析）。
 class AboutPage extends StatefulWidget {
@@ -77,63 +75,68 @@ class _AboutPageState extends State<AboutPage> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('关于')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
         children: [
           Center(
             child: Column(
               children: [
-                const SizedBox(height: 32),
-                const FloraIcon(FloraIcons.brandIcon, size: 64, color: AppColors.primary),
-                const SizedBox(height: 16),
+                const FloraIcon(FloraIcons.brandIcon, size: 96),
+                const SizedBox(height: 20),
                 Text(
                   '荔枝日记',
-                  style: theme.textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '版本 $_version',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 14),
                 Text(
-                  'Flutter 客户端',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '安静的日常日记\n关心你每天的小事',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.6,
+                  '记录生活中的成长轨迹',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '把每天的小事慢慢照亮',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '版本 $_version',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
           if (_changelog.isNotEmpty) ...[
             const SizedBox(height: 32),
-            Text(
-              '更新内容',
-              style: theme.textTheme.titleLarge,
-            ),
+            Text('更新内容', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
               _changelog,
-              style: theme.textTheme.bodySmall?.copyWith(
-                height: 1.6,
-              ),
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
             ),
           ] else ...[
             const SizedBox(height: 32),
-            Text(
-              '更新内容',
-              style: theme.textTheme.titleLarge,
-            ),
+            Text('更新内容', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
               '当前版本的更新内容暂时没有读取到。',

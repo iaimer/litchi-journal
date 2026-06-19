@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/flora_icon.dart';
-
 import '../models/memory_entry.dart';
 import '../services/api_client.dart';
 import '../services/past_memory_service.dart';
+import '../widgets/flora_empty.dart';
+import '../widgets/flora_icon.dart';
 import '../widgets/memory_card.dart';
 import 'read_only_diary_screen.dart';
 
@@ -131,7 +131,7 @@ class _PastScreenState extends State<PastScreen> {
                               onTap: () => _openDiary(_todayMemory!),
                             )
                           else
-                            _buildEmptyState('这一天还没有旧时光。\n要不要随便走走？'),
+                            const FloraEmpty(name: FloraIcons.emptyPast),
 
                           const SizedBox(height: 24),
 
@@ -147,7 +147,7 @@ class _PastScreenState extends State<PastScreen> {
                               onTap: () => _openDiary(_randomMemory!),
                             )
                           else
-                            _buildEmptyState('还没有找到可以回看的旧时光。'),
+                            const FloraEmpty(name: FloraIcons.emptySearch),
                           const SizedBox(height: 12),
                           Center(
                             child: TextButton.icon(
@@ -188,17 +188,5 @@ class _PastScreenState extends State<PastScreen> {
     );
   }
 
-  Widget _buildEmptyState(String message) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Text(
-        message,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          fontSize: 14,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
+
 }

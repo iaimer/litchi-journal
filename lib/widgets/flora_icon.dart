@@ -86,6 +86,7 @@ class FloraIcons {
   // ─── Brand & empty states ───────────────────────────────
   static const String brandIcon = 'brand-icon';
   static const String brandSplash = 'brand-splash';
+  static const String brandSplashDark = 'brand-splash-dark';
   static const String emptyPast = 'empty-past';
   static const String emptyTags = 'empty-tags';
   static const String emptyHabits = 'empty-habits';
@@ -150,22 +151,21 @@ class FloraIcons {
     question: 'chat-question-svgrepo-com',
     reward: 'thumbs-up-svgrepo-com',
     target: 'target-04-svgrepo-com',
-    // ── Brand (SVG — not yet designed) ──
-    brandSplash: '',
-    emptyPast: '',
-    emptyTags: '',
-    emptyHabits: '',
-    emptySearch: '',
+    // ── Brand & empty states ──
+    brandSplash: 'brand-splash',
+    brandSplashDark: 'brand-splash-dark',
+    emptyPast: 'empty-past',
+    emptyTags: 'empty-tags',
+    emptyHabits: 'empty-habits',
+    emptySearch: 'empty-search',
   };
 
   /// Maps logical icon name → PNG filename (with extension).
-  static const Map<String, String> _pngFiles = {
-    brandIcon: 'ChatGPT Image 2026年6月4日 16_49_52.png',
-  };
+  static const Map<String, String> _pngFiles = {brandIcon: 'app-icon.png'};
 
   static const String _svgPrefix = 'assets/svg/';
   static const String _svgSuffix = '.svg';
-  static const String _pngPrefix = 'assets/svg/';
+  static const String _pngPrefix = 'assets/icon/';
 
   /// Returns the asset path for a named icon.
   ///
@@ -276,12 +276,7 @@ class FloraIcon extends StatelessWidget {
       return Icon(Icons.circle, size: size, color: effectiveColor);
     }
     if (assetPath.endsWith('.png')) {
-      return Image.asset(
-        assetPath,
-        width: size,
-        height: size,
-        color: effectiveColor,
-      );
+      return Image.asset(assetPath, width: size, height: size);
     }
     return SvgPicture.asset(
       assetPath,

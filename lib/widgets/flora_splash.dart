@@ -64,20 +64,23 @@ class _FloraSplashState extends State<FloraSplash>
             mainAxisSize: MainAxisSize.min,
             children: [
               if (splashAsset.isNotEmpty)
-                SvgPicture.asset(splashAsset, width: 88, height: 88),
-              const SizedBox(height: 24),
+                SvgPicture.asset(splashAsset, width: 168, height: 168),
+              const SizedBox(height: 28),
               Text(
-                'Flora',
+                '荔枝日记',
                 style: theme.textTheme.headlineLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text(
-                '记录 · 觉察 · 成长',
+                '记录 · 成长 · 觉察',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 16,
+                  letterSpacing: 4,
                 ),
               ),
             ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../widgets/flora_icon.dart';
@@ -70,6 +71,7 @@ class _AboutPageState extends State<AboutPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final brandAsset = FloraIcons.path(FloraIcons.brandSplash);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -80,7 +82,7 @@ class _AboutPageState extends State<AboutPage> {
           Center(
             child: Column(
               children: [
-                const FloraIcon(FloraIcons.brandIcon, size: 96),
+                SvgPicture.asset(brandAsset, width: 112, height: 112),
                 const SizedBox(height: 20),
                 Text(
                   '荔枝日记',
@@ -90,17 +92,17 @@ class _AboutPageState extends State<AboutPage> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  '记录生活中的成长轨迹',
+                  '记录生活里的点滴，',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
                 Text(
-                  '把每天的小事慢慢照亮',
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  '看见自己的成长。',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurfaceVariant,
                     height: 1.5,
                   ),

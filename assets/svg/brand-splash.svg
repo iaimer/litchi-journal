@@ -1,25 +1,15 @@
-<svg width="800px" height="800px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- 晨光背景弧线组 -->
-  <path d="M2 18c3-5 7-8 10-8s7 3 10 8" stroke="#A26B59" stroke-width="1" stroke-linecap="round" opacity="0.15"/>
-  <path d="M4 17c2.5-4 5.5-6.5 8-6.5s5.5 2.5 8 6.5" stroke="#A26B59" stroke-width="1" stroke-linecap="round" opacity="0.2"/>
-  <path d="M6 16c2-3 4-5 6-5s4 2 6 5" stroke="#A26B59" stroke-width="1" stroke-linecap="round" opacity="0.25"/>
-  
-  <!-- 土壤底盘 -->
-  <ellipse cx="12" cy="19" rx="7" ry="1.8" stroke="#3E2B1E" stroke-width="2" stroke-linecap="round"/>
-  
-  <!-- 种子壳（裂开） -->
-  <path d="M9 17c0 0 1-2 3-2s3 2 3 2" stroke="#3E2B1E" stroke-width="2" stroke-linecap="round"/>
-  <path d="M9 17c0 0 0.5 1.5 1.5 2" stroke="#3E2B1E" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M15 17c0 0-0.5 1.5-1.5 2" stroke="#3E2B1E" stroke-width="1.5" stroke-linecap="round"/>
-  
-  <!-- 嫩芽突破 -->
-  <path d="M12 15v-3" stroke="#3E2B1E" stroke-width="2" stroke-linecap="round"/>
-  <path d="M12 14c0 0-1.8-1.5-2.5-1" stroke="#3E2B1E" stroke-width="2" stroke-linecap="round"/>
-  <path d="M12 13c0 0 1.8-1.5 2.5-1" stroke="#3E2B1E" stroke-width="2" stroke-linecap="round"/>
-  <ellipse cx="9.5" cy="12.5" rx="1.2" ry="0.9" stroke="#3E2B1E" stroke-width="1.5" transform="rotate(-25 9.5 12.5)"/>
-  <ellipse cx="14.5" cy="11.5" rx="1.2" ry="0.9" stroke="#3E2B1E" stroke-width="1.5" transform="rotate(25 14.5 11.5)"/>
-  
-  <!-- 顶部新芽 -->
-  <path d="M12 12l0.5-2.5" stroke="#3E2B1E" stroke-width="1.8" stroke-linecap="round"/>
-  <ellipse cx="12.5" cy="9" rx="1.3" ry="0.9" stroke="#3E2B1E" stroke-width="1.5" transform="rotate(-10 12.5 9)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
+  <rect width="240" height="240" rx="36" fill="#F7F2EA"/>
+  <ellipse cx="126" cy="202" rx="58" ry="10" fill="#5A4A36" opacity=".08"/>
+  <path d="M84 66c0-9.94 8.06-18 18-18h68c9.94 0 18 8.06 18 18v103c0 9.94-8.06 18-18 18H102c-9.94 0-18-8.06-18-18V66Z" fill="#E8DCC9"/>
+  <path d="M102 48h68c9.94 0 18 8.06 18 18v103c0 9.94-8.06 18-18 18h-68c-9.94 0-18-8.06-18-18V66c0-9.94 8.06-18 18-18Z" fill="#FFF7ED"/>
+  <path d="M84 66c0-9.94 8.06-18 18-18h14v139h-14c-9.94 0-18-8.06-18-18V66Z" fill="#E8DCC9"/>
+  <path d="M116 48v139" stroke="#D7C5AB" stroke-width="2"/>
+  <path d="M101 187h18v35l-9-8-9 8v-35Z" fill="#7BA67A"/>
+  <circle cx="139" cy="112" r="33" fill="#FFF7ED" stroke="#D9BE96" stroke-width="3"/>
+  <path d="M136 87c3-6 6-10 11-13" stroke="#5A4A36" stroke-width="4" stroke-linecap="round"/>
+  <path d="M149 83c13-2 21 4 26 15-13 3-22-1-29-12 1-1 2-2 3-3Z" fill="#7BA67A"/>
+  <path d="M119 112c0-14 9-25 21-25s22 11 22 25c0 15-9 27-22 27s-21-12-21-27Z" fill="#E06A6A"/>
+  <path d="M122 100c4 2 6 1 9-2 4 3 7 3 11 0 4 3 7 3 11 1 2 4 4 6 8 8-3 4-3 7 0 11-4 2-6 5-6 10-5-1-8 0-10 5-4-3-8-3-12 0-2-5-5-7-10-6 1-5 0-8-4-11 4-4 5-8 3-16Z" fill="#E06A6A"/>
+  <path d="M125 102c4 2 7 1 10-2m9 0c3 2 6 3 10 1m-29 16c4 2 8 2 12 0m10 1c3 2 6 2 9 0" stroke="#D85C5C" stroke-width="1.5" stroke-linecap="round" opacity=".45"/>
 </svg>

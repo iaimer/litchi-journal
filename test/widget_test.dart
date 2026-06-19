@@ -535,8 +535,9 @@ void main() {
 
       await tester.pumpWidget(const MaterialApp(home: app.AppEntry()));
 
-      expect(find.text('Flora'), findsOneWidget);
-      expect(find.text('记录 · 觉察 · 成长'), findsOneWidget);
+      expect(find.text('荔枝日记'), findsOneWidget);
+      expect(find.text('记录 · 成长 · 觉察'), findsOneWidget);
+      expect(find.text('Flora'), findsNothing);
       expect(find.text('初始设置'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 1500));
@@ -556,7 +557,8 @@ void main() {
 
       await tester.pumpWidget(const MaterialApp(home: app.AppEntry()));
 
-      expect(find.text('Flora'), findsOneWidget);
+      expect(find.text('荔枝日记'), findsOneWidget);
+      expect(find.text('Flora'), findsNothing);
       expect(find.byType(app.MainScreen), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 1500));
@@ -1072,7 +1074,7 @@ void main() {
         find.byKey(const Key('quick_record_fab')),
       );
       expect(fab.backgroundColor, AppColors.darkPrimary);
-      expect(fab.foregroundColor, Colors.black);
+      expect(fab.foregroundColor, AppColors.darkBackground);
 
       await tester.tap(find.byKey(const Key('quick_record_fab')));
       await tester.pumpAndSettle();
@@ -8621,11 +8623,12 @@ tags:
       await tester.pumpAndSettle();
 
       expect(find.text('荔枝日记'), findsOneWidget);
-      expect(find.text('记录生活中的成长轨迹'), findsOneWidget);
-      expect(find.text('把每天的小事慢慢照亮'), findsOneWidget);
+      expect(find.text('记录生活里的点滴，'), findsOneWidget);
+      expect(find.text('看见自己的成长。'), findsOneWidget);
       expect(find.textContaining('版本 v1.1.0 (1)'), findsOneWidget);
       expect(find.text('更新内容'), findsOneWidget);
       expect(find.textContaining('荔枝日记不是效率工具'), findsNothing);
+      expect(find.textContaining('Flutter 客户端'), findsNothing);
     });
   });
 

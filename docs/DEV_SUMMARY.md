@@ -1179,3 +1179,104 @@ Failed to create server socket (OS Error: Operation not permitted)
 ```
 
 该限制来自当前沙箱环境，不是测试用例本身失败。相关 FAB 和焦虑页面测试已随实现更新，后续在本机普通终端可继续运行完整 `flutter test`。
+
+---
+
+## 30. Sprint 30：启动兜底、标签兜底与习惯图标稳定性修复
+
+### 30.1 背景
+
+真机替换 SVG 图标后，连续暴露出几类稳定性问题：
+
+- App 启动时可能一直停在 loading。
+- 有空日记文件但没有随手记、小确幸、觉察、焦虑内容时，今天页无法显示习惯打卡入口。
+- 习惯设置页面中默认图标和候选图标仍有 emoji 残留，未完全按 Flora Icon System 替换。
+- 设置页「标签设置」在标签配置加载失败时静默失败，表现为入口点不开。
+- 快速记录页偶发显示「标签暂不可用」，导致添加记录时不能选择标签。
+
+### 30.2 关键原因
+
+- `AppEntry` 读取远程配置时没有超时/异常兜底，安全存储读取异常或挂住时可能造成启动 loading 不结束。
+- `HomeScreen` 加载今日日记时没有请求超时，远程请求挂住时可能造成今日页 loading 不结束。
+- 空日记或缺少 habit section 时，旧渲染链路不会主动补出可交互的 `HabitCard`。
+- 习惯视觉配置仍以 emoji 文本作为默认值；多个 UI 位置直接 `Text(icon)`，无法渲染 Flora SVG 图标。
+- `TagRepository.loadTagConfig()` 远程失败时抛错，`SettingsPage._openTagSettings()` 又静默吞掉异常。
+- `HomeScreen` 在标签配置异步加载完成前打开 `QuickCaptureScreen`，会传入空 `tagConfig`。
+
+### 30.3 改动内容
+
+- `lib/main.dart`
+  - `ApiConfig.load()` 增加 5 秒超时和异常兜底。
+  - 配置读取失败时进入配置流程，不再无限 loading。
+
+- `lib/screens/home_screen.dart`
+  - 今日日记 `getDiary()` / `ensureDiary()` 增加 12 秒超时。
+  - 空日记状态显示 fallback `HabitCard`。
+  - `_effectiveTagConfig` 在远程标签配置未完成时先使用 `DefaultTagConfig.value`。
+  - 标签加载失败时写入默认标签配置与默认标签设置，避免快速记录页显示「标签暂不可用」。
+
+- `lib/models/diary_document.dart`
+  - 新增 `HabitSection.empty()`，作为空日记和缺失习惯 section 的最小可交互习惯模型。
+
+- `lib/models/default_tag_config.dart`
+  - 新增 Flutter 内置默认标签配置，与服务端默认标签表保持一致。
+  - 用于远程标签配置和本地缓存都不可用时的兜底。
+
+- `lib/services/tag_repository.dart`
+  - 缓存读取和写入改为 best-effort。
+  - 远程刷新增加超时。
+  - 远程和缓存都不可用时返回 `DefaultTagConfig.value`。
+
+- `lib/screens/settings_page.dart`
+  - 标签设置入口使用 `TagRepository` 兜底结果。
+  - 测试用可注入 `ApiClient`，用于覆盖远程失败时仍可进入标签设置页。
+
+- `lib/models/habit_visual_config.dart`
+  - 默认习惯图标从 emoji 改为 Flora icon 逻辑名。
+
+- `lib/widgets/habit_icon.dart`
+  - 新增 `HabitIcon`：新配置渲染 `FloraIcon`，旧用户设置中保存过的 emoji 继续以文本显示。
+
+- `lib/screens/habit_edit_screen.dart`
+  - 习惯候选图标从 emoji 切换为 Flora icon 逻辑名。
+  - 包含默认习惯图标与候选图标池。
+
+- `lib/screens/habit_settings_screen.dart`
+- `lib/widgets/habit_card.dart`
+- `lib/widgets/habit_heatmap_tabs.dart`
+- `lib/widgets/habit_rhythm_grid.dart`
+  - 统一改用 `HabitIcon`，避免把 `habit-water` 等逻辑名显示成文本。
+
+- `lib/widgets/flora_icon.dart`
+  - 增加 `FloraIcons.hasAsset()`。
+  - 空路径时使用安全 fallback，避免未配置 SVG 时渲染异常。
+
+### 30.4 测试补充
+
+`test/widget_test.dart` 新增或更新覆盖：
+
+- HomeScreen 空日记时显示 `HabitCard`。
+- 日记请求挂住时退出 loading 并显示错误与习惯入口。
+- 可编辑日记视图缺少 habit section 时补 fallback habit card。
+- 默认习惯图标解析为 Flora assets。
+- 习惯编辑页「目标」候选图标使用 Flora icon 并可点击。
+- 标签接口失败时，`TagRepository` 返回默认标签配置。
+- 标签接口失败时，SettingsPage 仍可进入标签设置页。
+- 快速记录页在标签远程配置不可用时仍显示 `TagPicker`，不显示「标签暂不可用」。
+
+### 30.5 当前验证状态
+
+截至提交 `85fb246`：
+
+- `dart analyze lib test`：通过
+- `flutter analyze --no-pub`：通过
+- `flutter test --no-pub`：359 项全部通过
+- `flutter build apk --release`：通过
+
+### 30.6 后续注意事项
+
+- 标签配置兜底是 Flutter 端可用性保护，不替代服务端标签配置；远程配置正常时仍优先使用服务端与缓存。
+- 习惯图标设置中的旧 emoji 配置必须继续兼容，不能强制迁移或丢弃用户自定义值。
+- 不要在习惯相关 UI 中直接 `Text(icon)`；统一走 `HabitIcon`。
+- 标签设置入口不要静默失败，至少应使用默认标签配置打开页面。
+- 快速记录页应优先保证可记录，不应因标签远程请求失败阻塞用户输入。

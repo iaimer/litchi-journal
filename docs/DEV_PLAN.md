@@ -445,3 +445,96 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 - 当前环境有时会出现 ADB daemon 无法绑定本机端口：`could not install *smartsocket* listener: Operation not permitted`。这属于本地执行环境限制，不代表 App 崩溃。
 - 如果 Codex 环境内 `adb install -r` 被 ADB daemon 权限限制挡住，可在本机终端执行相同覆盖安装命令后继续真机验收。
 - 手机上 App 名称是「荔枝日记 dev」，applicationId 是 `com.example.litchi_journal_flutter`。
+
+---
+
+## 17. 当前实际进度更新（2026-06-19）
+
+本节覆盖 16 节之后的新增稳定性修复。下一位 agent 接手时，应优先以本节和 `AGENTS.md` 为准。
+
+### 17.1 当前稳定版定义
+
+当前版本定位：
+
+```text
+荔枝日记 Flutter 日常使用稳定版：文字 + 图片 + 标签设置 + 习惯统计 + 快速记录 + 过往回看
+```
+
+当前稳定提交：
+
+```text
+85fb246 fix: stabilize startup tags and habit icons
+```
+
+### 17.2 已完成并应从旧待办中移除
+
+以下事项已完成，不应再作为新任务重复实现：
+
+- 图片上传、压缩、重命名设置、预览和删除。
+- 标签设置 MVP：启用/隐藏、重命名、恢复默认。
+- 标签配置 Flutter 本地默认兜底：远程标签接口不可用时，标签设置和快速记录仍可用。
+- 快速记录入口 V2/V3：今天页右下角 FAB，随手记/觉察/小确幸进 `QuickCaptureScreen`，焦虑四问进 `AnxietyScreen`，图片直接上传。
+- 首页内联快速记录区已删除。
+- 焦虑四问独立页面已完成，输入区已放大。
+- 习惯设置 MVP：自定义名称、图标、颜色、启用状态。
+- 习惯默认图标与候选图标 SVG 化，并通过 `HabitIcon` 兼容旧 emoji 设置。
+- 习惯统计页已完成第一版：7 天节奏谱、30 天热力图、反馈卡、缓存。
+- 过往页已完成第一版：记忆卡片、只读详情、详情隐藏明日寄语和习惯追踪。
+- 人生教练 Flutter 本地生成链路已接近 Web 逻辑，但后续如要彻底统一，仍建议下沉到服务端统一 API。
+
+### 17.3 新增稳定性规则
+
+后续修改必须保留以下规则：
+
+- 启动配置读取必须有超时/异常兜底，不能让 App 无限 loading。
+- 今日日记加载必须有超时/错误兜底，不能让今日页无限 loading。
+- 空日记或缺少 habit section 时，今天页必须仍显示可交互习惯入口。
+- `TagRepository.loadTagConfig()` 失败时返回 `DefaultTagConfig.value`。
+- 标签缓存读写失败不能导致标签功能不可用。
+- `HomeScreen._effectiveTagConfig` 在远程标签配置尚未加载完成时，也应返回默认标签配置。
+- SettingsPage 的「标签设置」入口不能静默失败；远程标签失败时使用默认标签配置打开。
+- 习惯图标渲染统一走 `HabitIcon`，不要直接 `Text(icon)`。
+- Flora 图标逻辑名和旧 emoji 用户配置需要并存兼容。
+
+### 17.4 当前验证状态
+
+截至提交 `85fb246`：
+
+- `dart analyze lib test`：通过
+- `flutter analyze --no-pub`：通过
+- `flutter test --no-pub`：359 项全部通过
+- `flutter build apk --release`：通过
+
+最新 release APK：
+
+```text
+build/app/outputs/flutter-apk/app-release.apk
+```
+
+### 17.5 当前真正推荐的下一步
+
+短期仍建议继续「稳定观察 + 小修」，不要立刻做大功能。
+
+建议优先级：
+
+1. 真机安装 `85fb246` 后验证：启动不转圈、标签设置可进入、快速记录页可选标签、空日记可打习惯。
+2. 继续观察 SVG 图标在深色/浅色模式下的可读性。
+3. 检查设置子页是否还有类似“静默失败”的入口。
+4. 整理真实使用中遇到的阻塞 bug，优先修复而不是新增页面。
+5. 功能稳定后，再规划完整日历历史页、画廊页或 Open Design 全局 UI 重设计。
+
+### 17.6 仍未完成但可规划
+
+- 完整日历式历史页：当前过往页不是日历管理页。
+- 画廊页：图片链路已具备，可后续做集中浏览。
+- 远程 API 配置编辑：当前以只读状态展示为主。
+- 服务端统一人生教练生成 API：当前 Flutter 端仍有本地生成/解析链路。
+- 动态习惯：当前服务端 `/habit` 仍是固定字段，动态习惯需要服务端先支持。
+- Open Design：应在功能稳定后统一推进。
+
+### 17.7 不建议近期再做
+
+- 不建议继续扩大 Flutter 端人生教练自由文本正则解析。
+- 不建议在 Flutter 本地拼日记模板。
+- 不建议把标签配置完全依赖远程接口而移除默认兜底。
+- 不建议把旧 emoji 习惯配置强制迁移为 SVG 图标，避免丢失用户自定义设置。

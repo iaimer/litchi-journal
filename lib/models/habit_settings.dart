@@ -54,9 +54,15 @@ class HabitSettings {
   /// 该习惯当前是否活跃
   bool isActive(String key) => statusMap[key] ?? true;
 
-  /// 所有活跃习惯的 key 列表
-  List<String> get activeKeys =>
-      statusMap.entries.where((e) => e.value).map((e) => e.key).toList();
+  /// 所有活跃的 manageable 习惯 key 列表。
+  /// 只统计 manageableKeys 中 status=true 的 key，过滤 orphan custom_xxx。
+  List<String> get activeKeys {
+    final manageable = manageableKeys.toSet();
+    return statusMap.entries
+        .where((e) => e.value && manageable.contains(e.key))
+        .map((e) => e.key)
+        .toList();
+  }
 
   /// 活跃习惯数量
   int get activeCount => activeKeys.length;

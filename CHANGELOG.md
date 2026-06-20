@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0
+
+### 新增
+- FloraPageScaffold：轻量统一页面骨架组件（Scaffold + AppBar + body SafeArea）
+- Android 12+ 原生启动屏配置：消除冷启动时 App 图标居中闪现
+
+### 优化
+- 设置页骨架统一：10 个设置页面接入 FloraPageScaffold，统一 SafeArea 和底部留白
+- 一级页 SafeArea：HomeScreen / PastScreen / HabitStatsScreen 补底部安全区
+- 输入页 SafeArea：QuickCaptureScreen / AnxietyScreen 补底部安全区
+- 卡片样式一致：ImageSectionCard 接入 SectionCard；GenericSectionCard / QuickNoteTimeline / HabitCard accentColor 改为 theme primary
+- 快速记录工具栏对齐：AI 润色按钮与标签展开入口合并到同一行
+- TagPicker 标签布局修复：
+  - 新增 forceExpanded 外部控制参数
+  - 移除单独「可选」行，方法标签左侧标题改为「方法」
+  - 分组标题顶部 padding 对齐 chip 文字基线
+  - 分组 chips 换行起点对齐
+
 ## 1.1.0
 
 ### 新增

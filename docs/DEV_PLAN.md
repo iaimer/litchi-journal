@@ -540,3 +540,75 @@ build/app/outputs/flutter-apk/app-release.apk
 - 不建议在 Flutter 本地拼日记模板。
 - 不建议把标签配置完全依赖远程接口而移除默认兜底。
 - 不建议把旧 emoji 习惯配置强制迁移为 SVG 图标，避免丢失用户自定义设置。
+
+---
+
+## 18. 当前实际进度更新（2026-06-20）
+
+本节覆盖 17 节之后的全页面骨架统一和输入体验修复。
+
+### 18.1 当前稳定版定义
+
+当前版本定位：
+
+```text
+荔枝日记 Flutter 日常使用稳定版：骨架统一 + 卡片一致 + 输入对齐 + Android 启动无闪现
+```
+
+当前稳定基线：
+
+```text
+bee350a 全页面骨架统一 + 卡片样式一致 + 输入体验优化
+```
+
+### 18.2 本轮已完成
+
+#### Phase 1-2: 页面骨架统一
+- 新增 `FloraPageScaffold` 轻量 Shell 组件（Scaffold + AppBar + body SafeArea）
+- 10 个设置页面接入 FloraPageScaffold
+- HomeScreen / PastScreen / HabitStatsScreen 补 SafeArea
+
+#### Phase 3: 卡片组件统一
+- ImageSectionCard 接入 SectionCard
+- GenericSectionCard / QuickNoteTimeline / HabitCard accentColor 改为 theme primary
+
+#### Phase 4: 输入页 SafeArea + 工具栏对齐
+- QuickCaptureScreen / AnxietyScreen 补 SafeArea
+- AI 润色按钮与标签展开入口合并到同一 Row
+
+#### Phase 5: TagPicker 标签布局修复
+- 新增 forceExpanded 外部控制参数
+- 移除单独「可选」行
+- 分组标题 top padding 对齐 chip 文字基线
+- 分组 chips 换行起点对齐
+
+#### Phase 6: Android 12+ 启动屏修复
+- 新增 `values-v31/styles.xml` 和 `values-night-v31/styles.xml`
+- 新增 1dp 透明 vector `splash_transparent_icon.xml`
+- 系统 SplashScreen 不再显示 App 图标，只显示纯色背景过渡到 FloraSplash
+
+### 18.3 当前验证状态
+
+```text
+flutter analyze --no-pub   → 零问题
+flutter test --no-pub      → 363 测试通过
+flutter build apk --release → 通过
+adb install -r             → 成功
+真机冷启动验证              → 无 App 图标闪现
+```
+
+### 18.4 仍未完成但可规划
+
+- 完整日历式历史页
+- 画廊页
+- 远程 API 配置编辑
+- 服务端统一人生教练生成 API
+- 动态习惯
+- Open Design UI 重设计
+
+### 18.5 不建议近期再做
+
+- 不建议继续扩大 Flutter 端人生教练自由文本正则解析
+- 不建议在 Flutter 本地拼日记模板
+- 不建议把标签配置完全依赖远程接口而移除默认兜底
+- 不建议把旧 emoji 习惯配置强制迁移为 SVG 图标

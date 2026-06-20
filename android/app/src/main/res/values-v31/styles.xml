@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Android 12+ (API 31) 启动屏配置。
+        使用透明 icon 避免系统 SplashScreen 闪过 App 图标，
+        让品牌启动页完全由 Flutter FloraSplash 负责。
+    -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">#F7F2EA</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_transparent_icon</item>
+    </style>
+</resources>

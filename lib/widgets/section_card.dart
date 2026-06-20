@@ -34,17 +34,8 @@ class SectionCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (title != null) ...[
-              Container(
-                width: double.infinity,
+              Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                decoration: BoxDecoration(
-                  border: Border(
-                    left: BorderSide(
-                      color: accentColor ?? theme.colorScheme.primary,
-                      width: 2,
-                    ),
-                  ),
-                ),
                 child: Row(
                   children: [
                     Expanded(

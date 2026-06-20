@@ -173,12 +173,16 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
     return updated;
   }
 
+  String get _defaultDisplayName =>
+      _settings.extraHabits[widget.habitKey] ?? _defaultConfig.displayName;
+
   void _resetToDefault() {
+    final name = _defaultDisplayName;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('恢复默认'),
-        content: Text('将「${_defaultConfig.displayName}」恢复为默认名称、图标、颜色和活跃状态？'),
+        content: Text('将「$name」恢复为默认名称、图标、颜色和启用状态？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -188,11 +192,11 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
             onPressed: () {
               Navigator.pop(ctx);
               setState(() {
-                _displayName = _defaultConfig.displayName;
+                _displayName = name;
                 _icon = _defaultConfig.icon;
                 _colorArgb = _defaultConfig.color.toARGB32();
                 _active = true;
-                _nameController.text = _displayName;
+                _nameController.text = name;
               });
             },
             child: const Text('恢复默认'),

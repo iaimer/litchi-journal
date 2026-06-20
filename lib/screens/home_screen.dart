@@ -637,7 +637,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             child: _quickRecordExpanded
                 ? const Icon(Icons.close, size: 24)
-                : const FloraIcon(FloraIcons.fabWrite, size: 24),
+                : const Icon(Icons.add, size: 24),
           ),
         ],
       ),

@@ -66,11 +66,63 @@ class _HabitCardState extends State<HabitCard> {
     _update(next, 'water');
   }
 
+  Future<void> _handleWaterCustom(HabitStatus currentStatus) async {
+    final controller = TextEditingController();
+    String? error;
+
+    final result = await showDialog<int>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('自定义饮水量'),
+            content: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: '输入毫升数',
+                border: const OutlineInputBorder(),
+                errorText: error,
+              ),
+              onChanged: (_) => setDialogState(() => error = null),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final text = controller.text.trim();
+                  if (text.isEmpty) {
+                    setDialogState(() => error = '请输入毫升数');
+                    return;
+                  }
+                  final value = int.tryParse(text);
+                  if (value == null || value <= 0) {
+                    setDialogState(() => error = '请输入有效的正整数');
+                    return;
+                  }
+                  Navigator.pop(ctx, value);
+                },
+                child: const Text('确认'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result != null && result > 0) {
+      final next = currentStatus.copyWith(water: currentStatus.water + result);
+      _update(next, 'water');
+    }
+  }
+
   Future<void> _handleStepsEdit() async {
     final currentStatus = HabitStatus.fromHabitSection(widget.section);
-    final controller = TextEditingController(
-      text: currentStatus.steps.toString(),
-    );
+    final controller = TextEditingController();
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -215,6 +267,7 @@ class _HabitCardState extends State<HabitCard> {
             displayName: _displayName(habit),
             icon: _icon(habit),
             onIncrement: (next) => _handleWaterIncrement(next),
+            onCustom: () => _handleWaterCustom(status),
           );
         }
         return _StepsCounterRow(
@@ -344,6 +397,7 @@ class _WaterCounterRow extends StatelessWidget {
   final String displayName;
   final String? icon;
   final void Function(HabitStatus next) onIncrement;
+  final VoidCallback? onCustom;
 
   const _WaterCounterRow({
     required this.habit,
@@ -352,6 +406,7 @@ class _WaterCounterRow extends StatelessWidget {
     required this.displayName,
     this.icon,
     required this.onIncrement,
+    this.onCustom,
   });
 
   @override
@@ -400,6 +455,11 @@ class _WaterCounterRow extends StatelessWidget {
                 label: '+500',
                 onTap: loading ? null : () => onIncrement(_add(500)),
               ),
+              if (onCustom != null)
+                _QuickButton(
+                  label: '自定义',
+                  onTap: loading ? null : onCustom,
+                ),
               _QuickButton(
                 label: '清零',
                 onTap: loading

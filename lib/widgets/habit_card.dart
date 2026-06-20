@@ -354,8 +354,6 @@ class _WaterCounterRow extends StatelessWidget {
     required this.onIncrement,
   });
 
-  static const _goal = 1500;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -401,12 +399,6 @@ class _WaterCounterRow extends StatelessWidget {
               _QuickButton(
                 label: '+500',
                 onTap: loading ? null : () => onIncrement(_add(500)),
-              ),
-              _QuickButton(
-                label: '目标',
-                onTap: loading
-                    ? null
-                    : () => onIncrement(status.copyWith(water: _goal)),
               ),
               _QuickButton(
                 label: '清零',

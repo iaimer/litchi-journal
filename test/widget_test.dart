@@ -3851,45 +3851,6 @@ tags:
       expect(called!.supplements, isFalse);
     });
 
-    testWidgets('water 目标 button sets water to 1500', (tester) async {
-      final section = HabitSection(
-        title: '习惯打卡',
-        contents: [],
-        habits: [
-          const HabitItem(
-            kind: HabitKind.counter,
-            label: '饮水',
-            checked: false,
-            checkable: false,
-            rawLine: '- 饮水 500 mL',
-            value: 500,
-            unit: 'mL',
-          ),
-        ],
-      );
-
-      HabitStatus? called;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: HabitCard(
-              section: section,
-              onUpdate: (status) async {
-                called = status;
-                return true;
-              },
-            ),
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('目标'));
-      await tester.pump();
-
-      expect(called, isNotNull);
-      expect(called!.water, 1500);
-    });
-
     testWidgets('water 清零 button sets water to 0', (tester) async {
       final section = HabitSection(
         title: '习惯打卡',

@@ -89,7 +89,6 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
             // 自定义习惯
             ..._settings.extraHabits.entries.map((entry) {
               final key = entry.key;
-              if (!_settings.statusMap.containsKey(key)) return const SizedBox.shrink();
               final isActive = _settings.isActive(key);
               final displayName = _settings.displayNameFor(key);
               final icon = _settings.iconFor(key);

@@ -123,6 +123,7 @@ class HabitSettings {
       displayNameMap: newDisplayName,
       iconMap: newIcon,
       colorMap: newColor,
+      extraHabits: extraHabits,
     );
   }
 
@@ -145,6 +146,7 @@ class HabitSettings {
       displayNameMap: newDisplayName,
       iconMap: newIcon,
       colorMap: newColor,
+      extraHabits: extraHabits,
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
+import '../models/habit_stats.dart';
 import '../services/habit_settings_repository.dart';
 import '../widgets/flora_page_scaffold.dart';
 import '../theme/app_theme.dart';
@@ -85,10 +86,58 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
                 onTap: () => _openEdit(config.key),
               );
             }),
+            // 自定义习惯
+            ..._settings.extraHabits.entries.map((entry) {
+              final key = entry.key;
+              if (!_settings.statusMap.containsKey(key)) return const SizedBox.shrink();
+              final isActive = _settings.isActive(key);
+              final displayName = _settings.displayNameFor(key);
+              final icon = _settings.iconFor(key);
+              final color = Color(_settings.colorFor(key));
+              return _buildHabitRow(
+                theme,
+                config: _customConfig(key, entry.value),
+                displayName: displayName,
+                icon: icon,
+                color: color,
+                isActive: isActive,
+                onTap: () => _openEdit(key),
+              );
+            }),
+            const SizedBox(height: 16),
+            // 新增习惯入口
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _addNewHabit,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('新增习惯'),
+              ),
+            ),
             const SizedBox(height: 24),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _addNewHabit() async {
+    final key = 'custom_${DateTime.now().millisecondsSinceEpoch ~/ 1000}';
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => HabitEditScreen(habitKey: key, isCreateMode: true),
+      ),
+    );
+    if (result == true) await _load();
+  }
+
+  HabitVisualConfig _customConfig(String key, String defaultName) {
+    return HabitVisualConfig(
+      key: key,
+      displayName: defaultName,
+      icon: FloraIcons.check,
+      color: const Color(0xFF8A8278),
+      group: HabitGroup.body,
     );
   }
 

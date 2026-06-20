@@ -7,11 +7,12 @@ import 'habit_visual_config.dart';
 /// - displayNameMap: 自定义显示名称
 /// - iconMap: 自定义图标
 /// - colorMap: 自定义颜色（存储为 int ARGB）
+/// - extraHabits: 自定义习惯注册表（customKey → 初始显示名）
 ///
-/// schemaVersion: 2（新增 displayNameMap / iconMap / colorMap）
+/// schemaVersion: 3（新增 extraHabits）
 class HabitSettings {
   /// schema 版本，用于兼容旧配置。
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
 
   /// 习惯 key → isActive
   final Map<String, bool> statusMap;
@@ -25,11 +26,16 @@ class HabitSettings {
   /// 习惯 key → 自定义颜色 ARGB int
   final Map<String, int> colorMap;
 
+  /// 自定义习惯注册表：customKey → 初始显示名。
+  /// 仅存储 key 和默认名。状态、图标、颜色仍用 statusMap / iconMap / colorMap 管理。
+  final Map<String, String> extraHabits;
+
   const HabitSettings({
     required this.statusMap,
     this.displayNameMap = const {},
     this.iconMap = const {},
     this.colorMap = const {},
+    this.extraHabits = const {},
   });
 
   /// 5 个默认习惯全部活跃，视觉配置使用默认值。
@@ -140,7 +146,7 @@ class HabitSettings {
     );
   }
 
-  /// 恢复全部习惯为默认值。
+  /// 重置为只保留 5 个内置习惯。
   HabitSettings resetAll() => HabitSettings.defaults;
 
   /// 使用部分更新创建新副本。
@@ -149,12 +155,14 @@ class HabitSettings {
     Map<String, String>? displayNameMap,
     Map<String, String>? iconMap,
     Map<String, int>? colorMap,
+    Map<String, String>? extraHabits,
   }) {
     return HabitSettings(
       statusMap: statusMap ?? this.statusMap,
       displayNameMap: displayNameMap ?? this.displayNameMap,
       iconMap: iconMap ?? this.iconMap,
       colorMap: colorMap ?? this.colorMap,
+      extraHabits: extraHabits ?? this.extraHabits,
     );
   }
 
@@ -166,6 +174,7 @@ class HabitSettings {
     'displayNameMap': displayNameMap,
     'iconMap': iconMap,
     'colorMap': colorMap,
+    'extraHabits': extraHabits,
   };
 
   factory HabitSettings.fromJson(Map<String, dynamic> json) {
@@ -183,7 +192,25 @@ class HabitSettings {
       return HabitSettings(statusMap: statusMap);
     }
 
-    // 新版完整解析
+    // 版本 2 解析
+    final settings = _parseV2(statusMap, json);
+
+    // 版本 3：无 extraHabits 时默认 {}
+    if (version < 3) return settings;
+
+    final rawExtra = json['extraHabits'] as Map<String, dynamic>? ?? {};
+    final extraHabits = <String, String>{};
+    for (final entry in rawExtra.entries) {
+      extraHabits[entry.key] = entry.value as String? ?? '';
+    }
+
+    return settings.copyWith(extraHabits: extraHabits);
+  }
+
+  static HabitSettings _parseV2(
+    Map<String, bool> statusMap,
+    Map<String, dynamic> json,
+  ) {
     final rawDisplayName =
         json['displayNameMap'] as Map<String, dynamic>? ?? {};
     final displayNameMap = <String, String>{};

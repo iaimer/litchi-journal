@@ -17,7 +17,10 @@ import '../widgets/flora_page_scaffold.dart';
 class HabitEditScreen extends StatefulWidget {
   final String habitKey;
 
-  const HabitEditScreen({super.key, required this.habitKey});
+  /// 为 true 时进入新增模式：key 为新生成的 custom_xxx，初始值使用默认。
+  final bool isCreateMode;
+
+  const HabitEditScreen({super.key, required this.habitKey, this.isCreateMode = false});
 
   @override
   State<HabitEditScreen> createState() => _HabitEditScreenState();
@@ -82,7 +85,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       _icon = settings.iconFor(widget.habitKey);
       _colorArgb = settings.colorFor(widget.habitKey);
       _active = settings.isActive(widget.habitKey);
-      _nameController.text = _displayName;
+      _nameController.text = widget.isCreateMode ? '' : _displayName;
       _loaded = true;
     });
   }
@@ -104,13 +107,18 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
 
     setState(() => _saving = true);
     try {
-      final updated = _settings.updateHabit(
-        key: widget.habitKey,
-        active: _active,
-        displayName: trimmed,
-        icon: _icon,
-        color: _colorArgb,
-      );
+      final HabitSettings updated;
+      if (widget.isCreateMode) {
+        updated = _saveCreate(trimmed);
+      } else {
+        updated = _settings.updateHabit(
+          key: widget.habitKey,
+          active: _active,
+          displayName: trimmed,
+          icon: _icon,
+          color: _colorArgb,
+        );
+      }
       await _repo.save(updated);
 
       // 清除习惯统计缓存，确保统计页使用最新视觉配置
@@ -130,6 +138,39 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  HabitSettings _saveCreate(String name) {
+    final newExtraHabits = Map<String, String>.from(_settings.extraHabits);
+    newExtraHabits[widget.habitKey] = name;
+
+    final newStatusMap = Map<String, bool>.from(_settings.statusMap);
+    newStatusMap[widget.habitKey] = _active;
+
+    var updated = _settings.copyWith(
+      statusMap: newStatusMap,
+      extraHabits: newExtraHabits,
+      displayNameMap: Map<String, String>.from(_settings.displayNameMap),
+      iconMap: Map<String, String>.from(_settings.iconMap),
+      colorMap: Map<String, int>.from(_settings.colorMap),
+    );
+
+    final defaultIcon = HabitVisualConfig.of(widget.habitKey).icon;
+    if (_icon != defaultIcon) {
+      final newIcon = Map<String, String>.from(updated.iconMap);
+      newIcon[widget.habitKey] = _icon;
+      updated = updated.copyWith(iconMap: newIcon);
+    }
+
+    final defaultColor =
+        HabitVisualConfig.of(widget.habitKey).color.toARGB32();
+    if (_colorArgb != defaultColor) {
+      final newColor = Map<String, int>.from(updated.colorMap);
+      newColor[widget.habitKey] = _colorArgb;
+      updated = updated.copyWith(colorMap: newColor);
+    }
+
+    return updated;
   }
 
   void _resetToDefault() {
@@ -180,7 +221,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
     }
 
     return FloraPageScaffold(
-      title: '编辑习惯',
+      title: widget.isCreateMode ? '新增习惯' : '编辑习惯',
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -347,6 +388,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
 
             const SizedBox(height: 12),
 
+            if (!widget.isCreateMode)
             // ── 5. 恢复默认 ──
             SizedBox(
               width: double.infinity,

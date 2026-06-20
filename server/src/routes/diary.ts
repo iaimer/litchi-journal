@@ -192,7 +192,7 @@ router.post('/quick-note', async (req, res) => {
 
 router.post('/habit', async (req, res) => {
   try {
-    const { water, steps, reading, language, supplements, operationId } = req.body;
+    const { water, steps, reading, language, supplements, operationId, extraCheckboxes } = req.body;
     const date = getRequestDate(req.body.date);
 
     let originalContent: string;
@@ -221,6 +221,16 @@ router.post('/habit', async (req, res) => {
       `- [${language ? 'x' : ' '}] 🇬🇧 学语言`,
       `- [${supplements ? 'x' : ' '}] 💊 鱼油/植物甾醇`
     ];
+
+    // 追加自定义 checkbox 习惯行
+    if (extraCheckboxes && typeof extraCheckboxes === 'object') {
+      for (const [_, info] of Object.entries(extraCheckboxes)) {
+        const item = info as any;
+        const mark = item.checked ? 'x' : ' ';
+        const label = item.label || '?';
+        habits.push(`- [${mark}] ${label}`);
+      }
+    }
 
     const updated = stripOldOpMarkers(updateHabitsSection(originalContent, habits));
     writeDiary(date, updated);

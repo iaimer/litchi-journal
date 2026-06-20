@@ -20,6 +20,11 @@ class HabitCard extends StatefulWidget {
   /// 习惯设置（用于自定义显示名称和图标）
   final HabitSettings? habitSettings;
 
+  /// 自定义 checkbox 习惯状态变化回调。
+  /// key → checked。
+  final Future<bool> Function(Map<String, bool> states)?
+      onCustomCheckboxToggle;
+
   const HabitCard({
     super.key,
     required this.section,
@@ -27,6 +32,7 @@ class HabitCard extends StatefulWidget {
     this.readOnly = false,
     this.activeHabitKeys,
     this.habitSettings,
+    this.onCustomCheckboxToggle,
   });
 
   @override
@@ -35,8 +41,26 @@ class HabitCard extends StatefulWidget {
 
 class _HabitCardState extends State<HabitCard> {
   String? _updatingField;
+  late Map<String, bool> _customCheckboxStates;
 
   HabitSettings get _settings => widget.habitSettings ?? HabitSettings.defaults;
+
+  @override
+  void initState() {
+    super.initState();
+    _customCheckboxStates = {};
+    // 从已解析的 Markdown 中读取自定义习惯的 checked 状态
+    for (final item in widget.section.habits) {
+      if (item.habitKey != null) continue;
+      final label = item.label;
+      for (final entry in _settings.extraHabits.entries) {
+        if (label.contains(entry.value)) {
+          _customCheckboxStates[entry.key] = item.checked;
+          break;
+        }
+      }
+    }
+  }
 
   Future<void> _update(HabitStatus next, String field) async {
     setState(() => _updatingField = field);
@@ -235,7 +259,13 @@ class _HabitCardState extends State<HabitCard> {
       for (final entry in settings.extraHabits.entries) {
         final key = entry.key;
         if (!settings.isActive(key)) continue;
-        children.add(_buildCustomCheckboxRow(key, settings));
+        children.add(_CustomCheckboxRow(
+          key: ValueKey('custom_habit_$key'),
+          habitKey: key,
+          settings: settings,
+          checked: _customCheckboxStates[key] ?? false,
+          onToggle: _handleCustomCheckboxToggle,
+        ));
       }
     }
 
@@ -293,36 +323,22 @@ class _HabitCardState extends State<HabitCard> {
     }
   }
 
-  /// 自定义 checkbox 习惯行（仅显示，不调用 API）。
-  Widget _buildCustomCheckboxRow(String key, HabitSettings settings) {
-    final theme = Theme.of(context);
-    final displayName = settings.displayNameFor(key);
-    final icon = settings.iconFor(key);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.check_box_outline_blank,
-            size: 20,
-            color: theme.disabledColor,
-          ),
-          const SizedBox(width: 8),
-          if (icon.isNotEmpty) ...[
-            HabitIcon(icon, size: 16, color: theme.colorScheme.onSurface),
-            const SizedBox(width: 4),
-          ],
-          Expanded(
-            child: Text(
-              displayName,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-            ),
-          ),
-        ],
-      ),
-    );
+  Future<void> _handleCustomCheckboxToggle(
+    String key,
+    bool newChecked,
+  ) async {
+    setState(() => _customCheckboxStates[key] = newChecked);
+    if (widget.onCustomCheckboxToggle == null) return;
+    try {
+      final ok = await widget.onCustomCheckboxToggle!(
+        Map.from(_customCheckboxStates),
+      );
+      if (!mounted) return;
+      if (!ok) setState(() => _customCheckboxStates[key] = !newChecked);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _customCheckboxStates[key] = !newChecked);
+    }
   }
 
   Widget _buildReadOnlyRow(HabitItem habit, HabitStatus status) {
@@ -581,6 +597,82 @@ class _StepsCounterRow extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 1.5),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomCheckboxRow extends StatefulWidget {
+  final String habitKey;
+  final HabitSettings settings;
+  final bool checked;
+  final Future<void> Function(String key, bool checked) onToggle;
+
+  const _CustomCheckboxRow({
+    super.key,
+    required this.habitKey,
+    required this.settings,
+    required this.checked,
+    required this.onToggle,
+  });
+
+  @override
+  State<_CustomCheckboxRow> createState() => _CustomCheckboxRowState();
+}
+
+class _CustomCheckboxRowState extends State<_CustomCheckboxRow> {
+  late bool _checked;
+
+  @override
+  void initState() {
+    super.initState();
+    _checked = widget.checked;
+  }
+
+  @override
+  void didUpdateWidget(covariant _CustomCheckboxRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.checked != oldWidget.checked) {
+      _checked = widget.checked;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final displayName = widget.settings.displayNameFor(widget.habitKey);
+    final icon = widget.settings.iconFor(widget.habitKey);
+
+    return InkWell(
+      onTap: () {
+        final next = !_checked;
+        setState(() => _checked = next);
+        widget.onToggle(widget.habitKey, next);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              _checked ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 20,
+              color: _checked ? AppColors.success : theme.disabledColor,
+            ),
+            const SizedBox(width: 8),
+            if (icon.isNotEmpty) ...[
+              HabitIcon(icon, size: 16, color: theme.colorScheme.onSurface),
+              const SizedBox(width: 4),
+            ],
+            Expanded(
+              child: Text(
+                displayName,
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+              ),
+            ),
           ],
         ),
       ),

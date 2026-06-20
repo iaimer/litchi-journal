@@ -308,19 +308,24 @@ class ApiClient {
     required bool reading,
     required bool language,
     required bool supplements,
+    Map<String, Map<String, dynamic>>? extraCheckboxes,
   }) async {
+    final body = <String, dynamic>{
+      'date': formatDate(date),
+      'water': water,
+      'steps': steps,
+      'reading': reading,
+      'language': language,
+      'supplements': supplements,
+      'operationId': generateUuidV4(),
+    };
+    if (extraCheckboxes != null && extraCheckboxes.isNotEmpty) {
+      body['extraCheckboxes'] = extraCheckboxes;
+    }
     final response = await _http.post(
       Uri.parse('$_baseUrl/api/v1/diary/habit'),
       headers: _headers,
-      body: jsonEncode({
-        'date': formatDate(date),
-        'water': water,
-        'steps': steps,
-        'reading': reading,
-        'language': language,
-        'supplements': supplements,
-        'operationId': generateUuidV4(),
-      }),
+      body: jsonEncode(body),
     );
     return response.statusCode == 200;
   }

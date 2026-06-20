@@ -42,6 +42,10 @@ class DiaryMarkdownView extends StatelessWidget {
   /// 习惯设置（用于自定义显示名称和图标）
   final HabitSettings? habitSettings;
 
+  /// 自定义 checkbox 习惯状态变化回调。
+  final Future<bool> Function(Map<String, bool> states)?
+      onCustomCheckboxToggle;
+
   const DiaryMarkdownView({
     super.key,
     required this.markdown,
@@ -58,6 +62,7 @@ class DiaryMarkdownView extends StatelessWidget {
     this.hiddenSections = const {},
     this.activeHabitKeys,
     this.habitSettings,
+    this.onCustomCheckboxToggle,
   });
 
   @override
@@ -150,6 +155,7 @@ class DiaryMarkdownView extends StatelessWidget {
           readOnly: readOnly,
           activeHabitKeys: activeHabitKeys,
           habitSettings: habitSettings,
+          onCustomCheckboxToggle: onCustomCheckboxToggle,
         );
       case QuickNoteSection():
         return QuickNoteTimeline(

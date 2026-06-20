@@ -77,6 +77,9 @@ class _HomeScreenState extends State<HomeScreen> {
     'supplements',
   };
 
+  /// 自定义 checkbox 习惯的当前状态。
+  Map<String, bool> _customCheckboxStates = {};
+
   /// 只含 enabled 标签、name 替换为 displayName 的 TagConfig。
   /// 用于 QuickNoteComposer（新建记录不需要隐藏标签）。
   TagConfig? get _effectiveTagConfig {
@@ -241,19 +244,54 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<bool> _handleHabitUpdate(HabitStatus status) async {
     try {
-      final ok = await widget.apiClient.updateHabits(
-        _activeDate,
-        water: status.water,
-        steps: status.steps,
-        reading: status.reading,
-        language: status.language,
-        supplements: status.supplements,
-      );
+      final ok = await _updateHabitsAPI(status);
       if (ok && mounted) _loadDiarySilently();
       return ok;
     } catch (_) {
       return false;
     }
+  }
+
+  Future<bool> _updateHabitsAPI(HabitStatus status) async {
+    return widget.apiClient.updateHabits(
+      _activeDate,
+      water: status.water,
+      steps: status.steps,
+      reading: status.reading,
+      language: status.language,
+      supplements: status.supplements,
+      extraCheckboxes: _buildExtraCheckboxes(),
+    );
+  }
+
+  Future<bool> _handleCustomCheckboxToggle(
+    Map<String, bool> states,
+  ) async {
+    _customCheckboxStates = Map.from(states);
+    final status = HabitStatus(
+      water: 0,
+      steps: 0,
+      reading: false,
+      language: false,
+      supplements: false,
+    );
+    final ok = await _updateHabitsAPI(status);
+    if (ok && mounted) _loadDiarySilently();
+    return ok;
+  }
+
+  Map<String, Map<String, dynamic>> _buildExtraCheckboxes() {
+    final settings = _habitSettings ?? HabitSettings.defaults;
+    final result = <String, Map<String, dynamic>>{};
+    for (final entry in settings.extraHabits.entries) {
+      final key = entry.key;
+      if (!settings.isActive(key)) continue;
+      result[key] = {
+        'checked': _customCheckboxStates[key] ?? false,
+        'label': '📝 ${settings.displayNameFor(key)}',
+      };
+    }
+    return result;
   }
 
   Future<PolishResult> _handlePolish(
@@ -868,6 +906,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         generatingCoach: _generatingCoach,
                         activeHabitKeys: _activeHabitKeys,
                         habitSettings: _habitSettings ?? HabitSettings.defaults,
+                        onCustomCheckboxToggle: _handleCustomCheckboxToggle,
                       ),
                     ] else ...[
                       Text(
@@ -883,6 +922,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onUpdate: _handleHabitUpdate,
                         activeHabitKeys: _activeHabitKeys,
                         habitSettings: _habitSettings ?? HabitSettings.defaults,
+                        onCustomCheckboxToggle: _handleCustomCheckboxToggle,
                       ),
                     ],
                     const SizedBox(height: 96),

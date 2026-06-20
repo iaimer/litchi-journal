@@ -87,7 +87,11 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
             )
           : RefreshIndicator(
               onRefresh: _loadDiary,
-              child: ListView(
+              child: Theme(
+                data: theme.copyWith(
+                  canvasColor: theme.scaffoldBackgroundColor,
+                ),
+                child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
@@ -109,6 +113,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
                     ),
                   const SizedBox(height: 32),
                 ],
+              ),
               ),
             ),
     );

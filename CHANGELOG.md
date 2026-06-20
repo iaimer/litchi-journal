@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.1
+
+### 修复
+- FAB 图标：收起状态显示加号，展开显示叉号（原 FloraIcons.close 映射错误为 plus SVG）
+- 日记详情页下拉刷新背景色统一为 scaffoldBackgroundColor
+
+### 优化
+- SectionCard 移除左侧强调竖线
+- 饮水快捷按钮：「目标」改为「自定义」毫升数输入
+- 运动步数编辑弹窗输入框默认空白
+- 关于页更新内容使用 MarkdownBody 渲染
+
 ## 1.2.0
 
 ### 新增

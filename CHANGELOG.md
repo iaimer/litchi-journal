@@ -11,12 +11,12 @@
 - 一级页 SafeArea：HomeScreen / PastScreen / HabitStatsScreen 补底部安全区
 - 输入页 SafeArea：QuickCaptureScreen / AnxietyScreen 补底部安全区
 - 卡片样式一致：ImageSectionCard 接入 SectionCard；GenericSectionCard / QuickNoteTimeline / HabitCard accentColor 改为 theme primary
+- SectionCard 左侧强调竖线移除，标题区更轻盈
 - 快速记录工具栏对齐：AI 润色按钮与标签展开入口合并到同一行
-- TagPicker 标签布局修复：
-  - 新增 forceExpanded 外部控制参数
-  - 移除单独「可选」行，方法标签左侧标题改为「方法」
-  - 分组标题顶部 padding 对齐 chip 文字基线
-  - 分组 chips 换行起点对齐
+- TagPicker 标签布局修复
+- 关于页更新内容使用 MarkdownBody 渲染
+- 饮水快捷按钮优化：「目标」改为「自定义」毫升数输入；运动步数编辑默认空白
+- 日记详情页下拉刷新背景色统一为 scaffoldBackgroundColor
 
 ## 1.1.0
 

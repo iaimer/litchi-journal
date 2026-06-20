@@ -587,6 +587,13 @@ bee350a 全页面骨架统一 + 卡片样式一致 + 输入体验优化
 - 新增 1dp 透明 vector `splash_transparent_icon.xml`
 - 系统 SplashScreen 不再显示 App 图标，只显示纯色背景过渡到 FloraSplash
 
+#### Phase 7: 细节体验修复
+- SectionCard 移除左侧强调竖线
+- 饮水快捷按钮：「目标」改为「自定义」毫升数输入
+- 运动步数编辑弹窗输入框默认空白
+- 关于页更新内容使用 MarkdownBody 渲染
+- 日记详情页下拉刷新背景色统一
+
 ### 18.3 当前验证状态
 
 ```text

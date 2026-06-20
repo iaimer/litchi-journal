@@ -69,33 +69,17 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
             // 说明文案
             _buildDescription(theme),
             const SizedBox(height: 16),
-            // 习惯列表
-            ...HabitVisualConfig.defaults.entries.map((entry) {
-              final config = entry.value;
-              final isActive = _settings.isActive(config.key);
-              final displayName = _settings.displayNameFor(config.key);
-              final icon = _settings.iconFor(config.key);
-              final color = Color(_settings.colorFor(config.key));
-              return _buildHabitRow(
-                theme,
-                config: config,
-                displayName: displayName,
-                icon: icon,
-                color: color,
-                isActive: isActive,
-                onTap: () => _openEdit(config.key),
-              );
-            }),
-            // 自定义习惯
-            ..._settings.extraHabits.entries.map((entry) {
-              final key = entry.key;
+            // 习惯列表（含内置 + 自定义，归档仍可见）
+            ..._settings.manageableKeys.map((key) {
               final isActive = _settings.isActive(key);
               final displayName = _settings.displayNameFor(key);
               final icon = _settings.iconFor(key);
               final color = Color(_settings.colorFor(key));
               return _buildHabitRow(
                 theme,
-                config: _customConfig(key, entry.value),
+                config: HabitVisualConfig.defaults.containsKey(key)
+                    ? HabitVisualConfig.defaults[key]!
+                    : _customConfig(key, _settings.extraHabits[key] ?? key),
                 displayName: displayName,
                 icon: icon,
                 color: color,

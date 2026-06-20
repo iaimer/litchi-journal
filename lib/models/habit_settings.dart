@@ -61,6 +61,11 @@ class HabitSettings {
   /// 活跃习惯数量
   int get activeCount => activeKeys.length;
 
+  /// 所有可管理习惯的 key：5 个内置 + 所有已注册自定义习惯。
+  /// 今日页用 activeKeys，设置页用此列表确保归档习惯不丢失。
+  List<String> get manageableKeys =>
+      [...HabitVisualConfig.defaults.keys, ...extraHabits.keys];
+
   // ── 视觉配置 ──
 
   /// 获取显示名称。优先自定义名 → extraHabits 初始名 → 默认。

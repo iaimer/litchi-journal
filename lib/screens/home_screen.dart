@@ -635,10 +635,9 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               setState(() => _quickRecordExpanded = !_quickRecordExpanded);
             },
-            child: FloraIcon(
-              _quickRecordExpanded ? FloraIcons.close : FloraIcons.fabWrite,
-              size: 24,
-            ),
+            child: _quickRecordExpanded
+                ? const Icon(Icons.close, size: 24)
+                : const FloraIcon(FloraIcons.fabWrite, size: 24),
           ),
         ],
       ),

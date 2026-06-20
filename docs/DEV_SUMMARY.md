@@ -1313,3 +1313,64 @@ Failed to create server socket (OS Error: Operation not permitted)
 - `flutter build apk --release --no-pub`：通过
 - `adb install -r build/app/outputs/flutter-apk/app-release.apk`：成功
 - 真机验证：App 图标通过，关于页品牌图尺寸通过
+
+---
+
+## 32. Sprint 32：全页面骨架统一 + 卡片一致 + 输入优化
+
+### 32.1 背景
+
+在 Sprint 31 品牌视觉落地后，下一阶段的重点是页面骨架规范化。此前设置页、一级页、输入页存在 SafeArea 不统一、卡片样式差异、标签布局混乱等问题，严重影响日常使用体验。
+
+### 32.2 页面骨架统一
+
+- 新增 `FloraPageScaffold` 轻量 Shell 组件（Scaffold + AppBar + body SafeArea）
+- 10 个设置页面接入 FloraPageScaffold，统一 SafeArea 和底部留白
+- HomeScreen / PastScreen / HabitStatsScreen 补 SafeArea
+- QuickCaptureScreen / AnxietyScreen 补 SafeArea
+
+### 32.3 卡片组件统一
+
+- ImageSectionCard 接入 SectionCard
+- GenericSectionCard / QuickNoteTimeline / HabitCard accentColor 改为 theme primary
+- SectionCard 移除左侧强调竖线
+
+### 32.4 输入体验优化
+
+- QuickCaptureScreen：AI 润色按钮与标签展开入口合并到同一 Row
+- TagPicker 标签布局修复：新增 forceExpanded 参数、chips 换行对齐、标题文字基线对齐
+
+### 32.5 当前验证状态
+
+- `flutter analyze --no-pub`：零问题
+- `flutter test --no-pub`：362 测试通过
+- 真机验证：全部页面底部 SafeArea + 卡片一致性通过
+
+---
+
+## 33. Sprint 33：细节修复与 Android 启动优化
+
+### 33.1 Android 12+ 启动屏修复
+
+冷启动时系统 SplashScreen API 默认显示 App 图标，与 Flutter FloraSplash 不协调。
+修复：新增 `values-v31/styles.xml` 和透明 vector，系统启动屏只显示纯色背景。
+
+### 33.2 体验细节修复
+
+- 饮水快捷按钮：「目标」改为「自定义」毫升数输入弹窗
+- 运动步数编辑弹窗输入框默认空白
+- 关于页更新内容使用 MarkdownBody 渲染（此前显示原始 Markdown 语法）
+- 日记详情页下拉刷新背景色统一为 scaffoldBackgroundColor
+- FAB 图标修复：收起状态显示加号（+），展开显示叉号（✕）
+
+### 33.3 当前稳定版
+
+版本 `1.2.1+3`，提交 `f793c45`。
+
+### 33.4 当前验证状态
+
+- `flutter analyze --no-pub`：零问题
+- `flutter test --no-pub`：362 测试通过
+- `flutter build apk --release`：通过
+- 真机冷启动验证：无 App 图标闪现
+- 真机视觉验证：全部修复通过

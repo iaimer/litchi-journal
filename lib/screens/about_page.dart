@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -136,9 +137,19 @@ class _AboutPageState extends State<AboutPage> {
             const SizedBox(height: 32),
             Text('更新内容', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
-            Text(
-              _changelog,
-              style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
+            MarkdownBody(
+              data: _changelog,
+              selectable: true,
+              styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                p: theme.textTheme.bodySmall?.copyWith(height: 1.6),
+                h2: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                h3: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                listBullet: theme.textTheme.bodySmall,
+              ),
             ),
           ] else ...[
             const SizedBox(height: 32),

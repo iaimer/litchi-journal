@@ -246,7 +246,9 @@ class _HabitCardState extends State<HabitCard> {
     final activeHabits = widget.section.habits.where((h) {
       if (widget.activeHabitKeys == null) return true;
       final key = h.habitKey;
-      return key == null || widget.activeHabitKeys!.contains(key);
+      // 自定义习惯行（habitKey == null）由 _CustomCheckboxRow 渲染
+      if (key == null) return false;
+      return widget.activeHabitKeys!.contains(key);
     }).toList();
 
     final children = <Widget>[

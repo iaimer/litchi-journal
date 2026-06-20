@@ -268,16 +268,30 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, bool> states,
   ) async {
     _customCheckboxStates = Map.from(states);
-    final status = HabitStatus(
+    // 使用当前日记中已有的习惯状态，不覆盖为 0
+    final status = _currentHabitStatus();
+    final ok = await _updateHabitsAPI(status);
+    if (ok && mounted) _loadDiarySilently();
+    return ok;
+  }
+
+  /// 从当前已加载日记中提取 HabitStatus，无日记时返回全默认。
+  HabitStatus _currentHabitStatus() {
+    if (_diary != null && _diary!.raw.isNotEmpty) {
+      final document = const MarkdownParser().parse(_diary!.raw);
+      for (final section in document.sections) {
+        if (section is HabitSection) {
+          return HabitStatus.fromHabitSection(section);
+        }
+      }
+    }
+    return const HabitStatus(
       water: 0,
       steps: 0,
       reading: false,
       language: false,
       supplements: false,
     );
-    final ok = await _updateHabitsAPI(status);
-    if (ok && mounted) _loadDiarySilently();
-    return ok;
   }
 
   Map<String, Map<String, dynamic>> _buildExtraCheckboxes() {

@@ -298,8 +298,6 @@ class _HabitCardState extends State<HabitCard> {
     final theme = Theme.of(context);
     final displayName = settings.displayNameFor(key);
     final icon = settings.iconFor(key);
-    final colorArgb = settings.colorFor(key);
-    final color = Color(colorArgb);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -316,12 +314,6 @@ class _HabitCardState extends State<HabitCard> {
             HabitIcon(icon, size: 16, color: theme.colorScheme.onSurface),
             const SizedBox(width: 4),
           ],
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Text(
               displayName,

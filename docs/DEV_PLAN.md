@@ -626,3 +626,85 @@ adb install -r             → 成功
 - 不建议在 Flutter 本地拼日记模板
 - 不建议把标签配置完全依赖远程接口而移除默认兜底
 - 不建议把旧 emoji 习惯配置强制迁移为 SVG 图标
+
+---
+
+## 19. 当前实际进度更新（2026-06-22）：自定义普通打卡习惯 H1
+
+### 19.1 当前稳定版定义
+
+```text
+荔枝日记 Flutter 1.3.0：自定义普通打卡习惯完整闭环
+```
+
+稳定基线：
+
+```text
+f2d55c6 feat: 支持自定义普通打卡习惯
+```
+
+### 19.2 H1 已完成
+
+#### H1-A：设置管理闭环
+- HabitSettings 新增 extraHabits 字段（schemaVersion → 3）
+- HabitEditScreen 支持 isCreateMode 新增模式
+- HabitSettingsScreen 统一 manageableKeys 渲染
+- key 格式 custom_<10位时间戳>，仅本地存储
+- 归档/重新启用/找回全链路正常
+
+#### H1-B：今日页展示闭环
+- HabitCard 从 extraHabits 渲染启用自定义习惯
+- 显示名称优先级：displayNameMap → extraHabits → key
+- 归档后今日页隐藏，重新启用后恢复
+
+#### H1-C：打卡写入 Markdown 闭环
+- _CustomCheckboxRow 支持点击 toggle
+- ApiClient.updateHabits 新增 extraCheckboxes 参数
+- 服务端 POST /habit 解析 extraCheckboxes 追加自定义行
+- Markdown 格式：- [x] 📝 冥想（干净可读，无 custom key）
+- 系统边界：App 决定习惯定义，服务端只负责打卡写入
+
+### 19.3 H2 习惯体验完善（下一阶段）
+
+不做大重构，不做自定义计数习惯，不做统计，不做提醒。
+
+#### H2-A：习惯系统真机审查（优先）
+
+只审查不写代码：
+1. 习惯设置页新增/编辑/归档操作是否清晰
+2. 今日页内置与自定义习惯显示一致性
+3. Markdown 写入是否干净，是否重复，是否污染
+4. 旧日记兼容：无自定义习惯行时不崩溃
+5. 统计页不崩溃
+6. 归档逻辑完整性
+7. UI 一致性
+
+#### H2-B 候选：习惯设置页分区
+
+把习惯设置页分成“启用中”和“已归档”两个区域。
+
+#### H2-C 候选：新增习惯名称重复校验
+
+新增或重命名时检测与已有习惯名称重复。
+
+#### H2-D 候选：统计页轻提示
+
+自定义习惯暂不计入统计时，增加轻量说明文字。
+
+### 19.4 明确暂不做
+
+- 自定义计数习惯（饮水/步数类）
+- 自定义目标、单位、周期、提醒
+- 自定义习惯统计
+- 习惯分组大重构
+- Markdown 中写入 custom key 或 HTML 注释
+- 动态习惯（需服务端先支持）
+
+### 19.5 当前验证状态
+
+```
+flutter analyze --no-pub   → 零问题
+flutter test --no-pub      → 362 测试通过
+flutter build apk --release → 通过
+真机验证                   → H1 全闭环通过
+```

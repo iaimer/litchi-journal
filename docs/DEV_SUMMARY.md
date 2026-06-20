@@ -1374,3 +1374,53 @@ Failed to create server socket (OS Error: Operation not permitted)
 - `flutter build apk --release`：通过
 - 真机冷启动验证：无 App 图标闪现
 - 真机视觉验证：全部修复通过
+
+---
+
+## 34. Sprint 34：自定义普通打卡习惯 H1 完整闭环
+
+### 34.1 背景
+
+习惯系统此前全栈硬编码 5 个习惯。用户需要支持新增自定义普通打卡习惯（checkbox 类型）。
+
+### 34.2 系统边界设计
+
+明确三边界：
+- **App / HabitSettings**：负责习惯定义、启用/归档、名称、图标、颜色
+- **服务端**：接收打卡状态并写入 Markdown
+- **Markdown**：只保存某一天实际打卡结果，不保存 custom key
+
+### 34.3 H1-A：设置管理闭环
+
+- `HabitSettings` 新增 `extraHabits` 字段（schemaVersion → 3）
+- key 格式 `custom_<10位时间戳>`，仅本地存储
+- `HabitEditScreen` 支持 `isCreateMode` 新增模式
+- `HabitSettingsScreen` 统一 `manageableKeys` 渲染
+- 归档后通过 `updateHabit` 保留 `extraHabits` 确保可找回
+- `activeKeys` 过滤 orphan custom_xxx
+
+### 34.4 H1-B：今日页显示
+
+- `HabitCard` 新增 `_CustomCheckboxRow` StatefulWidget
+- 从 `extraHabits` + `statusMap` 渲染启用自定义习惯
+- 显示名称优先级：displayNameMap → extraHabits → key
+- 与内置 checkbox 习惯视觉一致
+
+### 34.5 H1-C：打卡写入 Markdown
+
+- `_CustomCheckboxRow` 支持点击 toggle，本地即时反馈
+- `ApiClient.updateHabits` 新增 `extraCheckboxes` 可选参数
+- 服务端 `POST /habit` 解析 `extraCheckboxes`，追加 `- [x] 📝 冥想` 格式行
+- Markdown 干净可读，不写 custom key、不写 HTML 注释
+- 点击自定义习惯时同步传完整内置 HabitStatus（不覆盖为 0）
+
+### 34.6 当前验证状态
+
+- `flutter analyze --no-pub`：零问题
+- `flutter test --no-pub`：362 测试通过
+- `flutter build apk --release`：通过
+- 真机验证：新增、编辑、归档、找回、今日页显示、打卡、取消打卡、刷新保持、Markdown 干净可读
+
+### 34.7 当前稳定版
+
+版本 `1.3.0`，提交 `f2d55c6`。

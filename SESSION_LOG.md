@@ -133,3 +133,39 @@
 - Flutter 级 `analyze --no-pub` 通过。
 - `flutter build apk --release` 通过。
 - 真机验证快速记录入口功能正常。
+
+---
+
+## 2026-06-20 自定义普通打卡习惯 H1 完整闭环
+
+### 讨论内容
+
+- 用户希望支持新增自定义普通打卡习惯（checkbox 类型），不支持计数/饮水/步数类。
+- 系统边界：App 决定习惯定义（名称、图标、颜色、启用/归档），服务端只负责打卡写入，Markdown 只保存完成状态。
+- Markdown 必须干净可读，不写 custom key，不写 HTML 注释。
+
+### 决策 & 原因
+
+- key 格式 `custom_<10位时间戳>`，只作为内部 ID，不暴露给用户，不写入 Markdown。
+- `HabitSettings.extraHabits` 存储自定义习惯的 key→初始显示名映射，schemaVersion → 3。
+- 设置页通过 `manageableKeys`（内置+自定义并集）统一渲染，归档习惯不丢失。
+- `activeKeys` 过滤 orphan custom_xxx（不在 extraHabits 中但残留于 statusMap 的旧数据）。
+- 今日页用 `_CustomCheckboxRow` 渲染自定义习惯，Markdown 解析结果只用于补 checked 状态，不重复渲染。
+- 点击自定义习惯时，必须同步传完整内置 HabitStatus（避免清空其它习惯）。
+- extraCheckboxes 每次传所有启用自定义习惯的状态。
+- 服务端 `POST /habit` 解析 extraCheckboxes，追加 `- [x] 📝 冥想` 格式的自定义行。
+
+### 遇到的问题
+
+- 新建后显示名出现 custom_xxx：`displayNameFor` 缺少 extraHabits 层 fallback。
+- 归档后自定义习惯消失：`updateHabit` 和 `resetHabit` 遗漏 extraHabits 参数。
+- 已启用数量与实际列表不一致：`activeKeys` 统计了不在 extraHabits 中的 orphan key。
+- 今日页出现两个同名习惯：Markdown 解析的未知 key 行被重复渲染。
+- 点击自定义习惯清空内置习惯：传了零值的 HabitStatus。
+
+### 最终结果
+
+- flutter analyze --no-pub：零问题
+- flutter test --no-pub：362 通过
+- flutter build apk --release：通过
+- 真机验证：新增、编辑、归档、找回、今日页显示、打卡、取消打卡、刷新保持、Markdown 干净可读

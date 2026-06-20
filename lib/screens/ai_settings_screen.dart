@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/ai_config.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 /// AI 服务配置页。
 class AiSettingsScreen extends StatefulWidget {
@@ -95,9 +96,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('AI 服务配置')),
+    return FloraPageScaffold(
+      title: 'AI 服务配置',
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -192,6 +192,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     )
                   : const Text('保存 AI 配置'),
             ),
+            const SizedBox(height: 24),
           ],
         ),
       ),

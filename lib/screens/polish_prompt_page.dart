@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/ai_config.dart';
 import '../services/ai_config_repository.dart';
 import '../services/polisher_service.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 /// 润色提示词编辑页。
 class PolishPromptPage extends StatefulWidget {
@@ -100,11 +101,8 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('润色提示词'),
-      ),
+    return FloraPageScaffold(
+      title: '润色提示词',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -179,6 +177,7 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
                   )
                 : const Text('保存'),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );

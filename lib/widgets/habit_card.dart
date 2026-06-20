@@ -159,7 +159,7 @@ class _HabitCardState extends State<HabitCard> {
       final c = _color(h);
       if (c != null) return c;
     }
-    return AppColors.primary;
+    return Theme.of(context).colorScheme.primary;
   }
 
   @override

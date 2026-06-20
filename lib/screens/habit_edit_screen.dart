@@ -9,6 +9,7 @@ import '../services/habit_stats_cache_repository.dart';
 import '../services/habit_stats_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/habit_icon.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 /// 习惯编辑页。
 ///
@@ -172,16 +173,14 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (!_loaded) {
-      return Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        appBar: AppBar(title: const Text('编辑习惯')),
-        body: const Center(child: CircularProgressIndicator()),
+      return const FloraPageScaffold(
+        title: '编辑习惯',
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('编辑习惯')),
+    return FloraPageScaffold(
+      title: '编辑习惯',
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

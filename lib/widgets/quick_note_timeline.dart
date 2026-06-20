@@ -5,7 +5,6 @@ import 'flora_icon.dart';
 import '../models/diary_document.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
-import '../theme/app_theme.dart';
 import 'entry_edit_sheet.dart';
 import 'section_card.dart';
 
@@ -32,7 +31,7 @@ class QuickNoteTimeline extends StatelessWidget {
 
     return SectionCard(
       title: section.title,
-      accentColor: AppColors.primary,
+      accentColor: Theme.of(context).colorScheme.primary,
       children: section.notes
           .map((note) => _QuickNoteRow(
                 note: note,

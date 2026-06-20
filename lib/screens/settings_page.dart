@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
@@ -117,14 +118,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const FloraIcon(FloraIcons.back, size: 24),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text('设置'),
+    return FloraPageScaffold(
+      title: '设置',
+      leading: IconButton(
+        icon: const FloraIcon(FloraIcons.back, size: 24),
+        onPressed: () => Navigator.of(context).pop(),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),

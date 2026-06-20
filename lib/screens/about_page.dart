@@ -3,6 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 /// 关于页。
 /// 显示版本号（从 PackageInfo 读取）和当前版本更新内容（从 CHANGELOG.md 解析）。
@@ -72,9 +73,8 @@ class _AboutPageState extends State<AboutPage> {
     final theme = Theme.of(context);
     final brandAsset = FloraIcons.path(FloraIcons.brandIcon);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('关于')),
+    return FloraPageScaffold(
+      title: '关于',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
         children: [

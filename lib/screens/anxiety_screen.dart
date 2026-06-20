@@ -25,8 +25,11 @@ class AnxietyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('焦虑四问')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           AnxietyComposer(
             onSubmit: (content, tags) async {
@@ -40,6 +43,7 @@ class AnxietyScreen extends StatelessWidget {
             isEdit: isEdit,
           ),
         ],
+      ),
       ),
     );
   }

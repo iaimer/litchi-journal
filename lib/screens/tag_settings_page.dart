@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
@@ -182,11 +183,8 @@ class _TagSettingsPageState extends State<TagSettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('标签设置'),
-      ),
+    return FloraPageScaffold(
+      title: '标签设置',
       body: _enabledCount == 0
           ? Center(child: const FloraEmpty(name: FloraIcons.emptyTags))
           : ListView(

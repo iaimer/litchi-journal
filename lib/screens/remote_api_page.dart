@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_config.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 /// 远程 API 信息页，只读展示当前连接配置。
 class RemoteApiPage extends StatelessWidget {
@@ -17,15 +18,15 @@ class RemoteApiPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('远程 API')),
+    return FloraPageScaffold(
+      title: '远程 API',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _buildInfoRow(theme, '服务器地址', apiConfig.baseUrl),
           const SizedBox(height: 16),
           _buildInfoRow(theme, 'Token 状态', tokenConfigured ? '已配置' : '未配置'),
+          const SizedBox(height: 24),
         ],
       ),
     );

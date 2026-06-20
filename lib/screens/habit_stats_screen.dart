@@ -213,6 +213,8 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
+        top: false,
+        bottom: true,
         child: _error != null ? _buildError(theme) : _buildBody(theme),
       ),
     );
@@ -283,7 +285,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen> {
 
   Widget _buildHeader(ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: EdgeInsets.fromLTRB(16, 16 + MediaQuery.of(context).padding.top, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

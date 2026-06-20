@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'flora_icon.dart';
+import 'section_card.dart';
 
 import '../models/diary_document.dart';
 import '../services/api_client.dart';
@@ -28,65 +29,39 @@ class ImageSectionCard extends StatelessWidget {
     final filenames = parseWikiLinks(section);
 
     if (filenames.isEmpty) {
-      return Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        color: theme.colorScheme.surface,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                section.title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '暂无影像记录',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
+      return SectionCard(
+        title: section.title,
+        accentColor: theme.colorScheme.primary,
+        children: [
+          Text(
+            '暂无影像记录',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
+        ],
       );
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      color: theme.colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              section.title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: filenames.map((name) {
-                return _ImageThumbnail(
-                  filename: name,
-                  apiClient: apiClient,
-                  date: date,
-                  onDelete: onDeleteImage != null
-                      ? () => onDeleteImage!('![[$name]]')
-                      : null,
-                );
-              }).toList(),
-            ),
-          ],
+    return SectionCard(
+      title: section.title,
+      accentColor: theme.colorScheme.primary,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: filenames.map((name) {
+            return _ImageThumbnail(
+              filename: name,
+              apiClient: apiClient,
+              date: date,
+              onDelete: onDeleteImage != null
+                  ? () => onDeleteImage!('![[$name]]')
+                  : null,
+            );
+          }).toList(),
         ),
-      ),
+      ],
     );
   }
 

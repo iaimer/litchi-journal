@@ -57,7 +57,7 @@ class GenericSectionCard extends StatelessWidget {
 
     return SectionCard(
       title: section.title.isEmpty ? null : section.title,
-      accentColor: AppColors.primary,
+      accentColor: Theme.of(context).colorScheme.primary,
       children: children,
     );
   }
@@ -250,7 +250,7 @@ class GenericSectionCard extends StatelessWidget {
       final content = entries.first;
       return SectionCard(
         title: section.title.isEmpty ? null : section.title,
-        accentColor: AppColors.primary,
+        accentColor: theme.colorScheme.primary,
         children: [
           Text(
             content.text,
@@ -274,7 +274,7 @@ class GenericSectionCard extends StatelessWidget {
     // 多条：bullet list
     return SectionCard(
       title: section.title.isEmpty ? null : section.title,
-      accentColor: AppColors.primary,
+      accentColor: theme.colorScheme.primary,
       children: entries.map((entry) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),

@@ -43,6 +43,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   List<String> _selectedTags = [];
   bool _saving = false;
   bool _polishing = false;
+  bool _tagPickerExpanded = false;
   String? _error;
 
   bool get _hasUnsavedChanges =>
@@ -170,8 +171,11 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         ),
         title: Text(widget.entryType.label),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
           _buildTimeTile(theme),
           const SizedBox(height: 16),
@@ -185,27 +189,32 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
             decoration: InputDecoration(hintText: widget.entryType.placeholder),
           ),
           const SizedBox(height: 16),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: _canPolish ? _polish : null,
+                icon: _polishing
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      )
+                    : const FloraIcon(FloraIcons.coach, size: 14),
+                label: const Text('AI 润色'),
+              ),
+              const Spacer(),
+              _buildTagToggleButton(theme),
+            ],
+          ),
+          const SizedBox(height: 4),
           _buildTagArea(theme),
           const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _canPolish ? _polish : null,
-              icon: _polishing
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 1.5),
-                    )
-                  : const FloraIcon(FloraIcons.coach, size: 14),
-              label: const Text('AI 润色'),
-            ),
-          ),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
           ],
         ],
+      ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -228,6 +237,34 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     );
   }
 
+  Widget _buildTagToggleButton(ThemeData theme) {
+    return TextButton.icon(
+      onPressed: () => setState(() => _tagPickerExpanded = !_tagPickerExpanded),
+      icon: Icon(
+        _tagPickerExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+        size: 16,
+      ),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!_tagPickerExpanded) ...[
+            const FloraIcon(FloraIcons.settingTags, size: 16),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            _tagPickerExpanded ? '收起' : '标签',
+            style: const TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        foregroundColor: theme.colorScheme.onSurface.withAlpha(150),
+      ),
+    );
+  }
+
   Widget _buildTimeTile(ThemeData theme) {
     return Card(
       child: ListTile(
@@ -246,6 +283,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       return TagPicker(
         tagConfig: tagConfig,
         initialTags: _selectedTags,
+        forceExpanded: _tagPickerExpanded,
         onChanged: (tags) => setState(() => _selectedTags = tags),
       );
     }

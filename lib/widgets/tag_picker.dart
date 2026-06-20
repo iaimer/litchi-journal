@@ -14,12 +14,16 @@ class TagPicker extends StatefulWidget {
 
   final ValueChanged<List<String>> onChanged;
 
+  /// 外部控制展开状态。非 null 时禁用内部展开按钮。
+  final bool? forceExpanded;
+
   const TagPicker({
     super.key,
     required this.tagConfig,
     this.initialTags = const [],
     this.hiddenInitialTags = const [],
     required this.onChanged,
+    this.forceExpanded,
   });
 
   @override
@@ -141,7 +145,7 @@ class _TagPickerState extends State<TagPicker> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildCollapsedBar(theme, tags),
-        if (_expanded) ...[
+        if (widget.forceExpanded ?? _expanded) ...[
           const SizedBox(height: 4),
           _buildDomainRow(theme),
           if (_selectedDomain != null) ...[
@@ -188,6 +192,7 @@ class _TagPickerState extends State<TagPicker> {
           )
         else
           const Spacer(),
+        if (widget.forceExpanded == null)
         TextButton.icon(
           onPressed: () => setState(() => _expanded = !_expanded),
           icon: Icon(
@@ -254,7 +259,6 @@ class _TagPickerState extends State<TagPicker> {
     return _buildChipRow(
       theme: theme,
       label: '方法',
-      hint: '可选',
       items: methods.map((m) => _ChipItem(id: m.id, name: m.name)).toList(),
       selectedId: _selectedMethod?.id,
       onSelected: (id) {
@@ -309,14 +313,17 @@ class _TagPickerState extends State<TagPicker> {
     required ValueChanged<String> onSelected,
   }) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 36,
-          child: Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withAlpha(150),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withAlpha(150),
+              ),
             ),
           ),
         ),

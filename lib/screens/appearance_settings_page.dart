@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/appearance_controller.dart';
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 /// 外观设置页面。
 /// 支持跟随系统 / 浅色模式 / 深色模式。
@@ -30,9 +31,8 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('外观')),
+    return FloraPageScaffold(
+      title: '外观',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -63,6 +63,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             subtitle: '始终使用深色外观。',
             mode: ThemeMode.dark,
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );

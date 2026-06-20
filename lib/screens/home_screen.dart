@@ -829,8 +829,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: _buildQuickRecordFab(theme),
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
         onTap: () {
           if (_quickRecordExpanded) {
             setState(() => _quickRecordExpanded = false);
@@ -887,7 +890,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-      ),
+          ),
+        ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/image_settings.dart';
 import '../services/image_settings_repository.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 /// 图片上传设置页。
 class ImageCompressPage extends StatefulWidget {
@@ -75,9 +76,8 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('图片设置')),
+    return FloraPageScaffold(
+      title: '图片设置',
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(

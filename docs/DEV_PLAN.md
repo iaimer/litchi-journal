@@ -593,12 +593,19 @@ bee350a 全页面骨架统一 + 卡片样式一致 + 输入体验优化
 - 运动步数编辑弹窗输入框默认空白
 - 关于页更新内容使用 MarkdownBody 渲染
 - 日记详情页下拉刷新背景色统一
+- FAB 图标修复：收起状态显示加号，展开显示叉号
 
-### 18.3 当前验证状态
+### 18.3 当前稳定基线
+
+```text
+f793c45 bump to 1.2.1+3, 更新 CHANGELOG
+```
+
+### 18.4 当前验证状态
 
 ```text
 flutter analyze --no-pub   → 零问题
-flutter test --no-pub      → 363 测试通过
+flutter test --no-pub      → 362 测试通过
 flutter build apk --release → 通过
 adb install -r             → 成功
 真机冷启动验证              → 无 App 图标闪现

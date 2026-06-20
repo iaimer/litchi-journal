@@ -216,25 +216,37 @@ class _HabitCardState extends State<HabitCard> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.section.habits.isEmpty) return const SizedBox.shrink();
+    final status = HabitStatus.fromHabitSection(widget.section);
 
-    // 按活跃状态过滤
+    // 按活跃状态过滤 Markdown 习惯
     final activeHabits = widget.section.habits.where((h) {
       if (widget.activeHabitKeys == null) return true;
       final key = h.habitKey;
       return key == null || widget.activeHabitKeys!.contains(key);
     }).toList();
 
-    if (activeHabits.isEmpty) return const SizedBox.shrink();
+    final children = <Widget>[
+      ...activeHabits.map((habit) => _buildRow(habit, status)),
+    ];
 
-    final status = HabitStatus.fromHabitSection(widget.section);
+    // 追加启用的自定义 checkbox 习惯（来自 extraHabits，不在 Markdown 中）
+    final settings = widget.habitSettings;
+    if (settings != null) {
+      for (final entry in settings.extraHabits.entries) {
+        final key = entry.key;
+        if (!settings.isActive(key)) continue;
+        children.add(_buildCustomCheckboxRow(key, settings));
+      }
+    }
+
+    if (children.isEmpty && widget.section.habits.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return SectionCard(
       title: widget.section.title,
       accentColor: _accentColor,
-      children: activeHabits
-          .map((habit) => _buildRow(habit, status))
-          .toList(growable: false),
+      children: children,
     );
   }
 
@@ -279,6 +291,46 @@ class _HabitCardState extends State<HabitCard> {
           onEdit: _handleStepsEdit,
         );
     }
+  }
+
+  /// 自定义 checkbox 习惯行（仅显示，不调用 API）。
+  Widget _buildCustomCheckboxRow(String key, HabitSettings settings) {
+    final theme = Theme.of(context);
+    final displayName = settings.displayNameFor(key);
+    final icon = settings.iconFor(key);
+    final colorArgb = settings.colorFor(key);
+    final color = Color(colorArgb);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.check_box_outline_blank,
+            size: 20,
+            color: theme.disabledColor,
+          ),
+          const SizedBox(width: 8),
+          if (icon.isNotEmpty) ...[
+            HabitIcon(icon, size: 16, color: theme.colorScheme.onSurface),
+            const SizedBox(width: 4),
+          ],
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              displayName,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildReadOnlyRow(HabitItem habit, HabitStatus status) {

@@ -63,9 +63,11 @@ class HabitSettings {
 
   // ── 视觉配置 ──
 
-  /// 获取显示名称，无自定义时返回默认。
+  /// 获取显示名称。优先自定义名 → extraHabits 初始名 → 默认。
   String displayNameFor(String key) =>
-      displayNameMap[key] ?? HabitVisualConfig.of(key).displayName;
+      displayNameMap[key] ??
+      extraHabits[key] ??
+      HabitVisualConfig.of(key).displayName;
 
   /// 获取图标，无自定义时返回默认。
   String iconFor(String key) => iconMap[key] ?? HabitVisualConfig.of(key).icon;

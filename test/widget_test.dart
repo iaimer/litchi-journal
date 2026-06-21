@@ -8539,9 +8539,10 @@ tags:
       await tester.tap(find.text('标签设置'));
       await tester.pumpAndSettle();
 
-      expect(find.text('标签设置'), findsWidgets);
-      expect(find.text('领域标签'), findsOneWidget);
-      expect(find.text('亲子'), findsWidgets);
+      expect(find.text('标签管理'), findsWidgets);
+      expect(find.text('领域'), findsOneWidget);
+      expect(find.text('方法'), findsOneWidget);
+      expect(find.text('#亲子'), findsOneWidget);
     });
 
     testWidgets('safe area prevents status bar overlap', (tester) async {

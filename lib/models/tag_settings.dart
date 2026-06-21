@@ -24,11 +24,13 @@ class TagSettings {
         defaultName: d.name,
         displayName: d.name,
         enabled: true,
+        description: d.description,
         topics: d.topics.map((t) => TopicSetting(
           key: t.id,
           defaultName: t.name,
           displayName: t.name,
           enabled: true,
+          description: t.description,
         )).toList(),
       )).toList(),
       methodSettings: config.methods.map((m) => MethodSetting(
@@ -36,6 +38,7 @@ class TagSettings {
         defaultName: m.name,
         displayName: m.name,
         enabled: true,
+        description: m.description,
       )).toList(),
     );
   }
@@ -124,12 +127,16 @@ class DomainSetting {
   bool enabled;
   final List<TopicSetting> topics;
 
+  /// 可选说明，来自 TagConfig 源。编辑后可自定义。
+  String? description;
+
   DomainSetting({
     required this.key,
     required this.defaultName,
     required this.displayName,
     this.enabled = true,
     required this.topics,
+    this.description,
   });
 
   factory DomainSetting.fromJson(Map<String, dynamic> json) {
@@ -138,6 +145,7 @@ class DomainSetting {
       defaultName: json['defaultName'] as String? ?? '',
       displayName: json['displayName'] as String? ?? '',
       enabled: json['enabled'] as bool? ?? true,
+      description: json['description'] as String?,
       topics: (json['topics'] as List?)
               ?.map(
                   (t) => TopicSetting.fromJson(t as Map<String, dynamic>))
@@ -151,6 +159,7 @@ class DomainSetting {
         'defaultName': defaultName,
         'displayName': displayName,
         'enabled': enabled,
+        if (description != null) 'description': description,
         'topics': topics.map((t) => t.toJson()).toList(),
       };
 }
@@ -161,11 +170,15 @@ class TopicSetting {
   String displayName;
   bool enabled;
 
+  /// 可选说明，来自 TagConfig 源。编辑后可自定义。
+  String? description;
+
   TopicSetting({
     required this.key,
     required this.defaultName,
     required this.displayName,
     this.enabled = true,
+    this.description,
   });
 
   factory TopicSetting.fromJson(Map<String, dynamic> json) {
@@ -174,6 +187,7 @@ class TopicSetting {
       defaultName: json['defaultName'] as String? ?? '',
       displayName: json['displayName'] as String? ?? '',
       enabled: json['enabled'] as bool? ?? true,
+      description: json['description'] as String?,
     );
   }
 
@@ -182,6 +196,7 @@ class TopicSetting {
         'defaultName': defaultName,
         'displayName': displayName,
         'enabled': enabled,
+        if (description != null) 'description': description,
       };
 }
 
@@ -191,11 +206,15 @@ class MethodSetting {
   String displayName;
   bool enabled;
 
+  /// 可选说明，来自 TagConfig 源。编辑后可自定义。
+  String? description;
+
   MethodSetting({
     required this.key,
     required this.defaultName,
     required this.displayName,
     this.enabled = true,
+    this.description,
   });
 
   factory MethodSetting.fromJson(Map<String, dynamic> json) {
@@ -204,6 +223,7 @@ class MethodSetting {
       defaultName: json['defaultName'] as String? ?? '',
       displayName: json['displayName'] as String? ?? '',
       enabled: json['enabled'] as bool? ?? true,
+      description: json['description'] as String?,
     );
   }
 
@@ -212,5 +232,6 @@ class MethodSetting {
         'defaultName': defaultName,
         'displayName': displayName,
         'enabled': enabled,
+        if (description != null) 'description': description,
       };
 }

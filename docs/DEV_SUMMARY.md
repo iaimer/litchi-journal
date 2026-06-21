@@ -1424,3 +1424,104 @@ Failed to create server socket (OS Error: Operation not permitted)
 ### 34.7 当前稳定版
 
 版本 `1.3.0`，提交 `f2d55c6`。
+
+---
+
+## 35. Sprint 35：习惯管理体验完善 H2 完整闭环
+
+### 35.1 背景
+
+H1 完成后，习惯系统已支持自定义普通打卡习惯。但存在三个体验缺口：
+- 习惯设置页归档和启用混在同一个列表，不直观
+- 新增/重命名时可能覆盖已有习惯名称
+- 自定义习惯完全无法进入统计页
+
+H2 针对这三个缺口分别推进。
+
+### 35.2 H2-B：习惯设置页启用 / 已归档分区
+
+- 习惯设置页拆分为「启用中的习惯」和「已归档」两个区域
+- 启用区包含 5 个内置习惯 + 启用中的自定义习惯
+- 已归档区包含所有归档的自定义习惯（无归档时不显示）
+- 每个习惯仍可点击进入编辑页
+- 统计区域数量标签
+- 不修改今日页核心逻辑
+- 影响文件：`habit_settings_screen.dart`
+
+### 35.3 H2-C：新增 / 重命名习惯同名校验
+
+- `HabitSettings` 增加 `allDisplayNames()` 辅助方法
+- `HabitEditScreen._save()` 在长度校验后、保存前插入重名校验
+- 校验范围：内置习惯 + 自定义习惯（启用+归档）
+- 当前习惯保持原名可通过 `excludeKey` 排除
+- 新建/编辑均 trim 后校验
+- 提示文案：「已存在同名习惯」
+- 影响文件：`habit_settings.dart`、`habit_edit_screen.dart`
+
+### 35.4 H2-D：自定义习惯进入统计
+
+#### 35.4.1 设计审查
+
+审查确认：统计逻辑完全在 Flutter 客户端，不从服务端聚合。服务端只负责读取每日 Markdown。
+
+#### 35.4.2 aliases 机制
+
+- `HabitSettings` 新增 `customHabitAliases: Map<String, List<String>>`（schemaVersion → 4）
+- 新建初始化：`['冥想']`，重命名追加：`['冥想', '静坐']`
+- `appendHabitAlias` 方法保证不重复追加
+- 旧数据兼容：version < 4 时默认 `{}`
+- 影响文件：`habit_settings.dart`、`habit_edit_screen.dart`
+
+#### 35.4.3 数据层解析
+
+- `HabitDayRecord` 新增 `customCheckboxes: Map<String, bool>`
+- `_stripEmojiPrefix` 去掉 label 前导 emoji（`'🧘 冥想'` → `'冥想'`）
+- `_matchCustomHabit` 精确匹配 aliases，避免「冥想」和「冥想呼吸法」误伤
+- 旧缓存兼容：`customCheckboxes` 缺失时默认 `{}`
+- 影响文件：`habit_stats.dart`、`habit_stats_service.dart`
+
+#### 35.4.4 统计项生成
+
+- `_buildCustomItemStats` 为每个启用中的自定义习惯生成 `HabitItemStats`
+- 类型固定为 boolean
+- 归档自定义习惯不进入 `HabitStats.items`（H2-D3-Fix）
+- 重新启用后恢复统计显示，aliases 继续匹配历史 Markdown
+- 影响文件：`habit_stats_service.dart`
+
+### 35.5 当前稳定规则（H2 确立）
+
+**启用中的自定义习惯：**
+- 今日页显示、可打卡、写入 Markdown
+- 统计页显示、参与统计
+
+**已归档的自定义习惯：**
+- 今日页隐藏、统计页主视图隐藏
+- aliases 保留、历史 Markdown 不删除
+- 重新启用后恢复显示和统计
+
+**Obsidian Markdown 边界（重申）：**
+- Markdown 是真实日记记录，保持干净可读
+- App 内部 key 和统计辅助信息留在 App 本地配置
+- 不写 custom key，不写 HTML 注释
+
+### 35.6 影响文件统计
+
+| 文件 | 修改内容 |
+|------|----------|
+| `habit_settings_screen.dart` | 设置页分区展示（H2-B） |
+| `habit_settings.dart` | `customHabitAliases` 字段 + `appendHabitAlias` + `allDisplayNames` |
+| `habit_edit_screen.dart` | 同名校验 + aliases 维护 |
+| `habit_stats.dart` | `HabitDayRecord.customCheckboxes` |
+| `habit_stats_service.dart` | 自定义 checkbox 解析 + 统计项生成 + aliases 匹配 |
+
+### 35.7 当前验证状态
+
+- `flutter analyze --no-pub`：零问题
+- `flutter test --no-pub`：362 测试通过
+- 真机验证：习惯设置页分区、同名校验、自定义习惯统计全链路通过
+- Markdown 不受影响：仍为 `- [x] 🧘 冥想` 格式，无 custom key
+- 服务端未修改：统计完全在 Flutter 客户端
+
+### 35.8 当前稳定版
+
+版本 `1.4.0`，提交 `cc15771`。

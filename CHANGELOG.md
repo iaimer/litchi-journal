@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.4.0
+
+### 新增
+- 习惯设置页分区：启用中的习惯 / 已归档
+- 新增/重命名习惯同名校验，提示「已存在同名习惯」
+- 自定义习惯进入统计页：aliases 历史名称匹配，完整 7 天/30 天统计
+- HabitSettings 新增 customHabitAliases 字段（schemaVersion 4）
+
+### 优化
+- 归档自定义习惯后统计页主视图隐藏
+- 重新启用后统计恢复显示，aliases 继续匹配历史 Markdown
+- 名称输入前后空格自动 trim
+
+### 架构
+- 统计逻辑全部在 Flutter 客户端完成，服务端不参与统计聚合
+- customHabitAliases 不写入 Markdown，不写 custom key
+- 旧数据兼容：version < 4 时 customHabitAliases 默认 {}
+
+---
+
 ## 1.3.0
 
 ### 新增

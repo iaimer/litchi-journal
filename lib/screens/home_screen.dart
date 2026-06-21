@@ -850,6 +850,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         toolbarHeight: 72,
         centerTitle: false,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: Text(
           _todayString(),
           maxLines: 1,
@@ -892,7 +897,11 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         child: _loading
             ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
+            : Theme(
+                data: theme.copyWith(
+                  canvasColor: theme.scaffoldBackgroundColor,
+                ),
+                child: RefreshIndicator(
                 onRefresh: _loadDiary,
                 child: ListView(
                   controller: _scrollController,
@@ -943,6 +952,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+            ),
           ),
         ),
     );

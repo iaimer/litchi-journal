@@ -169,3 +169,37 @@
 - flutter test --no-pub：362 通过
 - flutter build apk --release：通过
 - 真机验证：新增、编辑、归档、找回、今日页显示、打卡、取消打卡、刷新保持、Markdown 干净可读
+
+---
+
+## 2026-06-21 修复今日页与只读日记详情页下拉 head 变深
+
+### 讨论内容
+
+- 用户真机验证发现今日页和只读日记详情页下拉时，状态栏下方和日期标题所在 head 区域会变深。
+- PastScreen 和 HabitStatsScreen 是正确参考：下拉时顶部区域保持页面底色统一。
+- 上一轮 `canvasColor` 兜底没有解决 head 变深，说明问题更可能来自 Material 3 AppBar 的 scrolled-under / surfaceTint / elevation overlay。
+
+### 决策 & 原因
+
+- HomeScreen 和 ReadOnlyDiaryScreen 都使用 `Scaffold.appBar` 渲染顶部标题区域，会在滚动/下拉时触发 Material 3 AppBar 的 scrolled-under 状态。
+- PastScreen 和 HabitStatsScreen 的 header 位于 body/SafeArea 内，不使用 AppBar，因此不会产生 AppBar tint/elevation 叠色。
+- 本轮采用最小修复：在两个 AppBar 上显式使用 `theme.scaffoldBackgroundColor`，并关闭 `surfaceTintColor`、`shadowColor`、`elevation`、`scrolledUnderElevation`。
+- 保留上一轮 `canvasColor` 兜底，用于 overscroll 露底颜色，不影响本轮 AppBar 修复。
+
+### 改动文件清单
+
+- `lib/screens/home_screen.dart`
+- `lib/screens/read_only_diary_screen.dart`
+
+### 遇到的问题
+
+- `flutter install` 在设备侧替换 release 包时长时间无输出，改为构建 debug APK 后使用 adb 安装。
+- 后续真机页面操作由用户完成，用户确认两个页面都已修复成功。
+
+### 最终结果
+
+- `flutter analyze --no-pub` 通过，零问题。
+- `flutter test --no-pub` 通过，362 项全部通过。
+- `flutter build apk --debug --no-pub` 通过。
+- 真机验证：今日页和只读日记详情页下拉时 head 区域不再变深。

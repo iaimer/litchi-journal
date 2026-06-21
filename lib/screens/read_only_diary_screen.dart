@@ -73,10 +73,19 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: Text(_dateLabel()),
       ),
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: _loading
+      body: Theme(
+        data: theme.copyWith(
+          canvasColor: theme.scaffoldBackgroundColor,
+        ),
+        child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? Center(
@@ -85,11 +94,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
                 style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
               ),
             )
-          : Theme(
-              data: theme.copyWith(
-                canvasColor: theme.scaffoldBackgroundColor,
-              ),
-              child: RefreshIndicator(
+          : RefreshIndicator(
               onRefresh: _loadDiary,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),

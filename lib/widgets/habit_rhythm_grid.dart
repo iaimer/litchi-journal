@@ -102,7 +102,6 @@ class HabitRhythmGrid extends StatelessWidget {
             final done = item.type == HabitStatType.boolean
                 ? item.recent7Values[i] == 1
                 : item.recent7Values[i] > 0;
-            final isToday = _isToday(i);
 
             return Expanded(
               child: Center(
@@ -111,9 +110,7 @@ class HabitRhythmGrid extends StatelessWidget {
                   height: 12,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: done
-                        ? (isToday ? theme.colorScheme.primary : item.color)
-                        : theme.dividerColor,
+                    color: done ? item.color : theme.dividerColor,
                   ),
                 ),
               ),

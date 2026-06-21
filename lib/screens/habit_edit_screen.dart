@@ -58,14 +58,20 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
   ];
 
   /// 颜色候选（柔和色）
+  /// 12 个候选色：色相均匀覆盖，暖米白背景上清晰可辨，深色模式不刺眼。
   static final _colorCandidates = <_ColorOption>[
-    _ColorOption('蓝色', const Color(0xFF6BAED6)),
-    _ColorOption('橙色', const Color(0xFFE8A87C)),
-    _ColorOption('绿色', const Color(0xFF6B8E6B)),
-    _ColorOption('紫色', const Color(0xFF9B8EC4)),
-    _ColorOption('粉色', const Color(0xFFE8A0B0)),
-    _ColorOption('棕色', const Color(0xFFC49B8C)),
-    _ColorOption('灰色', const Color(0xFF8A8278)),
+    _ColorOption('柔红', const Color(0xFFC4716B)),
+    _ColorOption('莓红', const Color(0xFFB65F73)),
+    _ColorOption('暖橙', const Color(0xFFD48A5A)),
+    _ColorOption('杏黄', const Color(0xFFC4A35A)),
+    _ColorOption('橄榄绿', const Color(0xFF8A9460)),
+    _ColorOption('鼠尾草绿', const Color(0xFF7A9A6A)),
+    _ColorOption('松石绿', const Color(0xFF5F9A8B)),
+    _ColorOption('青蓝', const Color(0xFF6B9EC4)),
+    _ColorOption('雾蓝', const Color(0xFF7888A0)),
+    _ColorOption('淡紫', const Color(0xFF9A86C0)),
+    _ColorOption('豆沙紫', const Color(0xFFA7789A)),
+    _ColorOption('暖灰棕', const Color(0xFF8F8275)),
   ];
 
   HabitVisualConfig get _defaultConfig => HabitVisualConfig.of(widget.habitKey);
@@ -332,8 +338,8 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                       border: Border.all(
                         color: selected
                             ? AppColors.primary
-                            : Colors.transparent,
-                        width: selected ? 3 : 0,
+                            : theme.dividerColor,
+                        width: selected ? 3 : 1,
                       ),
                       boxShadow: selected
                           ? [

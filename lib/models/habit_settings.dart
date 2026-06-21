@@ -74,6 +74,15 @@ class HabitSettings {
 
   // ── 视觉配置 ──
 
+  /// 所有习惯的最终显示名称集合（trim 后）。
+  /// 若 [excludeKey] 不为 null，排除该习惯的显示名称。
+  Set<String> allDisplayNames({String? excludeKey}) {
+    return manageableKeys
+        .where((key) => key != excludeKey)
+        .map((key) => displayNameFor(key).trim())
+        .toSet();
+  }
+
   /// 获取显示名称。优先自定义名 → extraHabits 初始名 → 默认。
   String displayNameFor(String key) =>
       displayNameMap[key] ??

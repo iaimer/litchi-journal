@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
-import '../models/habit_stats.dart';
+
 import '../services/habit_settings_repository.dart';
 import '../widgets/flora_page_scaffold.dart';
-import '../theme/app_theme.dart';
+
 import '../widgets/flora_empty.dart';
 import '../widgets/flora_icon.dart';
 import '../widgets/habit_icon.dart';
@@ -69,24 +69,10 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
             // 说明文案
             _buildDescription(theme),
             const SizedBox(height: 16),
-            // 习惯列表（含内置 + 自定义，归档仍可见）
-            ..._settings.manageableKeys.map((key) {
-              final isActive = _settings.isActive(key);
-              final displayName = _settings.displayNameFor(key);
-              final icon = _settings.iconFor(key);
-              final color = Color(_settings.colorFor(key));
-              return _buildHabitRow(
-                theme,
-                config: HabitVisualConfig.defaults.containsKey(key)
-                    ? HabitVisualConfig.defaults[key]!
-                    : _customConfig(key, _settings.extraHabits[key] ?? key),
-                displayName: displayName,
-                icon: icon,
-                color: color,
-                isActive: isActive,
-                onTap: () => _openEdit(key),
-              );
-            }),
+            // 启用中的习惯
+            ..._buildActiveSection(theme),
+            // 已归档
+            ..._buildArchivedSection(theme),
             const SizedBox(height: 16),
             // 新增习惯入口
             SizedBox(
@@ -112,16 +98,6 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
       ),
     );
     if (result == true) await _load();
-  }
-
-  HabitVisualConfig _customConfig(String key, String defaultName) {
-    return HabitVisualConfig(
-      key: key,
-      displayName: defaultName,
-      icon: FloraIcons.check,
-      color: const Color(0xFF8A8278),
-      group: HabitGroup.body,
-    );
   }
 
   Widget _buildDescription(ThemeData theme) {
@@ -151,15 +127,16 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
     );
   }
 
+  /// 按 key 构建习惯行，不再显示内联「启用中/已归档」标签
+  /// （状态已由分区标题表达）。
   Widget _buildHabitRow(
     ThemeData theme, {
-    required HabitVisualConfig config,
-    required String displayName,
-    required String icon,
-    required Color color,
-    required bool isActive,
+    required String key,
     required VoidCallback onTap,
   }) {
+    final displayName = _settings.displayNameFor(key);
+    final icon = _settings.iconFor(key);
+    final color = Color(_settings.colorFor(key));
     return Card(
       margin: const EdgeInsets.only(bottom: 4),
       child: InkWell(
@@ -179,29 +156,11 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
               // 图标
               HabitIcon(icon, size: 22, color: theme.colorScheme.onSurface),
               const SizedBox(width: 12),
-              // 名称 + 状态
+              // 名称
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isActive
-                            ? theme.colorScheme.onSurface
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isActive ? '启用中' : '已归档',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isActive
-                            ? AppColors.success
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  displayName,
+                  style: theme.textTheme.bodyMedium,
                 ),
               ),
               // 右箭头
@@ -215,4 +174,60 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
       ),
     );
   }
+
+  List<Widget> _buildActiveSection(ThemeData theme) {
+    final keys = _settings.manageableKeys
+        .where((k) => _settings.isActive(k))
+        .toList();
+    return [
+      _buildSectionHeader(theme, '启用中的习惯', keys.length),
+      const SizedBox(height: 8),
+      ...keys.map((key) => _buildHabitRow(
+            theme,
+            key: key,
+            onTap: () => _openEdit(key),
+          )),
+    ];
+  }
+
+  List<Widget> _buildArchivedSection(ThemeData theme) {
+    final keys = _settings.manageableKeys
+        .where((k) => !_settings.isActive(k))
+        .toList();
+    if (keys.isEmpty) return [];
+    return [
+      const SizedBox(height: 20),
+      _buildSectionHeader(theme, '已归档', keys.length),
+      const SizedBox(height: 8),
+      ...keys.map((key) => _buildHabitRow(
+            theme,
+            key: key,
+            onTap: () => _openEdit(key),
+          )),
+    ];
+  }
+
+  Widget _buildSectionHeader(ThemeData theme, String title, int count) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 4),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$count',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }

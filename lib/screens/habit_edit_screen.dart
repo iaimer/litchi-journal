@@ -105,6 +105,17 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       return;
     }
 
+    // 重名校验：新建时不能与任何已有习惯同名，编辑时不能与其它习惯同名
+    final allNames = _settings.allDisplayNames(
+      excludeKey: widget.isCreateMode ? null : widget.habitKey,
+    );
+    if (allNames.contains(trimmed)) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('已存在同名习惯')));
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final HabitSettings updated;

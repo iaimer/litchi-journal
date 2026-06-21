@@ -130,7 +130,13 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
           color: _colorArgb,
         );
       }
-      await _repo.save(updated);
+
+      // 自定义习惯维护 aliases：新建初始化，重命名追加（不重复）
+      final saved = widget.habitKey.startsWith('custom_')
+          ? updated.appendHabitAlias(key: widget.habitKey, newName: trimmed)
+          : updated;
+
+      await _repo.save(saved);
 
       // 清除习惯统计缓存，确保统计页使用最新视觉配置
       await HabitStatsCacheRepository().clear();

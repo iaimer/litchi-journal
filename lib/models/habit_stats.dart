@@ -71,6 +71,10 @@ class HabitDayRecord {
   final bool languageDone;
   final bool supplementDone;
 
+  /// 自定义 checkbox 习惯完成状态：customKey → checked。
+  /// 空 Map 表示没有或未匹配到自定义习惯。
+  final Map<String, bool> customCheckboxes;
+
   const HabitDayRecord({
     required this.date,
     required this.weekday,
@@ -80,6 +84,7 @@ class HabitDayRecord {
     required this.readingDone,
     required this.languageDone,
     required this.supplementDone,
+    this.customCheckboxes = const {},
   });
 
   int get completedCount {
@@ -105,9 +110,16 @@ class HabitDayRecord {
         'readingDone': readingDone,
         'languageDone': languageDone,
         'supplementDone': supplementDone,
+        'customCheckboxes': customCheckboxes,
       };
 
   factory HabitDayRecord.fromJson(Map<String, dynamic> json) {
+    final rawCustom =
+        json['customCheckboxes'] as Map<String, dynamic>? ?? const {};
+    final customCheckboxes = <String, bool>{};
+    for (final entry in rawCustom.entries) {
+      customCheckboxes[entry.key] = entry.value as bool? ?? false;
+    }
     return HabitDayRecord(
       date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime(2000),
       weekday: json['weekday'] as String? ?? '',
@@ -117,6 +129,7 @@ class HabitDayRecord {
       readingDone: json['readingDone'] as bool? ?? false,
       languageDone: json['languageDone'] as bool? ?? false,
       supplementDone: json['supplementDone'] as bool? ?? false,
+      customCheckboxes: customCheckboxes,
     );
   }
 

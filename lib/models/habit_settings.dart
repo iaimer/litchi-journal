@@ -8,11 +8,12 @@ import 'habit_visual_config.dart';
 /// - iconMap: 自定义图标
 /// - colorMap: 自定义颜色（存储为 int ARGB）
 /// - extraHabits: 自定义习惯注册表（customKey → 初始显示名）
+/// - customHabitAliases: 自定义习惯历史名称（用于统计时匹配 Markdown）
 ///
-/// schemaVersion: 3（新增 extraHabits）
+/// schemaVersion: 4（新增 customHabitAliases）
 class HabitSettings {
   /// schema 版本，用于兼容旧配置。
-  static const schemaVersion = 3;
+  static const schemaVersion = 4;
 
   /// 习惯 key → isActive
   final Map<String, bool> statusMap;
@@ -30,12 +31,18 @@ class HabitSettings {
   /// 仅存储 key 和默认名。状态、图标、颜色仍用 statusMap / iconMap / colorMap 管理。
   final Map<String, String> extraHabits;
 
+  /// 自定义习惯历史名称映射：customKey → [历史名称列表]。
+  /// 包含当前名称和历史曾用名，新建时初始化为 [当前名称]，
+  /// 重命名时将新名称追加到末尾。用于统计时按名称匹配 Markdown 行。
+  final Map<String, List<String>> customHabitAliases;
+
   const HabitSettings({
     required this.statusMap,
     this.displayNameMap = const {},
     this.iconMap = const {},
     this.colorMap = const {},
     this.extraHabits = const {},
+    this.customHabitAliases = const {},
   });
 
   /// 5 个默认习惯全部活跃，视觉配置使用默认值。
@@ -144,7 +151,24 @@ class HabitSettings {
       iconMap: newIcon,
       colorMap: newColor,
       extraHabits: extraHabits,
+      customHabitAliases: customHabitAliases,
     );
+  }
+
+  /// 返回当前 customHabitAliases 中指定 key 的别名列表尾部追加 [newName] 的新副本。
+  /// 如果 [newName] 已存在于别名列表中，不重复追加。
+  /// [newName] 应在传入前已 trim。
+  HabitSettings appendHabitAlias({
+    required String key,
+    required String newName,
+  }) {
+    if (newName.trim().isEmpty) return this;
+    final newAliases = Map<String, List<String>>.from(customHabitAliases);
+    final existing = List<String>.from(newAliases[key] ?? []);
+    if (!existing.contains(newName.trim())) {
+      newAliases[key] = [...existing, newName.trim()];
+    }
+    return copyWith(customHabitAliases: newAliases);
   }
 
   /// 恢复单个习惯为默认值（名称、图标、颜色、状态）。
@@ -167,6 +191,7 @@ class HabitSettings {
       iconMap: newIcon,
       colorMap: newColor,
       extraHabits: extraHabits,
+      customHabitAliases: customHabitAliases,
     );
   }
 
@@ -180,6 +205,7 @@ class HabitSettings {
     Map<String, String>? iconMap,
     Map<String, int>? colorMap,
     Map<String, String>? extraHabits,
+    Map<String, List<String>>? customHabitAliases,
   }) {
     return HabitSettings(
       statusMap: statusMap ?? this.statusMap,
@@ -187,6 +213,7 @@ class HabitSettings {
       iconMap: iconMap ?? this.iconMap,
       colorMap: colorMap ?? this.colorMap,
       extraHabits: extraHabits ?? this.extraHabits,
+      customHabitAliases: customHabitAliases ?? this.customHabitAliases,
     );
   }
 
@@ -199,6 +226,7 @@ class HabitSettings {
     'iconMap': iconMap,
     'colorMap': colorMap,
     'extraHabits': extraHabits,
+    'customHabitAliases': customHabitAliases,
   };
 
   factory HabitSettings.fromJson(Map<String, dynamic> json) {
@@ -228,7 +256,22 @@ class HabitSettings {
       extraHabits[entry.key] = entry.value as String? ?? '';
     }
 
-    return settings.copyWith(extraHabits: extraHabits);
+    var v3Settings = settings.copyWith(extraHabits: extraHabits);
+
+    // 版本 4：无 customHabitAliases 时默认 {}
+    if (version < 4) return v3Settings;
+
+    final rawAliases =
+        json['customHabitAliases'] as Map<String, dynamic>? ?? {};
+    final customHabitAliases = <String, List<String>>{};
+    for (final entry in rawAliases.entries) {
+      if (entry.value is List) {
+        customHabitAliases[entry.key] =
+            (entry.value as List).whereType<String>().toList();
+      }
+    }
+
+    return v3Settings.copyWith(customHabitAliases: customHabitAliases);
   }
 
   static HabitSettings _parseV2(

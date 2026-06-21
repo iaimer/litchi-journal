@@ -108,7 +108,8 @@ class HabitStatsService {
     final records = await mapWithConcurrency<HabitDayRecord, DateTime>(
       items: recent7,
       concurrency: 4,
-      mapper: (d) => _getOrLoadDay(d, existingDates),
+      mapper:
+          (d) => _getOrLoadDay(d, existingDates, habitSettings: habitSettings),
     );
     final dayRecords = records.where((r) => r.date != DateTime(0)).toList();
     if (dayRecords.length != recent7.length) {
@@ -182,7 +183,8 @@ class HabitStatsService {
       await mapWithConcurrency<HabitDayRecord, DateTime>(
         items: missing,
         concurrency: 4,
-        mapper: (d) => _getOrLoadDay(d, existingDates),
+        mapper:
+            (d) => _getOrLoadDay(d, existingDates, habitSettings: habitSettings),
       );
     }
 
@@ -298,8 +300,9 @@ class HabitStatsService {
 
   Future<HabitDayRecord> _getOrLoadDay(
     DateTime d,
-    Set<DateTime> existingDates,
-  ) async {
+    Set<DateTime> existingDates, {
+    HabitSettings? habitSettings,
+  }) async {
     final key = _dayCacheKey(d);
     if (_dayCache.containsKey(key)) return _dayCache[key]!;
     if (!existingDates.contains(d)) {
@@ -308,7 +311,8 @@ class HabitStatsService {
       return empty;
     }
     try {
-      final record = await _loadDayRecord(d);
+      final record =
+          await _loadDayRecord(d, habitSettings: habitSettings);
       _dayCache[key] = record;
       return record;
     } catch (_) {
@@ -318,7 +322,7 @@ class HabitStatsService {
     }
   }
 
-  Future<HabitDayRecord> _loadDayRecord(DateTime date) async {
+  Future<HabitDayRecord> _loadDayRecord(DateTime date, {HabitSettings? habitSettings}) async {
     final diary = await _apiClient.getDiary(date);
     if (diary == null || diary.raw.isEmpty) {
       return _emptyDayRecord(date);
@@ -339,6 +343,21 @@ class HabitStatsService {
 
     final status = HabitStatus.fromHabitSection(habitSection);
 
+    // 解析自定义 checkbox 习惯
+    final customCheckboxes = <String, bool>{};
+    if (habitSettings != null) {
+      for (final item in habitSection.habits) {
+        if (item.habitKey != null) continue; // 内置习惯，已由 status 处理
+        final pureName = _stripEmojiPrefix(item.label);
+        if (pureName.isEmpty) continue;
+        final matchedKey =
+            _matchCustomHabit(pureName, habitSettings);
+        if (matchedKey != null) {
+          customCheckboxes[matchedKey] = item.checked;
+        }
+      }
+    }
+
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     return HabitDayRecord(
       date: date,
@@ -349,6 +368,7 @@ class HabitStatsService {
       readingDone: status.reading,
       languageDone: status.language,
       supplementDone: status.supplements,
+      customCheckboxes: customCheckboxes,
     );
   }
 
@@ -369,7 +389,7 @@ class HabitStatsService {
 
     final settings = habitSettings ?? HabitSettings.defaults;
 
-    return filteredKeys.map((key) {
+    final items = filteredKeys.map((key) {
       final config = HabitVisualConfig.of(key);
       final type = _habitTypes[key]!;
       final getter = _habitGetters[key]!;
@@ -438,6 +458,106 @@ class HabitStatsService {
         title: config.displayName,
         group: config.group,
         type: type,
+        recent7Values: reversed7,
+        completedDays: completed7,
+        totalDays: days7.length,
+        averageValue: avg,
+        currentStreak: streak7,
+        displayName: settings.displayNameFor(key),
+        icon: settings.iconFor(key),
+        color: Color(settings.colorFor(key)),
+        recent30Values: reversed30,
+        completedDays30: completed30,
+        completionRate30: completionRate30,
+        longestStreak30: longestStreak30,
+      );
+    }).toList();
+
+    // ── 追加自定义 checkbox 习惯统计项 ——
+    // 所有 extraHabits 都生成，不区分启用/归档，保留历史数据可见性
+    final customItems = _buildCustomItemStats(
+      days7,
+      days30,
+      settings: settings,
+    );
+    items.addAll(customItems);
+
+    return items;
+  }
+
+  /// 为自定义 checkbox 习惯构建 [HabitItemStats] 列表。
+  /// 类型固定为 boolean（checkbox），视觉配置来自 [settings]。
+  List<HabitItemStats> _buildCustomItemStats(
+    List<HabitDayRecord> days7,
+    List<HabitDayRecord> days30, {
+    required HabitSettings settings,
+  }) {
+    final has30 = days30.isNotEmpty;
+    final customKeys = settings.extraHabits.keys.toList();
+    if (customKeys.isEmpty) return const [];
+
+    return customKeys
+        .where((key) => settings.isActive(key))
+        .map((key) {
+      final values7 = <int>[];
+      var completed7 = 0;
+      for (var i = days7.length - 1; i >= 0; i--) {
+        final checked = days7[i].customCheckboxes[key] ?? false;
+        values7.add(checked ? 1 : 0);
+        if (checked) completed7++;
+      }
+      final reversed7 = values7.reversed.toList();
+
+      // 7天当前连续
+      var streak7 = 0;
+      var streakStart = days7.lastIndexWhere((day) => day.hasDiary);
+      if (streakStart == -1) streakStart = days7.length - 1;
+      for (var i = streakStart; i >= 0; i--) {
+        final checked = days7[i].customCheckboxes[key] ?? false;
+        if (checked) {
+          streak7++;
+        } else {
+          break;
+        }
+      }
+
+      final avg = days7.isNotEmpty ? completed7 / days7.length : 0.0;
+
+      // 30 天数据
+      List<int> reversed30 = const [];
+      var completed30 = 0;
+      var completionRate30 = 0.0;
+      var longestStreak30 = 0;
+
+      if (has30) {
+        final values30 = <int>[];
+        for (var i = days30.length - 1; i >= 0; i--) {
+          final checked = days30[i].customCheckboxes[key] ?? false;
+          values30.add(checked ? 1 : 0);
+          if (checked) completed30++;
+        }
+        reversed30 = values30.reversed.toList();
+
+        var longest = 0;
+        var currentRun = 0;
+        for (var i = days30.length - 1; i >= 0; i--) {
+          final checked = days30[i].customCheckboxes[key] ?? false;
+          if (checked) {
+            currentRun++;
+            if (currentRun > longest) longest = currentRun;
+          } else {
+            currentRun = 0;
+          }
+        }
+        longestStreak30 = longest;
+        completionRate30 = days30.isNotEmpty ? completed30 / days30.length : 0;
+      }
+
+      return HabitItemStats(
+        key: key,
+        title: settings.displayNameFor(key),
+        group: HabitGroup.body,
+        type: HabitStatType.boolean,
         recent7Values: reversed7,
         completedDays: completed7,
         totalDays: days7.length,
@@ -540,6 +660,7 @@ class HabitStatsService {
       readingDone: false,
       languageDone: false,
       supplementDone: false,
+      customCheckboxes: const {},
     );
   }
 
@@ -568,6 +689,53 @@ class HabitStatsService {
     'language': (HabitDayRecord r) => r.languageDone ? 1 : 0,
     'supplements': (HabitDayRecord r) => r.supplementDone ? 1 : 0,
   };
+
+  // ── 自定义习惯匹配 ──
+
+  /// 去掉 label 前导的 emoji/图标字符，提取纯名称。
+  /// 例如 "🧘 冥想" → "冥想"，"📖 阅读/亲子共读" → "阅读/亲子共读"。
+  static String _stripEmojiPrefix(String label) {
+    final text = label.trim();
+    for (var i = 0; i < text.length; i++) {
+      final cp = text.codeUnitAt(i);
+      if (_isTextChar(cp)) {
+        return text.substring(i).trim();
+      }
+    }
+    return text;
+  }
+
+  /// 首字符是否属于有效文字（CJK / ASCII 字母数字 / 常见标点）。
+  static bool _isTextChar(int cp) {
+    // CJK 统一表意文字
+    if (cp >= 0x4E00 && cp <= 0x9FFF) return true;
+    if (cp >= 0x3400 && cp <= 0x4DBF) return true;
+    // ASCII 字母数字
+    if (cp >= 0x41 && cp <= 0x5A) return true;
+    if (cp >= 0x61 && cp <= 0x7A) return true;
+    if (cp >= 0x30 && cp <= 0x39) return true;
+    // 习惯名称中常见标点
+    if (cp == 0x2F || cp == 0x2D) return true; // '/' '-'
+    return false;
+  }
+
+  /// 用精确匹配从 [habitSettings] 中找到匹配 [pureName] 的自定义习惯 key。
+  /// 遍历 extraHabits 和 customHabitAliases，返回第一个匹配的 customKey。
+  /// 匹配不上返回 null。
+  static String? _matchCustomHabit(
+    String pureName,
+    HabitSettings settings,
+  ) {
+    for (final entry in settings.extraHabits.entries) {
+      final customKey = entry.key;
+      final aliases = settings.customHabitAliases[customKey] ??
+          [entry.value]; // 无 aliases 时 fallback 到初始名
+      if (aliases.any((alias) => pureName == alias)) {
+        return customKey;
+      }
+    }
+    return null;
+  }
 
   // ── 辅助 ──
 

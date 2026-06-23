@@ -7,14 +7,15 @@ final _templateQuestionHint = RegExp(r'[？?]');
 
 class AnxietyCard extends StatelessWidget {
   final AnxietySection section;
+  final Color? accentColor;
 
-  const AnxietyCard({super.key, required this.section});
+  const AnxietyCard({super.key, required this.section, this.accentColor});
 
   @override
   Widget build(BuildContext context) {
     final hasRealAnswers = section.contents.any((c) => c.hasRealContent);
     if (!hasRealAnswers) {
-      return GenericSectionCard(section: section);
+      return GenericSectionCard(section: section, accentColor: accentColor);
     }
 
     final filtered = <DiaryContent>[];
@@ -30,14 +31,17 @@ class AnxietyCard extends StatelessWidget {
     }
 
     if (filtered.isEmpty) {
-      return GenericSectionCard(section: section);
+      return GenericSectionCard(section: section, accentColor: accentColor);
     }
 
     final filteredSection = GenericDiarySection(
       title: section.title,
       contents: filtered,
     );
-    return GenericSectionCard(section: filteredSection);
+    return GenericSectionCard(
+      section: filteredSection,
+      accentColor: accentColor,
+    );
   }
 
   static String _filterEmptyQA(String text) {

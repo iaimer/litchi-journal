@@ -7,6 +7,7 @@ import 'generic_section_card.dart';
 
 class ReviewCard extends StatelessWidget {
   final ReviewSection section;
+  final Color? accentColor;
   final Future<void> Function(String rawLine)? onTimelineDelete;
   final Future<void> Function(
       String rawLine, String content, List<String> tags)? onTimelineEdit;
@@ -16,6 +17,7 @@ class ReviewCard extends StatelessWidget {
   const ReviewCard({
     super.key,
     required this.section,
+    this.accentColor,
     this.onTimelineDelete,
     this.onTimelineEdit,
     this.tagConfig,
@@ -26,6 +28,7 @@ class ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GenericSectionCard(
       section: section,
+      accentColor: accentColor,
       onTimelineDelete: onTimelineDelete,
       onTimelineEdit: onTimelineEdit,
       tagConfig: tagConfig,

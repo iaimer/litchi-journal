@@ -43,8 +43,7 @@ class DiaryMarkdownView extends StatelessWidget {
   final HabitSettings? habitSettings;
 
   /// 自定义 checkbox 习惯状态变化回调。
-  final Future<bool> Function(Map<String, bool> states)?
-      onCustomCheckboxToggle;
+  final Future<bool> Function(Map<String, bool> states)? onCustomCheckboxToggle;
 
   const DiaryMarkdownView({
     super.key,
@@ -84,6 +83,7 @@ class DiaryMarkdownView extends StatelessWidget {
       widgets.add(
         GenericSectionCard(
           section: preamble,
+          accentColor: _accentColorFor(preamble),
           tagConfig: tagConfig,
           tagSettings: tagSettings,
         ),
@@ -160,6 +160,7 @@ class DiaryMarkdownView extends StatelessWidget {
       case QuickNoteSection():
         return QuickNoteTimeline(
           section: section,
+          accentColor: _accentColorFor(section),
           onDelete: onEntryDelete != null
               ? (note) => onEntryDelete!('quick_notes', note.rawLine)
               : null,
@@ -171,10 +172,14 @@ class DiaryMarkdownView extends StatelessWidget {
           tagSettings: tagSettings,
         );
       case AnxietySection():
-        return AnxietyCard(section: section);
+        return AnxietyCard(
+          section: section,
+          accentColor: _accentColorFor(section),
+        );
       case HappinessSection():
         return GenericSectionCard(
           section: section,
+          accentColor: _accentColorFor(section),
           onTimelineDelete: onEntryDelete != null
               ? (rawLine) => onEntryDelete!('happiness', rawLine)
               : null,
@@ -188,6 +193,7 @@ class DiaryMarkdownView extends StatelessWidget {
       case ReviewSection():
         return ReviewCard(
           section: section,
+          accentColor: _accentColorFor(section),
           onTimelineDelete: onEntryDelete != null
               ? (rawLine) => onEntryDelete!('reflection', rawLine)
               : null,
@@ -211,6 +217,7 @@ class DiaryMarkdownView extends StatelessWidget {
         if (apiClient != null && date != null) {
           return ImageSectionCard(
             section: section,
+            accentColor: _accentColorFor(section),
             apiClient: apiClient!,
             date: date!,
             onDeleteImage: onEntryDelete != null
@@ -218,9 +225,39 @@ class DiaryMarkdownView extends StatelessWidget {
                 : null,
           );
         }
-        return GenericSectionCard(section: section);
+        return GenericSectionCard(
+          section: section,
+          accentColor: _accentColorFor(section),
+        );
       default:
-        return GenericSectionCard(section: section);
+        return GenericSectionCard(
+          section: section,
+          accentColor: _accentColorFor(section),
+        );
+    }
+  }
+
+  /// 根据 section type 返回模块 accentColor（UI 表现层色值，非模型数据）。
+  static Color _accentColorFor(DiarySection section) {
+    switch (section.sectionType) {
+      case 'quickNote':
+        return const Color(0xFFFF6B6B); // 红：随手记 / 灵感
+      case 'happiness':
+        return const Color(0xFFFF9F43); // 橙：每日小确幸
+      case 'review':
+        return const Color(0xFFFFD43B); // 黄：觉察与迭代
+      case 'anxiety':
+        return const Color(0xFF51CF66); // 绿：焦虑时刻 / 情绪处理
+      case 'coach':
+        return const Color(0xFF20C997); // 青：人生教练
+      case 'tomorrow':
+        return const Color(0xFF4DABF7); // 蓝：明日寄语
+      case 'media':
+        return const Color(0xFF9775FA); // 紫：影像记录
+      case 'habit':
+        return const Color(0xFF6BAED6); // 蓝色（HabitCard 自己覆盖 accentColor）
+      default:
+        return const Color(0xFFA89F96); // 暖灰：未归类模块
     }
   }
 
@@ -257,6 +294,7 @@ class DiaryMarkdownView extends StatelessWidget {
 
     return SectionCard(
       title: displayTitle,
+      accentColor: _accentColorFor(section),
       trailing: showButton
           ? TextButton.icon(
               onPressed: generatingCoach ? null : onGenerateCoach,
@@ -444,7 +482,7 @@ class DiaryMarkdownView extends StatelessWidget {
 
     return SectionCard(
       title: section.title,
-      accentColor: theme.colorScheme.primary,
+      accentColor: _accentColorFor(section),
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),

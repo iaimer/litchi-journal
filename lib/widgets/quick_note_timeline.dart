@@ -10,15 +10,21 @@ import 'section_card.dart';
 
 class QuickNoteTimeline extends StatelessWidget {
   final QuickNoteSection section;
+  final Color? accentColor;
   final Future<void> Function(QuickNoteItem note)? onDelete;
   final Future<void> Function(
-      QuickNoteItem note, String content, List<String> tags)? onEdit;
+    QuickNoteItem note,
+    String content,
+    List<String> tags,
+  )?
+  onEdit;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
 
   const QuickNoteTimeline({
     super.key,
     required this.section,
+    this.accentColor,
     this.onDelete,
     this.onEdit,
     this.tagConfig,
@@ -31,15 +37,18 @@ class QuickNoteTimeline extends StatelessWidget {
 
     return SectionCard(
       title: section.title,
-      accentColor: Theme.of(context).colorScheme.primary,
+      accentColor: accentColor ?? Theme.of(context).colorScheme.primary,
       children: section.notes
-          .map((note) => _QuickNoteRow(
-                note: note,
-                onDelete: onDelete,
-                onEdit: onEdit,
-                tagConfig: tagConfig,
-                tagSettings: tagSettings,
-              ))
+          .map(
+            (note) => _QuickNoteRow(
+              note: note,
+              onDelete: onDelete,
+              onEdit: onEdit,
+              tagConfig: tagConfig,
+              tagSettings: tagSettings,
+              accentColor: accentColor,
+            ),
+          )
           .toList(growable: false),
     );
   }
@@ -49,9 +58,14 @@ class _QuickNoteRow extends StatefulWidget {
   final QuickNoteItem note;
   final Future<void> Function(QuickNoteItem note)? onDelete;
   final Future<void> Function(
-      QuickNoteItem note, String content, List<String> tags)? onEdit;
+    QuickNoteItem note,
+    String content,
+    List<String> tags,
+  )?
+  onEdit;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
+  final Color? accentColor;
 
   const _QuickNoteRow({
     required this.note,
@@ -59,6 +73,7 @@ class _QuickNoteRow extends StatefulWidget {
     this.onEdit,
     this.tagConfig,
     this.tagSettings,
+    this.accentColor,
   });
 
   @override
@@ -98,8 +113,9 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
       await widget.onDelete!(widget.note);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -125,6 +141,7 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final accentColor = widget.accentColor ?? theme.colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
@@ -137,31 +154,19 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
               child: Text(
                 widget.note.time,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
+                  color: accentColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            Container(
-              width: 2,
-              margin: const EdgeInsets.only(top: 4, bottom: 4),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withAlpha(60),
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
+            _TimelineMarker(color: accentColor),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.note.content,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  if (widget.note.tags.isNotEmpty ||
-                      _showActions ||
-                      _busy)
+                  Text(widget.note.content, style: theme.textTheme.bodyMedium),
+                  if (widget.note.tags.isNotEmpty || _showActions || _busy)
                     Row(
                       children: [
                         if (widget.note.tags.isNotEmpty)
@@ -170,10 +175,10 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                               padding: const EdgeInsets.only(top: 2),
                               child: Text(
                                 widget.note.tags.join(' '),
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(
-                                  color: theme.colorScheme.primary
-                                      .withAlpha(180),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary.withAlpha(
+                                    180,
+                                  ),
                                   fontSize: 11,
                                 ),
                               ),
@@ -183,31 +188,28 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                           SizedBox(
                             width: 28,
                             height: 28,
-                            child: PopupMenuButton<
-                                _QuickNoteAction>(
+                            child: PopupMenuButton<_QuickNoteAction>(
                               padding: EdgeInsets.zero,
                               iconSize: 16,
-                              icon: const FloraIcon(FloraIcons.more,
-                                  size: 16),
+                              icon: const FloraIcon(FloraIcons.more, size: 16),
                               onSelected: (action) {
-                              if (action == _QuickNoteAction.delete) {
-                                _confirmDelete();
-                              } else if (action ==
-                                  _QuickNoteAction.edit) {
-                                _openEdit();
-                              }
-                            },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: _QuickNoteAction.edit,
-                                child: Text('编辑'),
-                              ),
-                              const PopupMenuItem(
-                                value: _QuickNoteAction.delete,
-                                child: Text('删除'),
-                              ),
-                            ],
-                          ),
+                                if (action == _QuickNoteAction.delete) {
+                                  _confirmDelete();
+                                } else if (action == _QuickNoteAction.edit) {
+                                  _openEdit();
+                                }
+                              },
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(
+                                  value: _QuickNoteAction.edit,
+                                  child: Text('编辑'),
+                                ),
+                                const PopupMenuItem(
+                                  value: _QuickNoteAction.delete,
+                                  child: Text('删除'),
+                                ),
+                              ],
+                            ),
                           ),
                         if (_busy)
                           const Padding(
@@ -216,7 +218,8 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                               width: 14,
                               height: 14,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 1.5),
+                                strokeWidth: 1.5,
+                              ),
                             ),
                           ),
                       ],
@@ -226,6 +229,42 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TimelineMarker extends StatelessWidget {
+  final Color color;
+
+  const _TimelineMarker({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 2,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            top: 4,
+            bottom: 4,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color.withAlpha(88),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 3,
+            left: -3,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: const SizedBox(width: 8, height: 8),
+            ),
+          ),
+        ],
       ),
     );
   }

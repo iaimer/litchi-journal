@@ -11,6 +11,7 @@ import '../services/api_client.dart';
 
 class ImageSectionCard extends StatelessWidget {
   final MediaSection section;
+  final Color? accentColor;
   final ApiClient apiClient;
   final DateTime date;
   final Future<void> Function(String rawLine)? onDeleteImage;
@@ -18,6 +19,7 @@ class ImageSectionCard extends StatelessWidget {
   const ImageSectionCard({
     super.key,
     required this.section,
+    this.accentColor,
     required this.apiClient,
     required this.date,
     this.onDeleteImage,
@@ -31,7 +33,7 @@ class ImageSectionCard extends StatelessWidget {
     if (filenames.isEmpty) {
       return SectionCard(
         title: section.title,
-        accentColor: theme.colorScheme.primary,
+        accentColor: accentColor ?? theme.colorScheme.primary,
         children: [
           Text(
             '暂无影像记录',
@@ -45,7 +47,7 @@ class ImageSectionCard extends StatelessWidget {
 
     return SectionCard(
       title: section.title,
-      accentColor: theme.colorScheme.primary,
+      accentColor: accentColor ?? theme.colorScheme.primary,
       children: [
         Wrap(
           spacing: 8,

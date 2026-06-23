@@ -14,15 +14,21 @@ final _questionHint = RegExp(r'[？?]$|吗[？?]?$');
 
 class GenericSectionCard extends StatelessWidget {
   final DiarySection section;
+  final Color? accentColor;
   final Future<void> Function(String rawLine)? onTimelineDelete;
   final Future<void> Function(
-      String rawLine, String content, List<String> tags)? onTimelineEdit;
+    String rawLine,
+    String content,
+    List<String> tags,
+  )?
+  onTimelineEdit;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
 
   const GenericSectionCard({
     super.key,
     required this.section,
+    this.accentColor,
     this.onTimelineDelete,
     this.onTimelineEdit,
     this.tagConfig,
@@ -57,7 +63,7 @@ class GenericSectionCard extends StatelessWidget {
 
     return SectionCard(
       title: section.title.isEmpty ? null : section.title,
-      accentColor: Theme.of(context).colorScheme.primary,
+      accentColor: accentColor ?? Theme.of(context).colorScheme.primary,
       children: children,
     );
   }
@@ -105,6 +111,7 @@ class GenericSectionCard extends StatelessWidget {
             onEdit: onTimelineEdit,
             tagConfig: tagConfig,
             tagSettings: tagSettings,
+            accentColor: accentColor,
           ),
         );
       case MarkdownContent():
@@ -151,9 +158,7 @@ class GenericSectionCard extends StatelessWidget {
         border: Border(left: BorderSide(color: quoteBorderColor, width: 3)),
       ),
       horizontalRuleDecoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: theme.dividerColor, width: 1),
-        ),
+        border: Border(top: BorderSide(color: theme.dividerColor, width: 1)),
       ),
     );
     if (textColor != null) {
@@ -236,12 +241,9 @@ class GenericSectionCard extends StatelessWidget {
   }
 
   /// 小确幸专用渲染：单条纯文本，多条 bullet list，不用 Timeline。
-  Widget _buildHappinessSection(
-      BuildContext context, DiarySection section) {
+  Widget _buildHappinessSection(BuildContext context, DiarySection section) {
     final theme = Theme.of(context);
-    final entries = section.contents
-        .whereType<TimelineContent>()
-        .toList();
+    final entries = section.contents.whereType<TimelineContent>().toList();
 
     if (entries.isEmpty) return const SizedBox.shrink();
 
@@ -250,7 +252,7 @@ class GenericSectionCard extends StatelessWidget {
       final content = entries.first;
       return SectionCard(
         title: section.title.isEmpty ? null : section.title,
-        accentColor: theme.colorScheme.primary,
+        accentColor: accentColor ?? theme.colorScheme.primary,
         children: [
           Text(
             content.text,
@@ -274,7 +276,7 @@ class GenericSectionCard extends StatelessWidget {
     // 多条：bullet list
     return SectionCard(
       title: section.title.isEmpty ? null : section.title,
-      accentColor: theme.colorScheme.primary,
+      accentColor: accentColor ?? theme.colorScheme.primary,
       children: entries.map((entry) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -286,7 +288,7 @@ class GenericSectionCard extends StatelessWidget {
                 child: Text(
                   '•',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.primary,
+                    color: accentColor ?? AppColors.primary,
                   ),
                 ),
               ),
@@ -453,9 +455,14 @@ class _TimelineDeleteRow extends StatefulWidget {
   final TimelineContent content;
   final Future<void> Function(String rawLine)? onDelete;
   final Future<void> Function(
-      String rawLine, String content, List<String> tags)? onEdit;
+    String rawLine,
+    String content,
+    List<String> tags,
+  )?
+  onEdit;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
+  final Color? accentColor;
 
   const _TimelineDeleteRow({
     required this.content,
@@ -463,6 +470,7 @@ class _TimelineDeleteRow extends StatefulWidget {
     this.onEdit,
     this.tagConfig,
     this.tagSettings,
+    this.accentColor,
   });
 
   @override
@@ -502,8 +510,9 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
       await widget.onDelete!(widget.content.rawLine);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -520,8 +529,7 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
         tagConfig: widget.tagConfig,
         tagSettings: widget.tagSettings,
         onSave: (content, tags) async {
-          await widget.onEdit!(
-              widget.content.rawLine, content, tags);
+          await widget.onEdit!(widget.content.rawLine, content, tags);
         },
       ),
     );
@@ -530,6 +538,7 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final accentColor = widget.accentColor ?? theme.colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
       child: IntrinsicHeight(
@@ -541,31 +550,19 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
               child: Text(
                 widget.content.time,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
+                  color: accentColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            Container(
-              width: 2,
-              margin: const EdgeInsets.only(top: 4, bottom: 4),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withAlpha(60),
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
+            _TimelineMarker(color: accentColor),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.content.text,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  if (widget.content.tags.isNotEmpty ||
-                      _showActions ||
-                      _busy)
+                  Text(widget.content.text, style: theme.textTheme.bodyMedium),
+                  if (widget.content.tags.isNotEmpty || _showActions || _busy)
                     Row(
                       children: [
                         if (widget.content.tags.isNotEmpty)
@@ -574,10 +571,10 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
                               padding: const EdgeInsets.only(top: 2),
                               child: Text(
                                 widget.content.tags.join(' '),
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(
-                                  color: theme.colorScheme.primary
-                                      .withAlpha(180),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary.withAlpha(
+                                    180,
+                                  ),
                                   fontSize: 11,
                                 ),
                               ),
@@ -587,31 +584,28 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
                           SizedBox(
                             width: 28,
                             height: 28,
-                            child: PopupMenuButton<
-                                _TimelineAction>(
+                            child: PopupMenuButton<_TimelineAction>(
                               padding: EdgeInsets.zero,
                               iconSize: 16,
                               icon: const FloraIcon(FloraIcons.more, size: 16),
                               onSelected: (action) {
-                              if (action ==
-                                  _TimelineAction.delete) {
-                                _confirmDelete();
-                              } else if (action ==
-                                  _TimelineAction.edit) {
-                                _openEdit();
-                              }
-                            },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: _TimelineAction.edit,
-                                child: Text('编辑'),
-                              ),
-                              const PopupMenuItem(
-                                value: _TimelineAction.delete,
-                                child: Text('删除'),
-                              ),
-                            ],
-                          ),
+                                if (action == _TimelineAction.delete) {
+                                  _confirmDelete();
+                                } else if (action == _TimelineAction.edit) {
+                                  _openEdit();
+                                }
+                              },
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(
+                                  value: _TimelineAction.edit,
+                                  child: Text('编辑'),
+                                ),
+                                const PopupMenuItem(
+                                  value: _TimelineAction.delete,
+                                  child: Text('删除'),
+                                ),
+                              ],
+                            ),
                           ),
                         if (_busy)
                           const Padding(
@@ -620,7 +614,8 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
                               width: 14,
                               height: 14,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 1.5),
+                                strokeWidth: 1.5,
+                              ),
                             ),
                           ),
                       ],
@@ -630,6 +625,42 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TimelineMarker extends StatelessWidget {
+  final Color color;
+
+  const _TimelineMarker({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 2,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            top: 4,
+            bottom: 4,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color.withAlpha(88),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 3,
+            left: -3,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: const SizedBox(width: 8, height: 8),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -15,6 +15,7 @@ import 'image_section_card.dart';
 import 'quick_note_timeline.dart';
 import 'review_card.dart';
 import 'section_card.dart';
+import 'tag_color_helper.dart';
 
 class DiaryMarkdownView extends StatelessWidget {
   final String markdown;
@@ -158,18 +159,22 @@ class DiaryMarkdownView extends StatelessWidget {
           onCustomCheckboxToggle: onCustomCheckboxToggle,
         );
       case QuickNoteSection():
-        return QuickNoteTimeline(
-          section: section,
-          accentColor: _accentColorFor(section),
-          onDelete: onEntryDelete != null
-              ? (note) => onEntryDelete!('quick_notes', note.rawLine)
-              : null,
-          onEdit: onEntryEdit != null
-              ? (note, content, tags) =>
-                    onEntryEdit!('quick_notes', note.rawLine, content, tags)
-              : null,
-          tagConfig: tagConfig,
-          tagSettings: tagSettings,
+        final accentColor = _accentColorFor(section);
+        return TagChipModuleAccent(
+          accentColor: accentColor,
+          child: QuickNoteTimeline(
+            section: section,
+            accentColor: accentColor,
+            onDelete: onEntryDelete != null
+                ? (note) => onEntryDelete!('quick_notes', note.rawLine)
+                : null,
+            onEdit: onEntryEdit != null
+                ? (note, content, tags) =>
+                      onEntryEdit!('quick_notes', note.rawLine, content, tags)
+                : null,
+            tagConfig: tagConfig,
+            tagSettings: tagSettings,
+          ),
         );
       case AnxietySection():
         return AnxietyCard(
@@ -245,11 +250,11 @@ class DiaryMarkdownView extends StatelessWidget {
       case 'happiness':
         return const Color(0xFFFF9F43); // 橙：每日小确幸
       case 'review':
-        return const Color(0xFFFFD43B); // 黄：觉察与迭代
+        return const Color(0xFF51CF66); // 绿：觉察与迭代
       case 'anxiety':
-        return const Color(0xFF51CF66); // 绿：焦虑时刻 / 情绪处理
+        return const Color(0xFFFFD43B); // 黄：焦虑时刻 / 情绪处理
       case 'coach':
-        return const Color(0xFF20C997); // 青：人生教练
+        return const Color(0xFF12B5CB); // 青：人生教练
       case 'tomorrow':
         return const Color(0xFF4DABF7); // 蓝：明日寄语
       case 'media':
@@ -288,7 +293,9 @@ class DiaryMarkdownView extends StatelessWidget {
     for (final c in section.contents) {
       if (c is MarkdownContent && c.text.trim().isNotEmpty) {
         if (c.text.trim().startsWith('<!--')) continue;
-        children.addAll(_buildCoachContentWidgets(theme, c.text));
+        children.addAll(
+          _buildCoachContentWidgets(theme, c.text, _accentColorFor(section)),
+        );
       }
     }
 
@@ -341,7 +348,11 @@ class DiaryMarkdownView extends StatelessWidget {
     return title;
   }
 
-  List<Widget> _buildCoachContentWidgets(ThemeData theme, String rawText) {
+  List<Widget> _buildCoachContentWidgets(
+    ThemeData theme,
+    String rawText,
+    Color accentColor,
+  ) {
     final widgets = <Widget>[];
     // 先做展示层归一化，兼容新旧格式
     final normalizedLines = _normalizeCoachDisplayLines(rawText);
@@ -357,7 +368,7 @@ class DiaryMarkdownView extends StatelessWidget {
               line,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: theme.colorScheme.primary,
+                color: accentColor,
               ),
             ),
           ),

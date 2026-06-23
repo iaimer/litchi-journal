@@ -60,6 +60,7 @@ import 'package:litchi_journal_flutter/widgets/image_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
 import 'package:litchi_journal_flutter/widgets/review_card.dart';
+import 'package:litchi_journal_flutter/widgets/tag_color_helper.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 
 import 'package:litchi_journal_flutter/models/tag_settings.dart';
@@ -2665,6 +2666,55 @@ tags:
       expect(find.byType(ChoiceChip), findsNothing);
       expect(find.text('标签'), findsOneWidget);
     });
+
+    test('uses distinct domain colors and unified topic/method colors', () {
+      final theme = ThemeData.light();
+
+      final workColors = tagChipColorsFor(
+        label: '工作',
+        tagConfig: testConfig,
+        theme: theme,
+      );
+      final lifeColors = tagChipColorsFor(
+        label: '生活',
+        tagConfig: testConfig,
+        theme: theme,
+      );
+      final workTopicColors = tagChipColorsFor(
+        label: '任务执行',
+        tagConfig: testConfig,
+        theme: theme,
+      );
+      final lifeTopicColors = tagChipColorsFor(
+        label: '健康管理',
+        tagConfig: testConfig,
+        theme: theme,
+      );
+      final reflectColors = tagChipColorsFor(
+        label: '反思',
+        tagConfig: testConfig,
+        theme: theme,
+      );
+      final rememberColors = tagChipColorsFor(
+        label: '回忆',
+        tagConfig: testConfig,
+        theme: theme,
+      );
+      final moduleColors = tagChipColorsFor(
+        label: '任务执行',
+        tagConfig: testConfig,
+        theme: theme,
+        moduleAccentColor: const Color(0xFF51CF66),
+      );
+
+      expect(workColors.backgroundColor, isNot(lifeColors.backgroundColor));
+      expect(workTopicColors.backgroundColor, lifeTopicColors.backgroundColor);
+      expect(reflectColors.backgroundColor, rememberColors.backgroundColor);
+      expect(
+        moduleColors.backgroundColor,
+        isNot(workTopicColors.backgroundColor),
+      );
+    });
   });
 
   group('EntryTypeSelector', () {
@@ -3609,9 +3659,13 @@ tags:
       final markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
       final blockquoteDecoration =
           markdown.styleSheet?.blockquoteDecoration as BoxDecoration?;
+      const anxietyAccentColor = Color(0xFFFFD43B);
+      final readableTextColor = HSLColor.fromColor(
+        anxietyAccentColor,
+      ).withLightness(0.72).toColor();
 
-      expect(markdown.styleSheet?.blockquote?.color, AppColors.darkTextPrimary);
-      expect(blockquoteDecoration?.color, AppColors.darkPrimary.withAlpha(24));
+      expect(markdown.styleSheet?.blockquote?.color, readableTextColor);
+      expect(blockquoteDecoration?.color, anxietyAccentColor.withAlpha(26));
       expect(blockquoteDecoration?.color, isNot(Colors.blue.shade50));
     },
   );

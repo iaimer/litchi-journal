@@ -4,6 +4,7 @@ import '../models/diary_document.dart';
 import 'generic_section_card.dart';
 
 final _templateQuestionHint = RegExp(r'[？?]');
+const _anxietyAccentColor = Color(0xFFFFD43B);
 
 class AnxietyCard extends StatelessWidget {
   final AnxietySection section;
@@ -13,9 +14,13 @@ class AnxietyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveAccentColor = accentColor ?? _anxietyAccentColor;
     final hasRealAnswers = section.contents.any((c) => c.hasRealContent);
     if (!hasRealAnswers) {
-      return GenericSectionCard(section: section, accentColor: accentColor);
+      return GenericSectionCard(
+        section: section,
+        accentColor: effectiveAccentColor,
+      );
     }
 
     final filtered = <DiaryContent>[];
@@ -31,7 +36,10 @@ class AnxietyCard extends StatelessWidget {
     }
 
     if (filtered.isEmpty) {
-      return GenericSectionCard(section: section, accentColor: accentColor);
+      return GenericSectionCard(
+        section: section,
+        accentColor: effectiveAccentColor,
+      );
     }
 
     final filteredSection = GenericDiarySection(
@@ -40,7 +48,7 @@ class AnxietyCard extends StatelessWidget {
     );
     return GenericSectionCard(
       section: filteredSection,
-      accentColor: accentColor,
+      accentColor: effectiveAccentColor,
     );
   }
 

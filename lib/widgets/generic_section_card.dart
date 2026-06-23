@@ -9,6 +9,7 @@ import '../models/tag_settings.dart';
 import '../theme/app_theme.dart';
 import 'entry_edit_sheet.dart';
 import 'section_card.dart';
+import 'tag_color_helper.dart';
 
 final _questionHint = RegExp(r'[？?]$|吗[？?]?$');
 
@@ -132,13 +133,11 @@ class GenericSectionCard extends StatelessWidget {
   MarkdownStyleSheet _baseStyleSheet(BuildContext context, {Color? textColor}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final quoteTextColor = textColor ?? theme.colorScheme.onSurface;
-    final quoteBackground = isDark
-        ? theme.colorScheme.primary.withAlpha(24)
-        : Colors.blue.shade50;
-    final quoteBorderColor = isDark
-        ? theme.colorScheme.primary.withAlpha(120)
-        : Colors.blue.shade200;
+    final quoteAccentColor = accentColor ?? theme.colorScheme.primary;
+    final quoteTextColor =
+        textColor ?? _readableAccentText(quoteAccentColor, isDark);
+    final quoteBackground = quoteAccentColor.withAlpha(isDark ? 26 : 18);
+    final quoteBorderColor = quoteAccentColor.withAlpha(isDark ? 120 : 92);
     var sheet = MarkdownStyleSheet.fromTheme(theme).copyWith(
       h2: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
       h3: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -155,7 +154,7 @@ class GenericSectionCard extends StatelessWidget {
       blockquoteDecoration: BoxDecoration(
         color: quoteBackground,
         borderRadius: BorderRadius.circular(4),
-        border: Border(left: BorderSide(color: quoteBorderColor, width: 3)),
+        border: Border(left: BorderSide(color: quoteBorderColor, width: 1)),
       ),
       horizontalRuleDecoration: BoxDecoration(
         border: Border(top: BorderSide(color: theme.dividerColor, width: 1)),
@@ -170,6 +169,14 @@ class GenericSectionCard extends StatelessWidget {
       );
     }
     return sheet;
+  }
+
+  Color _readableAccentText(Color color, bool isDark) {
+    final hsl = HSLColor.fromColor(color);
+    final lightness = isDark
+        ? hsl.lightness.clamp(0.72, 0.86).toDouble()
+        : hsl.lightness.clamp(0.26, 0.36).toDouble();
+    return hsl.withLightness(lightness).toColor();
   }
 
   Widget _buildSubSectionHeader(BuildContext context, String title) {
@@ -261,12 +268,10 @@ class GenericSectionCard extends StatelessWidget {
           if (content.tags.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                content.tags.join(' '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary.withAlpha(180),
-                  fontSize: 11,
-                ),
+              child: TagChipList(
+                tags: content.tags,
+                tagConfig: tagConfig,
+                moduleAccentColor: accentColor,
               ),
             ),
         ],
@@ -303,12 +308,10 @@ class GenericSectionCard extends StatelessWidget {
                     if (entry.tags.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          entry.tags.join(' '),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary.withAlpha(180),
-                            fontSize: 11,
-                          ),
+                        child: TagChipList(
+                          tags: entry.tags,
+                          tagConfig: tagConfig,
+                          moduleAccentColor: accentColor,
                         ),
                       ),
                   ],
@@ -569,14 +572,10 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                widget.content.tags.join(' '),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.primary.withAlpha(
-                                    180,
-                                  ),
-                                  fontSize: 11,
-                                ),
+                              child: TagChipList(
+                                tags: widget.content.tags,
+                                tagConfig: widget.tagConfig,
+                                moduleAccentColor: widget.accentColor,
                               ),
                             ),
                           ),

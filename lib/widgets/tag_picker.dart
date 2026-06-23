@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'flora_icon.dart';
+import 'tag_color_helper.dart';
 
 import '../models/tag_config.dart';
 
@@ -76,8 +77,7 @@ class _TagPickerState extends State<TagPicker> {
 
     if (tags.length > 1) {
       final topicName = tags[1];
-      final topic =
-          domain.topics.where((t) => t.name == topicName).firstOrNull;
+      final topic = domain.topics.where((t) => t.name == topicName).firstOrNull;
       _selectedTopic = topic;
     }
 
@@ -173,51 +173,67 @@ class _TagPickerState extends State<TagPicker> {
             child: Wrap(
               spacing: 6,
               runSpacing: 4,
-              children: tags.map((name) {
-                final isHidden = hidden.contains(name);
-                return Chip(
-                  label: Text(
-                    isHidden ? '$name (已隐藏)' : name,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: isHidden
-                      ? theme.colorScheme.surfaceContainerHighest
-                      : theme.colorScheme.primary.withAlpha(25),
-                  side: BorderSide.none,
-                );
-              }).toList(growable: false),
+              children: tags
+                  .map((name) {
+                    final isHidden = hidden.contains(name);
+                    final colors = tagChipColorsFor(
+                      label: name,
+                      tagConfig: widget.tagConfig,
+                      theme: theme,
+                    );
+                    return Chip(
+                      label: Text(
+                        isHidden ? '$name (已隐藏)' : name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isHidden
+                              ? theme.colorScheme.onSurfaceVariant
+                              : colors.textColor,
+                        ),
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: isHidden
+                          ? theme.colorScheme.surfaceContainerHighest
+                          : colors.backgroundColor,
+                      side: BorderSide(
+                        color: isHidden
+                            ? Colors.transparent
+                            : colors.borderColor,
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
             ),
           )
         else
           const Spacer(),
         if (widget.forceExpanded == null)
-        TextButton.icon(
-          onPressed: () => setState(() => _expanded = !_expanded),
-          icon: Icon(
-            _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-            size: 16,
-          ),
-          label: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!_expanded) ...[
-                const FloraIcon(FloraIcons.settingTags, size: 16),
-                const SizedBox(width: 4),
+          TextButton.icon(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            icon: Icon(
+              _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              size: 16,
+            ),
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!_expanded) ...[
+                  const FloraIcon(FloraIcons.settingTags, size: 16),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  _expanded ? '收起' : '标签',
+                  style: const TextStyle(fontSize: 12),
+                ),
               ],
-              Text(
-                _expanded ? '收起' : '标签',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
+            ),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              foregroundColor: theme.colorScheme.onSurface.withAlpha(150),
+            ),
           ),
-          style: TextButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            foregroundColor: theme.colorScheme.onSurface.withAlpha(150),
-          ),
-        ),
       ],
     );
   }
@@ -228,6 +244,7 @@ class _TagPickerState extends State<TagPicker> {
     return _buildChipRow(
       theme: theme,
       label: '领域',
+      tagConfig: widget.tagConfig,
       items: domains.map((d) => _ChipItem(id: d.id, name: d.name)).toList(),
       selectedId: _selectedDomain?.id,
       onSelected: (id) {
@@ -244,6 +261,7 @@ class _TagPickerState extends State<TagPicker> {
     return _buildChipRow(
       theme: theme,
       label: '主题',
+      tagConfig: widget.tagConfig,
       items: topics.map((t) => _ChipItem(id: t.id, name: t.name)).toList(),
       selectedId: _selectedTopic?.id,
       onSelected: (id) {
@@ -259,6 +277,7 @@ class _TagPickerState extends State<TagPicker> {
     return _buildChipRow(
       theme: theme,
       label: '方法',
+      tagConfig: widget.tagConfig,
       items: methods.map((m) => _ChipItem(id: m.id, name: m.name)).toList(),
       selectedId: _selectedMethod?.id,
       onSelected: (id) {
@@ -307,6 +326,7 @@ class _TagPickerState extends State<TagPicker> {
   Widget _buildChipRow({
     required ThemeData theme,
     required String label,
+    required TagConfig tagConfig,
     String? hint,
     required List<_ChipItem> items,
     required String? selectedId,
@@ -345,23 +365,24 @@ class _TagPickerState extends State<TagPicker> {
                 ),
               ...items.map((item) {
                 final selected = selectedId == item.id;
+                final colors = tagChipColorsFor(
+                  label: item.name,
+                  tagConfig: tagConfig,
+                  theme: theme,
+                  selected: selected,
+                );
                 return ChoiceChip(
                   label: Text(
                     item.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: selected
-                          ? theme.colorScheme.onPrimary
-                          : theme.colorScheme.onSurface,
-                    ),
+                    style: TextStyle(fontSize: 12, color: colors.textColor),
                   ),
                   selected: selected,
                   onSelected: (_) => onSelected(item.id),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
-                  selectedColor: theme.colorScheme.primary,
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  side: const BorderSide(color: Colors.transparent),
+                  selectedColor: colors.backgroundColor,
+                  backgroundColor: colors.backgroundColor,
+                  side: BorderSide(color: colors.borderColor),
                 );
               }),
             ],

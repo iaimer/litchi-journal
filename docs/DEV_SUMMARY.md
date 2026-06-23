@@ -1525,3 +1525,77 @@ H2 针对这三个缺口分别推进。
 ### 35.8 当前稳定版
 
 版本 `1.4.0`，提交 `cc15771`。
+
+---
+
+## 36. Sprint 36：Today Rainbow 视觉校准与标签色规则
+
+### 36.1 背景
+
+Today Rainbow 初步接入后，真机发现三个视觉问题：
+
+- 日记正文标签 chip 像另一套独立颜色系统，和所在模块色不统一。
+- 焦虑、觉察和人生教练色相区分需要重新校准。
+- 焦虑回答 blockquote 仍使用浅蓝底，与模块背景冲突。
+
+随后快速记录页 TagPicker 也暴露出方法标签颜色过多的问题，需要与日记正文标签分离出两种颜色模式。
+
+### 36.2 模块色最终顺序
+
+最终 Today Rainbow 顺序固定为：
+
+| 模块 | 色值 |
+|------|------|
+| 随手记 / 灵感 | `#FF6B6B` |
+| 每日小确幸 | `#FF9F43` |
+| 焦虑时刻 | `#FFD43B` |
+| 觉察与迭代 | `#51CF66` |
+| 人生教练 | `#12B5CB` |
+| 明日寄语 | `#4DABF7` |
+| 影像记录 | `#9775FA` |
+
+### 36.3 标签 chip 双模式
+
+新增 `tag_color_helper.dart` 统一生成标签 chip 颜色。
+
+**日记正文 / 模块上下文：**
+- 传入 `moduleAccentColor` 时，标签 chip 使用模块色生成低透明度背景、中低透明度边框和同色系可读文字。
+- 今日页和过往详情页中，模块内标签跟随模块色。
+
+**快速记录页 TagPicker：**
+- 没有模块上下文时使用标签类型色。
+- 领域标签按固定色板区分。
+- 主题标签统一 `#F2C94C`。
+- 方法标签统一 `#9775FA`。
+- 未知标签回退到主题 primary 色。
+
+### 36.4 焦虑回答区域
+
+- `GenericSectionCard._baseStyleSheet()` 的 blockquote 不再使用 `Colors.blue.shade50`。
+- blockquote 背景改为当前模块色低透明度 tint。
+- blockquote 文字按当前模块色计算深浅模式可读色。
+- 左侧强调线收窄为同色系细线，保持层级但避免突兀。
+
+### 36.5 影响文件
+
+| 文件 | 修改内容 |
+|------|----------|
+| `diary_markdown_view.dart` | 模块色映射、快速记录时间线模块色传递、人生教练标题色 |
+| `generic_section_card.dart` | 模块内标签 chip、blockquote 模块色背景 |
+| `anxiety_card.dart` | 焦虑卡独立渲染时默认黄色 accent |
+| `quick_note_timeline.dart` | 随手记标签 chip 跟随模块色 |
+| `tag_picker.dart` | 快速记录页使用标签色 helper |
+| `tag_color_helper.dart` | 标签 chip 颜色双模式 helper |
+| `test/widget_test.dart` | 覆盖 TagPicker 色彩规则和焦虑 blockquote 可读性 |
+
+### 36.6 当前验证状态
+
+- `flutter analyze --no-pub`：零问题
+- `flutter test --no-pub`：363 测试通过
+- `flutter build apk --debug --no-pub`：通过
+- `adb install -r build/app/outputs/flutter-apk/app-debug.apk`：成功
+- 真机验收：用户确认修改符合要求
+
+### 36.7 当前稳定版
+
+版本 `1.4.3+8`。

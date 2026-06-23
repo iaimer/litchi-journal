@@ -4,6 +4,51 @@
 
 ---
 
+## 2026-06-23 Today Rainbow 视觉校准与标签色规则稳定
+
+### 讨论内容
+
+- 用户真机验收发现 Today Rainbow 中标签 chip、人生教练色、焦虑回答背景和焦虑/觉察模块色存在不一致。
+- 快速记录页 TagPicker 在接入标签色 helper 后过于花，方法标签出现不同颜色，需要稳定为统一方法色。
+- 最终模块顺序确认：随手记红、小确幸橙、焦虑黄、觉察绿、人生教练青、明日寄语蓝、影像记录紫。
+
+### 决策 & 原因
+
+- 日记正文标签 chip 支持 `moduleAccentColor`，在今日页和过往详情页跟随所在模块色；没有模块上下文时继续使用标签类型色。
+- TagPicker 保持独立颜色模式：领域按固定色板区分，主题统一 `#F2C94C`，方法统一 `#9775FA`，避免快速记录页视觉过乱。
+- 人生教练色改为 `#12B5CB`，与觉察绿色形成清晰区分。
+- 焦虑模块最终为 `#FFD43B`，觉察与迭代最终为 `#51CF66`。
+- 焦虑回答 blockquote 不再使用浅蓝底，改为当前模块色低透明度 tint 和同色系可读文字。
+
+### 改动文件清单
+
+- `lib/widgets/tag_color_helper.dart`
+- `lib/widgets/tag_picker.dart`
+- `lib/widgets/generic_section_card.dart`
+- `lib/widgets/diary_markdown_view.dart`
+- `lib/widgets/anxiety_card.dart`
+- `lib/widgets/quick_note_timeline.dart`
+- `test/widget_test.dart`
+- `pubspec.yaml`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `README.md`
+- `SESSION_LOG.md`
+- `docs/DEV_SUMMARY.md`
+
+### 遇到的问题
+
+- `flutter install --use-application-binary` 未能识别无线 ADB 的 mDNS 设备名，改用 `adb install -r` 安装成功。
+- 后续 ADB 启动截图验收需要非沙箱权限，用户选择亲自真机验收。
+
+### 最终结果
+
+- `flutter analyze --no-pub` 通过，零问题。
+- `flutter test --no-pub` 通过，363 项全部通过。
+- `flutter build apk --debug --no-pub` 通过。
+- `adb install -r build/app/outputs/flutter-apk/app-debug.apk` 成功。
+- 用户确认修改符合要求。
+
 ## 2026-06-20 品牌视觉源图落地与真机确认
 
 ### 讨论内容

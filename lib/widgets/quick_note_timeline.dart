@@ -7,6 +7,7 @@ import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import 'entry_edit_sheet.dart';
 import 'section_card.dart';
+import 'tag_color_helper.dart';
 
 class QuickNoteTimeline extends StatelessWidget {
   final QuickNoteSection section;
@@ -173,14 +174,9 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                widget.note.tags.join(' '),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.primary.withAlpha(
-                                    180,
-                                  ),
-                                  fontSize: 11,
-                                ),
+                              child: TagChipList(
+                                tags: widget.note.tags,
+                                tagConfig: widget.tagConfig,
                               ),
                             ),
                           ),

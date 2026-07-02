@@ -10,6 +10,7 @@ import '../services/habit_stats_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/habit_icon.dart';
 import '../widgets/flora_page_scaffold.dart';
+import '../widgets/flora_switch.dart';
 
 /// 习惯编辑页。
 ///
@@ -20,7 +21,11 @@ class HabitEditScreen extends StatefulWidget {
   /// 为 true 时进入新增模式：key 为新生成的 custom_xxx，初始值使用默认。
   final bool isCreateMode;
 
-  const HabitEditScreen({super.key, required this.habitKey, this.isCreateMode = false});
+  const HabitEditScreen({
+    super.key,
+    required this.habitKey,
+    this.isCreateMode = false,
+  });
 
   @override
   State<HabitEditScreen> createState() => _HabitEditScreenState();
@@ -185,8 +190,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       updated = updated.copyWith(iconMap: newIcon);
     }
 
-    final defaultColor =
-        HabitVisualConfig.of(widget.habitKey).color.toARGB32();
+    final defaultColor = HabitVisualConfig.of(widget.habitKey).color.toARGB32();
     if (_colorArgb != defaultColor) {
       final newColor = Map<String, int>.from(updated.colorMap);
       newColor[widget.habitKey] = _colorArgb;
@@ -403,9 +407,10 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Switch(
+                      FloraSwitch(
                         value: _active,
                         onChanged: (v) => setState(() => _active = v),
+                        activeColor: Color(_colorArgb),
                       ),
                     ],
                   ),
@@ -416,20 +421,20 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
             const SizedBox(height: 12),
 
             if (!widget.isCreateMode)
-            // ── 5. 恢复默认 ──
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _resetToDefault,
-                icon: const FloraIcon(FloraIcons.reset, size: 18),
-                label: const Text('恢复默认'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: theme.colorScheme.onSurfaceVariant,
-                  side: BorderSide(color: theme.dividerColor),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+              // ── 5. 恢复默认 ──
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _resetToDefault,
+                  icon: const FloraIcon(FloraIcons.reset, size: 18),
+                  label: const Text('恢复默认'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.onSurfaceVariant,
+                    side: BorderSide(color: theme.dividerColor),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
-            ),
 
             const SizedBox(height: 24),
 

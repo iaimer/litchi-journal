@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/habit_stats.dart';
 import 'habit_icon.dart';
 
-/// 30 天热力图，按习惯下拉选择器切换。
+/// 30 天热力图，按习惯图标 Tab 切换。
 /// 展示选中习惯最近 30 天的热力图、完成率、最长连续天数和平均值。
 class HabitHeatmapTabs extends StatefulWidget {
   final List<HabitItemStats> items;
@@ -46,8 +46,7 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
           children: [
             Text('看看这 30 天的小痕迹', style: theme.textTheme.titleLarge),
             const SizedBox(height: 12),
-            // 习惯选择器
-            _buildSelector(theme),
+            _buildTabStrip(theme),
             const SizedBox(height: 12),
             // 统计概要
             _buildStatsRow(theme),
@@ -63,48 +62,33 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
     );
   }
 
-  Widget _buildSelector(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.dividerColor),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: DropdownButton<HabitItemStats>(
-        value: _selected,
-        isDense: true,
-        isExpanded: false,
-        underline: const SizedBox.shrink(),
-        icon: const Icon(Icons.keyboard_arrow_down, size: 20),
-        selectedItemBuilder: (context) {
-          return widget.items.map((item) {
-            return DropdownMenuItem<HabitItemStats>(
-              value: item,
-              child: _buildItemLabel(theme, item),
-            );
-          }).toList();
-        },
-        items: widget.items.map((item) {
-          return DropdownMenuItem<HabitItemStats>(
-            value: item,
-            child: _buildItemLabel(theme, item),
-          );
-        }).toList(),
-        onChanged: (item) {
-          if (item != null) setState(() => _selected = item);
-        },
-      ),
-    );
-  }
+  Widget _buildTabStrip(ThemeData theme) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 6.0;
+        const minTabWidth = 44.0;
+        final totalGap = gap * (widget.items.length - 1).clamp(0, 99);
+        final fittedWidth =
+            (constraints.maxWidth - totalGap) / widget.items.length;
+        final tabWidth = fittedWidth >= minTabWidth ? fittedWidth : minTabWidth;
 
-  Widget _buildItemLabel(ThemeData theme, HabitItemStats item) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        HabitIcon(item.icon, size: 16, color: theme.colorScheme.onSurface),
-        const SizedBox(width: 6),
-        Text(item.displayName, style: theme.textTheme.bodyMedium),
-      ],
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (var i = 0; i < widget.items.length; i++) ...[
+                _HabitHeatmapTab(
+                  item: widget.items[i],
+                  selected: widget.items[i] == _selected,
+                  width: tabWidth,
+                  onTap: () => setState(() => _selected = widget.items[i]),
+                ),
+                if (i != widget.items.length - 1) const SizedBox(width: gap),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -215,5 +199,64 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
       default:
         return '';
     }
+  }
+}
+
+class _HabitHeatmapTab extends StatelessWidget {
+  final HabitItemStats item;
+  final bool selected;
+  final double width;
+  final VoidCallback onTap;
+
+  const _HabitHeatmapTab({
+    required this.item,
+    required this.selected,
+    required this.width,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final activeColor = item.color;
+    final inactiveColor = theme.colorScheme.onSurfaceVariant;
+    final backgroundColor = selected
+        ? activeColor.withAlpha(theme.brightness == Brightness.dark ? 46 : 34)
+        : theme.colorScheme.surfaceContainerHighest.withAlpha(
+            theme.brightness == Brightness.dark ? 72 : 92,
+          );
+    final borderColor = selected
+        ? activeColor.withAlpha(theme.brightness == Brightness.dark ? 190 : 145)
+        : theme.dividerColor;
+
+    return Tooltip(
+      message: item.displayName,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: item.displayName,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            width: width,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: HabitIcon(
+              item.icon,
+              size: 22,
+              color: selected ? activeColor : inactiveColor,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -22,8 +22,7 @@ class HabitCard extends StatefulWidget {
 
   /// 自定义 checkbox 习惯状态变化回调。
   /// key → checked。
-  final Future<bool> Function(Map<String, bool> states)?
-      onCustomCheckboxToggle;
+  final Future<bool> Function(Map<String, bool> states)? onCustomCheckboxToggle;
 
   const HabitCard({
     super.key,
@@ -261,13 +260,15 @@ class _HabitCardState extends State<HabitCard> {
       for (final entry in settings.extraHabits.entries) {
         final key = entry.key;
         if (!settings.isActive(key)) continue;
-        children.add(_CustomCheckboxRow(
-          key: ValueKey('custom_habit_$key'),
-          habitKey: key,
-          settings: settings,
-          checked: _customCheckboxStates[key] ?? false,
-          onToggle: _handleCustomCheckboxToggle,
-        ));
+        children.add(
+          _CustomCheckboxRow(
+            key: ValueKey('custom_habit_$key'),
+            habitKey: key,
+            settings: settings,
+            checked: _customCheckboxStates[key] ?? false,
+            onToggle: _handleCustomCheckboxToggle,
+          ),
+        );
       }
     }
 
@@ -325,10 +326,7 @@ class _HabitCardState extends State<HabitCard> {
     }
   }
 
-  Future<void> _handleCustomCheckboxToggle(
-    String key,
-    bool newChecked,
-  ) async {
+  Future<void> _handleCustomCheckboxToggle(String key, bool newChecked) async {
     setState(() => _customCheckboxStates[key] = newChecked);
     if (widget.onCustomCheckboxToggle == null) return;
     try {
@@ -412,6 +410,9 @@ class _CheckboxRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final checkedColor = theme.brightness == Brightness.dark
+        ? AppColors.darkSuccess
+        : AppColors.success;
 
     return InkWell(
       onTap: loading ? null : onTap,
@@ -421,11 +422,7 @@ class _CheckboxRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(
-              _checked ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 20,
-              color: _checked ? AppColors.success : theme.disabledColor,
-            ),
+            _AnimatedHabitCheckbox(checked: _checked, color: checkedColor),
             const SizedBox(width: 8),
             if (icon != null) ...[
               HabitIcon(icon!, size: 16, color: theme.colorScheme.onSurface),
@@ -518,10 +515,7 @@ class _WaterCounterRow extends StatelessWidget {
                 onTap: loading ? null : () => onIncrement(_add(500)),
               ),
               if (onCustom != null)
-                _QuickButton(
-                  label: '自定义',
-                  onTap: loading ? null : onCustom,
-                ),
+                _QuickButton(label: '自定义', onTap: loading ? null : onCustom),
               _QuickButton(
                 label: '清零',
                 onTap: loading
@@ -646,6 +640,7 @@ class _CustomCheckboxRowState extends State<_CustomCheckboxRow> {
     final theme = Theme.of(context);
     final displayName = widget.settings.displayNameFor(widget.habitKey);
     final icon = widget.settings.iconFor(widget.habitKey);
+    final color = Color(widget.settings.colorFor(widget.habitKey));
 
     return InkWell(
       onTap: () {
@@ -659,11 +654,7 @@ class _CustomCheckboxRowState extends State<_CustomCheckboxRow> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(
-              _checked ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 20,
-              color: _checked ? AppColors.success : theme.disabledColor,
-            ),
+            _AnimatedHabitCheckbox(checked: _checked, color: color),
             const SizedBox(width: 8),
             if (icon.isNotEmpty) ...[
               HabitIcon(icon, size: 16, color: theme.colorScheme.onSurface),
@@ -679,6 +670,148 @@ class _CustomCheckboxRowState extends State<_CustomCheckboxRow> {
         ),
       ),
     );
+  }
+}
+
+class _AnimatedHabitCheckbox extends StatefulWidget {
+  final bool checked;
+  final Color color;
+
+  const _AnimatedHabitCheckbox({required this.checked, required this.color});
+
+  @override
+  State<_AnimatedHabitCheckbox> createState() => _AnimatedHabitCheckboxState();
+}
+
+class _AnimatedHabitCheckboxState extends State<_AnimatedHabitCheckbox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _curve;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+      value: widget.checked ? 1 : 0,
+    );
+    _curve = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedHabitCheckbox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.checked == widget.checked) return;
+    if (widget.checked) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final inactiveColor = theme.colorScheme.onSurface.withAlpha(
+      theme.brightness == Brightness.dark ? 120 : 95,
+    );
+
+    return AnimatedBuilder(
+      animation: _curve,
+      builder: (context, child) {
+        final value = _curve.value;
+        final scale = 1 - (0.10 * (1 - (2 * value - 1).abs()));
+        return Transform.scale(
+          scale: scale,
+          child: CustomPaint(
+            size: const Size.square(22),
+            painter: _HabitCheckboxPainter(
+              progress: value,
+              color: widget.color,
+              inactiveColor: inactiveColor,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HabitCheckboxPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final Color inactiveColor;
+
+  const _HabitCheckboxPainter({
+    required this.progress,
+    required this.color,
+    required this.inactiveColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final center = rect.center;
+    final boxRect = Rect.fromCenter(center: center, width: 18, height: 18);
+    const radius = Radius.circular(3);
+    final borderColor = Color.lerp(inactiveColor, color, progress)!;
+
+    if (progress > 0) {
+      final haloPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = color.withAlpha((58 * (1 - progress)).round());
+      canvas.drawCircle(center, 9 * (1 + 2.5 * progress), haloPaint);
+    }
+
+    final fillPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = color.withAlpha((255 * progress).round());
+    canvas.drawRRect(RRect.fromRectAndRadius(boxRect, radius), fillPaint);
+
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round
+      ..color = borderColor;
+    canvas.drawRRect(RRect.fromRectAndRadius(boxRect, radius), borderPaint);
+
+    if (progress == 0) return;
+
+    final checkProgress = ((progress - 0.25) / 0.75).clamp(0.0, 1.0);
+    if (checkProgress == 0) return;
+
+    final checkPath = Path()
+      ..moveTo(boxRect.left + 3.5, boxRect.top + 9)
+      ..lineTo(boxRect.left + 6.5, boxRect.top + 12)
+      ..lineTo(boxRect.left + 12.5, boxRect.top + 4);
+
+    final metric = checkPath.computeMetrics().first;
+    final visiblePath = metric.extractPath(0, metric.length * checkProgress);
+    final checkPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = Colors.white.withAlpha(245);
+    canvas.drawPath(visiblePath, checkPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HabitCheckboxPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.color != color ||
+        oldDelegate.inactiveColor != inactiveColor;
   }
 }
 

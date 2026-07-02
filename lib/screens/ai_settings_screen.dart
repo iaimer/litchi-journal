@@ -4,6 +4,7 @@ import '../models/ai_config.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
 import '../widgets/flora_page_scaffold.dart';
+import '../widgets/flora_switch.dart';
 
 /// AI 服务配置页。
 class AiSettingsScreen extends StatefulWidget {
@@ -63,18 +64,21 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       final repo = AIConfigRepository();
       // 保留现有提示词
       final existing = await repo.loadAIConfig();
-      await repo.saveAIConfig(AIConfig(
-        enabled: _enabled,
-        name: _nameController.text.trim(),
-        baseUrl: _baseUrlController.text.trim(),
-        apiKey: _apiKeyController.text.trim(),
-        model: _modelController.text.trim(),
-        polishPrompt: existing.polishPrompt,
-        coachPrompt: existing.coachPrompt,
-      ));
+      await repo.saveAIConfig(
+        AIConfig(
+          enabled: _enabled,
+          name: _nameController.text.trim(),
+          baseUrl: _baseUrlController.text.trim(),
+          apiKey: _apiKeyController.text.trim(),
+          model: _modelController.text.trim(),
+          polishPrompt: existing.polishPrompt,
+          coachPrompt: existing.coachPrompt,
+        ),
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('AI 配置已保存')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('AI 配置已保存')));
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = '保存失败');
@@ -103,30 +107,40 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SwitchListTile(
-              title: const Text('启用 AI 润色'),
-              value: _enabled,
-              onChanged: (v) => setState(() => _enabled = v),
-              contentPadding: EdgeInsets.zero,
+            InkWell(
+              key: const ValueKey('ai_enabled_toggle'),
+              onTap: () => setState(() => _enabled = !_enabled),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    const Expanded(child: Text('启用 AI 润色')),
+                    FloraSwitch(
+                      value: _enabled,
+                      onChanged: (v) => setState(() => _enabled = v),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 8),
-            Text(
-              '快速选择预设',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text('快速选择预设', style: theme.textTheme.bodySmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: aiPresets.map((preset) {
-                return ActionChip(
-                  label: Text(preset.name,
-                      style: const TextStyle(fontSize: 12)),
-                  onPressed: _enabled
-                      ? () => _applyPreset(preset)
-                      : null,
-                );
-              }).toList(growable: false),
+              children: aiPresets
+                  .map((preset) {
+                    return ActionChip(
+                      label: Text(
+                        preset.name,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      onPressed: _enabled ? () => _applyPreset(preset) : null,
+                    );
+                  })
+                  .toList(growable: false),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -153,11 +167,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               decoration: InputDecoration(
                 labelText: 'API Key',
                 suffixIcon: IconButton(
-                  icon: Icon(_obscureApiKey
-                      ? Icons.visibility
-                      : Icons.visibility_off),
-                  onPressed: () => setState(
-                      () => _obscureApiKey = !_obscureApiKey),
+                  icon: Icon(
+                    _obscureApiKey ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscureApiKey = !_obscureApiKey),
                 ),
               ),
               obscureText: _obscureApiKey,
@@ -188,7 +202,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: theme.colorScheme.onPrimary),
+                        strokeWidth: 2,
+                        color: theme.colorScheme.onPrimary,
+                      ),
                     )
                   : const Text('保存 AI 配置'),
             ),

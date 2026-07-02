@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../widgets/flora_icon.dart';
 import '../widgets/flora_page_scaffold.dart';
+import '../widgets/flora_switch.dart';
 
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
@@ -74,8 +75,9 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     required void Function(String name, String? description) onSave,
   }) {
     final nameController = TextEditingController(text: initialName);
-    final descController =
-        TextEditingController(text: initialDescription ?? '');
+    final descController = TextEditingController(
+      text: initialDescription ?? '',
+    );
     String? error;
 
     showDialog(
@@ -107,7 +109,9 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                       hintText: '这个标签的用途说明',
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                   ),
                 ],
@@ -222,14 +226,16 @@ class _TagSettingsPageState extends State<TagSettingsPage>
       onSave: (name, desc) {
         final key = _newKey('domain');
         setState(() {
-          _settings.domainSettings.add(DomainSetting(
-            key: key,
-            defaultName: name,
-            displayName: name,
-            enabled: true,
-            description: desc,
-            topics: [],
-          ));
+          _settings.domainSettings.add(
+            DomainSetting(
+              key: key,
+              defaultName: name,
+              displayName: name,
+              enabled: true,
+              description: desc,
+              topics: [],
+            ),
+          );
         });
         _save();
       },
@@ -244,13 +250,15 @@ class _TagSettingsPageState extends State<TagSettingsPage>
       onSave: (name, desc) {
         final key = _newKey('topic');
         setState(() {
-          domain.topics.add(TopicSetting(
-            key: key,
-            defaultName: name,
-            displayName: name,
-            enabled: true,
-            description: desc,
-          ));
+          domain.topics.add(
+            TopicSetting(
+              key: key,
+              defaultName: name,
+              displayName: name,
+              enabled: true,
+              description: desc,
+            ),
+          );
         });
         _save();
       },
@@ -265,13 +273,15 @@ class _TagSettingsPageState extends State<TagSettingsPage>
       onSave: (name, desc) {
         final key = _newKey('method');
         setState(() {
-          _settings.methodSettings.add(MethodSetting(
-            key: key,
-            defaultName: name,
-            displayName: name,
-            enabled: true,
-            description: desc,
-          ));
+          _settings.methodSettings.add(
+            MethodSetting(
+              key: key,
+              defaultName: name,
+              displayName: name,
+              enabled: true,
+              description: desc,
+            ),
+          );
         });
         _save();
       },
@@ -332,16 +342,17 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                   child: Text(
                     labels[i],
                     textAlign: TextAlign.center,
-                    style: (selected
-                            ? theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              )
-                            : theme.textTheme.bodySmall)
-                        ?.copyWith(
-                      color: selected
-                          ? theme.colorScheme.onSurface
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
+                    style:
+                        (selected
+                                ? theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  )
+                                : theme.textTheme.bodySmall)
+                            ?.copyWith(
+                              color: selected
+                                  ? theme.colorScheme.onSurface
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
                   ),
                 ),
               ),
@@ -393,15 +404,10 @@ class _TagSettingsPageState extends State<TagSettingsPage>
         ),
         const SizedBox(height: 12),
         // 添加领域
-        _buildAddButton(
-          theme: theme,
-          label: '＋ 添加领域',
-          onTap: _addDomain,
-        ),
+        _buildAddButton(theme: theme, label: '＋ 添加领域', onTap: _addDomain),
         const SizedBox(height: 12),
         // 领域列表
-        ..._settings.domainSettings.map(
-            (d) => _buildDomainCard(theme, d)),
+        ..._settings.domainSettings.map((d) => _buildDomainCard(theme, d)),
         // 恢复默认
         const SizedBox(height: 20),
         Center(
@@ -446,130 +452,136 @@ class _TagSettingsPageState extends State<TagSettingsPage>
               bottomRight: Radius.circular(expanded ? 0 : 12),
             ),
             child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── 领域头部：名称 + 说明 + 操作按钮 ──
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── 领域头部：名称 + 说明 + 操作按钮 ──
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                        expanded
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        size: 20,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                            '#${domain.displayName}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (!domain.enabled)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: Text(
-                                '已禁用',
-                                style: theme.textTheme.bodySmall?.copyWith(
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  expanded
+                                      ? Icons.expand_less
+                                      : Icons.expand_more,
+                                  size: 20,
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '#${domain.displayName}',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (!domain.enabled)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: Text(
+                                      '已禁用',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (domain.description != null &&
+                                domain.description!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  domain.description!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                      if (domain.description != null &&
-                          domain.description!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            domain.description!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                      // 编辑
+                      IconButton(
+                        icon: const FloraIcon(FloraIcons.edit, size: 16),
+                        onPressed: () => _editDomain(domain),
+                        tooltip: '编辑',
+                        visualDensity: VisualDensity.compact,
+                        style: IconButton.styleFrom(
+                          foregroundColor: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      // 恢复默认
+                      if (domain.displayName != domain.defaultName)
+                        IconButton(
+                          icon: const FloraIcon(FloraIcons.restore, size: 16),
+                          onPressed: () => _restoreDomain(domain),
+                          tooltip: '恢复默认',
+                          visualDensity: VisualDensity.compact,
+                          style: IconButton.styleFrom(
+                            foregroundColor: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
+                      // 启用/禁用
+                      FloraSwitch(
+                        value: domain.enabled,
+                        onChanged: (v) {
+                          setState(() => domain.enabled = v);
+                          _save();
+                        },
+                      ),
                     ],
                   ),
-                ),
-                // 编辑
-                IconButton(
-                  icon: const FloraIcon(FloraIcons.edit, size: 16),
-                  onPressed: () => _editDomain(domain),
-                  tooltip: '编辑',
-                  visualDensity: VisualDensity.compact,
-                  style: IconButton.styleFrom(
-                    foregroundColor: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                // 恢复默认
-                if (domain.displayName != domain.defaultName)
-                  IconButton(
-                    icon: const FloraIcon(FloraIcons.restore, size: 16),
-                    onPressed: () => _restoreDomain(domain),
-                    tooltip: '恢复默认',
-                    visualDensity: VisualDensity.compact,
-                    style: IconButton.styleFrom(
-                      foregroundColor: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                // 启用/禁用
-                Switch(
-                  value: domain.enabled,
-                  onChanged: (v) {
-                    setState(() => domain.enabled = v);
-                    _save();
-                  },
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ],
-            ),
-
-          ],
-        ),
-      ),
-    ),
-    // ── 展开后的主题区域 ──
-    if (expanded) ...[
-      Divider(height: 1, indent: 12, endIndent: 12, color: theme.dividerColor),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 12, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (domain.topics.isNotEmpty)
-              ...domain.topics.map((t) => _buildTopicRow(theme, t))
-            else
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '暂无主题标签',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                ],
               ),
-            _buildAddButton(
-              theme: theme,
-              label: '＋ 添加主题',
-              onTap: () => _addTopic(domain),
-              compact: true,
+            ),
+          ),
+          // ── 展开后的主题区域 ──
+          if (expanded) ...[
+            Divider(
+              height: 1,
+              indent: 12,
+              endIndent: 12,
+              color: theme.dividerColor,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (domain.topics.isNotEmpty)
+                    ...domain.topics.map((t) => _buildTopicRow(theme, t))
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '暂无主题标签',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  _buildAddButton(
+                    theme: theme,
+                    label: '＋ 添加主题',
+                    onTap: () => _addTopic(domain),
+                    compact: true,
+                  ),
+                ],
+              ),
             ),
           ],
-        ),
+        ],
       ),
-    ],
-    ],
-  ),
-);
+    );
   }
 
   /// 主题行：名称 + 说明 + 操作。
@@ -602,8 +614,9 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: topic.enabled
                               ? theme.colorScheme.onSurface
-                              : theme.colorScheme.onSurfaceVariant
-                                  .withAlpha(120),
+                              : theme.colorScheme.onSurfaceVariant.withAlpha(
+                                  120,
+                                ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -648,13 +661,12 @@ class _TagSettingsPageState extends State<TagSettingsPage>
               ),
             ),
           // 启用/禁用
-          Switch(
+          FloraSwitch(
             value: topic.enabled,
             onChanged: (v) {
               setState(() => topic.enabled = v);
               _save();
             },
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ],
       ),
@@ -676,11 +688,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
         ),
         const SizedBox(height: 12),
         // 添加方法
-        _buildAddButton(
-          theme: theme,
-          label: '＋ 添加方法',
-          onTap: _addMethod,
-        ),
+        _buildAddButton(theme: theme, label: '＋ 添加方法', onTap: _addMethod),
         const SizedBox(height: 12),
         // 方法列表
         if (_settings.methodSettings.isEmpty)
@@ -696,8 +704,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
             ),
           )
         else
-          ..._settings.methodSettings
-              .map((m) => _buildMethodCard(theme, m)),
+          ..._settings.methodSettings.map((m) => _buildMethodCard(theme, m)),
         // 恢复默认
         const SizedBox(height: 20),
         Center(
@@ -769,13 +776,12 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                   foregroundColor: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            Switch(
+            FloraSwitch(
               value: method.enabled,
               onChanged: (v) {
                 setState(() => method.enabled = v);
                 _save();
               },
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ],
         ),

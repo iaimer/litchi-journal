@@ -306,8 +306,11 @@ class _HabitTestHttpClient extends http.BaseClient {
       final reqYear = int.tryParse(segments[segments.length - 2]) ?? year;
       final reqMonth = int.tryParse(segments.last) ?? month;
 
-      // Only return data for the month matching test config
-      if (reqYear != year || reqMonth != month) {
+      final supportsRequestedMonth =
+          _isConfiguredMonth(reqYear, reqMonth) ||
+          _isPreviousConfiguredMonth(reqYear, reqMonth);
+
+      if (!supportsRequestedMonth) {
         final body = jsonEncode({
           'year': reqYear,
           'month': reqMonth,
@@ -328,18 +331,21 @@ class _HabitTestHttpClient extends http.BaseClient {
       allDays.addAll(languageByDay.keys);
       allDays.addAll(supplementByDay.keys);
 
-      final diaries = allDays.map((day) {
-        final dayStr = day.toString().padLeft(2, '0');
-        return {
-          'date': '$year-${month.toString().padLeft(2, '0')}-$dayStr',
-          'hasContent': true,
-          'exists': true,
-        };
-      }).toList();
+      final diaries = allDays
+          .map(_dateForDataKey)
+          .where((date) => date.year == reqYear && date.month == reqMonth)
+          .map((date) {
+            return {
+              'date': ApiClient.formatDate(date),
+              'hasContent': true,
+              'exists': true,
+            };
+          })
+          .toList();
 
       final body = jsonEncode({
-        'year': year,
-        'month': month,
+        'year': reqYear,
+        'month': reqMonth,
         'diaries': diaries,
       });
       return http.StreamedResponse(
@@ -355,13 +361,16 @@ class _HabitTestHttpClient extends http.BaseClient {
       final parts = url.split('/');
       final dateStr = parts.last;
       final dateParts = dateStr.split('-');
+      final reqYear = int.parse(dateParts[0]);
+      final reqMonth = int.parse(dateParts[1]);
       final day = int.parse(dateParts.last);
+      final dataKey = _dataKeyForDate(reqYear, reqMonth, day);
 
-      final water = waterByDay[day] ?? 0;
-      final steps = stepsByDay[day] ?? 0;
-      final reading = readingByDay[day] ?? false;
-      final language = languageByDay[day] ?? false;
-      final supp = supplementByDay[day] ?? false;
+      final water = waterByDay[dataKey] ?? 0;
+      final steps = stepsByDay[dataKey] ?? 0;
+      final reading = readingByDay[dataKey] ?? false;
+      final language = languageByDay[dataKey] ?? false;
+      final supp = supplementByDay[dataKey] ?? false;
 
       final readingCheck = reading ? 'x' : ' ';
       final languageCheck = language ? 'x' : ' ';
@@ -382,6 +391,31 @@ class _HabitTestHttpClient extends http.BaseClient {
     }
 
     return http.StreamedResponse(Stream.value(utf8.encode('{}')), 404);
+  }
+
+  bool _isConfiguredMonth(int reqYear, int reqMonth) {
+    return reqYear == year && reqMonth == month;
+  }
+
+  bool _isPreviousConfiguredMonth(int reqYear, int reqMonth) {
+    final previous = DateTime(year, month - 1);
+    return reqYear == previous.year && reqMonth == previous.month;
+  }
+
+  DateTime _dateForDataKey(int dayKey) {
+    if (dayKey >= 1) return DateTime(year, month, dayKey);
+    final previous = DateTime(year, month - 1);
+    final previousDays = DateTime(year, month, 0).day;
+    return DateTime(previous.year, previous.month, previousDays + dayKey);
+  }
+
+  int _dataKeyForDate(int reqYear, int reqMonth, int day) {
+    if (_isConfiguredMonth(reqYear, reqMonth)) return day;
+    if (_isPreviousConfiguredMonth(reqYear, reqMonth)) {
+      final previousDays = DateTime(year, month, 0).day;
+      return day - previousDays;
+    }
+    return day;
   }
 }
 
@@ -5888,7 +5922,7 @@ tags:
       expect(textFields[2].enabled, isFalse); // apiKey
       expect(textFields[3].enabled, isFalse); // model
 
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(find.byKey(const ValueKey('ai_enabled_toggle')));
       await tester.pump();
 
       final enabledFields = tester
@@ -5904,7 +5938,7 @@ tags:
     testWidgets('disabled fields preserve content', (tester) async {
       await tester.pumpWidget(buildScreen());
 
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(find.byKey(const ValueKey('ai_enabled_toggle')));
       await tester.pump();
 
       await tester.enterText(
@@ -5915,9 +5949,9 @@ tags:
       await tester.pump();
 
       // Disable and re-enable
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(find.byKey(const ValueKey('ai_enabled_toggle')));
       await tester.pump();
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(find.byKey(const ValueKey('ai_enabled_toggle')));
       await tester.pump();
 
       expect(
@@ -5938,7 +5972,7 @@ tags:
 
     testWidgets('API Key field uses obscureText', (tester) async {
       await tester.pumpWidget(buildScreen());
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(find.byKey(const ValueKey('ai_enabled_toggle')));
       await tester.pump();
 
       final apiKeyField = find.widgetWithText(TextField, 'API Key');
@@ -5951,7 +5985,7 @@ tags:
 
     testWidgets('preset chip fills name, baseUrl, and model', (tester) async {
       await tester.pumpWidget(buildScreen());
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(find.byKey(const ValueKey('ai_enabled_toggle')));
       await tester.pump();
 
       await tester.tap(find.text('DeepSeek'));
@@ -5991,7 +6025,7 @@ tags:
       tester,
     ) async {
       await tester.pumpWidget(buildScreen());
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(find.byKey(const ValueKey('ai_enabled_toggle')));
       await tester.pump();
 
       expect(find.text('润色提示词'), findsNothing);
@@ -7991,7 +8025,7 @@ tags:
       expect(find.text('看看这 30 天的小痕迹'), findsOneWidget);
     });
 
-    testWidgets('switching habit dropdown does not show page loading', (
+    testWidgets('switching habit tab does not show page loading', (
       tester,
     ) async {
       final now = DateTime.now();
@@ -8020,14 +8054,14 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      // 打开下方的 dropdown。
-      final selector = find.byType(DropdownButton<HabitItemStats>);
-      expect(selector, findsWidgets);
-      await tester.tap(selector.first);
+      expect(find.byType(DropdownButton<HabitItemStats>), findsNothing);
+
+      final stepsTab = find.byTooltip('运动');
+      expect(stepsTab, findsOneWidget);
+      await tester.tap(stepsTab);
       await tester.pumpAndSettle();
 
-      // 下拉菜单出现，页面不被整页 loading 遮挡
-      expect(find.text('运动'), findsWidgets);
+      expect(find.textContaining('平均每天运动'), findsOneWidget);
       // 没有全页 CircularProgressIndicator
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });

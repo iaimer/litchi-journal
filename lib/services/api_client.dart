@@ -18,6 +18,10 @@ class ApiClient {
   String get cacheNamespace => _baseUrl;
   bool get hasToken => _config.token.trim().isNotEmpty;
 
+  ApiConfig configWithBaseUrl(String baseUrl) {
+    return ApiConfig(baseUrl: baseUrl, token: _config.token);
+  }
+
   ApiClient(this._config, {http.Client? httpClient}) {
     _http = httpClient ?? http.Client();
     _baseUrl = _normalizeUrl(_config.baseUrl);

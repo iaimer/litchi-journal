@@ -264,9 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<bool> _handleCustomCheckboxToggle(
-    Map<String, bool> states,
-  ) async {
+  Future<bool> _handleCustomCheckboxToggle(Map<String, bool> states) async {
     _customCheckboxStates = Map.from(states);
     // 使用当前日记中已有的习惯状态，不覆盖为 0
     final status = _currentHabitStatus();
@@ -872,6 +870,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       baseUrl: widget.apiClient.baseUrl,
                       token: '',
                     ),
+                    apiClient: widget.apiClient,
                     tokenConfigured: widget.apiClient.hasToken,
                   ),
                 ),
@@ -890,71 +889,73 @@ class _HomeScreenState extends State<HomeScreen> {
         bottom: true,
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
-        onTap: () {
-          if (_quickRecordExpanded) {
-            setState(() => _quickRecordExpanded = false);
-          }
-        },
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : Theme(
-                data: theme.copyWith(
-                  canvasColor: theme.scaffoldBackgroundColor,
+          onTap: () {
+            if (_quickRecordExpanded) {
+              setState(() => _quickRecordExpanded = false);
+            }
+          },
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : Theme(
+                  data: theme.copyWith(
+                    canvasColor: theme.scaffoldBackgroundColor,
+                  ),
+                  child: RefreshIndicator(
+                    onRefresh: _loadDiary,
+                    child: ListView(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        const SizedBox(height: 16),
+                        if (_error != null) ...[
+                          Text(
+                            _error!,
+                            style: TextStyle(color: theme.colorScheme.error),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        if (_diary != null && _diary!.raw.isNotEmpty) ...[
+                          DiaryMarkdownView(
+                            markdown: _diary!.raw,
+                            onHabitUpdate: _handleHabitUpdate,
+                            onEntryDelete: _handleEntryDelete,
+                            onEntryEdit: _handleEntryEdit,
+                            tagConfig: _tagConfig,
+                            tagSettings: _tagSettings,
+                            apiClient: widget.apiClient,
+                            date: _activeDate,
+                            onGenerateCoach: _handleGenerateCoach,
+                            generatingCoach: _generatingCoach,
+                            activeHabitKeys: _activeHabitKeys,
+                            habitSettings:
+                                _habitSettings ?? HabitSettings.defaults,
+                            onCustomCheckboxToggle: _handleCustomCheckboxToggle,
+                          ),
+                        ] else ...[
+                          Text(
+                            '今日还没有日记内容',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          HabitCard(
+                            key: const ValueKey('habit_card'),
+                            section: HabitSection.empty(),
+                            onUpdate: _handleHabitUpdate,
+                            activeHabitKeys: _activeHabitKeys,
+                            habitSettings:
+                                _habitSettings ?? HabitSettings.defaults,
+                            onCustomCheckboxToggle: _handleCustomCheckboxToggle,
+                          ),
+                        ],
+                        const SizedBox(height: 96),
+                      ],
+                    ),
+                  ),
                 ),
-                child: RefreshIndicator(
-                onRefresh: _loadDiary,
-                child: ListView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    const SizedBox(height: 16),
-                    if (_error != null) ...[
-                      Text(
-                        _error!,
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (_diary != null && _diary!.raw.isNotEmpty) ...[
-                      DiaryMarkdownView(
-                        markdown: _diary!.raw,
-                        onHabitUpdate: _handleHabitUpdate,
-                        onEntryDelete: _handleEntryDelete,
-                        onEntryEdit: _handleEntryEdit,
-                        tagConfig: _tagConfig,
-                        tagSettings: _tagSettings,
-                        apiClient: widget.apiClient,
-                        date: _activeDate,
-                        onGenerateCoach: _handleGenerateCoach,
-                        generatingCoach: _generatingCoach,
-                        activeHabitKeys: _activeHabitKeys,
-                        habitSettings: _habitSettings ?? HabitSettings.defaults,
-                        onCustomCheckboxToggle: _handleCustomCheckboxToggle,
-                      ),
-                    ] else ...[
-                      Text(
-                        '今日还没有日记内容',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      HabitCard(
-                        key: const ValueKey('habit_card'),
-                        section: HabitSection.empty(),
-                        onUpdate: _handleHabitUpdate,
-                        activeHabitKeys: _activeHabitKeys,
-                        habitSettings: _habitSettings ?? HabitSettings.defaults,
-                        onCustomCheckboxToggle: _handleCustomCheckboxToggle,
-                      ),
-                    ],
-                    const SizedBox(height: 96),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ),
+      ),
     );
   }
 }

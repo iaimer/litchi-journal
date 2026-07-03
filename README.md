@@ -12,7 +12,7 @@ Flutter 客户端负责 UI、状态管理和 API 调用；`server/` 负责 Markd
 Flutter 客户端 + 本仓库 API 服务端版
 ```
 
-截至 2026-06-23，已完成：
+截至 2026-07-03，已完成：
 
 - 今日页日记读取与结构化展示
 - 随手记、觉察、小确幸、焦虑四问写入
@@ -31,10 +31,12 @@ Flutter 客户端 + 本仓库 API 服务端版
 - 过往详情隐藏明日寄语和习惯追踪
 - 过往页固定 header，不随内容滚动
 - Android release 版远程服务端连接
+- 远程 API 配置编辑：支持在设置页修改服务器地址，并复用当前 Token 测试连接后保存
 - 启动配置读取、今日日记加载和标签配置加载的超时/兜底保护
 - 品牌视觉资源落地：启动页、App 图标、关于页品牌图均使用 `docs/design-reference/` 中的原始参考图派生
 - Today Rainbow 模块视觉：随手记红、小确幸橙、焦虑黄、觉察绿、人生教练青、明日寄语蓝、影像记录紫
 - 日记正文标签 chip 跟随所在模块色，快速记录页 TagPicker 使用领域不同、主题统一、方法统一的稳定标签色规则
+- 习惯统计热力图 icon-only Tab 切换：图标一次性展示，使用滑块式 Tab 指示器和轻量动效
 
 ## 关键文档
 
@@ -71,7 +73,6 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 
 - 完整日历式历史页
 - 画廊页
-- 远程 API 配置编辑
 - Open Design 全局 UI 重设计
 
 ## 服务端

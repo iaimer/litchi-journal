@@ -160,6 +160,7 @@ class _SettingsPageState extends State<SettingsPage> {
               context,
               RemoteApiPage(
                 apiConfig: widget.apiConfig,
+                apiClient: widget.apiClient,
                 tokenConfigured: widget.tokenConfigured,
               ),
             ),

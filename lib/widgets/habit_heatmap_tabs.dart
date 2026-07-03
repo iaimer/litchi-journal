@@ -65,27 +65,19 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
   Widget _buildTabStrip(ThemeData theme) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const gap = 6.0;
         const minTabWidth = 44.0;
-        final totalGap = gap * (widget.items.length - 1).clamp(0, 99);
-        final fittedWidth =
-            (constraints.maxWidth - totalGap) / widget.items.length;
+        final fittedWidth = constraints.maxWidth / widget.items.length;
         final tabWidth = fittedWidth >= minTabWidth ? fittedWidth : minTabWidth;
+        final stripWidth = tabWidth * widget.items.length;
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (var i = 0; i < widget.items.length; i++) ...[
-                _HabitHeatmapTab(
-                  item: widget.items[i],
-                  selected: widget.items[i] == _selected,
-                  width: tabWidth,
-                  onTap: () => setState(() => _selected = widget.items[i]),
-                ),
-                if (i != widget.items.length - 1) const SizedBox(width: gap),
-              ],
-            ],
+          child: _HabitHeatmapTabStrip(
+            items: widget.items,
+            selected: _selected,
+            tabWidth: tabWidth,
+            width: stripWidth + 4,
+            onSelected: (item) => setState(() => _selected = item),
           ),
         );
       },
@@ -202,13 +194,103 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
   }
 }
 
-class _HabitHeatmapTab extends StatelessWidget {
+class _HabitHeatmapTabStrip extends StatelessWidget {
+  final List<HabitItemStats> items;
+  final HabitItemStats selected;
+  final double tabWidth;
+  final double width;
+  final ValueChanged<HabitItemStats> onSelected;
+
+  const _HabitHeatmapTabStrip({
+    required this.items,
+    required this.selected,
+    required this.tabWidth,
+    required this.width,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedIndex = items.indexOf(selected).clamp(0, items.length - 1);
+    final trackColor = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surfaceContainerHighest.withAlpha(120)
+        : theme.colorScheme.onSurface.withAlpha(24);
+    final indicatorColor = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surfaceContainerHighest
+        : theme.colorScheme.surface;
+    final shadowColor = Colors.black.withAlpha(
+      theme.brightness == Brightness.dark ? 70 : 31,
+    );
+
+    return Container(
+      width: width,
+      height: 48,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: trackColor,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Stack(
+        children: [
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            top: 0,
+            left: selectedIndex * tabWidth,
+            width: tabWidth,
+            height: 44,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: indicatorColor,
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withAlpha(
+                    theme.brightness == Brightness.dark ? 70 : 42,
+                  ),
+                  width: 0.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: shadowColor,
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withAlpha(
+                      theme.brightness == Brightness.dark ? 48 : 10,
+                    ),
+                    blurRadius: 1,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              for (final item in items)
+                _HabitHeatmapTabButton(
+                  item: item,
+                  selected: item == selected,
+                  width: tabWidth,
+                  onTap: () => onSelected(item),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HabitHeatmapTabButton extends StatelessWidget {
   final HabitItemStats item;
   final bool selected;
   final double width;
   final VoidCallback onTap;
 
-  const _HabitHeatmapTab({
+  const _HabitHeatmapTabButton({
     required this.item,
     required this.selected,
     required this.width,
@@ -218,16 +300,9 @@ class _HabitHeatmapTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final activeColor = item.color;
-    final inactiveColor = theme.colorScheme.onSurfaceVariant;
-    final backgroundColor = selected
-        ? activeColor.withAlpha(theme.brightness == Brightness.dark ? 46 : 34)
-        : theme.colorScheme.surfaceContainerHighest.withAlpha(
-            theme.brightness == Brightness.dark ? 72 : 92,
-          );
-    final borderColor = selected
-        ? activeColor.withAlpha(theme.brightness == Brightness.dark ? 190 : 145)
-        : theme.dividerColor;
+    final inactiveColor = theme.colorScheme.onSurfaceVariant.withAlpha(
+      theme.brightness == Brightness.dark ? 178 : 153,
+    );
 
     return Tooltip(
       message: item.displayName,
@@ -237,22 +312,21 @@ class _HabitHeatmapTab extends StatelessWidget {
         label: item.displayName,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
+          borderRadius: BorderRadius.circular(7),
+          child: SizedBox(
             width: width,
             height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor),
-            ),
-            child: HabitIcon(
-              item.icon,
-              size: 22,
-              color: selected ? activeColor : inactiveColor,
+            child: Center(
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                scale: selected ? 1.04 : 1,
+                child: HabitIcon(
+                  item.icon,
+                  size: 22,
+                  color: selected ? item.color : inactiveColor,
+                ),
+              ),
             ),
           ),
         ),

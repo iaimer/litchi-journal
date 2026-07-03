@@ -248,3 +248,48 @@
 - `flutter test --no-pub` 通过，362 项全部通过。
 - `flutter build apk --debug --no-pub` 通过。
 - 真机验证：今日页和只读日记详情页下拉时 head 区域不再变深。
+
+---
+
+## 2026-07-03 习惯热力图 Tab 与远程 API 配置编辑
+
+### 讨论内容
+
+- 用户希望把习惯统计热力图上方的标签从菜单式切换改为类似 Chrome 的 Tab 页切换，只显示图标，不显示文字。
+- Tab 样式参考 Uiverse 滑块式 segmented tab，保留图标显示效果，并保证触摸面积不要太小。
+- 真机出现 App 不能连接服务器，服务端健康检查正常。
+
+### 决策 & 原因
+
+- 习惯热力图标签改为横向 icon-only Tab，所有图标一次性展示；文字只保留在 tooltip/语义信息中，不占用界面空间。
+- Tab 使用灰色圆角轨道、白色/同主题 surface 滑块、轻微阴影和 200ms 切换动效，保持原生 Flutter 实现，不引入依赖。
+- 远程 API 页面增加服务器地址编辑入口，复用当前 Token 测试新地址；连接成功后才保存，避免写入不可用地址。
+- 真机连接失败最终确认为手机端 VPN 白名单/代理路径问题；App 权限、配置和服务端健康状态正常。
+
+### 改动文件清单
+
+- `lib/widgets/habit_heatmap_tabs.dart`
+- `lib/services/api_client.dart`
+- `lib/screens/remote_api_page.dart`
+- `lib/screens/settings_page.dart`
+- `lib/screens/home_screen.dart`
+- `pubspec.yaml`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `README.md`
+- `SESSION_LOG.md`
+
+### 遇到的问题
+
+- 真机访问 `obsidian.femkits.org` 时浏览器也出现 `ERR_CONNECTION_CLOSED`，说明不是 Flutter App 单独异常。
+- App 进程日志显示域名解析/连接层失败；服务端直连健康检查正常。
+- 修复方式是在手机端将 App 加入 VPN 白名单，恢复 App 的正确代理路径。
+
+### 最终结果
+
+- 版本更新为 `1.4.4+9`。
+- 习惯热力图 Tab 样式完成。
+- 远程 API 地址编辑与连接测试完成。
+- 真机连接问题定位为 VPN 白名单配置问题，非 App 代码或服务端运行问题。
+- `flutter analyze --no-pub` 通过，零问题。
+- `flutter test --no-pub` 通过，363 项全部通过。

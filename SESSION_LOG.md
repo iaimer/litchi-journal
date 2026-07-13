@@ -4,6 +4,61 @@
 
 ---
 
+## 2026-07-13 P1/P2 上线前稳定性修复与 1.4.5 Release
+
+### 讨论内容
+
+- 用户要求根据上线前 code review 的 P1/P2 建议依次修复，并在修复后完成验证。
+- P1 重点是网络请求超时、图片上传失败提示、远程 API 地址保存后即时生效。
+- P2 重点是服务端认证格式收紧和 CORS 白名单能力。
+- 初次提交和真机安装后发现漏更新版本号和发布文档，需要补做 release 文档流程。
+
+### 决策 & 原因
+
+- `ApiClient` 统一封装 GET/POST 请求入口，普通请求 12 秒超时，图片上传 30 秒超时，错误文案保持可读且不泄露 Token。
+- `PolisherService` 增加 AI 请求 30 秒超时，避免润色请求长时间悬挂。
+- App 入口持有并释放当前 `ApiClient`，远程 API 地址保存成功后立即切换客户端连接，不再要求重启。
+- 图片上传在压缩后仍过大时提前提示；服务端返回 401/403/413/5xx 时给出更明确原因。
+- 服务端认证严格要求 `Token <value>`，并使用恒定时间比较；CORS 增加可选 `allowedOrigins` 白名单。
+- 版本号从 `1.4.4+9` 升至 `1.4.5+10`，CHANGELOG/README/AGENTS/SESSION_LOG/DEV 文档同步更新。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `lib/main.dart`
+- `lib/screens/home_screen.dart`
+- `lib/screens/remote_api_page.dart`
+- `lib/screens/settings_page.dart`
+- `lib/services/api_client.dart`
+- `lib/services/polisher_service.dart`
+- `server/config.example.json`
+- `server/src/config/index.ts`
+- `server/src/index.ts`
+- `server/src/middleware/auth.ts`
+- `server/src/middleware/auth.test.ts`
+- `test/widget_test.dart`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `README.md`
+- `SESSION_LOG.md`
+- `docs/DEV_SUMMARY.md`
+- `docs/DEV_PLAN.md`
+
+### 遇到的问题
+
+- 服务端 `node_modules` 目录存在但 `.bin` 和部分包内容残缺，`tsc` / `vitest` 无法执行；通过 `npm install` 恢复本地依赖后完成验证，未执行 `npm audit fix`。
+- 远程 API 设置页新增测试复现了保存后立即 dispose `TextEditingController` 的真实生命周期问题，已改为由页面状态持有并在页面销毁或下次编辑前释放。
+- 首次发布提交漏更新文档和版本号，导致真机 Release 仍为 `1.4.4+9`；本次补发 `1.4.5+10`。
+
+### 最终结果
+
+- `flutter analyze --no-pub` 通过，零问题。
+- `flutter test --no-pub` 369 项全部通过。
+- `server npm run build` 通过。
+- `server npm test` 4 个测试文件、26 项测试全部通过。
+- `flutter build apk --release --no-pub` 通过。
+- Release APK 使用 `adb install -r` 覆盖安装到 PLG110，保留本地服务器地址和 Token。
+
 ## 2026-06-23 Today Rainbow 视觉校准与标签色规则稳定
 
 ### 讨论内容

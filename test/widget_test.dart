@@ -167,6 +167,13 @@ class _HangingHttpClient extends http.BaseClient {
   }
 }
 
+class _TimeoutHttpClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    throw TimeoutException('timeout');
+  }
+}
+
 class _CapturingHttpClient extends _FakeHttpClient {
   String? lastRequestBody;
 
@@ -4751,6 +4758,33 @@ tags:
       );
     });
 
+    test('throws readable timeout error without apiKey', () async {
+      final service = PolisherService(httpClient: _TimeoutHttpClient());
+
+      expect(
+        () => service.polish(
+          content: '测试',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://api.test.com',
+            apiKey: 'sk-super-secret',
+            model: 'gpt-4',
+          ),
+        ),
+        throwsA(
+          isA<Exception>()
+              .having((e) => e.toString(), 'message', contains('AI 请求超时'))
+              .having(
+                (e) => e.toString(),
+                'message',
+                isNot(contains('sk-super-secret')),
+              ),
+        ),
+      );
+    });
+
     test('system prompt uses default when polishPrompt is empty', () async {
       final client = _CapturingHttpClient(
         body: '''
@@ -5209,10 +5243,59 @@ tags:
         expect(systemContent, contains('📌 模式识别'));
         expect(systemContent, contains('🎯 行动建议'));
         expect(systemContent, contains('💬 暖心鼓励'));
+        expect(systemContent, contains('没有出现的模块视为未填写'));
+        expect(systemContent, contains('必须输出「🎯 行动建议」模块'));
         expect(userContent, '今天日记内容：\n【随手记】\n- **09:30** 测试 #生活');
         expect(body, isNot(contains('sk-secret')));
       },
     );
+
+    test(
+      'coach diary context ignores empty anxiety and generated tomorrow',
+      () {
+        const raw = '''
+# 今天
+
+## ✍️ 随手记 & 灵感
+- **09:30** 读完一章书 #生活
+
+## 😰 焦虑时刻
+- 今天什么时候我感到焦虑/紧张？
+>
+- 当时我在担心什么？（具体到一句话）
+>
+
+### 🌙 明日寄语
+- 旧的明日寄语
+''';
+
+        final context = buildCoachDiaryContext(raw);
+
+        expect(context, contains('【随手记】'));
+        expect(context, contains('读完一章书'));
+        expect(context, isNot(contains('焦虑时刻')));
+        expect(context, isNot(contains('今天什么时候我感到焦虑')));
+        expect(context, isNot(contains('旧的明日寄语')));
+      },
+    );
+
+    test('coach diary context includes only real anxiety answers', () {
+      const raw = '''
+# 今天
+
+## 😰 焦虑时刻
+- 今天什么时候我感到焦虑/紧张？
+> 下午开会前
+- 当时我在担心什么？（具体到一句话）
+>
+''';
+
+      final context = buildCoachDiaryContext(raw);
+
+      expect(context, contains('【焦虑时刻】'));
+      expect(context, contains('下午开会前'));
+      expect(context, isNot(contains('当时我在担心什么')));
+    });
   });
 
   group('splitCoachResultLikeWeb', () {
@@ -5235,6 +5318,22 @@ tags:
       expect(parts.lizhiContent, isNot(contains('🎯 行动建议')));
       expect(parts.lizhiContent, isNot(contains('- 今天表现很好')));
       expect(parts.lizhiContent, contains('📌 模式识别\n今天表现很好'));
+    });
+
+    test('extracts tomorrow message as action content', () {
+      final raw =
+          '📌 模式识别\n'
+          '- 今天专注在阅读和记录\n'
+          '🌙 明日寄语\n'
+          '- 明天继续读十分钟\n'
+          '💬 暖心鼓励\n'
+          '- 你在稳步前进';
+      final parts = PolisherService.splitCoachResultLikeWeb(raw);
+
+      expect(parts.actionContent, '明天继续读十分钟');
+      expect(parts.lizhiContent, contains('📌 模式识别'));
+      expect(parts.lizhiContent, contains('💬 暖心鼓励'));
+      expect(parts.lizhiContent, isNot(contains('🌙 明日寄语')));
     });
 
     test('encouragement does not leak into action content', () {
@@ -7369,8 +7468,26 @@ tags:
           DateTime(2026, 6, 8),
           'data:image/jpeg;base64,test',
         ),
-        throwsA(isA<Exception>()),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.message,
+            'message',
+            contains('服务器错误'),
+          ),
+        ),
       );
+    });
+
+    test('testConnection returns readable timeout message', () async {
+      final api = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _TimeoutHttpClient(),
+      );
+
+      final result = await api.testConnection(DateTime(2026, 6, 8));
+
+      expect(result.success, isFalse);
+      expect(result.message, contains('连接超时'));
     });
 
     test('fetchDiaryImage requests correct URL with month', () async {
@@ -8571,6 +8688,42 @@ tags:
       expect(find.text('Token 状态'), findsOneWidget);
       expect(find.text('未配置'), findsOneWidget);
       expect(find.text('已配置'), findsNothing);
+    });
+
+    testWidgets('remote api save notifies new config immediately', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      ApiConfig? changedConfig;
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://old.local', token: 'test'),
+        httpClient: _FakeHttpClient(statusCode: 200, body: '{}'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RemoteApiPage(
+            apiConfig: ApiConfig(baseUrl: 'https://old.local', token: 'test'),
+            apiClient: client,
+            onConfigChanged: (config) => changedConfig = config,
+            createApiClient: (config) => ApiClient(
+              config,
+              httpClient: _FakeHttpClient(statusCode: 200, body: '{}'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('修改服务器地址'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'https://new.local');
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(changedConfig?.baseUrl, 'https://new.local');
+      expect(changedConfig?.token, 'test');
+      expect(find.text('服务器地址已保存并生效'), findsOneWidget);
+      expect(find.text('保存后重启 App 生效。'), findsNothing);
     });
 
     testWidgets('tapping appearance navigates to appearance settings', (

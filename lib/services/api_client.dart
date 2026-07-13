@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:http/http.dart' as http;
@@ -9,6 +11,9 @@ import '../models/tag_config.dart';
 import 'api_config.dart';
 
 class ApiClient {
+  static const requestTimeout = Duration(seconds: 12);
+  static const uploadTimeout = Duration(seconds: 30);
+
   final ApiConfig _config;
   late final http.Client _http;
   late final String _baseUrl;
@@ -71,10 +76,7 @@ class ApiClient {
   Future<TestConnectionResult> testConnection(DateTime date) async {
     final dateStr = formatDate(date);
     try {
-      final response = await _http.get(
-        Uri.parse('$_baseUrl/api/v1/diary/$dateStr'),
-        headers: _headers,
-      );
+      final response = await _get('/api/v1/diary/$dateStr');
       if (response.statusCode == 200) {
         return TestConnectionResult.ok();
       } else if (response.statusCode == 404) {
@@ -84,6 +86,8 @@ class ApiClient {
       } else {
         return TestConnectionResult.failed('服务器返回错误 (${response.statusCode})');
       }
+    } on ApiException catch (e) {
+      return TestConnectionResult.failed(e.message);
     } catch (e) {
       return TestConnectionResult.failed('无法连接到服务器');
     }
@@ -91,10 +95,7 @@ class ApiClient {
 
   Future<DiaryEntry?> getDiary(DateTime date) async {
     final dateStr = formatDate(date);
-    final response = await _http.get(
-      Uri.parse('$_baseUrl/api/v1/diary/$dateStr'),
-      headers: _headers,
-    );
+    final response = await _get('/api/v1/diary/$dateStr');
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return DiaryEntry.fromJson(json);
@@ -103,10 +104,9 @@ class ApiClient {
   }
 
   Future<bool> ensureDiary(DateTime date) async {
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/create'),
-      headers: _headers,
-      body: jsonEncode({'date': formatDate(date)}),
+    final response = await _post(
+      '/api/v1/diary/create',
+      body: {'date': formatDate(date)},
     );
     return response.statusCode == 200;
   }
@@ -118,16 +118,15 @@ class ApiClient {
     List<String> tags, {
     String? time,
   }) async {
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/$section'),
-      headers: _headers,
-      body: jsonEncode({
+    final response = await _post(
+      '/api/v1/diary/$section',
+      body: {
         'date': formatDate(date),
         'content': content,
         'tags': tags,
         'time': time ?? formatTime(DateTime.now()),
         'operationId': generateUuidV4(),
-      }),
+      },
     );
     return response.statusCode == 200;
   }
@@ -169,14 +168,13 @@ class ApiClient {
   }
 
   Future<bool> replaceAnxiety(DateTime date, String content) async {
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/anxiety/replace'),
-      headers: _headers,
-      body: jsonEncode({
+    final response = await _post(
+      '/api/v1/diary/anxiety/replace',
+      body: {
         'date': formatDate(date),
         'content': content,
         'operationId': generateUuidV4(),
-      }),
+      },
     );
     return response.statusCode == 200;
   }
@@ -187,20 +185,20 @@ class ApiClient {
     String? operationId,
     String? imagePrefix,
   }) async {
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/image/upload'),
-      headers: _headers,
-      body: jsonEncode({
+    final response = await _post(
+      '/api/v1/diary/image/upload',
+      body: {
         'date': formatDate(date),
         'imageData': imageBase64,
         if (imagePrefix != null && imagePrefix.trim().isNotEmpty)
           'imagePrefix': imagePrefix.trim(),
         // ignore: use_null_aware_elements
         if (operationId != null) 'operationId': operationId,
-      }),
+      },
+      timeout: uploadTimeout,
     );
     if (response.statusCode != 200) {
-      throw Exception('图片上传失败 (${response.statusCode})');
+      throw ApiException(_statusMessage('图片上传失败', response.statusCode));
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -216,27 +214,25 @@ class ApiClient {
           )
         : Uri.parse('$_baseUrl/api/v1/diary/image/$year/$imageName');
 
-    final response = await _http.get(uri, headers: _headers);
+    final response = await _send(() => _http.get(uri, headers: _headers));
     if (response.statusCode != 200) {
-      throw Exception('图片加载失败 (${response.statusCode})');
+      throw ApiException(_statusMessage('图片加载失败', response.statusCode));
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<bool> replaceLizhiSays(DateTime date, String content) async {
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/lizhi-says'),
-      headers: _headers,
-      body: jsonEncode({'date': formatDate(date), 'content': content}),
+    final response = await _post(
+      '/api/v1/diary/lizhi-says',
+      body: {'date': formatDate(date), 'content': content},
     );
     return response.statusCode == 200;
   }
 
   Future<bool> replaceTomorrowSection(DateTime date, String content) async {
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/tomorrow'),
-      headers: _headers,
-      body: jsonEncode({'date': formatDate(date), 'content': content}),
+    final response = await _post(
+      '/api/v1/diary/tomorrow',
+      body: {'date': formatDate(date), 'content': content},
     );
     return response.statusCode == 200;
   }
@@ -247,15 +243,14 @@ class ApiClient {
     required String target,
     required String replacement,
   }) async {
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/edit-entry'),
-      headers: _headers,
-      body: jsonEncode({
+    final response = await _post(
+      '/api/v1/diary/edit-entry',
+      body: {
         'date': formatDate(date),
         'section': section,
         'target': target,
         'replacement': replacement,
-      }),
+      },
     );
     return response.statusCode == 200;
   }
@@ -265,26 +260,18 @@ class ApiClient {
     required String section,
     required String line,
   }) async {
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/delete-entry'),
-      headers: _headers,
-      body: jsonEncode({
-        'date': formatDate(date),
-        'section': section,
-        'line': line,
-      }),
+    final response = await _post(
+      '/api/v1/diary/delete-entry',
+      body: {'date': formatDate(date), 'section': section, 'line': line},
     );
     return response.statusCode == 200;
   }
 
   Future<TagConfig> fetchTagConfig() async {
-    final response = await _http.get(
-      Uri.parse('$_baseUrl/api/v1/settings/tags'),
-      headers: _headers,
-    );
+    final response = await _get('/api/v1/settings/tags');
 
     if (response.statusCode != 200) {
-      throw Exception('获取标签配置失败 (${response.statusCode})');
+      throw ApiException(_statusMessage('获取标签配置失败', response.statusCode));
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -292,13 +279,10 @@ class ApiClient {
   }
 
   Future<HistoryMonthResult> fetchHistoryMonth(int year, int month) async {
-    final response = await _http.get(
-      Uri.parse('$_baseUrl/api/v1/history/$year/$month'),
-      headers: _headers,
-    );
+    final response = await _get('/api/v1/history/$year/$month');
 
     if (response.statusCode != 200) {
-      throw Exception('获取历史日记列表失败 (${response.statusCode})');
+      throw ApiException(_statusMessage('获取历史日记列表失败', response.statusCode));
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -326,17 +310,71 @@ class ApiClient {
     if (extraCheckboxes != null && extraCheckboxes.isNotEmpty) {
       body['extraCheckboxes'] = extraCheckboxes;
     }
-    final response = await _http.post(
-      Uri.parse('$_baseUrl/api/v1/diary/habit'),
-      headers: _headers,
-      body: jsonEncode(body),
-    );
+    final response = await _post('/api/v1/diary/habit', body: body);
     return response.statusCode == 200;
+  }
+
+  Future<http.Response> _get(String path) {
+    return _send(
+      () => _http.get(Uri.parse('$_baseUrl$path'), headers: _headers),
+    );
+  }
+
+  Future<http.Response> _post(
+    String path, {
+    required Map<String, dynamic> body,
+    Duration timeout = requestTimeout,
+  }) {
+    return _send(
+      () => _http.post(
+        Uri.parse('$_baseUrl$path'),
+        headers: _headers,
+        body: jsonEncode(body),
+      ),
+      timeout: timeout,
+    );
+  }
+
+  Future<http.Response> _send(
+    Future<http.Response> Function() request, {
+    Duration timeout = requestTimeout,
+  }) async {
+    try {
+      return await request().timeout(timeout);
+    } on TimeoutException {
+      throw const ApiException('连接超时，请检查网络或服务器状态');
+    } on SocketException {
+      throw const ApiException('无法连接到服务器，请检查网络或服务器地址');
+    } on http.ClientException {
+      throw const ApiException('网络请求失败，请检查服务器地址');
+    }
+  }
+
+  String _statusMessage(String prefix, int statusCode) {
+    if (statusCode == 401 || statusCode == 403) {
+      return '$prefix：认证失败，请检查 Token';
+    }
+    if (statusCode == 413) {
+      return '$prefix：图片过大，请调低图片质量后重试';
+    }
+    if (statusCode >= 500) {
+      return '$prefix：服务器错误 ($statusCode)';
+    }
+    return '$prefix ($statusCode)';
   }
 
   void dispose() {
     _http.close();
   }
+}
+
+class ApiException implements Exception {
+  final String message;
+
+  const ApiException(this.message);
+
+  @override
+  String toString() => message;
 }
 
 class TestConnectionResult {

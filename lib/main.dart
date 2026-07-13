@@ -46,6 +46,7 @@ class AppEntry extends StatefulWidget {
 
 class _AppEntryState extends State<AppEntry> {
   ApiConfig? _config;
+  ApiClient? _apiClient;
   bool _loading = true;
   bool _showSplash = true;
   static const _configLoadTimeout = Duration(seconds: 5);
@@ -61,7 +62,13 @@ class _AppEntryState extends State<AppEntry> {
       final config = await ApiConfig.load().timeout(_configLoadTimeout);
       if (!mounted) return;
       setState(() {
-        _config = config;
+        if (config == null) {
+          _config = null;
+          _apiClient?.dispose();
+          _apiClient = null;
+        } else {
+          _setConfig(config);
+        }
         _loading = false;
       });
     } catch (_) {
@@ -75,8 +82,14 @@ class _AppEntryState extends State<AppEntry> {
 
   void _onConfigured(ApiConfig config) {
     setState(() {
-      _config = config;
+      _setConfig(config);
     });
+  }
+
+  void _setConfig(ApiConfig config) {
+    _apiClient?.dispose();
+    _config = config;
+    _apiClient = ApiClient(config);
   }
 
   void _onSplashDone() {
@@ -97,15 +110,29 @@ class _AppEntryState extends State<AppEntry> {
     if (_config == null) {
       return SetupScreen(onConfigured: _onConfigured);
     }
-    return MainScreen(apiClient: ApiClient(_config!));
+    return MainScreen(
+      apiClient: _apiClient!,
+      onApiConfigChanged: _onConfigured,
+    );
+  }
+
+  @override
+  void dispose() {
+    _apiClient?.dispose();
+    super.dispose();
   }
 }
 
 /// 底部导航主页面，包含今天、过往、习惯三个 tab。
 class MainScreen extends StatefulWidget {
   final ApiClient apiClient;
+  final ValueChanged<ApiConfig> onApiConfigChanged;
 
-  const MainScreen({super.key, required this.apiClient});
+  const MainScreen({
+    super.key,
+    required this.apiClient,
+    required this.onApiConfigChanged,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -120,6 +147,7 @@ class _MainScreenState extends State<MainScreen> {
       HomeScreen(
         key: const PageStorageKey('home'),
         apiClient: widget.apiClient,
+        onApiConfigChanged: widget.onApiConfigChanged,
       ),
       PastScreen(
         key: const PageStorageKey('past'),

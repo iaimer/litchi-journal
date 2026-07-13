@@ -9,12 +9,16 @@ class RemoteApiPage extends StatefulWidget {
   final ApiConfig apiConfig;
   final ApiClient? apiClient;
   final bool tokenConfigured;
+  final ValueChanged<ApiConfig>? onConfigChanged;
+  final ApiClient Function(ApiConfig config)? createApiClient;
 
   const RemoteApiPage({
     super.key,
     required this.apiConfig,
     this.apiClient,
     this.tokenConfigured = true,
+    this.onConfigChanged,
+    this.createApiClient,
   });
 
   @override
@@ -23,11 +27,18 @@ class RemoteApiPage extends StatefulWidget {
 
 class _RemoteApiPageState extends State<RemoteApiPage> {
   late String _baseUrl;
+  TextEditingController? _baseUrlEditController;
 
   @override
   void initState() {
     super.initState();
     _baseUrl = widget.apiConfig.baseUrl;
+  }
+
+  @override
+  void dispose() {
+    _baseUrlEditController?.dispose();
+    super.dispose();
   }
 
   @override
@@ -53,7 +64,7 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '保存后重启 App 生效。',
+            '保存后立即生效。',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -64,7 +75,9 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
   }
 
   Future<void> _editBaseUrl() async {
+    _baseUrlEditController?.dispose();
     final controller = TextEditingController(text: _baseUrl);
+    _baseUrlEditController = controller;
     String? error;
 
     final saved = await showDialog<bool>(
@@ -111,7 +124,9 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
                     }
 
                     final config = widget.apiClient!.configWithBaseUrl(newUrl);
-                    final client = ApiClient(config);
+                    final client =
+                        widget.createApiClient?.call(config) ??
+                        ApiClient(config);
                     final result = await client.testConnection(DateTime.now());
                     client.dispose();
 
@@ -135,13 +150,14 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
     );
 
     final newBaseUrl = controller.text.trim();
-    controller.dispose();
     if (!mounted || saved != true) return;
 
+    final config = widget.apiClient!.configWithBaseUrl(newBaseUrl);
+    widget.onConfigChanged?.call(config);
     setState(() => _baseUrl = newBaseUrl);
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('服务器地址已保存，重启 App 后生效')));
+    ).showSnackBar(const SnackBar(content: Text('服务器地址已保存并生效')));
   }
 
   Widget _buildInfoRow(ThemeData theme, String label, String value) {

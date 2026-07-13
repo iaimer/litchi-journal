@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import config from '../config/index.js';
 
@@ -8,11 +9,24 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     return res.status(401).json({ error: 'Missing Authorization header' });
   }
 
-  const token = authHeader.replace('Token ', '');
+  if (!authHeader.startsWith('Token ')) {
+    return res.status(401).json({ error: 'Invalid Authorization scheme' });
+  }
 
-  if (token !== config.apiToken) {
+  const token = authHeader.slice('Token '.length).trim();
+  if (!isTokenValid(token, config.apiToken)) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
   next();
+}
+
+function isTokenValid(token: string, expectedToken: string) {
+  if (!token || !expectedToken) return false;
+
+  const tokenBuffer = Buffer.from(token);
+  const expectedBuffer = Buffer.from(expectedToken);
+  if (tokenBuffer.length !== expectedBuffer.length) return false;
+
+  return timingSafeEqual(tokenBuffer, expectedBuffer);
 }

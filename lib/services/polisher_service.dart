@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -10,6 +12,8 @@ import '../widgets/entry_type.dart';
 import 'polish_result_parser.dart';
 
 class PolisherService {
+  static const requestTimeout = Duration(seconds: 30);
+
   static const defaultPolishPrompt = '''
 你是一个日记润色助手。请将用户输入的内容进行润色。
 
@@ -41,7 +45,18 @@ class PolisherService {
 铁律：
 - 总字数严格 250-300 字，不超出、不偷懒
 - 只基于原文，不编造
+- 只分析输入中实际出现的已填写内容；没有出现的模块视为未填写，完全忽略
+- 不要因为某个模块没填，就围绕这个缺失模块提出分析、提醒或行动建议
+- 如果焦虑时刻没有真实回答，不要提焦虑记录、焦虑处理或补填焦虑
+- 必须输出 🎯 行动建议，内容用于保存为「明日寄语」，不能省略
 - 教练口吻，客观直接，不说教''';
+
+  static const _coachGuardrails = '''
+【生成边界】
+1. 只从输入中已经填写的模块内容提取模式、矛盾、行动和鼓励。
+2. 输入中没有出现的模块表示用户没有填写；不要评价、提醒或建议用户补填该模块。
+3. 如果没有真实焦虑回答，不得围绕焦虑模块生成分析或明日行动。
+4. 必须输出「🎯 行动建议」模块，1-2 条即可，用作明日寄语保存。''';
 
   static const _retryInstruction = '''
 【重要提醒】
@@ -61,7 +76,7 @@ class PolisherService {
   final http.Client _http;
 
   PolisherService({http.Client? httpClient})
-      : _http = httpClient ?? http.Client();
+    : _http = httpClient ?? http.Client();
 
   Future<PolishResult> polish({
     required String content,
@@ -84,17 +99,31 @@ class PolisherService {
     );
 
     // First attempt
-    var rawContent =
-        await _callAI(config: config, systemPrompt: systemPrompt, userContent: content);
-    var result = const PolishResultParser().parse(rawContent, tagConfig, tagSettings: tagSettings);
+    var rawContent = await _callAI(
+      config: config,
+      systemPrompt: systemPrompt,
+      userContent: content,
+    );
+    var result = const PolishResultParser().parse(
+      rawContent,
+      tagConfig,
+      tagSettings: tagSettings,
+    );
 
     if (result.tags.isNotEmpty) return result;
 
     // Retry with stronger tag instruction
     final retryPrompt = '$systemPrompt\n\n$_retryInstruction';
-    rawContent =
-        await _callAI(config: config, systemPrompt: retryPrompt, userContent: content);
-    result = const PolishResultParser().parse(rawContent, tagConfig, tagSettings: tagSettings);
+    rawContent = await _callAI(
+      config: config,
+      systemPrompt: retryPrompt,
+      userContent: content,
+    );
+    result = const PolishResultParser().parse(
+      rawContent,
+      tagConfig,
+      tagSettings: tagSettings,
+    );
 
     return result;
   }
@@ -107,20 +136,24 @@ class PolisherService {
     String userPrefix = '原文：',
   }) async {
     final chatUrl = PolisherService.chatUrl(config.baseUrl);
-    final response = await _http.post(
-      Uri.parse(chatUrl),
-      headers: {
-        'Authorization': 'Bearer ${config.apiKey}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'model': config.model.isNotEmpty ? config.model : config.resolvedModel,
-        'messages': [
-          {'role': 'system', 'content': systemPrompt},
-          {'role': 'user', 'content': '$userPrefix$userContent'},
-        ],
-        'max_tokens': maxTokens,
-      }),
+    final response = await _callWithTimeout(
+      () => _http.post(
+        Uri.parse(chatUrl),
+        headers: {
+          'Authorization': 'Bearer ${config.apiKey}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': config.model.isNotEmpty
+              ? config.model
+              : config.resolvedModel,
+          'messages': [
+            {'role': 'system', 'content': systemPrompt},
+            {'role': 'user', 'content': '$userPrefix$userContent'},
+          ],
+          'max_tokens': maxTokens,
+        }),
+      ),
     );
 
     if (response.statusCode != 200) {
@@ -134,13 +167,28 @@ class PolisherService {
     }
 
     final message =
-        (choices[0] as Map<String, dynamic>)['message'] as Map<String, dynamic>?;
+        (choices[0] as Map<String, dynamic>)['message']
+            as Map<String, dynamic>?;
     final rawContent = message?['content'] as String?;
     if (rawContent == null || rawContent.trim().isEmpty) {
       throw Exception('AI 结果为空');
     }
 
     return rawContent.trim();
+  }
+
+  Future<http.Response> _callWithTimeout(
+    Future<http.Response> Function() request,
+  ) async {
+    try {
+      return await request().timeout(requestTimeout);
+    } on TimeoutException {
+      throw Exception('AI 请求超时，请稍后重试');
+    } on SocketException {
+      throw Exception('无法连接到 AI 服务，请检查网络或服务地址');
+    } on http.ClientException {
+      throw Exception('AI 网络请求失败，请检查服务地址');
+    }
   }
 
   Future<String> polishPlainText({
@@ -155,8 +203,9 @@ class PolisherService {
     }
 
     final trimmed = config.polishPrompt?.trim();
-    final effectivePrompt =
-        (trimmed != null && trimmed.isNotEmpty) ? trimmed : defaultPolishPrompt;
+    final effectivePrompt = (trimmed != null && trimmed.isNotEmpty)
+        ? trimmed
+        : defaultPolishPrompt;
 
     return _callAI(
       config: config,
@@ -175,11 +224,11 @@ class PolisherService {
     }
 
     final trimmed = config.coachPrompt?.trim();
-    final effectivePrompt = (trimmed != null &&
-            trimmed.isNotEmpty &&
-            !trimmed.contains('第一人称'))
+    final basePrompt =
+        (trimmed != null && trimmed.isNotEmpty && !trimmed.contains('第一人称'))
         ? trimmed
         : defaultCoachPrompt;
+    final effectivePrompt = '$basePrompt\n\n$_coachGuardrails';
 
     return _callAI(
       config: config,
@@ -192,18 +241,20 @@ class PolisherService {
 
   static CoachGenerationParts splitCoachResultLikeWeb(String raw) {
     final actionMatch = RegExp(
-      r'(?:###\s+)?\*{0,2}\s*🎯\s*\*{0,2}\s*行动建议\s*\*{0,2}\s*\n?([\s\S]*?)(?=(?:###\s+)?\*{0,2}\s*💬\s*\*{0,2}\s*暖心鼓励\s*\*{0,2}|$)',
+      r'(?:###\s+)?\*{0,2}\s*(?:🎯|🌙)\s*\*{0,2}\s*(?:行动建议|明日寄语|明日行动|明天建议)\s*\*{0,2}\s*\n?([\s\S]*?)(?=(?:###\s+)?\*{0,2}\s*💬\s*\*{0,2}\s*暖心鼓励\s*\*{0,2}|$)',
     ).firstMatch(raw);
 
     final actionContent = _cleanActionForReplace(
       actionMatch?.group(1)?.trim() ?? '',
     );
-    final lizhiContent = _cleanCoachForReplace(actionMatch != null
-        ? raw
-            .replaceAll(actionMatch.group(0)!, '')
-            .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-            .trim()
-        : raw.trim());
+    final lizhiContent = _cleanCoachForReplace(
+      actionMatch != null
+          ? raw
+                .replaceAll(actionMatch.group(0)!, '')
+                .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+                .trim()
+          : raw.trim(),
+    );
 
     return CoachGenerationParts(
       lizhiContent: lizhiContent,
@@ -291,7 +342,8 @@ class PolisherService {
     final idx = rawNoMD.indexOf(normText);
     if (idx == -1) return (title: normTitle, body: null);
 
-    final afterTitle = rawNoMD.substring(idx + normText.length)
+    final afterTitle = rawNoMD
+        .substring(idx + normText.length)
         .replaceFirst(RegExp(r'^[：:\s]+'), '')
         .trim();
 
@@ -357,10 +409,14 @@ class PolisherService {
 
   static String _titleTextFor(String normTitle) {
     switch (normTitle) {
-      case '📌 模式识别': return '模式识别';
-      case '⚠️ 矛盾指出': return '矛盾指出';
-      case '💬 暖心鼓励': return '暖心鼓励';
-      default: return normTitle;
+      case '📌 模式识别':
+        return '模式识别';
+      case '⚠️ 矛盾指出':
+        return '矛盾指出';
+      case '💬 暖心鼓励':
+        return '暖心鼓励';
+      default:
+        return normTitle;
     }
   }
 
@@ -381,12 +437,14 @@ class PolisherService {
     String? customPrompt,
   }) {
     final trimmed = customPrompt?.trim();
-    final effectivePrompt =
-        (trimmed != null && trimmed.isNotEmpty) ? trimmed : defaultPolishPrompt;
+    final effectivePrompt = (trimmed != null && trimmed.isNotEmpty)
+        ? trimmed
+        : defaultPolishPrompt;
 
     final hint = switch (entryType) {
       EntryType.quickNote => '这是一条随手记录。',
-      EntryType.reflection => '这是一条觉察与迭代记录。判断这条觉察属于哪个生活领域（亲子/育儿/工作/学习/阅读/技术/生活），从该领域中选择适合的主题。',
+      EntryType.reflection =>
+        '这是一条觉察与迭代记录。判断这条觉察属于哪个生活领域（亲子/育儿/工作/学习/阅读/技术/生活），从该领域中选择适合的主题。',
       EntryType.happiness => '这是一条小确幸记录。',
       EntryType.anxiety => '这是焦虑时刻的一个回答。',
     };
@@ -397,14 +455,16 @@ class PolisherService {
   }
 
   static String _buildTagSection(TagConfig tagConfig) {
-    final domainsSection = tagConfig.domains.map((d) {
-      final topics =
-          d.topics.map((t) => '  - ${t.name}').join('\n');
-      return '- ${d.name}:\n$topics';
-    }).join('\n');
+    final domainsSection = tagConfig.domains
+        .map((d) {
+          final topics = d.topics.map((t) => '  - ${t.name}').join('\n');
+          return '- ${d.name}:\n$topics';
+        })
+        .join('\n');
 
-    final methodsSection =
-        tagConfig.methods.map((m) => '- ${m.name}').join('\n');
+    final methodsSection = tagConfig.methods
+        .map((m) => '- ${m.name}')
+        .join('\n');
 
     return '''
 【固定标签规则】

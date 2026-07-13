@@ -5,6 +5,7 @@ interface Config {
   vaultPath: string;
   apiToken: string;
   port: number;
+  allowedOrigins?: string[];
 }
 
 const configPath = fileURLToPath(new URL('../../config.json', import.meta.url));

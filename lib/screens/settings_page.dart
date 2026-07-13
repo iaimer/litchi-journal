@@ -24,12 +24,14 @@ class SettingsPage extends StatefulWidget {
   final ApiConfig apiConfig;
   final ApiClient? apiClient;
   final bool tokenConfigured;
+  final ValueChanged<ApiConfig>? onApiConfigChanged;
 
   const SettingsPage({
     super.key,
     required this.apiConfig,
     this.apiClient,
     this.tokenConfigured = true,
+    this.onApiConfigChanged,
   });
 
   @override
@@ -162,6 +164,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 apiConfig: widget.apiConfig,
                 apiClient: widget.apiClient,
                 tokenConfigured: widget.tokenConfigured,
+                onConfigChanged: widget.onApiConfigChanged,
               ),
             ),
           ),

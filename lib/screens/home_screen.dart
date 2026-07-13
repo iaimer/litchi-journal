@@ -36,19 +36,77 @@ import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
 
 class HomeScreen extends StatefulWidget {
+  static const maxImageUploadPayloadChars = 9 * 1024 * 1024;
+
   final ApiClient apiClient;
   final HabitSettingsRepository? habitSettingsRepo;
   final Future<void> Function()? imageUploadHandler;
+  final ValueChanged<ApiConfig>? onApiConfigChanged;
 
   const HomeScreen({
     super.key,
     required this.apiClient,
     this.habitSettingsRepo,
     this.imageUploadHandler,
+    this.onApiConfigChanged,
   });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
+}
+
+String buildCoachDiaryContext(String rawDiary) {
+  final sections = <String>[];
+
+  void addSection(String title, List<String> items) {
+    if (items.isNotEmpty) {
+      sections.addAll(['【$title】', ...items]);
+    }
+  }
+
+  final document = const MarkdownParser().parse(rawDiary);
+  for (final section in document.sections) {
+    if (section is QuickNoteSection) {
+      addSection('随手记', _timelineRawLines(section.contents));
+    } else if (section is HappinessSection) {
+      addSection('小确幸', _timelineRawLines(section.contents));
+    } else if (section is AnxietySection) {
+      addSection('焦虑时刻', _anxietyAnswerLines(section.contents));
+    } else if (section is ReviewSection) {
+      addSection('觉察', _timelineRawLines(section.contents));
+    }
+  }
+
+  return sections.isEmpty ? '今天暂无日记内容' : sections.join('\n');
+}
+
+List<String> _timelineRawLines(List<DiaryContent> contents) {
+  return contents
+      .whereType<TimelineContent>()
+      .map((content) => content.rawLine)
+      .where(_isUsableContextLine)
+      .toList();
+}
+
+List<String> _anxietyAnswerLines(List<DiaryContent> contents) {
+  final answers = <String>[];
+  for (final content in contents) {
+    if (content is MarkdownContent) {
+      answers.addAll(AnxietyComposer.parseAnswers(content.text));
+    }
+  }
+  return answers
+      .map((answer) => answer.trim())
+      .where(_isUsableContextLine)
+      .toList();
+}
+
+bool _isUsableContextLine(String line) {
+  final trimmed = line.trim();
+  return trimmed.isNotEmpty &&
+      trimmed != '-' &&
+      trimmed != '- ' &&
+      !trimmed.contains('<!--');
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -459,6 +517,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final bytes = await file.readAsBytes();
       final compressService = ImageCompressService.fromSettings(imageSettings);
       final base64 = compressService.compressToBase64(bytes);
+      if (base64.length > HomeScreen.maxImageUploadPayloadChars) {
+        throw Exception('图片压缩后仍过大，请在图片设置中降低尺寸或质量');
+      }
 
       await widget.apiClient.uploadImage(
         _activeDate,
@@ -475,10 +536,16 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('上传失败，请重试')));
+      ).showSnackBar(SnackBar(content: Text(_imageUploadErrorMessage(e))));
     } finally {
       if (mounted) setState(() => _imageUploading = false);
     }
+  }
+
+  String _imageUploadErrorMessage(Object error) {
+    final message = error.toString().replaceFirst('Exception: ', '').trim();
+    if (message.isEmpty) return '上传失败，请重试';
+    return message;
   }
 
   Future<ImageSettings> _loadImageSettings() async {
@@ -508,31 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final config = await aiRepo.loadAIConfig();
       if (!config.isUsable) throw Exception('请先在设置中启用AI并配置API');
 
-      // Build diary context (same as Web client)
-      final sections = <String>[];
-
-      void addSection(String title, List<String> items) {
-        if (items.isNotEmpty) {
-          sections.addAll(['【$title】', ...items]);
-        }
-      }
-
-      final document = const MarkdownParser().parse(_diary!.raw);
-      for (final section in document.sections) {
-        if (section is QuickNoteSection) {
-          addSection('随手记', _timelineRawLines(section.contents));
-        } else if (section is HappinessSection) {
-          addSection('小确幸', _timelineRawLines(section.contents));
-        } else if (section is AnxietySection) {
-          addSection('焦虑时刻', _markdownLines(section.contents));
-        } else if (section is ReviewSection) {
-          addSection('觉察', _timelineRawLines(section.contents));
-        } else if (section is TomorrowSection) {
-          addSection('明日寄语', _markdownLines(section.contents));
-        }
-      }
-
-      final diaryContext = sections.isEmpty ? '今天暂无日记内容' : sections.join('\n');
+      final diaryContext = buildCoachDiaryContext(_diary!.raw);
 
       final service = PolisherService();
       try {
@@ -582,32 +625,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _generatingCoach = false);
     }
-  }
-
-  List<String> _timelineRawLines(List<DiaryContent> contents) {
-    return contents
-        .whereType<TimelineContent>()
-        .map((content) => content.rawLine)
-        .where(_isUsableContextLine)
-        .toList();
-  }
-
-  List<String> _markdownLines(List<DiaryContent> contents) {
-    final lines = <String>[];
-    for (final content in contents) {
-      if (content is MarkdownContent) {
-        lines.addAll(content.text.split('\n'));
-      }
-    }
-    return lines.where(_isUsableContextLine).toList();
-  }
-
-  bool _isUsableContextLine(String line) {
-    final trimmed = line.trim();
-    return trimmed.isNotEmpty &&
-        trimmed != '-' &&
-        trimmed != '- ' &&
-        !trimmed.contains('<!--');
   }
 
   String _todayString() {
@@ -872,6 +889,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     apiClient: widget.apiClient,
                     tokenConfigured: widget.apiClient.hasToken,
+                    onApiConfigChanged: widget.onApiConfigChanged,
                   ),
                 ),
               );

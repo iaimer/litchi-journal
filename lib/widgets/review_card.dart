@@ -10,7 +10,12 @@ class ReviewCard extends StatelessWidget {
   final Color? accentColor;
   final Future<void> Function(String rawLine)? onTimelineDelete;
   final Future<void> Function(
-      String rawLine, String content, List<String> tags)? onTimelineEdit;
+    String rawLine,
+    String content,
+    List<String> tags,
+    String time,
+  )?
+  onTimelineEdit;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
 

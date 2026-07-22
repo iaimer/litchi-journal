@@ -26,6 +26,7 @@ class DiaryMarkdownView extends StatelessWidget {
     String rawLine,
     String content,
     List<String> tags,
+    String time,
   )?
   onEntryEdit;
   final TagConfig? tagConfig;
@@ -169,8 +170,13 @@ class DiaryMarkdownView extends StatelessWidget {
                 ? (note) => onEntryDelete!('quick_notes', note.rawLine)
                 : null,
             onEdit: onEntryEdit != null
-                ? (note, content, tags) =>
-                      onEntryEdit!('quick_notes', note.rawLine, content, tags)
+                ? (note, content, tags, time) => onEntryEdit!(
+                    'quick_notes',
+                    note.rawLine,
+                    content,
+                    tags,
+                    time,
+                  )
                 : null,
             tagConfig: tagConfig,
             tagSettings: tagSettings,
@@ -189,8 +195,8 @@ class DiaryMarkdownView extends StatelessWidget {
               ? (rawLine) => onEntryDelete!('happiness', rawLine)
               : null,
           onTimelineEdit: onEntryEdit != null
-              ? (rawLine, content, tags) =>
-                    onEntryEdit!('happiness', rawLine, content, tags)
+              ? (rawLine, content, tags, time) =>
+                    onEntryEdit!('happiness', rawLine, content, tags, time)
               : null,
           tagConfig: tagConfig,
           tagSettings: tagSettings,
@@ -203,8 +209,8 @@ class DiaryMarkdownView extends StatelessWidget {
               ? (rawLine) => onEntryDelete!('reflection', rawLine)
               : null,
           onTimelineEdit: onEntryEdit != null
-              ? (rawLine, content, tags) =>
-                    onEntryEdit!('reflection', rawLine, content, tags)
+              ? (rawLine, content, tags, time) =>
+                    onEntryEdit!('reflection', rawLine, content, tags, time)
               : null,
           tagConfig: tagConfig,
           tagSettings: tagSettings,

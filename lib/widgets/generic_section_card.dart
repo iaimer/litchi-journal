@@ -21,6 +21,7 @@ class GenericSectionCard extends StatelessWidget {
     String rawLine,
     String content,
     List<String> tags,
+    String time,
   )?
   onTimelineEdit;
   final TagConfig? tagConfig;
@@ -461,6 +462,7 @@ class _TimelineDeleteRow extends StatefulWidget {
     String rawLine,
     String content,
     List<String> tags,
+    String time,
   )?
   onEdit;
   final TagConfig? tagConfig;
@@ -528,11 +530,12 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
       isScrollControlled: true,
       builder: (_) => EntryEditSheet(
         initialContent: widget.content.text,
+        initialTime: widget.content.time,
         initialTags: widget.content.tags,
         tagConfig: widget.tagConfig,
         tagSettings: widget.tagSettings,
-        onSave: (content, tags) async {
-          await widget.onEdit!(widget.content.rawLine, content, tags);
+        onSave: (content, tags, time) async {
+          await widget.onEdit!(widget.content.rawLine, content, tags, time);
         },
       ),
     );

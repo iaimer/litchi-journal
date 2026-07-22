@@ -3,7 +3,7 @@ import { readDiary, writeDiary, getDateString, getDiaryPath, existsDiary, getAss
 import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
 import { isAbsolute, join, relative, resolve } from 'path';
 import config from '../config/index.js';
-import { parseDiary, appendToSection, sectionHeaders, replaceEmptyBulletInSection } from '../services/markdown.js';
+import { parseDiary, appendToSection, sectionHeaders, replaceEmptyBulletInSection, sortTimelineEntriesInSection } from '../services/markdown.js';
 import { createObsidianDiaryContent } from '../services/template.js';
 import { parseShanghaiDate } from '../utils/date.js';
 
@@ -970,7 +970,7 @@ router.post('/edit-entry', async (req, res) => {
 
     const newLines = replacement.split('\n');
     lines.splice(range.startIndex, range.endIndexExclusive - range.startIndex, ...newLines);
-    writeDiary(date, lines.join('\n'));
+    writeDiary(date, sortTimelineEntriesInSection(lines.join('\n'), section));
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });

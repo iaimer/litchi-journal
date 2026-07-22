@@ -170,6 +170,38 @@ export function appendToSection(content: string, section: string, newLine: strin
   return lines.join('\n');
 }
 
+export function sortTimelineEntriesInSection(content: string, section: string): string {
+  const header = sectionHeaders[section];
+  if (!header) return content;
+
+  const lines = content.split('\n');
+  const start = lines.findIndex(line => line.startsWith(header));
+  if (start === -1) return content;
+
+  const allHeaders = [...Object.values(sectionHeaders), '### 🧠 荔枝喵说', '## 📈 每日复盘'];
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (allHeaders.some(sectionHeader => lines[i].startsWith(sectionHeader))) {
+      end = i;
+      break;
+    }
+  }
+
+  const timeline = /^(?:-\s*|>\s*)\*\*((?:[01]\d|2[0-3]):[0-5]\d)\*\*/;
+  const entries = lines
+    .slice(start + 1, end)
+    .map((line, offset) => ({ line, index: start + 1 + offset, time: timeline.exec(line.trim())?.[1] }))
+    .filter((entry): entry is { line: string; index: number; time: string } => entry.time != null)
+    .sort((a, b) => a.time.localeCompare(b.time));
+  const positions = entries.map(entry => entry.index).sort((a, b) => a - b);
+
+  entries.forEach((entry, index) => {
+    lines[positions[index]] = entry.line;
+  });
+
+  return lines.join('\n');
+}
+
 export function replaceEmptyBulletInSection(content: string, section: string, newLine: string): string | null {
   const header = sectionHeaders[section];
   if (!header) return null;

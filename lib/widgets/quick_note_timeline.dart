@@ -17,6 +17,7 @@ class QuickNoteTimeline extends StatelessWidget {
     QuickNoteItem note,
     String content,
     List<String> tags,
+    String time,
   )?
   onEdit;
   final TagConfig? tagConfig;
@@ -62,6 +63,7 @@ class _QuickNoteRow extends StatefulWidget {
     QuickNoteItem note,
     String content,
     List<String> tags,
+    String time,
   )?
   onEdit;
   final TagConfig? tagConfig;
@@ -129,11 +131,12 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
       isScrollControlled: true,
       builder: (_) => EntryEditSheet(
         initialContent: widget.note.content,
+        initialTime: widget.note.time,
         initialTags: widget.note.tags,
         tagConfig: widget.tagConfig,
         tagSettings: widget.tagSettings,
-        onSave: (content, tags) async {
-          await widget.onEdit!(widget.note, content, tags);
+        onSave: (content, tags, time) async {
+          await widget.onEdit!(widget.note, content, tags, time);
         },
       ),
     );

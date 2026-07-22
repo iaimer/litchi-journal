@@ -6652,7 +6652,7 @@ tags:
             body: QuickNoteTimeline(
               section: section,
               onDelete: (_) async {},
-              onEdit: (_, _, _) async {},
+              onEdit: (_, _, _, _) async {},
             ),
           ),
         ),
@@ -6690,7 +6690,7 @@ tags:
           home: Scaffold(
             body: QuickNoteTimeline(
               section: section,
-              onEdit: (_, _, _) async {},
+              onEdit: (_, _, _, _) async {},
             ),
           ),
         ),
@@ -6711,6 +6711,7 @@ tags:
         tester.widget<TextField>(find.byType(TextField)).controller?.text,
         '原始内容',
       );
+      expect(find.text('09:30'), findsNWidgets(2));
     });
 
     testWidgets('EntryEditSheet strips # prefix from tags for TagPicker', (
@@ -6731,9 +6732,10 @@ tags:
                       isScrollControlled: true,
                       builder: (_) => EntryEditSheet(
                         initialContent: 'test',
+                        initialTime: '09:30',
                         initialTags: const ['#亲子', '#亲子沟通'],
                         tagConfig: tagConfig,
-                        onSave: (_, tags) async {
+                        onSave: (_, tags, _) async {
                           savedTags = tags;
                         },
                       ),
@@ -6772,6 +6774,22 @@ tags:
 
       expect(replacement, '- **09:30** 新内容 #亲子 #亲子沟通');
     });
+
+    test(
+      'rebuildTimelineLine uses the edited time while preserving prefix and tags',
+      () {
+        const rawLine = '- **18:00** 旧内容 #旧标签';
+
+        final replacement = rebuildTimelineLine(
+          rawLine: rawLine,
+          content: '新内容',
+          tags: ['生活'],
+          time: '08:05',
+        );
+
+        expect(replacement, '- **08:05** 新内容 #生活');
+      },
+    );
 
     test('rebuildTimelineLine preserves > prefix for happiness edit', () {
       const rawLine = '> **14:00** 旧小确幸 #生活';

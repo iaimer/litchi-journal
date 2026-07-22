@@ -7,14 +7,17 @@ import 'tag_picker.dart';
 
 class EntryEditSheet extends StatefulWidget {
   final String initialContent;
+  final String initialTime;
   final List<String> initialTags;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
-  final Future<void> Function(String content, List<String> tags) onSave;
+  final Future<void> Function(String content, List<String> tags, String time)
+  onSave;
 
   const EntryEditSheet({
     super.key,
     required this.initialContent,
+    required this.initialTime,
     required this.initialTags,
     this.tagConfig,
     this.tagSettings,
@@ -27,6 +30,7 @@ class EntryEditSheet extends StatefulWidget {
 
 class _EntryEditSheetState extends State<EntryEditSheet> {
   late final TextEditingController _controller;
+  late TimeOfDay _selectedTime;
   late List<String> _selectedTags;
   late List<String> _hiddenInitialTags;
   bool _saving = false;
@@ -37,13 +41,22 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialContent);
-    _selectedTags =
-        widget.initialTags.map((t) => t.startsWith('#') ? t.substring(1) : t).toList();
+    final timeParts = widget.initialTime.split(':');
+    _selectedTime = TimeOfDay(
+      hour: int.parse(timeParts[0]),
+      minute: int.parse(timeParts[1]),
+    );
+    _selectedTags = widget.initialTags
+        .map((t) => t.startsWith('#') ? t.substring(1) : t)
+        .toList();
 
     // 计算隐藏标签
-    _hiddenInitialTags = (widget.tagConfig != null && widget.tagSettings != null)
+    _hiddenInitialTags =
+        (widget.tagConfig != null && widget.tagSettings != null)
         ? TagSettingsHelper.hiddenInitialTags(
-            _selectedTags, widget.tagSettings!)
+            _selectedTags,
+            widget.tagSettings!,
+          )
         : [];
   }
 
@@ -57,20 +70,38 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
     if (!_canSave) return;
     setState(() => _saving = true);
     try {
-      await widget.onSave(_controller.text.trim(), _selectedTags);
+      await widget.onSave(_controller.text.trim(), _selectedTags, _timeText);
       if (mounted) Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('更新失败，请稍后重试')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('更新失败，请稍后重试')));
     }
+  }
+
+  String get _timeText =>
+      '${_selectedTime.hour.toString().padLeft(2, '0')}:'
+      '${_selectedTime.minute.toString().padLeft(2, '0')}';
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _selectedTime = picked);
   }
 
   @override
   Widget build(BuildContext context) {
-    final effectiveTagConfig = (widget.tagConfig != null && widget.tagSettings != null)
-        ? TagSettingsHelper.effectiveTagConfig(widget.tagConfig!, widget.tagSettings!)
+    final effectiveTagConfig =
+        (widget.tagConfig != null && widget.tagSettings != null)
+        ? TagSettingsHelper.effectiveTagConfig(
+            widget.tagConfig!,
+            widget.tagSettings!,
+          )
         : widget.tagConfig;
 
     return SafeArea(
@@ -85,16 +116,21 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              '编辑记录',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('编辑记录', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
               maxLines: 4,
               minLines: 2,
               autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.schedule_outlined),
+              title: const Text('发生时间'),
+              subtitle: Text(_timeText),
+              onTap: _saving ? null : _pickTime,
             ),
             if (effectiveTagConfig != null) ...[
               const SizedBox(height: 12),
@@ -110,8 +146,7 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed:
-                        _saving ? null : () => Navigator.pop(context),
+                    onPressed: _saving ? null : () => Navigator.pop(context),
                     child: const Text('取消'),
                   ),
                 ),
@@ -124,7 +159,9 @@ class _EntryEditSheetState extends State<EntryEditSheet> {
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary),
+                              strokeWidth: 2,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
                           )
                         : const Text('保存'),
                   ),

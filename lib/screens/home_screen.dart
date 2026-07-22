@@ -430,11 +430,13 @@ class _HomeScreenState extends State<HomeScreen> {
     String rawLine,
     String content,
     List<String> tags,
+    String time,
   ) async {
     final replacement = rebuildTimelineLine(
       rawLine: rawLine,
       content: content,
       tags: tags,
+      time: time,
     );
     final ok = await widget.apiClient.editEntry(
       _activeDate,

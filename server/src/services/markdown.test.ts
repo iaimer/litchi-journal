@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { appendToSection, replaceEmptyBulletInSection } from './markdown.js';
+import {
+  appendToSection,
+  replaceEmptyBulletInSection,
+  sortTimelineEntriesInSection
+} from './markdown.js';
 
 const template = [
   '---',
@@ -59,6 +63,36 @@ describe('appendToSection', () => {
     const result = appendToSection(template, 'quick_notes', '- **10:00** 新笔记');
     expect(result).not.toContain('- **HH:MM** 内容 #标签');
     expect(result).toContain('- **10:00** 新笔记');
+  });
+});
+
+describe('sortTimelineEntriesInSection', () => {
+  it('sorts only timeline entries in the edited section by time', () => {
+    const content = template.replace(
+      '- **HH:MM** 内容 #标签',
+      ['- **10:00** 买菜 #生活', '- **14:00** 陪孩子 #育儿', '- **08:00** 做饭 #生活'].join('\n')
+    ).replace('## 📸 影像记录', '## 📸 影像记录\n![[photo.jpg]]');
+
+    const result = sortTimelineEntriesInSection(content, 'quick_notes');
+
+    const quickNotes = result.split('## ✍️ 随手记 & 灵感')[1].split('## ✨ 每日小确幸')[0];
+    expect(quickNotes).toContain(
+      ['- **08:00** 做饭 #生活', '- **10:00** 买菜 #生活', '- **14:00** 陪孩子 #育儿'].join('\n')
+    );
+    expect(result).toContain('![[photo.jpg]]');
+  });
+
+  it('preserves quote timeline syntax, tags, and non-timeline callout lines', () => {
+    const content = template.replace(
+      '> [!success] 总有事件值得感恩🙏♥️\n> ',
+      ['> [!success] 总有事件值得感恩🙏♥️', '> ', '> **14:00** 晚霞 #生活', '> **09:30** 咖啡 #日常记录'].join('\n')
+    );
+
+    const result = sortTimelineEntriesInSection(content, 'happiness');
+
+    const happiness = result.split('## ✨ 每日小确幸')[1].split('## 😰 焦虑时刻')[0];
+    expect(happiness).toContain('> [!success] 总有事件值得感恩🙏♥️');
+    expect(happiness).toContain('> \n> **09:30** 咖啡 #日常记录\n> **14:00** 晚霞 #生活');
   });
 });
 

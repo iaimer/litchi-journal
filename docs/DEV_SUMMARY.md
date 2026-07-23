@@ -8,7 +8,7 @@ Web 端继续作为功能、API、Markdown 格式、标签体系、AI 提示词�
 
 当前项目已经进入"文字记录功能对齐版"阶段。也就是说，主要文字记录闭环已经完成：新的一天能自动创建日记，随手记、觉察、小确幸和焦虑四问都能写入，记录可以润色、打标签、编辑、删除，习惯可以更新，Obsidian 后台数据同步正常。
 
-截至 1.4.5，P1/P2 上线前稳定性修复已经完成：Flutter API / AI 请求具备超时保护和可操作错误提示，远程 API 地址保存后即时生效，图片上传失败提示更明确；服务端认证严格要求 `Token <value>`，并支持可选 CORS `allowedOrigins` 白名单。
+截至 1.4.6，P1/P2 上线前稳定性修复已经完成；并补齐了今日日记时间条目编辑与 Markdown 层排序。Flutter API / AI 请求具备超时保护和可操作错误提示，远程 API 地址保存后即时生效，图片上传失败提示更明确；服务端认证严格要求 `Token <value>`，并支持可选 CORS `allowedOrigins` 白名单。
 
 ---
 
@@ -1601,3 +1601,30 @@ Today Rainbow 初步接入后，真机发现三个视觉问题：
 ### 36.7 当前稳定版
 
 版本 `1.4.3+8`。
+
+---
+
+## 37. Sprint 37：今日日记条目时间编辑与 Markdown 排序
+
+### 37.1 背景
+
+已有条目可编辑正文和标签，但无法修正发生时间；同时新增记录采用追加写入，晚时间后新增早时间会让 Obsidian Markdown 与时间轴顺序倒置。
+
+### 37.2 实现
+
+- `EntryEditSheet` 增加系统 `showTimePicker`，保存值统一为补零的 `HH:mm`。
+- 编辑链路将新时间透传到 `rebuildTimelineLine()`，继续使用 Parser 给出的 `rawLine` 作为服务端定位目标。
+- 服务端 `edit-entry` 替换完成后排序；`appendToSection()` 也在新增后排序，覆盖随手记、小确幸与觉察等时间条目。
+- 排序仅作用于当前 section 内形如 `- **HH:mm**` 或 `> **HH:mm**` 的行；按完整原始行移动，保留前缀、正文与标签，不影响 callout、普通文本、图片或其它 section。
+
+### 37.3 验证
+
+- Flutter `rebuildTimelineLine()` 覆盖新时间、前缀与标签保留。
+- 服务端覆盖“先追加 18:00、再追加 10:00”、编辑后排序、小确幸引用格式与图片不移动。
+- `flutter analyze` 零问题，`flutter test` 370 项通过。
+- `server npm run build` 通过，`server npm test` 32 项通过。
+- Android Debug APK 使用 `adb install -r` 覆盖安装，远端服务构建重启后用户确认真机与 Markdown 排序正常。
+
+### 37.4 当前稳定版
+
+版本 `1.4.6+11`，服务端提交 `c1e009b`。

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.4.6
+
+### 新增
+- 今日页条目编辑支持修改发生时间，使用系统时间选择器并统一保存为补零的 `HH:mm` 格式。
+
+### 修复
+- 服务端现在会在新增或编辑随手记、小确幸、觉察等时间条目后，仅对当前 section 的 Markdown 时间行按时间升序重排，App 与 Obsidian 文件顺序保持一致。
+- 排序保留原始 Markdown 行格式、标签和引用前缀，不移动图片、普通文本、小标题或其它 section。
+
+### 验证
+- `flutter analyze` 通过。
+- `flutter test` 370 项全部通过。
+- `server npm run build` 通过。
+- `server npm test` 32 项全部通过。
+- Android Debug APK 已使用 `adb install -r` 覆盖安装；远端服务部署后用户确认新增与编辑时间条目均能正确重排。
+
+---
+
 ## 1.4.5
 
 ### 修复

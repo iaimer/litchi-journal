@@ -203,13 +203,14 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前状态：369 测试全部通过，analyze 零问题。
+当前状态：370 测试全部通过，analyze 零问题。
 
 ## 数据完整性规则
 
 以下规则从开发中沉淀，所有写入类改动必须遵守：
 
 - **rawLine 不可反推**：编辑/删除时必须使用 Parser 解析的原始 rawLine，不能用 content + tags 重新组装 target 或 line。
+- **时间轴写入即排序**：新增或编辑带 `**HH:mm**` 的时间条目后，服务端必须仅在当前 section 内按时间升序重排；排序直接写入 Markdown，完整保留 `-` / `>` 前缀、正文和标签，不能只在 Flutter UI 排序。
 - **tags 前缀差异**：`TimelineContent.tags` 存储带 `#` 前缀（如 `['#育儿']`），TagPicker 和 `_selectedTags` 存储不带 `#`（如 `['育儿']`）。EntryEditSheet 初始化时须 strip `#`。
 - **### 独立 section**：`###` 标题中觉察/人生教练/荔枝喵说/明日寄语/影像 应作为独立 DiarySection，不能作为 SubSectionContent 嵌套在父 section 中。
 - **跨日自动创建**：`_loadDiary()` 中如果 `getDiary(date)` 返回 null，须调用 `ensureDiary(date)` 后再重新读取。提交记录时首次失败须 ensureDiary 并重试。

@@ -4,6 +4,57 @@
 
 ---
 
+## 2026-07-23 H3-B 今日日记条目时间编辑与 Markdown 排序
+
+### 讨论内容
+
+- 已有条目编辑需要支持修正发生时间，不应要求用户删除后重新记录。
+- 用户明确要求时间排序写入 Markdown 数据层，而不是仅在 Flutter 时间轴 UI 排序。
+- 真机回归发现编辑后可排序，但新增记录仍为尾部追加；因此将新增写入也纳入同一排序规则。
+
+### 决策 & 原因
+
+- `EntryEditSheet` 使用系统时间选择器，保存值统一为 `HH:mm`。
+- Flutter 保持 `rawLine` 定位原则，仅在 replacement 中替换时间 token，继续保留 `-` 或 `>` 的原始格式。
+- 服务端在 `edit-entry` 替换后排序，并让 `appendToSection()` 在新增后调用同一 section 局部排序函数，确保 Obsidian 与 App 顺序一致。
+- 排序仅识别当前 section 的时间行，完整移动原始行，避免影响 callout、普通文本、图片和其它模块。
+- 版本从 `1.4.5+10` 升至 `1.4.6+11`。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `lib/screens/home_screen.dart`
+- `lib/services/entry_line_builder.dart`
+- `lib/widgets/diary_markdown_view.dart`
+- `lib/widgets/entry_edit_sheet.dart`
+- `lib/widgets/generic_section_card.dart`
+- `lib/widgets/quick_note_timeline.dart`
+- `lib/widgets/review_card.dart`
+- `server/src/routes/diary.ts`
+- `server/src/services/markdown.ts`
+- `server/src/services/markdown.test.ts`
+- `test/widget_test.dart`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/DEV_PLAN.md`
+- `docs/DEV_SUMMARY.md`
+- `SESSION_LOG.md`
+
+### 遇到的问题
+
+- 首版仅在编辑接口后排序，新增记录仍按追加顺序写入；通过服务端回归测试复现“18:00 后新增 10:00”的 Markdown 倒序问题。
+- 远端 PM2 运行 `dist/index.js`，部署时必须执行 `npm run build` 后再重启，单纯拉取 `src/` 不会更新运行代码。
+
+### 最终结果
+
+- 新增和编辑时间条目都会在当前 section 内按时间升序写入 Markdown。
+- `flutter analyze` 通过，`flutter test` 370 项通过。
+- `server npm run build` 通过，`server npm test` 32 项通过。
+- Android Debug APK 已覆盖安装；远端服务更新后用户确认测试成功。
+
+---
+
 ## 2026-07-13 P1/P2 上线前稳定性修复与 1.4.5 Release
 
 ### 讨论内容

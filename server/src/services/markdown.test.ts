@@ -64,6 +64,16 @@ describe('appendToSection', () => {
     expect(result).not.toContain('- **HH:MM** 内容 #标签');
     expect(result).toContain('- **10:00** 新笔记');
   });
+
+  it('sorts appended timeline entries by time', () => {
+    const first = appendToSection(template, 'quick_notes', '- **18:00** 晚间记录');
+    const result = appendToSection(first, 'quick_notes', '- **10:00** 上午记录');
+
+    const quickNotes = result
+        .split('## ✍️ 随手记 & 灵感')[1]
+        .split('## ✨ 每日小确幸')[0];
+    expect(quickNotes).toContain('- **10:00** 上午记录\n- **18:00** 晚间记录');
+  });
 });
 
 describe('sortTimelineEntriesInSection', () => {

@@ -167,7 +167,7 @@ export function appendToSection(content: string, section: string, newLine: strin
 
   lines.splice(insertIndex, 0, newLine);
 
-  return lines.join('\n');
+  return sortTimelineEntriesInSection(lines.join('\n'), section);
 }
 
 export function sortTimelineEntriesInSection(content: string, section: string): string {

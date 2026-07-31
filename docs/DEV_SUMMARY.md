@@ -1628,3 +1628,39 @@ Today Rainbow 初步接入后，真机发现三个视觉问题：
 ### 37.4 当前稳定版
 
 版本 `1.4.6+11`，服务端提交 `c1e009b`。
+
+---
+
+## 38. Sprint 38：历史月历与历史日记补录
+
+### 38.1 产品边界
+
+- 历史补录支持相片、随手记、觉察和小确幸。
+- 已有历史内容继续只读，不开放编辑或删除。
+- 用户可通过过往页头部月历选择任意过去日期；今天和未来日期不可选。
+- 只有真实内容或相片的日期显示圆点，空白模板不算有记录。
+
+### 38.2 实现
+
+- `PastScreen` 增加内联 `HistoryCalendar`，月份数据按需加载并缓存；圆点加载失败不阻塞日期跳转。
+- `ReadOnlyDiaryScreen` 增加详情页专属历史补录 FAB，复用 `QuickCaptureScreen`、现有 append API、标签和 AI 润色链路。
+- 历史草稿按目标日期和条目类型隔离，继续使用 2 分钟 TTL。
+- 无日记日期只在第一次真正保存文字或相片时调用 `ensureDiary(date)`，避免浏览产生空文件。
+- 相片使用 `pickMultiImage` 一次选择最多 9 张，逐张压缩上传；失败时停止后续上传并保留已成功结果。
+
+### 38.3 设计上下文
+
+- 新增 `PRODUCT.md`、`DESIGN.md`、`CONTEXT.md` 和 `.impeccable/design.json`。
+- 设计方向为“会呼吸的生活手账”：交互结构向 iOS 原生体验靠近，同时保留荔枝日记暖色品牌、Today Rainbow 和 Flora 图标。
+
+### 38.4 验证
+
+- `flutter analyze --no-pub`：零问题。
+- `flutter test --no-pub`：376 项全部通过。
+- `server npm run build`：通过。
+- `server npm test`：32 项全部通过。
+- Debug APK 使用 `adb install -r` 覆盖安装到 PLG110，保留原有配置。
+
+### 38.5 当前稳定版
+
+版本 `1.5.0+12`。

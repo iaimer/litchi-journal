@@ -399,3 +399,56 @@
 - 真机连接问题定位为 VPN 白名单配置问题，非 App 代码或服务端运行问题。
 - `flutter analyze --no-pub` 通过，零问题。
 - `flutter test --no-pub` 通过，363 项全部通过。
+
+---
+
+## 2026-07-31 历史月历与历史日记补录
+
+### 讨论内容
+
+- 用户需要为指定过去日期补录相片、随手记、觉察和小确幸，同时保持已有历史内容只读。
+- 过往页头部需要内联月历，有真实记录的日期显示圆点，并避免浏览空日期时创建空日记。
+- 相片补录需要一次选择多张，而不是默认单张。
+
+### 决策 & 原因
+
+- 历史补录 FAB 只出现在历史详情页，不出现在过往首页。
+- 月历仅允许选择过去日期；圆点依据 `hasContent || hasImages`，空白模板不标记。
+- 文字补录复用 `QuickCaptureScreen` 和现有 append API，草稿按目标日期与条目类型隔离。
+- 无日记日期在首次保存失败后才调用 `ensureDiary(date)` 并重试，浏览和打开记录页不会创建文件。
+- 相片一次最多选择 9 张，按顺序逐张压缩上传；遇到失败停止后续上传，保留已成功结果。
+- 版本从 `1.4.6+11` 升至 `1.5.0+12`。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `lib/screens/past_screen.dart`
+- `lib/screens/read_only_diary_screen.dart`
+- `lib/screens/quick_capture_screen.dart`
+- `lib/widgets/history_calendar.dart`
+- `lib/widgets/historical_quick_record_fab.dart`
+- `test/widget_test.dart`
+- `PRODUCT.md`
+- `DESIGN.md`
+- `CONTEXT.md`
+- `.impeccable/design.json`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/DEV_SUMMARY.md`
+- `docs/DEV_PLAN.md`
+- `SESSION_LOG.md`
+
+### 遇到的问题
+
+- 真机 ADB 曾短暂断开，重新连接后使用 `adb install -r` 完成覆盖安装。
+- 真机自动操作耗时较长，后续由用户负责人工功能验收，开发侧保留自动测试与构建验证。
+
+### 最终结果
+
+- 历史月历、日期圆点、历史详情专属补录入口、历史文字补录和多相片补录已实现。
+- `flutter analyze --no-pub` 通过，零问题。
+- `flutter test --no-pub` 376 项全部通过。
+- `server npm run build` 通过。
+- `server npm test` 32 项全部通过。
+- Debug APK 已覆盖安装到 PLG110，原有配置保留。

@@ -78,6 +78,8 @@ Flutter 端已建立的领域组件：
 - 焦虑四问进入 `AnxietyScreen`，继续复用 `AnxietyComposer` 的逐问润色与保存逻辑。
 - 图片入口直接调用现有图片选择、压缩、上传、刷新流程。
 - FAB 扇形菜单使用极坐标计算位置；避免回退到手写固定 x/y 坐标。
+- 过往页本身不显示补录 FAB；只有进入某一天的历史详情后才显示历史补录入口。
+- 历史补录仅支持随手记、觉察、小确幸和相片；已有历史内容继续保持只读。
 
 ## 配置兜底规则
 
@@ -203,7 +205,7 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前状态：370 测试全部通过，analyze 零问题。
+当前状态：376 测试全部通过，analyze 零问题。
 
 ## 数据完整性规则
 
@@ -214,6 +216,8 @@ flutter test
 - **tags 前缀差异**：`TimelineContent.tags` 存储带 `#` 前缀（如 `['#育儿']`），TagPicker 和 `_selectedTags` 存储不带 `#`（如 `['育儿']`）。EntryEditSheet 初始化时须 strip `#`。
 - **### 独立 section**：`###` 标题中觉察/人生教练/荔枝喵说/明日寄语/影像 应作为独立 DiarySection，不能作为 SubSectionContent 嵌套在父 section 中。
 - **跨日自动创建**：`_loadDiary()` 中如果 `getDiary(date)` 返回 null，须调用 `ensureDiary(date)` 后再重新读取。提交记录时首次失败须 ensureDiary 并重试。
+- **历史补录延迟创建**：选择或打开无日记的历史日期不能创建空文件；只有文字或相片真正保存时才允许 `ensureDiary(date)`，并且所有写入必须使用用户选择的目标日期。
+- **历史相片批量上传**：一次最多选择 9 张，按选择顺序逐张压缩和上传；失败时停止后续上传，保留已成功图片并报告成功数量。
 - **草稿 TTL 2 分钟**：草稿目的是短时保护（刷新/切换入口/短暂离开），不是长期草稿箱。过期自动清除。
 - **AI 润色分场景**：普通入口（quickNote/reflection/happiness）走 `polish()`，返回 tags；焦虑走 `polishPlainText()`，不含标签。
 - **标签配置兜底**：`TagRepository.loadTagConfig()` 失败时必须返回 `DefaultTagConfig.value`；缓存读写失败不能让标签功能不可用。

@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -56,6 +58,7 @@ import 'package:litchi_journal_flutter/widgets/entry_type.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type_selector.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/habit_card.dart';
+import 'package:litchi_journal_flutter/widgets/history_calendar.dart';
 import 'package:litchi_journal_flutter/widgets/image_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_composer.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
@@ -157,6 +160,59 @@ class _RecordingHttpClient extends _FakeHttpClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     requestPaths.add('${request.method} ${request.url.path}');
     return super.send(request);
+  }
+}
+
+class _HistoricalBackfillHttpClient extends http.BaseClient {
+  bool diaryCreated = false;
+  int createCalls = 0;
+  int appendCalls = 0;
+  int uploadCalls = 0;
+  String? lastAppendBody;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final path = request.url.path;
+    if (request.method == 'GET' && path == '/api/v1/settings/tags') {
+      return _response('{}', 500);
+    }
+    if (request.method == 'GET' && path.startsWith('/api/v1/diary/')) {
+      if (!diaryCreated) return _response('{}', 404);
+      return _response(
+        jsonEncode({
+          'date': path.split('/').last,
+          'title': '历史日记',
+          'raw': '# 历史日记\n\n### 🖼️ 影像记录\n![[image.jpg]]',
+          'sections': {},
+        }),
+        200,
+      );
+    }
+    if (request.method == 'POST' && path == '/api/v1/diary/create') {
+      createCalls++;
+      diaryCreated = true;
+      return _response('{"ok":true}', 200);
+    }
+    if (request.method == 'POST' && path == '/api/v1/diary/quick-note') {
+      appendCalls++;
+      if (request is http.Request) lastAppendBody = request.body;
+      return _response('{"ok":true}', diaryCreated ? 200 : 404);
+    }
+    if (request.method == 'POST' && path == '/api/v1/diary/image/upload') {
+      uploadCalls++;
+      return uploadCalls == 1
+          ? _response('{"ok":true}', 200)
+          : _response('{"error":"upload failed"}', 500);
+    }
+    return _response('{}', 404);
+  }
+
+  http.StreamedResponse _response(String body, int statusCode) {
+    return http.StreamedResponse(
+      Stream.value(utf8.encode(body)),
+      statusCode,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
   }
 }
 
@@ -761,6 +817,206 @@ void main() {
         expect(listView.physics, isA<AlwaysScrollableScrollPhysics>());
       },
     );
+
+    testWidgets('HistoryCalendar marks only recorded past dates', (
+      tester,
+    ) async {
+      DateTime? selectedDate;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HistoryCalendar(
+              displayedMonth: DateTime(2026, 7),
+              recordedDateKeys: const {'2026-07-10'},
+              today: DateTime(2026, 8, 1),
+              onMonthChanged: (_) {},
+              onDateSelected: (date) => selectedDate = date,
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.byKey(const Key('history_calendar_marker_2026-07-10')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('history_calendar_marker_2026-07-11')),
+        findsNothing,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('history_calendar_day_2026-07-11')),
+      );
+      expect(selectedDate, DateTime(2026, 7, 11));
+    });
+
+    testWidgets('HistoryCalendar disables today and future dates', (
+      tester,
+    ) async {
+      DateTime? selectedDate;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HistoryCalendar(
+              displayedMonth: DateTime(2026, 7),
+              recordedDateKeys: const {},
+              today: DateTime(2026, 7, 10),
+              onMonthChanged: (_) {},
+              onDateSelected: (date) => selectedDate = date,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byKey(const Key('history_calendar_day_2026-07-10')),
+      );
+      await tester.tap(
+        find.byKey(const Key('history_calendar_day_2026-07-11')),
+      );
+      expect(selectedDate, isNull);
+
+      await tester.tap(
+        find.byKey(const Key('history_calendar_day_2026-07-09')),
+      );
+      expect(selectedDate, DateTime(2026, 7, 9));
+    });
+
+    testWidgets('historical detail exposes only supported backfill actions', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final client = clientWithBody(
+        jsonEncode({
+          'date': '2026-06-08',
+          'title': '旧日记',
+          'raw': '# 今天\n\n## ✍️ 随手记 & 灵感\n- **09:30** 旧内容',
+          'sections': {},
+        }),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReadOnlyDiaryScreen(
+            date: DateTime(2026, 6, 8),
+            apiClient: client,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('historical_quick_record_fab')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('historical_quick_record_fab')));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('historical_quick_record_quick_note')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('historical_quick_record_reflection')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('historical_quick_record_happiness')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('historical_quick_record_images')),
+        findsOneWidget,
+      );
+      expect(find.text('焦虑四问'), findsNothing);
+    });
+
+    testWidgets('historical multi-image upload keeps partial success', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final httpClient = _HistoricalBackfillHttpClient();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: httpClient,
+      );
+      final image = img.Image(width: 8, height: 8);
+      _fillSolidImage(image);
+      final bytes = Uint8List.fromList(img.encodeJpg(image));
+      final imageSettingsRepository = ImageSettingsRepository(
+        storage: _TestStorage(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReadOnlyDiaryScreen(
+            date: DateTime(2026, 6, 8),
+            apiClient: client,
+            imageSettingsRepository: imageSettingsRepository,
+            imagePicker: (_) async => [
+              XFile.fromData(bytes, name: 'first.jpg', mimeType: 'image/jpeg'),
+              XFile.fromData(bytes, name: 'second.jpg', mimeType: 'image/jpeg'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('historical_quick_record_fab')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('historical_quick_record_images')));
+      await tester.pumpAndSettle();
+
+      expect(httpClient.createCalls, 1);
+      expect(httpClient.uploadCalls, 2);
+      expect(find.textContaining('已成功 1 张，第 2 张失败'), findsOneWidget);
+    });
+
+    testWidgets('historical text backfill creates diary only on save', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final httpClient = _HistoricalBackfillHttpClient();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: httpClient,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReadOnlyDiaryScreen(
+            date: DateTime(2026, 6, 8),
+            apiClient: client,
+            draftRepository: DraftRepository(storage: _TestStorage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(httpClient.createCalls, 0);
+      await tester.tap(find.byKey(const Key('historical_quick_record_fab')));
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('historical_quick_record_quick_note')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
+      expect(httpClient.createCalls, 0);
+
+      await tester.enterText(find.byType(TextField), '补录一条旧时光');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(httpClient.appendCalls, 2);
+      expect(httpClient.createCalls, 1);
+      final requestBody =
+          jsonDecode(httpClient.lastAppendBody!) as Map<String, dynamic>;
+      expect(requestBody['date'], '2026-06-08');
+      expect(requestBody['content'], '补录一条旧时光');
+      expect(requestBody['time'], matches(RegExp(r'^\d{2}:\d{2}$')));
+      expect(find.text('已补录'), findsOneWidget);
+    });
   });
 
   group('Quick record entry', () {
@@ -1215,6 +1471,22 @@ void main() {
       expect(find.text('今天 21:35'), findsOneWidget);
       expect(find.text('AI 润色'), findsOneWidget);
       expect(find.widgetWithText(ElevatedButton, '保存'), findsOneWidget);
+    });
+
+    testWidgets('historical capture displays the target date', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: QuickCaptureScreen(
+            entryType: EntryType.quickNote,
+            openedAt: DateTime(2026, 7, 31, 8, 5),
+            recordDate: DateTime(2026, 7, 10),
+            onSave: (_, _, _) async {},
+          ),
+        ),
+      );
+
+      expect(find.text('2026年7月10日 08:05'), findsOneWidget);
+      expect(find.textContaining('今天'), findsNothing);
     });
 
     testWidgets('default time is captured when screen opens', (tester) async {

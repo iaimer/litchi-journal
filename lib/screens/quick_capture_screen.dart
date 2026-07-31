@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../services/draft_repository.dart';
 import '../widgets/flora_icon.dart';
 
 import '../models/polish_result.dart';
@@ -12,6 +15,8 @@ class QuickCaptureScreen extends StatefulWidget {
   final DateTime openedAt;
   final TagConfig? tagConfig;
   final String? tagHint;
+  final DateTime? recordDate;
+  final DraftRepository? draftRepository;
   final Future<TimeOfDay?> Function(
     BuildContext context,
     TimeOfDay initialTime,
@@ -29,6 +34,8 @@ class QuickCaptureScreen extends StatefulWidget {
     required this.onSave,
     this.tagConfig,
     this.tagHint,
+    this.recordDate,
+    this.draftRepository,
     this.timePicker,
     this.onPolish,
   }) : assert(entryType != EntryType.anxiety);
@@ -44,6 +51,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   bool _saving = false;
   bool _polishing = false;
   bool _tagPickerExpanded = false;
+  bool _restoringDraft = false;
   String? _error;
 
   bool get _hasUnsavedChanges =>
@@ -61,13 +69,56 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   void initState() {
     super.initState();
     _selectedTime = TimeOfDay.fromDateTime(widget.openedAt);
-    _controller.addListener(() => setState(() {}));
+    _controller.addListener(_handleContentChanged);
+    _restoreDraft();
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_handleContentChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  void _handleContentChanged() {
+    if (mounted) setState(() {});
+    _saveDraft();
+  }
+
+  Future<void> _restoreDraft() async {
+    final repository = widget.draftRepository;
+    final date = widget.recordDate;
+    if (repository == null || date == null) return;
+    _restoringDraft = true;
+    final draft = await repository.loadQuickDraft(
+      date: date,
+      entryType: widget.entryType,
+    );
+    if (!mounted) return;
+    if (draft != null) {
+      setState(() {
+        _controller.text = draft.content;
+        _selectedTags = draft.tags;
+        _controller.selection = TextSelection.collapsed(
+          offset: draft.content.length,
+        );
+      });
+    }
+    _restoringDraft = false;
+  }
+
+  void _saveDraft() {
+    final repository = widget.draftRepository;
+    final date = widget.recordDate;
+    if (_restoringDraft || repository == null || date == null) return;
+    unawaited(
+      repository.saveQuickDraft(
+        date: date,
+        entryType: widget.entryType,
+        content: _controller.text,
+        tags: _selectedTags,
+      ),
+    );
   }
 
   String get _timeText =>
@@ -148,6 +199,11 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
 
     try {
       await widget.onSave(_controller.text.trim(), _selectedTags, _timeText);
+      final repository = widget.draftRepository;
+      final date = widget.recordDate;
+      if (repository != null && date != null) {
+        await repository.clearDraft(date: date, entryType: widget.entryType);
+      }
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (_) {
@@ -176,45 +232,47 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         bottom: true,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          _buildTimeTile(theme),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _controller,
-            minLines: 8,
-            maxLines: 14,
-            enabled: !_saving && !_polishing,
-            keyboardType: TextInputType.multiline,
-            textInputAction: TextInputAction.newline,
-            decoration: InputDecoration(hintText: widget.entryType.placeholder),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: _canPolish ? _polish : null,
-                icon: _polishing
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const FloraIcon(FloraIcons.coach, size: 14),
-                label: const Text('AI 润色'),
+          children: [
+            _buildTimeTile(theme),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              minLines: 8,
+              maxLines: 14,
+              enabled: !_saving && !_polishing,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
+              decoration: InputDecoration(
+                hintText: widget.entryType.placeholder,
               ),
-              const Spacer(),
-              _buildTagToggleButton(theme),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _canPolish ? _polish : null,
+                  icon: _polishing
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        )
+                      : const FloraIcon(FloraIcons.coach, size: 14),
+                  label: const Text('AI 润色'),
+                ),
+                const Spacer(),
+                _buildTagToggleButton(theme),
+              ],
+            ),
+            const SizedBox(height: 4),
+            _buildTagArea(theme),
+            const SizedBox(height: 16),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
             ],
-          ),
-          const SizedBox(height: 4),
-          _buildTagArea(theme),
-          const SizedBox(height: 16),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
           ],
-        ],
-      ),
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -241,7 +299,9 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     return TextButton.icon(
       onPressed: () => setState(() => _tagPickerExpanded = !_tagPickerExpanded),
       icon: Icon(
-        _tagPickerExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+        _tagPickerExpanded
+            ? Icons.keyboard_arrow_up
+            : Icons.keyboard_arrow_down,
         size: 16,
       ),
       label: Row(
@@ -266,11 +326,15 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   }
 
   Widget _buildTimeTile(ThemeData theme) {
+    final date = widget.recordDate;
+    final dateText = date == null
+        ? '今天'
+        : '${date.year}年${date.month}月${date.day}日';
     return Card(
       child: ListTile(
         key: const Key('quick_capture_time_tile'),
         title: const Text('记录时间'),
-        subtitle: Text('今天 $_timeText'),
+        subtitle: Text('$dateText $_timeText'),
         trailing: const Icon(Icons.chevron_right),
         onTap: _saving ? null : _pickTime,
       ),
@@ -284,7 +348,10 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         tagConfig: tagConfig,
         initialTags: _selectedTags,
         forceExpanded: _tagPickerExpanded,
-        onChanged: (tags) => setState(() => _selectedTags = tags),
+        onChanged: (tags) {
+          setState(() => _selectedTags = tags);
+          _saveDraft();
+        },
       );
     }
     if (widget.tagHint == null) return const SizedBox.shrink();

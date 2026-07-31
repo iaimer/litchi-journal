@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-30T06:42:28Z",
+  "title": "Design System: 荔枝日记",
+  "extensions": {
+    "colorMeta": {
+      "paper-background": {
+        "role": "neutral",
+        "displayName": "日记纸",
+        "canonical": "#F7F2EA",
+        "tonalRamp": ["#261F18", "#4B3F31", "#766653", "#A2937D", "#C8BCA9", "#E3DACC", "#F7F2EA", "#FCF9F5"]
+      },
+      "paper-surface": {
+        "role": "neutral",
+        "displayName": "柔光纸面",
+        "canonical": "#FFF7ED",
+        "tonalRamp": ["#2B2117", "#534331", "#806C52", "#AD9879", "#D3C1A5", "#EBDCC8", "#FFF7ED", "#FFFBF6"]
+      },
+      "ink-primary": {
+        "role": "neutral",
+        "displayName": "主墨棕",
+        "canonical": "#5A4A36",
+        "tonalRamp": ["#241B12", "#3D3022", "#5A4A36", "#796853", "#9B8A73", "#BFAF99", "#DED3C2", "#F4EEE5"]
+      },
+      "litchi-primary": {
+        "role": "primary",
+        "displayName": "荔枝陶红",
+        "canonical": "#A26B59",
+        "tonalRamp": ["#2D1712", "#512C23", "#754638", "#A26B59", "#BC8A78", "#D3AA9B", "#E7CDC4", "#F8ECE8"]
+      },
+      "growth-green": {
+        "role": "secondary",
+        "displayName": "成长叶绿",
+        "canonical": "#7BA67A",
+        "tonalRamp": ["#172817", "#29472A", "#436A43", "#618C60", "#7BA67A", "#A0C39F", "#C7DFC6", "#ECF5EB"]
+      },
+      "paper-border": {
+        "role": "neutral",
+        "displayName": "纸页边线",
+        "canonical": "#E8DCC9",
+        "tonalRamp": ["#292117", "#514536", "#776A56", "#9E8F77", "#C2B49B", "#D8CDB9", "#E8DCC9", "#F8F3EA"]
+      },
+      "night-background": {
+        "role": "neutral",
+        "displayName": "夜间纸背",
+        "canonical": "#1F1B18",
+        "tonalRamp": ["#151210", "#1F1B18", "#3B332D", "#5B5047", "#82746A", "#AA9C91", "#D2C6BC", "#F1E9E2"]
+      },
+      "night-primary": {
+        "role": "primary",
+        "displayName": "夜间荔枝陶红",
+        "canonical": "#CA9A84",
+        "tonalRamp": ["#311B14", "#553125", "#7C4C3A", "#A56F59", "#CA9A84", "#DCB8A8", "#ECD5CB", "#F9EEE9"]
+      },
+      "rainbow-note": {
+        "role": "tertiary",
+        "displayName": "随手记珊瑚红",
+        "canonical": "#FF6B6B",
+        "tonalRamp": ["#3A1010", "#6A2020", "#9D3535", "#D34F4F", "#FF6B6B", "#FF9898", "#FFC2C2", "#FFEAEA"]
+      },
+      "rainbow-happiness": {
+        "role": "tertiary",
+        "displayName": "小确幸暖橙",
+        "canonical": "#FF9F43",
+        "tonalRamp": ["#3A2007", "#6A3A0D", "#9E5819", "#D77B2B", "#FF9F43", "#FFBB75", "#FFD6A9", "#FFF0DE"]
+      },
+      "rainbow-anxiety": {
+        "role": "tertiary",
+        "displayName": "焦虑柔黄",
+        "canonical": "#FFD43B",
+        "tonalRamp": ["#352B05", "#65520A", "#987C14", "#CCA724", "#FFD43B", "#FFE273", "#FFEDA8", "#FFF8DD"]
+      },
+      "rainbow-reflection": {
+        "role": "tertiary",
+        "displayName": "觉察新绿",
+        "canonical": "#51CF66",
+        "tonalRamp": ["#0C2F13", "#185724", "#287F37", "#3AAA4D", "#51CF66", "#83DF91", "#B3EDBC", "#E3F9E7"]
+      },
+      "rainbow-coach": {
+        "role": "tertiary",
+        "displayName": "教练清青",
+        "canonical": "#12B5CB",
+        "tonalRamp": ["#042A30", "#074E59", "#0B7483", "#0F99AB", "#12B5CB", "#53CEDD", "#94E3EB", "#D8F6F8"]
+      },
+      "rainbow-tomorrow": {
+        "role": "tertiary",
+        "displayName": "明日晴蓝",
+        "canonical": "#4DABF7",
+        "tonalRamp": ["#0A2840", "#12486F", "#206AA0", "#348DD1", "#4DABF7", "#83C7FA", "#B5DEFC", "#E5F4FE"]
+      },
+      "rainbow-images": {
+        "role": "tertiary",
+        "displayName": "影像花紫",
+        "canonical": "#9775FA",
+        "tonalRamp": ["#21133F", "#3B236F", "#58379F", "#7652D2", "#9775FA", "#B69BFC", "#D3C3FD", "#F0EAFE"]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "一级标题",
+        "purpose": "一级页面标题，只在每个页面出现一次。"
+      },
+      "title": {
+        "displayName": "标题",
+        "purpose": "卡片标题、关键操作和二级层级。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "日记正文、说明和列表内容。"
+      },
+      "label": {
+        "displayName": "标签",
+        "purpose": "导航、日期辅助信息与紧凑状态。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "轻抬起",
+        "value": "0 3px 8px rgba(0,0,0,0.12)",
+        "purpose": "活动滑块、浮层选中面。"
+      },
+      {
+        "name": "触控拇指",
+        "value": "0 2px 5px rgba(0,0,0,0.30)",
+        "purpose": "小型开关拇指。"
+      },
+      {
+        "name": "浮层环境光",
+        "value": "0 10px 30px rgba(31,27,24,0.16)",
+        "purpose": "底部月历和临时操作菜单。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "状态反馈",
+        "value": "180ms cubic-bezier(0.215,0.61,0.355,1)",
+        "purpose": "按钮、标签和紧凑选中态。"
+      },
+      {
+        "name": "界面切换",
+        "value": "200ms cubic-bezier(0.215,0.61,0.355,1)",
+        "purpose": "滑块、月历展开和页面内状态变化。"
+      },
+      {
+        "name": "柔和切换",
+        "value": "300ms cubic-bezier(0.215,0.61,0.355,1)",
+        "purpose": "开关和较大范围内容显隐。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "600px"
+      },
+      {
+        "name": "expanded",
+        "value": "840px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "用于保存、确认和主要前进动作。",
+      "html": "<button class=\"ds-btn-primary\">保存</button>",
+      "css": ".ds-btn-primary{min-height:48px;padding:12px 24px;border:0;border-radius:12px;background:#A26B59;color:#FFF7ED;font:600 16px/1.35 system-ui,-apple-system,sans-serif;transition:filter 180ms cubic-bezier(.215,.61,.355,1),transform 180ms cubic-bezier(.215,.61,.355,1)}.ds-btn-primary:hover{filter:brightness(.96)}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:2px solid #5A4A36;outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "用于日记输入、设置与搜索。",
+      "html": "<input class=\"ds-input\" value=\"记录这一刻…\" aria-label=\"记录内容\">",
+      "css": ".ds-input{min-height:48px;padding:12px 16px;border:1px solid #E8DCC9;border-radius:12px;background:#FFF7ED;color:#5A4A36;font:400 16px/1.5 system-ui,-apple-system,sans-serif;outline:none;transition:border-color 180ms cubic-bezier(.215,.61,.355,1)}.ds-input:focus{border-color:#A26B59}.ds-input::placeholder{color:#A48B7E}"
+    },
+    {
+      "name": "Section Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "承载一个明确的日记领域模块。",
+      "html": "<section class=\"ds-card\"><strong>随手记</strong><p>让内容成为主角。</p></section>",
+      "css": ".ds-card{padding:16px;border:1px solid #E8DCC9;border-radius:12px;background:#FFF7ED;color:#5A4A36;font:400 14px/1.6 system-ui,-apple-system,sans-serif}.ds-card strong{display:block;margin-bottom:8px;font-size:16px;font-weight:600}.ds-card p{margin:0}"
+    },
+    {
+      "name": "Tag Chip",
+      "kind": "chip",
+      "refersTo": "tag-chip",
+      "description": "表达标签或模块上下文中的轻量选择。",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">#生活</button>",
+      "css": ".ds-chip{min-height:32px;padding:6px 10px;border:1px solid rgba(255,107,107,.59);border-radius:9999px;background:rgba(255,107,107,.18);color:#5A4A36;font:600 12px/1.3 system-ui,-apple-system,sans-serif}.ds-chip:focus-visible{outline:2px solid #A26B59;outline-offset:2px}"
+    },
+    {
+      "name": "Bottom Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-selected",
+      "description": "稳定承载今天、过往和习惯三个核心工作区。",
+      "html": "<nav class=\"ds-nav\"><button>今天</button><button class=\"active\">过往</button><button>习惯</button></nav>",
+      "css": ".ds-nav{display:flex;gap:8px;padding:8px;background:#FFF7ED;border-top:1px solid #E8DCC9}.ds-nav button{flex:1;min-height:48px;border:0;border-radius:9999px;background:transparent;color:#8D6E63;font:500 12px/1.3 system-ui,-apple-system,sans-serif}.ds-nav button.active{background:#F8EBD8;color:#5A4A36;font-weight:700}.ds-nav button:focus-visible{outline:2px solid #A26B59;outline-offset:1px}"
+    },
+    {
+      "name": "Calendar Day",
+      "kind": "custom",
+      "description": "日期选择单元，有真实记录时显示圆点。",
+      "html": "<button class=\"ds-day\" aria-label=\"7月10日，有记录\"><span>10</span><i></i></button>",
+      "css": ".ds-day{position:relative;width:48px;height:48px;border:0;border-radius:9999px;background:transparent;color:#5A4A36;font:500 15px/1 system-ui,-apple-system,sans-serif}.ds-day:hover{background:#F8EBD8}.ds-day:focus-visible{outline:2px solid #A26B59;outline-offset:1px}.ds-day i{position:absolute;left:50%;bottom:5px;width:4px;height:4px;border-radius:50%;background:#A26B59;transform:translateX(-50%)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "会呼吸的生活手账",
+    "overview": "荔枝日记应像一本每天都愿意翻开的私人手账：暖色纸张承载内容，克制的留白让日期、文字和相片自然成为主角。设计靠近 iOS 的清晰排版、熟悉控件、轻量反馈和日期导航节奏，但不复制其他 App 的品牌外观。界面以“柔和克制、原生清晰”为组件原则。",
+    "keyCharacteristics": [
+      "暖色纸张与清楚墨色",
+      "iOS 风格的信息密度和控件节奏",
+      "内容优先的留白与时间脉络",
+      "平面为主、轻抬起为辅",
+      "Today Rainbow 只表达模块身份",
+      "浅色与深色均保持可读"
+    ],
+    "rules": [
+      {
+        "name": "Rainbow Restraint",
+        "body": "Today Rainbow 只表达模块语义，不写入 Markdown，也不扩散到无模块上下文的普通控件。",
+        "section": "colors"
+      },
+      {
+        "name": "Readability",
+        "body": "柔和不等于低对比度；正文、日期、标签和操作提示必须优先保证清晰。",
+        "section": "colors"
+      },
+      {
+        "name": "Quiet Hierarchy",
+        "body": "不使用全大写、过度粗体或装饰字体制造层级；页面一级标题只保留一个。",
+        "section": "typography"
+      },
+      {
+        "name": "Flat-by-Default",
+        "body": "静态内容不靠阴影区分；只有状态变化或临时浮层获得高度。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 使用 #F7F2EA、#FFF7ED、#5A4A36 构成主要浅色阅读层级。",
+      "Do 保持 4/8/12/16/24/32dp 间距节奏和至少 48dp 点击区域。",
+      "Do 借鉴 iOS 的日期导航、排版密度、控件状态和轻量反馈。",
+      "Do 让 App 展示、交互结果和 Obsidian Markdown 始终一致。",
+      "Do 在模块上下文中严格按 Today Rainbow 固定映射使用颜色。",
+      "Do 为浅色、深色、字体放大和减少动态效果提供可用状态。"
+    ],
+    "donts": [
+      "Don't 做冷峻、办公化或数据仪表盘式的日记工具。",
+      "Don't 使用装饰性玻璃、强烈渐变、复杂动效或密集卡片制造“高级感”。",
+      "Don't 照搬 Web 页面结构，也不要逐像素复制其他日记 App。",
+      "Don't 把“极简日记”的黑白视觉、品牌资源或独有控件直接复制到荔枝日记。",
+      "Don't 给静态内容普遍添加重阴影、彩色侧边条或嵌套卡片。",
+      "Don't 仅靠颜色表达记录状态、选中状态、错误或是否可操作。",
+      "Don't 把模块色、标签色或其他视觉信息写入 Markdown。"
+    ]
+  }
+}

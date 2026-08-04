@@ -4,6 +4,45 @@
 
 ---
 
+## 2026-08-04 文档体系合并精简：6 份工作流文档
+
+### 讨论内容
+
+- 用户要求阅读项目全部文档（AGENTS / PRODUCT / DESIGN / CONTEXT / DEV_SUMMARY / DEV_PLAN / CHANGELOG / SESSION_LOG / README），生成 PRD 文档。
+- 随后要求合并并精简文档体系，方便以后按工作流更新；并更新全局 `project-docs-workflow` skill 后再推送。
+
+### 决策 & 原因
+
+- 文档体系对齐 `project-docs-workflow`：收敛为 6 份 —— `AGENTS.md`（知识库）、`README.md`（简介+发布流程）、`CHANGELOG.md`（版本）、`SESSION_LOG.md`（会话）、`PLAN.md`（产品需求+路线图+进度）、`DESIGN.md`（设计语言）。
+- 旧文档直接删除（git 历史可恢复），不归档，避免工作区冗余。
+- PRD、PRODUCT、CONTEXT 与 DEV_SUMMARY / DEV_PLAN 精华全部并入根目录 `PLAN.md`（10 节结构，含「新需求 & 新想法」inbox）。
+- Flora 品牌规范（SVG 图标基线、空状态系统、品牌源图规则）并入 `DESIGN.md`，两份 FLORA 专题稿删除。
+- RELEASE_CHECKLIST 并入 `README.md`「发布检查清单」。
+- AGENTS.md 新增「文档更新工作流」节，推送前按 版本号 → AGENTS → SESSION_LOG → CHANGELOG → README → PLAN 顺序更新。
+- 全局 skill `project-docs-workflow` 升级 v2.0.0 → v3.0.0：文档清单改为 6 份、版本号文件兼容 `pubspec.yaml`/`package.json`、PLAN.md 模板对齐 10 节结构、里程碑更新规则明确。
+
+### 改动文件清单
+
+- 新建 `PLAN.md`（合并 PRD/PRODUCT/CONTEXT 与 DEV_SUMMARY/DEV_PLAN 精华，18KB）
+- `AGENTS.md`（项目文档清单 6 份 + 文档更新工作流节）
+- `DESIGN.md`（并入 Flora SVG 图标/空状态/品牌资源规范）
+- `README.md`（关键文档清单 + 发布检查清单）
+- `SESSION_LOG.md`（本次记录）
+- 删除 `PRODUCT.md`、`CONTEXT.md`、`RELEASE_CHECKLIST.md`、`docs/DEV_SUMMARY.md`、`docs/DEV_PLAN.md`、`docs/PRD.md`、`docs/FLORA_BRAND_SYSTEM_v1.md`、`docs/FLORA_UI_REFACTOR_PLAN.md`
+- 全局 skill：`project-docs-workflow` v2.0.0 → v3.0.0（位于 `~/.reasonix/skills/`，不在 git 仓库内）
+
+### 遇到的问题
+
+- `install_skill` 拒绝覆盖已存在的 skill 文件；先删除旧 skill 目录再重新安装 v3.0.0。
+
+### 最终结果
+
+- 文档从 12 份约 230KB 精简为 6 份约 90KB（净删约 3612 行）。
+- 全库 grep 确认当前生效文档无失效引用；CHANGELOG / SESSION_LOG 中的旧文件名属历史记录，保留正确。
+- 纯文档改动，未运行 `flutter analyze` / `flutter test`。
+
+---
+
 ## 2026-08-04 H4-A 代码全面审查与服务端健壮性加固
 
 ### 讨论内容

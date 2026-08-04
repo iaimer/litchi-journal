@@ -232,6 +232,41 @@ components:
 - 小圆点只表示当天包含真实条目或相片，只有空模板的日期不显示。
 - 今天和未来日期的可用状态必须清楚；加载、空月份和请求失败均需有稳定反馈。
 
+## Flora Icon 与空状态规范
+
+### SVG 图标基线（所有品牌插图与图标）
+
+| 属性 | 规范 |
+|------|------|
+| viewBox | `0 0 24 24` |
+| stroke-width | `2` |
+| stroke-linecap / linejoin | `round` |
+| 色彩 | `fill="none"` + `stroke="currentColor"`，单色、无渐变、无半透明 |
+
+- 运行时颜色由 `FloraIcon(color: ...)` 或主题 `colorScheme` 注入：浅色注入 `AppColors.primary` / `textPrimary`，深色注入 `AppColors.darkPrimary` / `darkTextPrimary`；`currentColor` 天然适配深色，无需 dark 变体文件。
+- 双色例外仅两类：空状态插图（辅色 ≤20% 面积）、启动页品牌图（辅色 ≤30% 面积）。
+- 留白：图形内容区 ≤60% 画板（约 14×14 在 24×24 内）并居中，给视觉呼吸感；导航/按钮图标可用约 80% 画板利用率。
+- 风格关键词：**圆润**（弧线优先）、**有机**（自然形态）、**克制**（线条最少化）、**温暖**（无冷感几何）、**生命力**（曲线有生长感）。
+
+### 空状态系统
+
+- 渲染尺寸 80×80 dp；布局：图标居中，下方 24dp → 主文案（16px / w600 / textPrimary），下方 8dp → 副文案（13px / w400 / textSecondary）；容器上下各留 64dp、左右 32dp。
+- 文案保持温柔提示，不使用「暂无数据」式冷硬措辞。
+
+### 组件约束（长期有效）
+
+- 颜色、间距、圆角统一使用 `lib/theme/app_theme.dart` 的 `AppColors`、`FloraSpacing`、`FloraRadius`。
+- 图标使用 `lib/widgets/flora_icon.dart`，不要回退 emoji，也不批量引入 Material Icon。
+- 空状态使用 `lib/widgets/flora_empty.dart`；启动品牌页使用 `lib/widgets/flora_splash.dart`，不引入 Lottie、Rive 或额外动画依赖。
+
+## 品牌资源规则
+
+- `docs/design-reference/` 是品牌视觉权威源图目录，禁止重新绘制或 AI 生成近似图。
+- `splash.png` → 启动页源图，派生为 `assets/icon/brand-splash-reference.png`。
+- `icon.png` → App 图标与关于页品牌图源图，派生为 `assets/icon/app-icon.png`、`assets/icon/app-launcher.png` 和 Android launcher mipmap。
+- `reference.png` 仅作整体视觉参考，不作为直接切图资源。
+- 关于页品牌图当前使用 168dp 展示尺寸；更新品牌资源后必须重新构建并重装 APK（系统桌面图标不会只靠 hot reload 更新）。
+
 ## Do's and Don'ts
 
 ### Do:

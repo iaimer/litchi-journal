@@ -45,13 +45,16 @@ Flutter 客户端 + 本仓库 API 服务端版
 
 ## 关键文档
 
-- `AGENTS.md`：项目规则、边界和开发约束。
-- `docs/DEV_SUMMARY.md`：完整开发历程和已完成能力。
-- `docs/DEV_PLAN.md`：后续开发计划与当前待办。
-- `SESSION_LOG.md`：阶段性会话记录和验证状态。
-- `docs/design-reference/`：品牌视觉源图，更新启动页或 App 图标时优先读取这里。
+文档体系共 6 份，合并与精简后以此为准：
 
-新 agent 接手前应先阅读以上四个文件。
+- `AGENTS.md` — 项目知识库：规则、架构、数据完整性与开发约束。
+- `PLAN.md` — 产品需求（定位、用户故事、实现决策）与路线图、开发进度。
+- `DESIGN.md` — 设计语言：色彩、排版、组件、Flora 图标与空状态规范。
+- `SESSION_LOG.md` — 逐次开发会话记录和验证状态。
+- `CHANGELOG.md` — 版本发布记录。
+- `docs/design-reference/` — 品牌视觉源图，更新启动页或 App 图标时优先读取这里。
+
+新 agent 接手前应先阅读 `AGENTS.md`、`PLAN.md`、`SESSION_LOG.md`。
 
 ## 验证命令
 
@@ -69,6 +72,20 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
 注意：真机验证前必须先构建对应模式。日常覆盖安装要用 `adb install -r`，在同 packageId、同签名、非降级安装时会保留本地 baseUrl/token。不要用 `flutter install --release` 做日常覆盖安装，因为它可能先卸载旧版，导致 token 丢失。
+
+## 发布检查清单
+
+发布前请确认：
+
+- [ ] 更新 `pubspec.yaml` 中的 `version`
+- [ ] 更新 `CHANGELOG.md` 对应版本内容
+- [ ] `dart analyze` 无问题
+- [ ] `flutter test` 全部通过
+- [ ] `flutter build apk --release` 构建成功
+- [ ] 真机安装验证核心功能
+- [ ] 关于页显示正确版本号与当前版本更新内容
+- [ ] 外观主题设置：三种模式均正常工作，深色模式主要页面可读
+- [ ] 标签设置、AI 润色正常
 
 ## 后续方向
 

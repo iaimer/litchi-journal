@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.5.1
+
+### 修复
+- 删除重复注册的 `/anxiety/replace` 路由，保留严格校验版本，避免空白内容清空焦虑区块。
+- 删除调错函数的死路由 `/tomorrow/action` 与 `replaceTomorrowAction`（客户端未使用，且原实现会误删全文含 🎯 的行）。
+- 图片上传服务端增加格式校验（JPEG/PNG/GIF/WebP/HEIC 魔数）、空数据与大小限制；旧格式日记缺少「影像记录」区块时自动补建，避免上传成功但正文无图。
+- 习惯接口 water/steps 增加类型与范围校验（非负整数 ≤ 500000），避免 NaN 或超大内容写入 Markdown。
+- 统计接口 `days` 参数限制在 1–366，消除超大循环请求。
+- 服务端 YAML frontmatter 解析支持多行列表，不再丢失 `tags` 等数组字段。
+- 服务端错误信息不再包含磁盘路径；新建日记模板年份改为动态生成。
+- 客户端图片加载对文件名做 URL 编码，兼容含空格的历史图片。
+- 快速记录草稿写入改为串行，避免保存与清空竞争导致残留。
+- 删除无引用的 QuickNoteComposer、EntryTypeSelector、PlaceholderPage，以及恒为 false 的「标签暂不可用」提示代码。
+
+### 验证
+- `flutter analyze` 通过，零问题。
+- `flutter test` 343 项全部通过。
+- `server npm run build` 通过。
+- `server npm test` 18 项全部通过（测试脚本已限定只跑 `src`，不再重复收集 `dist` 编译产物）。
+
+---
+
 ## 1.5.0
 
 ### 新增

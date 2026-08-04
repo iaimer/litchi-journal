@@ -4,6 +4,53 @@
 
 ---
 
+## 2026-08-04 H4-A 代码全面审查与服务端健壮性加固
+
+### 讨论内容
+
+- 对 Flutter 客户端与 `server/` 服务端做全面代码审查，质量基线：`flutter analyze` 零问题、Flutter 376 测试、服务端 32 测试全部通过。
+- 审查发现服务端存在确定问题：`/anxiety/replace` 重复注册、`/tomorrow/action` 调用错误函数（整块替换而非行动建议替换）、YAML frontmatter 列表解析全部丢失、图片上传无格式校验、习惯与统计接口输入校验缺失。
+- 客户端主要问题是死代码与健壮性：恒为 false 的 `_tagConfigFailed`、无引用的 QuickNoteComposer/EntryTypeSelector/PlaceholderPage、草稿写入未等待、图片名未 URL 编码。
+
+### 决策 & 原因
+
+- 按报告优先级修复：P1 行为错误、P2 输入校验与数据一致性、P3 死代码与健壮性清理。
+- `/tomorrow/action` 客户端从未使用且死函数实现有 bug（会误删全文含 🎯 的行），按「简洁优先、不保留臆想代码」直接删除路由与函数。
+- 草稿写入改为串行链（Future 链 + catchError），避免保存与清空竞争导致残留，同时不让单次失败中断后续写入。
+- 服务端测试脚本限定 `vitest run src`，因为默认会重复收集 `dist/` 编译产物里的测试。
+- 版本从 `1.5.0+12` 升至 `1.5.1+13`，按项目工作流更新 CHANGELOG、SESSION_LOG、README、AGENTS、DEV_PLAN、DEV_SUMMARY。
+
+### 改动文件清单
+
+- `server/src/routes/diary.ts`（重复路由、死路由、图片校验、习惯校验、区块补建）
+- `server/src/routes/habit.ts`（days 上限）
+- `server/src/services/markdown.ts`、`markdown.test.ts`（YAML 列表解析 + 测试）
+- `server/src/services/template.ts`（动态年份）
+- `server/src/services/vault.ts`（错误信息不含路径）
+- `server/package.json`（测试限定 src）
+- `lib/services/api_client.dart`（图片名 URL 编码）
+- `lib/screens/home_screen.dart`、`quick_capture_screen.dart`（死代码清理、草稿串行）
+- `lib/widgets/anxiety_composer.dart`（草稿串行）
+- 删除 `lib/widgets/quick_note_composer.dart`、`lib/widgets/entry_type_selector.dart`、`lib/screens/placeholder_page.dart`
+- `test/widget_test.dart`（同步清理 33 个死代码测试）
+- `pubspec.yaml`、`AGENTS.md`、`CHANGELOG.md`、`README.md`、`SESSION_LOG.md`、`docs/DEV_PLAN.md`、`docs/DEV_SUMMARY.md`
+
+### 遇到的问题
+
+- Dart 3 的 switch 非空 case 隐式 break，审查时一度误判 `HabitStatus.fromHabitSection` 为 fallthrough bug，实测确认行为正确。
+- vitest 默认收集 `dist/` 里编译后的测试文件，导致测试数量失真（32 → 36），通过限定 `src` 解决。
+- 服务端 `parseYaml` 对缩进列表项（无冒号行）整行跳过，frontmatter 数组全丢；改为带当前列表键的状态机解析。
+
+### 最终结果
+
+- `flutter analyze` 通过，零问题。
+- `flutter test` 343 项全部通过（移除 33 个死代码组件测试）。
+- `server npm run build` 通过。
+- `server npm test` 18 项全部通过。
+- 推送后即可更新远程服务端（`server/` 编译产物部署）。
+
+---
+
 ## 2026-07-23 H3-B 今日日记条目时间编辑与 Markdown 排序
 
 ### 讨论内容

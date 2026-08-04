@@ -1664,3 +1664,32 @@ Today Rainbow 初步接入后，真机发现三个视觉问题：
 ### 38.5 当前稳定版
 
 版本 `1.5.0+12`。
+
+## 39. Sprint 39：代码全面审查与服务端健壮性加固
+
+### 39.1 背景
+
+对 Flutter 客户端与 `server/` 服务端做了一次全面代码审查（analyze、测试基线、逐模块阅读），发现服务端存在重复路由注册、调错函数的死路由、YAML frontmatter 列表解析丢失、图片上传无格式校验、习惯与统计接口输入校验缺失等确定问题，并按优先级修复。
+
+### 39.2 实现
+
+- 删除重复注册的 `/anxiety/replace` handler，保留带「内容不能为空」严格校验的版本。
+- 删除 `/tomorrow/action` 死路由与 `replaceTomorrowAction` 死函数（原实现会误删全文含 🎯 的行）。
+- `/image/upload` 增加 base64 解码结果校验：空数据、超过 10MB、非图片格式（JPEG/PNG/GIF/WebP/HEIC 魔数）均拒绝；旧格式日记缺少「影像记录」区块时先补建再追加 WikiLink。
+- `/habit` 的 water/steps 要求非负整数且 ≤ 500000，自定义 checkbox label 增加类型校验。
+- `/stats/habit` 的 `days` 参数限制在 1–366。
+- `parseYaml` 支持缩进的列表项，frontmatter 数组不再丢失；新增对应测试。
+- 服务端错误信息不再包含磁盘路径；新建日记模板年份动态生成。
+- 客户端图片加载对文件名做 URL 编码；快速记录与焦虑草稿写入改为串行链，避免保存与清空竞争。
+- 移除无引用的 QuickNoteComposer、EntryTypeSelector、PlaceholderPage 及恒为 false 的 `_tagConfigFailed` 死代码；`flutter test` 脚本限定只跑 `src`，不再重复收集 `dist` 编译产物测试。
+
+### 39.3 验证
+
+- `flutter analyze`：零问题。
+- `flutter test`：343 项全部通过。
+- `server npm run build`：通过。
+- `server npm test`：18 项全部通过。
+
+### 39.4 当前稳定版
+
+版本 `1.5.1+13`。

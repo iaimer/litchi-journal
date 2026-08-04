@@ -118,7 +118,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _error;
   TagConfig? _tagConfig;
   TagSettings? _tagSettings;
-  bool _tagConfigFailed = false;
   final _draftRepository = DraftRepository();
   final _imageSettingsRepository = ImageSettingsRepository();
   final _imagePicker = ImagePicker();
@@ -139,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, bool> _customCheckboxStates = {};
 
   /// 只含 enabled 标签、name 替换为 displayName 的 TagConfig。
-  /// 用于 QuickNoteComposer（新建记录不需要隐藏标签）。
+  /// 用于快速记录入口（新建记录不需要隐藏标签）。
   TagConfig? get _effectiveTagConfig {
     final tagConfig = _tagConfig ?? DefaultTagConfig.value;
     if (_tagSettings == null) return tagConfig;
@@ -169,14 +168,12 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _tagConfig = config;
         _tagSettings = settings;
-        _tagConfigFailed = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _tagConfig = DefaultTagConfig.value;
         _tagSettings = TagSettings.fromTagConfig(DefaultTagConfig.value);
-        _tagConfigFailed = false;
       });
     }
   }
@@ -839,7 +836,6 @@ class _HomeScreenState extends State<HomeScreen> {
           entryType: type,
           openedAt: DateTime.now(),
           tagConfig: _effectiveTagConfig,
-          tagHint: _tagConfigFailed ? '标签暂不可用' : null,
           onPolish: _handlePolish,
           onSave: (content, tags, time) {
             return _handleQuickCaptureSave(type, content, tags, time);

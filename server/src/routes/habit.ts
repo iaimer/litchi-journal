@@ -10,7 +10,10 @@ const router = Router();
 
 router.get('/habit', async (req, res) => {
   try {
-    const days = parseInt(req.query.days as string) || 30;
+    const requested = parseInt(req.query.days as string);
+    const days = Number.isFinite(requested)
+      ? Math.min(Math.max(requested, 1), 366)
+      : 30;
     const stats: any[] = [];
 
     const today = parseShanghaiDate(getShanghaiDateString(new Date()));

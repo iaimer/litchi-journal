@@ -1,4 +1,4 @@
-import { getShanghaiDateString, getShanghaiWeekdayName } from '../utils/date.js';
+import { getShanghaiDateParts, getShanghaiDateString, getShanghaiWeekdayName } from '../utils/date.js';
 
 export function getDateString(date: Date): string {
   return getShanghaiDateString(date);
@@ -10,6 +10,7 @@ export function getWeekdayName(date: Date): string {
 
 export function createObsidianDiaryContent(date: Date): string {
   const weekday = getWeekdayName(date);
+  const { year } = getShanghaiDateParts(date);
   const lines: string[] = [];
 
   lines.push('---');
@@ -18,7 +19,7 @@ export function createObsidianDiaryContent(date: Date): string {
   lines.push('---');
   lines.push('');
   lines.push('# 🌿 ' + weekday + ' · 此时此刻');
-  lines.push('> [!quote] 2026 年，如果只选一件事：**让健康和记录成为习惯。**');
+  lines.push(`> [!quote] ${year} 年，如果只选一件事：**让健康和记录成为习惯。**`);
   lines.push('');
   lines.push('---');
   lines.push('## 🏃 习惯打卡');

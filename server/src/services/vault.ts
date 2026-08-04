@@ -26,7 +26,7 @@ export function getDateString(date: Date): string {
 export function readDiary(date: Date): string {
   const path = getDiaryPath(date);
   if (!existsSync(path)) {
-    throw new Error(`Diary not found: ${path}`);
+    throw new Error('Diary not found');
   }
   return readFileSync(path, 'utf-8');
 }

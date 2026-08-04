@@ -31,6 +31,13 @@ function sanitizeImagePrefix(imagePrefix: unknown): string {
   return trimmed;
 }
 
+function isValidCount(value: unknown): boolean {
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= 500000;
+}
+
 function stripOldOpMarkers(content: string): string {
   return content
     .split('\n')
@@ -195,6 +202,10 @@ router.post('/habit', async (req, res) => {
     const { water, steps, reading, language, supplements, operationId, extraCheckboxes } = req.body;
     const date = getRequestDate(req.body.date);
 
+    if (!isValidCount(water) || !isValidCount(steps)) {
+      return res.status(400).json({ error: '习惯数值无效' });
+    }
+
     let originalContent: string;
     try {
       originalContent = readDiary(date);
@@ -227,7 +238,9 @@ router.post('/habit', async (req, res) => {
       for (const [_, info] of Object.entries(extraCheckboxes)) {
         const item = info as any;
         const mark = item.checked ? 'x' : ' ';
-        const label = item.label || '?';
+        const label = typeof item.label === 'string' && item.label.trim()
+          ? item.label.trim()
+          : '?';
         habits.push(`- [${mark}] ${label}`);
       }
     }
@@ -354,37 +367,6 @@ router.post('/anxiety', async (req, res) => {
   }
 });
 
-router.post('/anxiety/replace', async (req, res) => {
-  try {
-    const { content, operationId } = req.body;
-    if (!content) return res.status(400).json({ error: 'content is required' });
-    const date = getRequestDate(req.body.date);
-
-    let originalContent: string;
-    try {
-      originalContent = readDiary(date);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
-
-    if (operationId && validateOperationId(operationId)) {
-      if (hasOpRecord(date, originalContent, operationId)) {
-        return res.json({ success: true, dedup: true });
-      }
-    }
-
-    const updated = stripOldOpMarkers(replaceAnxietySection(originalContent, content));
-    writeDiary(date, updated);
-    if (operationId && validateOperationId(operationId)) {
-      recordOperation(date, operationId);
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
 // 替换焦虑四问区块
 router.post('/anxiety/replace', async (req, res) => {
   try {
@@ -468,30 +450,6 @@ router.post('/tomorrow', async (req, res) => {
   }
 });
 
-// 替换明日寄语中的行动建议
-router.post('/tomorrow/action', async (req, res) => {
-  try {
-    const { date, content } = req.body;
-    const diaryDate = date
-      ? parseShanghaiDate(date)
-      : new Date();
-
-    let originalContent: string;
-    try {
-      originalContent = readDiary(diaryDate);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
-
-    const updated = replaceTomorrowSection(originalContent, content);
-    writeDiary(diaryDate, updated);
-
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
 // 上传图片（远程模式）：接收 base64 压缩图片，保存到 assets 并追加 WikiLink
 router.post('/image/upload', async (req, res) => {
   try {
@@ -546,13 +504,24 @@ router.post('/image/upload', async (req, res) => {
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
 
+    if (buffer.length === 0) {
+      return res.status(400).json({ error: '图片数据为空' });
+    }
+    if (buffer.length > 10 * 1024 * 1024) {
+      return res.status(400).json({ error: '图片文件过大' });
+    }
+    if (!isImageBuffer(buffer)) {
+      return res.status(400).json({ error: '不是有效的图片数据' });
+    }
+
     // 写入图片文件
     const imagePath = join(assetsDir, filename);
     writeFileSync(imagePath, buffer);
 
     // 追加 WikiLink；幂等索引写入旁路文件，避免污染日记正文
     const wikiLink = `![[${filename}]]`;
-    const updated = stripOldOpMarkers(appendToSection(originalContent, 'images', wikiLink));
+    const contentWithImages = ensureImagesSection(originalContent);
+    const updated = stripOldOpMarkers(appendToSection(contentWithImages, 'images', wikiLink));
     try {
       writeDiary(uploadDate, updated);
       if (operationId && validateOperationId(operationId)) {
@@ -718,66 +687,6 @@ function replaceAnxietySection(content: string, newText: string): string {
   const after = lines.slice(endIndex);
 
   return [...before, ...newLines, '', ...after].join('\n');
-}
-
-// 替换明日寄语中的行动建议（删除旧的带标记的内容，添加新的）
-function replaceTomorrowAction(content: string, newAction: string): string {
-  const lines = content.split('\n');
-  const header = '### 🌙 明日寄语';
-
-  // 删除旧的行动建议（带 <!-- action --> 标记的内容，或以 🎯 开头的行）
-  const newLines: string[] = [];
-  let inActionBlock = false;
-  for (const line of lines) {
-    if (line.includes('<!-- action -->')) {
-      inActionBlock = true;
-      continue;
-    }
-    if (line.includes('<!-- /action -->')) {
-      inActionBlock = false;
-      continue;
-    }
-    // 也删除以 🎯 开头的行（旧的未标记的行动建议）
-    if (line.includes('🎯')) {
-      continue;
-    }
-    if (!inActionBlock) {
-      newLines.push(line);
-    }
-  }
-
-  // 在明日寄语区块末尾添加新的行动建议（带标记）
-  const actionMarkerStart = '<!-- action -->';
-  const actionMarkerEnd = '<!-- /action -->';
-  const actionLine = `- ${newAction}`;
-
-  const allHeaders = ['## 🏃 习惯打卡', '## ✍️ 随手记', '## ✨ 每日小确幸',
-    '## 😰 焦虑时刻', '### 💡 觉察与迭代', '### 🧠 人生教练', '### 🧠 荔枝喵说', header, '## 📸 影像记录'];
-
-  // 找到插入位置：明日寄语区块末尾（下一个区块之前）
-  let insertIndex = -1;
-  for (let i = 0; i < newLines.length; i++) {
-    if (newLines[i].startsWith(header)) {
-      // 找到明日寄语标题后，找到下一个区块或末尾
-      for (let j = i + 1; j < newLines.length; j++) {
-        if (allHeaders.some(h => newLines[j].startsWith(h))) {
-          insertIndex = j;
-          break;
-        }
-      }
-      if (insertIndex === -1) {
-        insertIndex = newLines.length;
-      }
-      break;
-    }
-  }
-
-  // 插入新的行动建议
-  if (insertIndex !== -1) {
-    newLines.splice(insertIndex, 0, actionMarkerStart, actionLine, actionMarkerEnd);
-  }
-
-  return newLines.join('\n');
 }
 
 router.get('/image/:year/:imageName', async (req, res) => {
@@ -991,6 +900,36 @@ function getSafeAssetPath(assetsDir: string, imageName: string): string {
   }
 
   return imagePath;
+}
+
+// 旧格式日记没有「影像记录」区块时，在末尾补建一个再追加 WikiLink。
+function ensureImagesSection(content: string): string {
+  if (content.includes(sectionHeaders.images)) return content;
+  return `${content.trimEnd()}\n\n---\n${sectionHeaders.images}\n`;
+}
+
+function isImageBuffer(buffer: Buffer): boolean {
+  if (buffer.length < 12) return false;
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return true;
+  // PNG: 89 50 4E 47
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return true;
+  // GIF: GIF8
+  if (buffer.toString('latin1', 0, 4) === 'GIF8') return true;
+  // WebP: RIFF....WEBP
+  if (
+    buffer.toString('latin1', 0, 4) === 'RIFF' &&
+    buffer.toString('latin1', 8, 12) === 'WEBP'
+  ) {
+    return true;
+  }
+  // HEIC/HEIF: ftyp....heic|heix|heif|mif1|msf1
+  if (buffer.toString('latin1', 4, 8) === 'ftyp' &&
+      /^(heic|heix|heif|mif1|msf1)/.test(buffer.toString('latin1', 8, 12))) {
+    return true;
+  }
+  return false;
 }
 
 function getMimeType(filename: string): string {

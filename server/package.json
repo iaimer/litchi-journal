@@ -11,7 +11,7 @@
     "pm2:logs": "pm2 logs diary-api",
     "pm2:restart": "pm2 restart diary-api",
     "deploy": "./deploy.sh",
-    "test": "vitest run"
+    "test": "vitest run src"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../services/draft_repository.dart';
@@ -14,7 +12,6 @@ class QuickCaptureScreen extends StatefulWidget {
   final EntryType entryType;
   final DateTime openedAt;
   final TagConfig? tagConfig;
-  final String? tagHint;
   final DateTime? recordDate;
   final DraftRepository? draftRepository;
   final Future<TimeOfDay?> Function(
@@ -33,7 +30,6 @@ class QuickCaptureScreen extends StatefulWidget {
     required this.openedAt,
     required this.onSave,
     this.tagConfig,
-    this.tagHint,
     this.recordDate,
     this.draftRepository,
     this.timePicker,
@@ -53,6 +49,9 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   bool _tagPickerExpanded = false;
   bool _restoringDraft = false;
   String? _error;
+
+  /// 草稿写入串行链，避免保存与清空竞争导致残留。
+  Future<void> _draftWriteChain = Future.value();
 
   bool get _hasUnsavedChanges =>
       _controller.text.trim().isNotEmpty || _selectedTags.isNotEmpty;
@@ -111,14 +110,16 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     final repository = widget.draftRepository;
     final date = widget.recordDate;
     if (_restoringDraft || repository == null || date == null) return;
-    unawaited(
-      repository.saveQuickDraft(
+    final content = _controller.text;
+    final tags = List<String>.from(_selectedTags);
+    _draftWriteChain = _draftWriteChain.then(
+      (_) => repository.saveQuickDraft(
         date: date,
         entryType: widget.entryType,
-        content: _controller.text,
-        tags: _selectedTags,
+        content: content,
+        tags: tags,
       ),
-    );
+    ).catchError((_) {});
   }
 
   String get _timeText =>
@@ -202,6 +203,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       final repository = widget.draftRepository;
       final date = widget.recordDate;
       if (repository != null && date != null) {
+        await _draftWriteChain;
         await repository.clearDraft(date: date, entryType: widget.entryType);
       }
       if (!mounted) return;
@@ -354,13 +356,6 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         },
       );
     }
-    if (widget.tagHint == null) return const SizedBox.shrink();
-    return Text(
-      widget.tagHint!,
-      style: theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-        fontStyle: FontStyle.italic,
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }

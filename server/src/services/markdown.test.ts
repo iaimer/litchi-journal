@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   appendToSection,
+  parseDiary,
   replaceEmptyBulletInSection,
   sortTimelineEntriesInSection
 } from './markdown.js';
@@ -50,6 +51,29 @@ const template = [
 ].join('\n');
 
 const formattedContent = '- **17:17** 正文 #生活 #情绪感受 #反思';
+
+describe('parseDiary frontmatter', () => {
+  it('parses multi-item YAML list into an array', () => {
+    const content = [
+      '---',
+      'tags:',
+      '  - 日记',
+      '  - 生活',
+      '---',
+      '',
+      '# 标题'
+    ].join('\n');
+
+    const { frontmatter } = parseDiary(content);
+    expect(frontmatter.tags).toEqual(['日记', '生活']);
+  });
+
+  it('keeps single-line list behavior for inline values', () => {
+    const content = ['---', 'tags: - 日记', '---', '', '# 标题'].join('\n');
+    const { frontmatter } = parseDiary(content);
+    expect(frontmatter.tags).toEqual(['日记']);
+  });
+});
 
 describe('appendToSection', () => {
   it('appends content to a section', () => {

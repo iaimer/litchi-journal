@@ -96,19 +96,34 @@ export function parseDiary(content: string) {
 
 function parseYaml(yaml: string): Record<string, any> {
   const result: Record<string, any> = {};
+  let currentListKey: string | null = null;
   const lines = yaml.split('\n');
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
 
+    // 缩进的列表项（如 tags 下的 "- 日记"）追加到当前列表键
+    if (trimmed.startsWith('- ')) {
+      if (currentListKey) {
+        result[currentListKey].push(
+          trimmed.slice(2).trim().replace(/'/g, '').replace(/"/g, '')
+        );
+      }
+      continue;
+    }
+
+    currentListKey = null;
     const colonIndex = trimmed.indexOf(':');
     if (colonIndex === -1) continue;
 
     const key = trimmed.slice(0, colonIndex).trim();
     const value = trimmed.slice(colonIndex + 1).trim();
 
-    if (value.startsWith('-')) {
+    if (value === '') {
+      result[key] = [];
+      currentListKey = key;
+    } else if (value.startsWith('-')) {
       result[key] = [value.slice(1).trim().replace(/'/g, '').replace(/"/g, '')];
     } else {
       result[key] = value.replace(/'/g, '').replace(/"/g, '');

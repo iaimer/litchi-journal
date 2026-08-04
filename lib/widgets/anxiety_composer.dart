@@ -83,6 +83,9 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   bool _polishing = false;
   String? _error;
 
+  /// 草稿写入串行链，避免保存与清空竞争导致残留。
+  Future<void> _draftWriteChain = Future.value();
+
   bool get _isLastStep => _step == 3;
 
   bool get _canPolish =>
@@ -109,11 +112,15 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
     final d = widget.date;
     if (dr == null || d == null) return;
     if (_answers.every((a) => a.isEmpty)) return;
-    dr.saveAnxietyDraft(
-      date: d,
-      step: _step,
-      answers: List.unmodifiable(_answers),
-    );
+    final answers = List<String>.from(_answers);
+    final step = _step;
+    _draftWriteChain = _draftWriteChain.then(
+      (_) => dr.saveAnxietyDraft(
+        date: d,
+        step: step,
+        answers: answers,
+      ),
+    ).catchError((_) {});
   }
 
   Future<void> _clearDraft() async {
@@ -244,6 +251,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
     try {
       await widget.onSubmit(content, []);
       if (!mounted) return;
+      await _draftWriteChain;
       await _clearDraft();
       _reset();
     } catch (e) {

@@ -208,11 +208,12 @@ class ApiClient {
     required String imageName,
     int? month,
   }) async {
+    final encodedName = Uri.encodeComponent(imageName);
     final uri = month != null
         ? Uri.parse(
-            '$_baseUrl/api/v1/diary/image/$year/$imageName?month=$month',
+            '$_baseUrl/api/v1/diary/image/$year/$encodedName?month=$month',
           )
-        : Uri.parse('$_baseUrl/api/v1/diary/image/$year/$imageName');
+        : Uri.parse('$_baseUrl/api/v1/diary/image/$year/$encodedName');
 
     final response = await _send(() => _http.get(uri, headers: _headers));
     if (response.statusCode != 200) {

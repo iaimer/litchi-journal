@@ -64,6 +64,7 @@
 16. 普通入口润色自动返回标签；焦虑润色不返回标签。
 17. 一键生成当天人生教练反馈并可重新生成。
 18. AI 请求有超时保护，错误提示不暴露 Key。
+19. AI 设置提供连接测试，保存前可验证 Base URL、API Key、Model 与实际响应；内置 OpenCode Go 预设。
 
 ### 习惯追踪
 19. 对内置习惯（饮水、步数、阅读、语言、补充剂）打卡。
@@ -147,7 +148,7 @@
 ## 6. 测试决策
 
 - **原则**：只测外部行为，不测实现细节；写入类改动先复现再修复。
-- **质量基线**：`flutter analyze` 零问题；`flutter test` 全绿（当前 343 项）；`server npm run build` 通过；`server npm test` 全绿（当前 18 项，测试脚本限定 `src`，避免收集 `dist` 产物）。
+- **质量基线**：`flutter analyze` 零问题；`flutter test` 全绿（当前 348 项）；`server npm run build` 通过；`server npm test` 全绿（当前 18 项，测试脚本限定 `src`，避免收集 `dist` 产物）。
 - **重点模块**：服务端 Markdown 解析与 section 内时间排序、YAML frontmatter 列表解析、编辑/删除 rawLine 匹配、焦虑 replace 严格校验、图片格式校验、auth 恒定时间比较；客户端 widget 测试覆盖今日页/快速记录/焦虑/习惯/标签/过往/补录/远程 API 核心链路。
 - **真机验收**：涉及视觉体验用真机（PLG110，Android 16，无线 ADB）截图验收；覆盖安装固定 `adb install -r`。
 - **环境限制**：沙箱内 `flutter test` 偶发无法创建本地 socket、`adb` smartsocket "Operation not permitted" 属环境限制，不视为代码缺陷。

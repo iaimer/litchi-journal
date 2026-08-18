@@ -3,14 +3,20 @@ import 'package:flutter/material.dart';
 import '../models/ai_config.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
+import '../services/polisher_service.dart';
 import '../widgets/flora_page_scaffold.dart';
 import '../widgets/flora_switch.dart';
 
 /// AI 服务配置页。
 class AiSettingsScreen extends StatefulWidget {
   final ApiConfig apiConfig;
+  final PolisherService? polisherService;
 
-  const AiSettingsScreen({super.key, required this.apiConfig});
+  const AiSettingsScreen({
+    super.key,
+    required this.apiConfig,
+    this.polisherService,
+  });
 
   @override
   State<AiSettingsScreen> createState() => _AiSettingsScreenState();
@@ -25,11 +31,16 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   bool _enabled = false;
   bool _obscureApiKey = true;
   bool _saving = false;
+  bool _testing = false;
   String? _error;
+  String? _testMessage;
+  bool _testSucceeded = false;
+  late final PolisherService _polisherService;
 
   @override
   void initState() {
     super.initState();
+    _polisherService = widget.polisherService ?? PolisherService();
     _loadAIConfig();
   }
 
@@ -51,6 +62,42 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       _nameController.text = preset.name;
       _baseUrlController.text = preset.baseUrl;
       _modelController.text = preset.model;
+      _testMessage = null;
+      _testSucceeded = false;
+    });
+  }
+
+  void _clearTestResult() {
+    if (_testMessage == null) return;
+    setState(() {
+      _testMessage = null;
+      _testSucceeded = false;
+    });
+  }
+
+  Future<void> _testConnection() async {
+    if (_testing || !_enabled) return;
+    setState(() {
+      _testing = true;
+      _error = null;
+      _testMessage = null;
+      _testSucceeded = false;
+    });
+
+    final result = await _polisherService.testConnection(
+      config: AIConfig(
+        enabled: true,
+        name: _nameController.text.trim(),
+        baseUrl: _baseUrlController.text.trim(),
+        apiKey: _apiKeyController.text.trim(),
+        model: _modelController.text.trim(),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _testing = false;
+      _testMessage = result.message;
+      _testSucceeded = result.success;
     });
   }
 
@@ -93,6 +140,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     _baseUrlController.dispose();
     _apiKeyController.dispose();
     _modelController.dispose();
+    if (widget.polisherService == null) _polisherService.dispose();
     super.dispose();
   }
 
@@ -154,6 +202,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: _baseUrlController,
+              onChanged: (_) => _clearTestResult(),
               decoration: const InputDecoration(
                 labelText: 'Base URL',
                 hintText: 'https://api.openai.com',
@@ -164,6 +213,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: _apiKeyController,
+              onChanged: (_) => _clearTestResult(),
               decoration: InputDecoration(
                 labelText: 'API Key',
                 suffixIcon: IconButton(
@@ -180,6 +230,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: _modelController,
+              onChanged: (_) => _clearTestResult(),
               decoration: const InputDecoration(
                 labelText: 'Model',
                 hintText: 'gpt-4o-mini',
@@ -187,6 +238,34 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               enabled: _enabled,
             ),
             const SizedBox(height: 24),
+            OutlinedButton.icon(
+              key: const ValueKey('ai_test_connection'),
+              onPressed: (!_enabled || _saving || _testing)
+                  ? null
+                  : _testConnection,
+              icon: _testing
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.wifi_tethering),
+              label: Text(_testing ? '测试中…' : '测试连接'),
+            ),
+            if (_testMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  _testMessage!,
+                  key: const ValueKey('ai_test_connection_message'),
+                  style: TextStyle(
+                    color: _testSucceeded
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.error,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),

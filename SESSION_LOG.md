@@ -4,6 +4,66 @@
 
 ---
 
+## 2026-08-18 AI 配置增加 OpenCode Go 与连接测试
+
+### 讨论内容
+
+- 用户要求在 AI 配置预设中增加 OpenCode Go，并在 AI 服务配置页提供测试连接按钮，帮助用户确认参数有效。
+- 核对 OpenCode Go 官方文档，确认 OpenAI-compatible 模型使用 `https://opencode.ai/zen/go/v1/chat/completions`；API 端点表中的模型 ID 使用原始模型名。
+
+### 决策 & 原因
+
+- 预设填入 `https://opencode.ai/zen/go` 与 `deepseek-v4-flash`，由现有 `chatUrl` 统一补齐 `/v1/chat/completions`。
+- 连接测试复用实际 AI 请求路径，发送最小请求并检查响应结构；测试使用当前输入，不自动保存配置。
+- 连接测试仅返回去敏后的可操作提示，不在错误或日志中暴露 API Key。
+
+### 改动文件清单
+
+- `lib/models/ai_config.dart`
+- `lib/services/polisher_service.dart`
+- `lib/screens/ai_settings_screen.dart`
+- `test/widget_test.dart`
+- `AGENTS.md`、`PLAN.md`、`README.md`、`SESSION_LOG.md`
+
+### 遇到的问题
+
+- OpenCode 文档同时提到 OpenCode 配置文件中的 `opencode-go/<model-id>` 格式和直连 API 表中的原始模型 ID；本项目直接调用 HTTP API，因此采用后者。
+
+### 最终结果
+
+- 已完成 OpenCode Go 预设与 AI 配置连接测试交互，`flutter analyze` 无问题，348 项 Flutter 测试全部通过。
+
+---
+
+## 2026-08-18 OpenCode Go 连接测试失败修复
+
+### 讨论内容
+
+- 用户反馈 OpenCode Go 的地址、模型和 API Key 看起来正确，但 AI 配置页连接测试失败。
+- 核对官方实时文档与模型列表，确认 `deepseek-v4-flash` 和 `/v1/chat/completions` 端点仍然有效。
+
+### 决策 & 原因
+
+- 将连接测试的 `max_tokens` 从 1 调整为 16，避免推理模型因输出预算过小而无法返回有效正文。
+- 保留最小请求设计，同时将 401/403、404、429、5xx、超时和网络失败转换为可操作且不含 API Key 的提示。
+- 用户在对话中暴露的 API Key 不写入代码、日志或测试输出，建议撤销后重新生成。
+
+### 改动文件清单
+
+- `lib/services/polisher_service.dart`
+- `test/widget_test.dart`
+- `SESSION_LOG.md`
+
+### 遇到的问题
+
+- 原实现将所有连接错误统一显示为同一句提示，无法区分权限、额度、路径和网络问题。
+
+### 最终结果
+
+- 连接测试请求预算与错误提示已修复，`flutter analyze` 无问题，348 项 Flutter 测试全部通过；Release APK 已重新构建。
+
+---
+
 ## 2026-08-04 文档体系合并精简：6 份工作流文档
 
 ### 讨论内容

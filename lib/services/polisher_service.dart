@@ -78,6 +78,56 @@ class PolisherService {
   PolisherService({http.Client? httpClient})
     : _http = httpClient ?? http.Client();
 
+  Future<AIConnectionResult> testConnection({required AIConfig config}) async {
+    final baseUrl = config.baseUrl.trim();
+    final uri = Uri.tryParse(baseUrl);
+    if (baseUrl.isEmpty ||
+        uri == null ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return const AIConnectionResult.failure('请输入有效的 Base URL');
+    }
+    if (config.apiKey.trim().isEmpty) {
+      return const AIConnectionResult.failure('请输入 API Key');
+    }
+    if (config.model.trim().isEmpty) {
+      return const AIConnectionResult.failure('请输入 Model');
+    }
+
+    try {
+      await _callAI(
+        config: config,
+        systemPrompt: '你是连接测试助手，只回复 OK。',
+        userContent: '请回复 OK。',
+        maxTokens: 16,
+      );
+      return const AIConnectionResult.success();
+    } catch (error) {
+      return AIConnectionResult.failure(_connectionErrorMessage(error));
+    }
+  }
+
+  static String _connectionErrorMessage(Object error) {
+    if (error is AIRequestException) {
+      return switch (error.statusCode) {
+        401 || 403 => '连接失败：API Key 无效或没有 OpenCode Go 权限',
+        404 => '连接失败：接口地址或 Model 不存在',
+        429 => '连接失败：已达到限流或使用额度上限',
+        >= 500 => '连接失败：OpenCode 服务暂时不可用',
+        _ => '连接失败：服务返回错误 (${error.statusCode})',
+      };
+    }
+
+    final message = error.toString();
+    if (message.contains('AI 请求超时')) {
+      return '连接失败：请求超时，请检查网络或服务状态';
+    }
+    if (message.contains('无法连接到 AI 服务')) {
+      return '连接失败：无法访问服务地址，请检查网络';
+    }
+    return '连接失败：请检查 API Key、Model 或服务地址';
+  }
+
   Future<PolishResult> polish({
     required String content,
     required EntryType entryType,
@@ -157,7 +207,7 @@ class PolisherService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('AI 请求失败 (${response.statusCode})');
+      throw AIRequestException(response.statusCode);
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -511,4 +561,22 @@ class CoachGenerationParts {
     required this.lizhiContent,
     required this.actionContent,
   });
+}
+
+class AIConnectionResult {
+  final bool success;
+  final String message;
+
+  const AIConnectionResult.success() : success = true, message = '连接成功';
+
+  const AIConnectionResult.failure(this.message) : success = false;
+}
+
+class AIRequestException implements Exception {
+  final int statusCode;
+
+  const AIRequestException(this.statusCode);
+
+  @override
+  String toString() => 'AI 请求失败 ($statusCode)';
 }

@@ -73,6 +73,11 @@ const aiPresets = [
     model: 'gpt-4o-mini',
   ),
   AIPreset(
+    name: 'OpenCode Go',
+    baseUrl: 'https://opencode.ai/zen/go',
+    model: 'deepseek-v4-flash',
+  ),
+  AIPreset(
     name: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com',
     model: 'deepseek-v4-flash',

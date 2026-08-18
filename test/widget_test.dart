@@ -4008,6 +4008,12 @@ tags:
       expect(deepseekPreset.model, 'deepseek-v4-flash');
     });
 
+    test('OpenCode Go preset uses its direct Chat Completions endpoint', () {
+      final preset = aiPresets.firstWhere((p) => p.name == 'OpenCode Go');
+      expect(preset.baseUrl, 'https://opencode.ai/zen/go');
+      expect(preset.model, 'deepseek-v4-flash');
+    });
+
     test('resolvedModel falls back for DeepSeek with empty model', () {
       final config = AIConfig(
         enabled: true,
@@ -4446,6 +4452,73 @@ tags:
         'http://localhost:11434/v1/chat/completions',
       );
     });
+
+    test(
+      'testConnection sends a minimal request to the configured endpoint',
+      () async {
+        final client = _CapturingClient(
+          responseBody: '{"choices":[{"message":{"content":"OK"}}]}',
+        );
+        final service = PolisherService(httpClient: client);
+
+        final result = await service.testConnection(
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://opencode.ai/zen/go',
+            apiKey: 'go-test-key',
+            model: 'deepseek-v4-flash',
+          ),
+        );
+
+        expect(result.success, isTrue);
+        expect(result.message, '连接成功');
+        expect(
+          client.lastUrl,
+          'https://opencode.ai/zen/go/v1/chat/completions',
+        );
+        final body = jsonDecode(client.lastBody!) as Map<String, dynamic>;
+        expect(body['model'], 'deepseek-v4-flash');
+        expect(body['max_tokens'], 16);
+        expect(client.lastBody, isNot(contains('go-test-key')));
+      },
+    );
+
+    test(
+      'testConnection explains authentication failures without exposing apiKey',
+      () async {
+        final client = _CapturingClient(statusCode: 401);
+        final service = PolisherService(httpClient: client);
+
+        final result = await service.testConnection(
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://opencode.ai/zen/go',
+            apiKey: 'sk-secret-key',
+            model: 'deepseek-v4-flash',
+          ),
+        );
+
+        expect(result.success, isFalse);
+        expect(result.message, contains('API Key 无效'));
+        expect(result.message, isNot(contains('sk-secret-key')));
+      },
+    );
+
+    test(
+      'testConnection validates required fields before requesting',
+      () async {
+        final client = _CapturingClient();
+        final service = PolisherService(httpClient: client);
+
+        final result = await service.testConnection(
+          config: const AIConfig(enabled: true, apiKey: 'key', model: 'model'),
+        );
+
+        expect(result.success, isFalse);
+        expect(result.message, '请输入有效的 Base URL');
+        expect(client.lastUrl, isNull);
+      },
+    );
 
     test(
       'retry succeeds when first response has no tags, second has',
@@ -5584,6 +5657,56 @@ tags:
             ?.text,
         'deepseek-v4-flash',
       );
+    });
+
+    testWidgets('test connection button verifies current AI fields', (
+      tester,
+    ) async {
+      final service = PolisherService(
+        httpClient: _CapturingClient(
+          responseBody: '{"choices":[{"message":{"content":"OK"}}]}',
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            apiConfig: ApiConfig(
+              baseUrl: 'https://obsidian.femkits.org',
+              token: 'secret-token',
+            ),
+            polisherService: service,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.byKey(const ValueKey('ai_test_connection')),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byKey(const ValueKey('ai_enabled_toggle')));
+      await tester.pump();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Base URL'),
+        'https://opencode.ai/zen/go',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'API Key'),
+        'go-test-key',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Model'),
+        'deepseek-v4-flash',
+      );
+
+      await tester.tap(find.byKey(const ValueKey('ai_test_connection')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('连接成功'), findsOneWidget);
     });
 
     testWidgets('Server address and Token not editable', (tester) async {

@@ -1,5 +1,75 @@
 # Changelog
 
+## 1.5.6
+
+### 调整
+- 移除 OpenCode Go AI 配置预设；该服务当前无法稳定完成正式润色，避免继续向用户提供不可用入口。
+- 保留通用 AI 服务配置与连接测试能力，不影响 DeepSeek 官方 API。
+
+### 验证
+- `flutter analyze` 通过，零问题。
+- `flutter test` 350 项全部通过。
+- Android Release APK 构建通过。
+
+---
+
+## 1.5.5
+
+### 调整
+- OpenCode Go 预设恢复为用户选择的低成本 `deepseek-v4-flash`，不再以更昂贵的 Pro 模型作为上游故障规避方案。
+- OpenCode Go 网络连接被上游中断时明确提示稍后重试，不再建议切换 `deepseek-v4-pro`。
+- 保留 DeepSeek 官方 API 的 V4 non-thinking 兼容修复。
+
+### 验证
+- OpenCode Go 预设、上游断连提示与 DeepSeek 官方请求回归测试通过。
+- `flutter analyze` 通过，零问题。
+- `flutter test` 351 项全部通过。
+- Android Release APK 构建通过。
+
+---
+
+## 1.5.4
+
+### 修复
+- OpenCode Go 预设默认模型由当前连接不稳定的 `deepseek-v4-flash` 调整为 `deepseek-v4-pro`。
+- DeepSeek 官方 V4 请求仅在 `api.deepseek.com` 下显式关闭 thinking，避免连接测试的小输出预算被推理内容耗尽；OpenCode Go 不发送该私有字段。
+- AI 服务中断网络连接时显示可操作提示，不再退化为笼统的“润色失败请重试”。
+
+### 验证
+- OpenCode Go、DeepSeek 官方和网络中断错误回归测试通过。
+- `flutter analyze` 通过，零问题。
+- `flutter test` 351 项全部通过。
+- Android Release APK 构建通过。
+
+---
+
+## 1.5.3
+
+### 修复
+- 移除 OpenCode Go 请求中未在其 OpenAI-compatible 接口文档声明的 `thinking` 扩展字段，修复 1.5.2 连接测试回归失败。
+- 连接测试与正式润色只发送标准 `model`、`messages` 和 `max_tokens` 字段；正式润色继续使用 512 的受控输出预算。
+
+### 验证
+- OpenCode Go 连接测试与正式润色请求体回归测试通过。
+- `flutter analyze` 通过，零问题。
+- `flutter test` 349 项全部通过。
+- Android Release APK 构建通过。
+
+---
+
+## 1.5.2
+
+### 修复
+- 将 OpenCode Go / DeepSeek V4 正式润色输出预算限制在可接受范围内。
+- 润色失败时根据 HTTP 状态显示去敏后的可操作提示，不泄露 API Key。
+
+### 验证
+- `flutter analyze` 通过，零问题。
+- `flutter test` 349 项全部通过。
+- Android Release APK 构建通过。
+
+---
+
 ## 1.5.1
 
 ### 修复

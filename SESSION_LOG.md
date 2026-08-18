@@ -4,6 +4,152 @@
 
 ---
 
+## 2026-08-18 移除不可用的 OpenCode Go 预设
+
+### 讨论内容
+
+- 用户确认 OpenCode Go 无法稳定使用，要求从 AI 配置预设中移除，不再继续尝试 Pro 或其它替代模型。
+- DeepSeek 官方 API 当前正常，应保持现有官方配置和 Host 专属请求修复。
+
+### 决策 & 原因
+
+- 删除 `aiPresets` 中的 OpenCode Go 入口及其专属预设测试，避免用户误选已知不可用服务。
+- 保留通用 HTTP AI 配置、连接测试和安全错误处理，以便用户仍可手动配置其它兼容服务；不扩大本次修改范围。
+- README、PLAN、CHANGELOG 同步移除当前功能承诺，版本更新为 `1.5.6+18`。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `lib/models/ai_config.dart`
+- `test/widget_test.dart`
+- `README.md`、`PLAN.md`、`CHANGELOG.md`、`SESSION_LOG.md`
+
+### 遇到的问题
+
+- 删除预设不等于删除底层通用兼容请求能力；OpenCode 相关服务代码和错误映射仍保留，避免影响用户手动配置的其它服务。
+
+### 最终结果
+
+- OpenCode Go 不再出现在 AI 配置预设列表。
+- `flutter analyze` 通过，零问题。
+- `flutter test` 350 项全部通过。
+- Release APK 构建通过。
+
+---
+
+## 2026-08-18 OpenCode Go 恢复低成本 Flash 预设
+
+### 讨论内容
+
+- 用户明确拒绝使用 `deepseek-v4-pro`：Pro 成本更高，且实测同样不能解决 OpenCode Go 问题。
+- DeepSeek 官方 API 已恢复正常，说明客户端的官方 Host 专属 non-thinking 修复有效；OpenCode Go 仍属于独立上游问题。
+
+### 决策 & 原因
+
+- OpenCode Go 预设恢复 `deepseek-v4-flash`，尊重用户选择的成本边界，不用更昂贵模型掩盖上游故障。
+- OpenCode Go 发生 `http.ClientException` 时转换为“上游中断连接，请稍后重试”，不再建议 Pro。
+- 保留只针对 `api.deepseek.com` 的 `thinking: disabled`，确保 DeepSeek 官方 API 继续正常。
+- 不为当前 OpenCode Go 上游异常继续叠加未经验证的兼容参数。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `lib/models/ai_config.dart`
+- `lib/services/polisher_service.dart`
+- `test/widget_test.dart`
+- `AGENTS.md`、`CHANGELOG.md`、`README.md`、`SESSION_LOG.md`
+
+### 遇到的问题
+
+- OpenCode Go 的连接测试与正式润色表现不一致，且不同模型均有上游故障报告；客户端无法保证其服务端可用性。
+
+### 最终结果
+
+- 版本更新为 `1.5.5+17`。
+- OpenCode Go 恢复低成本 Flash 预设，断连提示不再引导 Pro。
+- `flutter analyze` 通过，零问题。
+- `flutter test` 351 项全部通过。
+- Release APK 构建通过。
+
+---
+
+## 2026-08-18 修复 OpenCode Go Flash 服务中断与 DeepSeek 官方连接
+
+### 讨论内容
+
+- 用户确认 OpenCode Go 连接测试成功，但正式润色只显示“润色失败请重试”；原有 DeepSeek 官方 API 也无法通过连接测试。
+- 当前错误分类排除了认证、HTTP 状态、超时和空结果，定位到未映射的网络连接中断。
+- OpenCode 官方仓库已有同症状报告：Go 端点的 `deepseek-v4-flash` 会在正式响应前中断连接，而同一端点的 `deepseek-v4-pro` 可正常返回。
+- DeepSeek 官方文档确认 V4 默认开启 thinking，`thinking: disabled` 是 `api.deepseek.com` 支持的官方控制参数。
+
+### 决策 & 原因
+
+- OpenCode Go 预设默认模型改为 `deepseek-v4-pro`，绕过当前 Flash 上游通道异常；不自动覆盖用户已保存模型，安装后需重新选择预设。
+- 仅在 Host 精确匹配 `api.deepseek.com` 时发送 `thinking: disabled`，修复官方 DeepSeek 小输出连接测试，同时不再破坏 OpenCode Go 兼容接口。
+- 补充 `http.ClientException` 的安全错误映射，提示 OpenCode Go 用户切换到 `deepseek-v4-pro`。
+- 先让预设模型、官方 thinking 和连接中断提示测试失败，再实施修复并验证转绿。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `lib/models/ai_config.dart`
+- `lib/services/polisher_service.dart`
+- `test/widget_test.dart`
+- `AGENTS.md`、`CHANGELOG.md`、`README.md`、`PLAN.md`、`SESSION_LOG.md`
+
+### 遇到的问题
+
+- 手机未连接 ADB，无法直接读取真机日志；通过用户提供的最终 UI 文案和 OpenCode 上游的同症状报告完成错误类别收敛。
+- OpenCode Go 与 DeepSeek 官方虽然使用相同模型 ID，但支持的扩展参数不同，不能按模型名共享 thinking 配置。
+
+### 最终结果
+
+- 版本更新为 `1.5.4+16`。
+- `flutter analyze` 通过，零问题。
+- `flutter test` 351 项全部通过。
+- Release APK 构建通过。
+
+---
+
+## 2026-08-18 修复 OpenCode Go 润色与连接测试回归
+
+### 讨论内容
+
+- 用户反馈 AI 配置页连接测试成功，但保存设置后正式润色仍然失败。
+- 对比连接测试与正式润色请求，确认两者的提示词长度、输出预算和响应路径并不相同；问题不能只通过“保存配置”解决。
+- 首版兼容修复加入 DeepSeek 原生 `thinking` 扩展后，用户反馈连接测试由成功变为失败。
+
+### 决策 & 原因
+
+- 正式润色默认输出预算从 2000 限制为 512，降低 OpenCode Go / DeepSeek V4 因输出预算或响应格式导致失败的概率。
+- 通过新旧请求体差分与失败回归测试确认：新增的 `thinking` 是连接测试唯一新增字段；OpenCode Go 官方只声明该端点为 OpenAI-compatible，并未声明支持该扩展。
+- 移除 `thinking`，连接测试与正式润色只发送标准 `model`、`messages`、`max_tokens` 字段。
+- 将 HTTP 状态、超时、连接失败转换为去敏后的可操作提示；保留通用失败文案，不输出 API Key。
+- 增加请求体回归测试，确保连接测试和正式润色不再携带未声明扩展，同时保留受控输出预算。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `lib/services/polisher_service.dart`
+- `lib/screens/quick_capture_screen.dart`
+- `lib/widgets/anxiety_composer.dart`
+- `test/widget_test.dart`
+- `AGENTS.md`、`CHANGELOG.md`、`README.md`、`PLAN.md`、`SESSION_LOG.md`
+
+### 遇到的问题
+
+- 统一错误文案后，原有焦虑润色测试仍断言旧文案；已保留原有通用提示并仅对可识别的 HTTP/网络错误提供更具体的安全提示。
+- 首版修复把 DeepSeek 原生参数误用于 OpenCode Go 的兼容接口，造成连接测试回归；回归测试先稳定复现，再移除该字段。
+
+### 最终结果
+
+- 版本更新为 `1.5.3+15`。
+- `flutter analyze` 通过，零问题。
+- `flutter test` 349 项全部通过。
+- Release APK 构建通过。
+
+---
+
 ## 2026-08-18 AI 配置增加 OpenCode Go 与连接测试
 
 ### 讨论内容

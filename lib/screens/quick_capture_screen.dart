@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/draft_repository.dart';
+import '../services/polisher_service.dart';
 import '../widgets/flora_icon.dart';
 
 import '../models/polish_result.dart';
@@ -183,9 +184,9 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
           offset: result.content.length,
         );
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = '润色失败，请重试');
+      setState(() => _error = PolisherService.readableError(error));
     } finally {
       if (mounted) setState(() => _polishing = false);
     }

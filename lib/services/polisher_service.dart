@@ -108,6 +108,9 @@ class PolisherService {
   }
 
   static String _connectionErrorMessage(Object error) {
+    if (error is AIProviderException) {
+      return '连接失败：${error.message}';
+    }
     if (error is AIRequestException) {
       return switch (error.statusCode) {
         401 || 403 => '连接失败：API Key 无效或没有 OpenCode Go 权限',
@@ -125,7 +128,46 @@ class PolisherService {
     if (message.contains('无法连接到 AI 服务')) {
       return '连接失败：无法访问服务地址，请检查网络';
     }
+    if (message.contains('AI 网络请求失败')) {
+      return '连接失败：服务中断了网络连接，请重试或切换 Model';
+    }
     return '连接失败：请检查 API Key、Model 或服务地址';
+  }
+
+  static String readableError(Object error) {
+    if (error is AIProviderException) {
+      return 'AI 请求失败：${error.message}';
+    }
+    if (error is AIRequestException) {
+      return switch (error.statusCode) {
+        401 || 403 => 'AI 请求失败：API Key 无效或没有服务权限',
+        404 => 'AI 请求失败：接口地址或 Model 不存在',
+        429 => 'AI 请求失败：已达到限流或使用额度上限',
+        >= 500 => 'AI 请求失败：服务暂时不可用',
+        _ => 'AI 请求失败：服务返回错误 (${error.statusCode})',
+      };
+    }
+
+    final message = error.toString().replaceFirst('Exception: ', '');
+    const safeMessages = [
+      'AI 润色未启用或配置不完整',
+      'AI 润色未启用，请在初始设置中配置',
+      '请先在设置中启用并配置 AI 润色',
+      '内容为空',
+      'AI 未返回结果',
+      'AI 结果为空',
+    ];
+    if (safeMessages.any(message.contains)) return message;
+    if (message.contains('AI 请求超时')) {
+      return 'AI 请求失败：请求超时，请检查网络或服务状态';
+    }
+    if (message.contains('无法连接到 AI 服务')) {
+      return 'AI 请求失败：无法访问服务地址，请检查网络';
+    }
+    if (message.contains('AI 网络请求失败')) {
+      return 'AI 请求失败：网络连接被服务中断，请稍后重试';
+    }
+    return '润色失败，请重试';
   }
 
   Future<PolishResult> polish({
@@ -182,29 +224,40 @@ class PolisherService {
     required AIConfig config,
     required String systemPrompt,
     required String userContent,
-    int maxTokens = 2000,
+    int maxTokens = 512,
     String userPrefix = '原文：',
   }) async {
     final chatUrl = PolisherService.chatUrl(config.baseUrl);
-    final response = await _callWithTimeout(
-      () => _http.post(
-        Uri.parse(chatUrl),
-        headers: {
-          'Authorization': 'Bearer ${config.apiKey}',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': config.model.isNotEmpty
-              ? config.model
-              : config.resolvedModel,
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            {'role': 'user', 'content': '$userPrefix$userContent'},
-          ],
-          'max_tokens': maxTokens,
-        }),
-      ),
-    );
+    final requestBody = <String, dynamic>{
+      'model': config.model.isNotEmpty ? config.model : config.resolvedModel,
+      'messages': [
+        {'role': 'system', 'content': systemPrompt},
+        {'role': 'user', 'content': '$userPrefix$userContent'},
+      ],
+      'max_tokens': maxTokens,
+    };
+    if (_usesOfficialDeepSeekApi(config.baseUrl)) {
+      requestBody['thinking'] = {'type': 'disabled'};
+    }
+    late final http.Response response;
+    try {
+      response = await _callWithTimeout(
+        () => _http.post(
+          Uri.parse(chatUrl),
+          headers: {
+            'Authorization': 'Bearer ${config.apiKey}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(requestBody),
+        ),
+      );
+    } catch (error) {
+      if (_usesOpenCodeGoEndpoint(config.baseUrl) &&
+          error.toString().contains('AI 网络请求失败')) {
+        throw const AIProviderException('OpenCode Go 上游中断了连接，请稍后重试');
+      }
+      rethrow;
+    }
 
     if (response.statusCode != 200) {
       throw AIRequestException(response.statusCode);
@@ -548,6 +601,17 @@ $methodsSection
     return '$url/v1/chat/completions';
   }
 
+  static bool _usesOfficialDeepSeekApi(String baseUrl) {
+    return Uri.tryParse(baseUrl.trim())?.host.toLowerCase() ==
+        'api.deepseek.com';
+  }
+
+  static bool _usesOpenCodeGoEndpoint(String baseUrl) {
+    final uri = Uri.tryParse(baseUrl.trim());
+    return uri?.host.toLowerCase() == 'opencode.ai' &&
+        uri!.path.startsWith('/zen/go');
+  }
+
   void dispose() {
     _http.close();
   }
@@ -579,4 +643,13 @@ class AIRequestException implements Exception {
 
   @override
   String toString() => 'AI 请求失败 ($statusCode)';
+}
+
+class AIProviderException implements Exception {
+  final String message;
+
+  const AIProviderException(this.message);
+
+  @override
+  String toString() => message;
 }

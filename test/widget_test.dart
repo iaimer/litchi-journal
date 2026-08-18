@@ -228,6 +228,13 @@ class _TimeoutHttpClient extends http.BaseClient {
   }
 }
 
+class _ClientExceptionHttpClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    throw http.ClientException('connection closed');
+  }
+}
+
 class _CapturingHttpClient extends _FakeHttpClient {
   String? lastRequestBody;
 
@@ -4008,12 +4015,6 @@ tags:
       expect(deepseekPreset.model, 'deepseek-v4-flash');
     });
 
-    test('OpenCode Go preset uses its direct Chat Completions endpoint', () {
-      final preset = aiPresets.firstWhere((p) => p.name == 'OpenCode Go');
-      expect(preset.baseUrl, 'https://opencode.ai/zen/go');
-      expect(preset.model, 'deepseek-v4-flash');
-    });
-
     test('resolvedModel falls back for DeepSeek with empty model', () {
       final config = AIConfig(
         enabled: true,
@@ -4479,6 +4480,7 @@ tags:
         final body = jsonDecode(client.lastBody!) as Map<String, dynamic>;
         expect(body['model'], 'deepseek-v4-flash');
         expect(body['max_tokens'], 16);
+        expect(body, isNot(contains('thinking')));
         expect(client.lastBody, isNot(contains('go-test-key')));
       },
     );
@@ -4519,6 +4521,82 @@ tags:
         expect(client.lastUrl, isNull);
       },
     );
+
+    test(
+      'OpenCode Go polish uses a compatible bounded request body',
+      () async {
+        final client = _CapturingHttpClient(
+          body: '{"choices":[{"message":{"content":"正文 #亲子 #亲子沟通"}}]}',
+        );
+        final service = PolisherService(httpClient: client);
+
+        await service.polish(
+          content: '今天记录了一件小事',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://opencode.ai/zen/go',
+            apiKey: 'key',
+            model: 'deepseek-v4-flash',
+          ),
+        );
+
+        final body =
+            jsonDecode(client.lastRequestBody!) as Map<String, dynamic>;
+        expect(body['max_tokens'], 512);
+        expect(body, isNot(contains('thinking')));
+      },
+    );
+
+    test('official DeepSeek requests explicitly disable thinking', () async {
+      final client = _CapturingHttpClient(
+        body: '{"choices":[{"message":{"content":"正文 #亲子 #亲子沟通"}}]}',
+      );
+      final service = PolisherService(httpClient: client);
+
+      await service.polish(
+        content: '今天记录了一件小事',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.deepseek.com',
+          apiKey: 'key',
+          model: 'deepseek-v4-flash',
+        ),
+      );
+
+      final body = jsonDecode(client.lastRequestBody!) as Map<String, dynamic>;
+      expect(body['thinking'], {'type': 'disabled'});
+    });
+
+    test('connection interruption returns an actionable safe error', () async {
+      final service = PolisherService(httpClient: _ClientExceptionHttpClient());
+      Object? capturedError;
+
+      try {
+        await service.polish(
+          content: '今天记录了一件小事',
+          entryType: EntryType.quickNote,
+          tagConfig: tagConfig,
+          config: const AIConfig(
+            enabled: true,
+            baseUrl: 'https://opencode.ai/zen/go',
+            apiKey: 'key',
+            model: 'deepseek-v4-flash',
+          ),
+        );
+      } catch (error) {
+        capturedError = error;
+      }
+
+      expect(capturedError, isNotNull);
+      expect(
+        PolisherService.readableError(capturedError!),
+        'AI 请求失败：OpenCode Go 上游中断了连接，请稍后重试',
+      );
+    });
 
     test(
       'retry succeeds when first response has no tags, second has',

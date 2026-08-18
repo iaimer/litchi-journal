@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'flora_icon.dart';
 
 import '../services/draft_repository.dart';
+import '../services/polisher_service.dart';
 import 'entry_type.dart';
 
 const _questions = [
@@ -229,11 +230,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
       _saveDraft();
     } catch (e) {
       if (!mounted) return;
-      setState(
-        () => _error = e.toString().contains('请先在设置中启用')
-            ? e.toString().replaceFirst('Exception: ', '')
-            : '润色失败，请重试',
-      );
+      setState(() => _error = PolisherService.readableError(e));
     } finally {
       if (mounted) setState(() => _polishing = false);
     }

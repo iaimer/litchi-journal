@@ -19,6 +19,7 @@ import 'package:litchi_journal_flutter/models/ai_config.dart';
 import 'package:litchi_journal_flutter/models/default_tag_config.dart';
 import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
+import 'package:litchi_journal_flutter/models/gallery_result.dart';
 import 'package:litchi_journal_flutter/models/polish_result.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/ai_config_repository.dart';
@@ -27,6 +28,7 @@ import 'package:litchi_journal_flutter/services/api_client.dart';
 import 'package:litchi_journal_flutter/services/draft_repository.dart';
 import 'package:litchi_journal_flutter/services/entry_line_builder.dart';
 import 'package:litchi_journal_flutter/services/image_compress_service.dart';
+import 'package:litchi_journal_flutter/services/gallery_service.dart';
 import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/polish_result_parser.dart';
 import 'package:litchi_journal_flutter/services/polisher_service.dart';
@@ -41,6 +43,7 @@ import 'package:litchi_journal_flutter/models/image_settings.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:litchi_journal_flutter/screens/anxiety_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
+import 'package:litchi_journal_flutter/screens/gallery_image_viewer_screen.dart';
 import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
 import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
@@ -56,6 +59,7 @@ import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
 import 'package:litchi_journal_flutter/widgets/entry_edit_sheet.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
+import 'package:litchi_journal_flutter/widgets/gallery_image_tile.dart';
 import 'package:litchi_journal_flutter/widgets/habit_card.dart';
 import 'package:litchi_journal_flutter/widgets/history_calendar.dart';
 import 'package:litchi_journal_flutter/widgets/image_section_card.dart';
@@ -145,6 +149,61 @@ class _FakeHttpClient extends http.BaseClient {
       Stream.value(utf8.encode(body)),
       statusCode,
       headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+  }
+}
+
+class _GalleryHttpClient extends http.BaseClient {
+  final String galleryBody;
+  final Uint8List imageBytes;
+  final List<Uri> requests = [];
+
+  _GalleryHttpClient({required this.galleryBody, required this.imageBytes});
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request.url);
+    final path = request.url.path;
+    if (request.method == 'GET' && path == '/api/v1/history/gallery') {
+      return _response(galleryBody, 200, 'application/json');
+    }
+    if (request.method == 'GET' && path == '/api/v1/settings/tags') {
+      return _response('{}', 500, 'application/json');
+    }
+    if (request.method == 'GET' &&
+        path.startsWith('/api/v1/diary/image/render/')) {
+      return http.StreamedResponse(
+        Stream.value(imageBytes),
+        200,
+        headers: {'content-type': 'image/jpeg'},
+      );
+    }
+    if (request.method == 'GET' && path.startsWith('/api/v1/diary/')) {
+      return _response('{}', 404, 'application/json');
+    }
+    if (request.method == 'GET' && path.startsWith('/api/v1/history/')) {
+      return _response(
+        jsonEncode({
+          'year': DateTime.now().year,
+          'month': DateTime.now().month,
+          'diaries': [],
+        }),
+        200,
+        'application/json',
+      );
+    }
+    return _response('{}', 404, 'application/json');
+  }
+
+  http.StreamedResponse _response(
+    String body,
+    int statusCode,
+    String contentType,
+  ) {
+    return http.StreamedResponse(
+      Stream.value(utf8.encode(body)),
+      statusCode,
+      headers: {'content-type': contentType},
     );
   }
 }
@@ -771,30 +830,107 @@ void main() {
 
       expect(find.byType(SafeArea), findsOneWidget);
       expect(find.text('过往'), findsOneWidget);
-      expect(find.text('看看那些已经走过的日子'), findsOneWidget);
-      expect(find.text('今天曾经发生过'), findsOneWidget);
-      expect(find.text('随便走走'), findsOneWidget);
+      expect(find.text('把值得记住的日子，慢慢翻出来'), findsOneWidget);
+      expect(find.byKey(const Key('gallery_month_picker')), findsOneWidget);
+      expect(find.text('今天曾经发生过'), findsNothing);
+      expect(find.text('随便走走'), findsNothing);
       expect(
         find.ancestor(of: find.text('过往'), matching: find.byType(ListView)),
         findsNothing,
       );
       expect(
         find.ancestor(
-          of: find.text('看看那些已经走过的日子'),
+          of: find.text('把值得记住的日子，慢慢翻出来'),
           matching: find.byType(ListView),
         ),
         findsNothing,
       );
       expect(
         find.ancestor(
-          of: find.text('今天曾经发生过'),
-          matching: find.byType(ListView),
+          of: find.byKey(const Key('gallery_month_picker')),
+          matching: find.byType(CustomScrollView),
         ),
-        findsOneWidget,
+        findsNothing,
       );
-      final listView = tester.widget<ListView>(find.byType(ListView));
-      expect(listView.physics, isA<AlwaysScrollableScrollPhysics>());
+      final scrollView = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView),
+      );
+      expect(scrollView.physics, isA<AlwaysScrollableScrollPhysics>());
     });
+
+    testWidgets('PastScreen renders one gallery tile per photo day', (
+      tester,
+    ) async {
+      final image = img.Image(width: 2, height: 2);
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _GalleryHttpClient(
+          galleryBody: jsonEncode({
+            'months': [
+              {
+                'year': 2024,
+                'month': 3,
+                'totalDays': 1,
+                'totalImages': 2,
+                'days': [
+                  {
+                    'date': '2024-03-08',
+                    'images': ['first.jpg', 'second.jpg'],
+                    'hasContent': true,
+                  },
+                ],
+              },
+            ],
+            'nextCursor': null,
+          }),
+          imageBytes: Uint8List.fromList(img.encodeJpg(image)),
+        ),
+      );
+
+      await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GalleryImageTile), findsOneWidget);
+      expect(find.text('2024年3月'), findsNWidgets(2));
+      expect(find.text('1天 · 2张'), findsOneWidget);
+      expect(find.text('今天曾经发生过'), findsNothing);
+      expect(find.text('随便走走'), findsNothing);
+    });
+
+    testWidgets(
+      'GalleryImageViewerScreen shows day photo count and diary action',
+      (tester) async {
+        final image = img.Image(width: 2, height: 2);
+        final client = ApiClient(
+          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+          httpClient: _GalleryHttpClient(
+            galleryBody: '{"months":[],"nextCursor":null}',
+            imageBytes: Uint8List.fromList(img.encodeJpg(image)),
+          ),
+        );
+        final service = GalleryService(client);
+        const day = GalleryDay(
+          date: '2024-03-08',
+          images: ['first.jpg', 'second.jpg'],
+          hasContent: true,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: GalleryImageViewerScreen(
+              day: day,
+              galleryService: service,
+              apiClient: client,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('2024年3月8日'), findsNWidgets(2));
+        expect(find.text('1 / 2'), findsOneWidget);
+        expect(find.text('查看当天日记'), findsOneWidget);
+      },
+    );
 
     testWidgets(
       'ReadOnlyDiaryScreen keeps refresh available for short content',
@@ -1022,6 +1158,121 @@ void main() {
       expect(requestBody['time'], matches(RegExp(r'^\d{2}:\d{2}$')));
       expect(find.text('已补录'), findsOneWidget);
     });
+  });
+
+  group('Gallery data layer', () {
+    test('Gallery models preserve month stats and all image names', () {
+      final page = GalleryPage.fromJson({
+        'months': [
+          {
+            'year': 2024,
+            'month': 3,
+            'totalDays': 1,
+            'totalImages': 2,
+            'days': [
+              {
+                'date': '2024-03-08',
+                'images': ['first.jpg', 'second.jpg'],
+                'hasContent': false,
+              },
+            ],
+          },
+        ],
+        'nextCursor': '2024-02',
+      });
+
+      expect(page.nextCursor, '2024-02');
+      expect(page.months.single.totalDays, 1);
+      expect(page.months.single.totalImages, 2);
+      expect(page.months.single.days.single.images, [
+        'first.jpg',
+        'second.jpg',
+      ]);
+      expect(page.months.single.days.single.hasContent, isFalse);
+    });
+
+    test('Gallery API client sends cursor and rendered image width', () async {
+      final fake = _GalleryHttpClient(
+        galleryBody: '{"months":[],"nextCursor":null}',
+        imageBytes: Uint8List.fromList([1, 2, 3]),
+      );
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: fake,
+      );
+
+      final page = await client.fetchGallery(cursor: '2024-03', limit: 2);
+      final bytes = await client.fetchRenderedDiaryImage(
+        year: 2024,
+        month: 3,
+        imageName: 'first photo.jpg',
+        maxWidth: 1600,
+      );
+
+      expect(page.months, isEmpty);
+      expect(bytes, [1, 2, 3]);
+      expect(fake.requests[0].queryParameters, {
+        'limit': '2',
+        'cursor': '2024-03',
+      });
+      expect(
+        fake.requests[1].path,
+        contains('/image/render/2024/first%20photo.jpg'),
+      );
+      expect(fake.requests[1].queryParameters, {
+        'month': '3',
+        'maxWidth': '1600',
+      });
+    });
+
+    test(
+      'Gallery image cache evicts the oldest thumbnail after 60 entries',
+      () async {
+        final fake = _GalleryHttpClient(
+          galleryBody: '{"months":[],"nextCursor":null}',
+          imageBytes: Uint8List.fromList([1, 2, 3]),
+        );
+        final service = GalleryService(
+          ApiClient(
+            ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+            httpClient: fake,
+          ),
+        );
+        final day = GalleryDay(
+          date: '2024-03-08',
+          images: const ['first.jpg'],
+          hasContent: false,
+        );
+
+        for (var index = 0; index < 61; index++) {
+          await service.loadImage(
+            day: day,
+            imageName: 'image-$index.jpg',
+            maxWidth: 480,
+          );
+        }
+        expect(fake.requests, hasLength(61));
+
+        await service.loadImage(
+          day: day,
+          imageName: 'image-0.jpg',
+          maxWidth: 480,
+        );
+        expect(fake.requests, hasLength(62));
+
+        await service.loadImage(
+          day: day,
+          imageName: 'preview.jpg',
+          maxWidth: 1600,
+        );
+        await service.loadImage(
+          day: day,
+          imageName: 'preview.jpg',
+          maxWidth: 1600,
+        );
+        expect(fake.requests, hasLength(64));
+      },
+    );
   });
 
   group('Quick record entry', () {

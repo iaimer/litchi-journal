@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { readDiary, writeDiary, getDateString, getDiaryPath, existsDiary, getAssetsDir } from '../services/vault.js';
 import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
 import { isAbsolute, join, relative, resolve } from 'path';
+import sharp from 'sharp';
 import config from '../config/index.js';
 import { parseDiary, appendToSection, sectionHeaders, replaceEmptyBulletInSection, sortTimelineEntriesInSection } from '../services/markdown.js';
 import { createObsidianDiaryContent } from '../services/template.js';
@@ -9,6 +10,7 @@ import { parseShanghaiDate } from '../utils/date.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OLD_OP_MARKER_PATTERN = /^<!-- diary-op:[0-9a-f-]+ -->$/i;
+const SAFE_IMAGE_NAME_PATTERN = /^[^/\\\u0000-\u001F\u007F]+\.(jpg|jpeg|png|gif|webp|heic|heif)$/i;
 const OP_INDEX_FILE = '.diary-ops.json';
 
 function validateOperationId(operationId: unknown): string | null {
@@ -689,6 +691,63 @@ function replaceAnxietySection(content: string, newText: string): string {
   return [...before, ...newLines, '', ...after].join('\n');
 }
 
+router.get('/image/render/:year/:imageName', async (req, res) => {
+  try {
+    const year = Number(req.params.year);
+    const imageName = req.params.imageName;
+    const month = req.query.month == null ? null : Number(req.query.month);
+    const rawMaxWidth = req.query.maxWidth == null
+      ? 480
+      : Number(req.query.maxWidth);
+
+    if (!Number.isInteger(year) || year < 1000 || year > 9999) {
+      return res.status(400).json({ error: 'Invalid year' });
+    }
+    if (month !== null && (!Number.isInteger(month) || month < 1 || month > 12)) {
+      return res.status(400).json({ error: 'Invalid month' });
+    }
+    if (!Number.isInteger(rawMaxWidth) || rawMaxWidth < 64 || rawMaxWidth > 2000) {
+      return res.status(400).json({ error: 'Invalid maxWidth' });
+    }
+    if (!isSafeImageName(imageName)) {
+      return res.status(400).json({ error: 'Invalid image name' });
+    }
+
+    const imagePath = resolveImagePath(year, imageName, month);
+    if (!imagePath) return res.status(404).json({ error: 'Image not found' });
+
+    let imageBuffer: Buffer;
+    try {
+      imageBuffer = readFileSync(imagePath);
+    } catch {
+      // 文件可能在检查与读取之间被移除，不把本地路径暴露给客户端。
+      return res.status(404).json({ error: 'Image not found' });
+    }
+    try {
+      const rendered = await sharp(imageBuffer, { failOn: 'none' })
+        .rotate()
+        .resize({ width: rawMaxWidth, withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+
+      return res
+        .type('image/webp')
+        .set('Cache-Control', 'private, max-age=86400')
+        .set('Vary', 'Authorization')
+        .send(rendered);
+    } catch {
+      // 少数格式或损坏图片无法由 sharp 转换时，仍返回原图，保持旧链路可用。
+      return res
+        .type(getMimeType(imageName))
+        .set('Cache-Control', 'private, max-age=86400')
+        .set('Vary', 'Authorization')
+        .send(imageBuffer);
+    }
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 router.get('/image/:year/:imageName', async (req, res) => {
   try {
     const year = Number(req.params.year);
@@ -705,41 +764,18 @@ router.get('/image/:year/:imageName', async (req, res) => {
       return res.status(400).json({ error: 'Invalid image name' });
     }
 
-    let imagePath: string | null = null;
-
-    if (month) {
-      const monthDirName = `${month.toString().padStart(2, '0')}.${monthNames[month - 1]}`;
-      const monthAssetsDir = join(
-        config.vaultPath,
-        '01.日记',
-        year.toString(),
-        monthDirName,
-        'assets'
-      );
-      const monthAssetsPath = getSafeAssetPath(monthAssetsDir, imageName);
-      if (existsSync(monthAssetsPath)) {
-        imagePath = monthAssetsPath;
-      }
-    }
-
-    if (!imagePath) {
-      const yearAssetsDir = join(
-        config.vaultPath,
-        '01.日记',
-        year.toString(),
-        'assets'
-      );
-      const yearAssetsPath = getSafeAssetPath(yearAssetsDir, imageName);
-      if (existsSync(yearAssetsPath)) {
-        imagePath = yearAssetsPath;
-      }
-    }
+    const imagePath = resolveImagePath(year, imageName, month);
 
     if (!imagePath) {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    const imageBuffer = readFileSync(imagePath);
+    let imageBuffer: Buffer;
+    try {
+      imageBuffer = readFileSync(imagePath);
+    } catch {
+      return res.status(404).json({ error: 'Image not found' });
+    }
     const base64 = imageBuffer.toString('base64');
     const mimeType = getMimeType(imageName);
 
@@ -887,7 +923,7 @@ router.post('/edit-entry', async (req, res) => {
 });
 
 function isSafeImageName(imageName: string): boolean {
-  return /^[^/\\]+\.(jpg|jpeg|png|gif|webp|heic|heif)$/i.test(imageName);
+  return SAFE_IMAGE_NAME_PATTERN.test(imageName);
 }
 
 function getSafeAssetPath(assetsDir: string, imageName: string): string {
@@ -900,6 +936,34 @@ function getSafeAssetPath(assetsDir: string, imageName: string): string {
   }
 
   return imagePath;
+}
+
+function resolveImagePath(
+  year: number,
+  imageName: string,
+  month: number | null,
+): string | null {
+  if (month !== null) {
+    const monthDirName = `${month.toString().padStart(2, '0')}.${monthNames[month - 1]}`;
+    const monthAssetsDir = join(
+      config.vaultPath,
+      '01.日记',
+      year.toString(),
+      monthDirName,
+      'assets',
+    );
+    const monthAssetsPath = getSafeAssetPath(monthAssetsDir, imageName);
+    if (existsSync(monthAssetsPath)) return monthAssetsPath;
+  }
+
+  const yearAssetsDir = join(
+    config.vaultPath,
+    '01.日记',
+    year.toString(),
+    'assets',
+  );
+  const yearAssetsPath = getSafeAssetPath(yearAssetsDir, imageName);
+  return existsSync(yearAssetsPath) ? yearAssetsPath : null;
 }
 
 // 旧格式日记没有「影像记录」区块时，在末尾补建一个再追加 WikiLink。

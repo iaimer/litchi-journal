@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-import '../models/history_month_result.dart';
 import '../models/diary_entry.dart';
+import '../models/gallery_result.dart';
+import '../models/history_month_result.dart';
 import '../models/tag_config.dart';
 import 'api_config.dart';
 
@@ -222,6 +224,24 @@ class ApiClient {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<Uint8List> fetchRenderedDiaryImage({
+    required int year,
+    required int month,
+    required String imageName,
+    required int maxWidth,
+  }) async {
+    final encodedName = Uri.encodeComponent(imageName);
+    final uri = Uri.parse(
+      '$_baseUrl/api/v1/diary/image/render/$year/$encodedName',
+    ).replace(queryParameters: {'month': '$month', 'maxWidth': '$maxWidth'});
+
+    final response = await _send(() => _http.get(uri, headers: _headers));
+    if (response.statusCode != 200) {
+      throw ApiException(_statusMessage('图片加载失败', response.statusCode));
+    }
+    return response.bodyBytes;
+  }
+
   Future<bool> replaceLizhiSays(DateTime date, String content) async {
     final response = await _post(
       '/api/v1/diary/lizhi-says',
@@ -288,6 +308,20 @@ class ApiClient {
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     return HistoryMonthResult.fromJson(json);
+  }
+
+  Future<GalleryPage> fetchGallery({String? cursor, int limit = 3}) async {
+    final query = <String, String>{'limit': '$limit'};
+    if (cursor != null && cursor.isNotEmpty) query['cursor'] = cursor;
+    final uri = Uri.parse(
+      '$_baseUrl/api/v1/history/gallery',
+    ).replace(queryParameters: query);
+    final response = await _send(() => _http.get(uri, headers: _headers));
+    if (response.statusCode != 200) {
+      throw ApiException(_statusMessage('获取画廊记录失败', response.statusCode));
+    }
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return GalleryPage.fromJson(json);
   }
 
   Future<bool> updateHabits(

@@ -744,3 +744,86 @@
 - `server npm run build` 通过。
 - `server npm test` 32 项全部通过。
 - Debug APK 已覆盖安装到 PLG110，原有配置保留。
+
+---
+
+## 2026-08-20 清理 Reasonix 项目文件
+
+### 讨论内容
+
+- 用户不再使用 Reasonix，要求删除项目内相关文件。
+
+### 决策 & 原因
+
+- 仅删除仓库内 Reasonix 自身的配置与桌面状态文件，不修改仓库外的全局 Reasonix 数据，也保留历史日志中的文字提及。
+
+### 改动文件清单
+
+- `reasonix.toml`
+- `.reasonix/desktop-topic-auto-title-meta.json`
+- `.reasonix/desktop-topic-created-at.json`
+- `.reasonix/desktop-topic-title-sources.json`
+- `.reasonix/desktop-topic-titles.json`
+- `SESSION_LOG.md`
+
+### 遇到的问题
+
+- 无。项目代码中未发现对这些文件的运行时引用。
+
+### 最终结果
+
+- Reasonix 配置文件和 `.reasonix/` 状态目录已从项目工作区删除。
+- 保留 `SESSION_LOG.md` 中的历史路径记录，避免改写历史上下文。
+
+---
+
+## 2026-08-29 过往页画廊 v1
+
+### 讨论内容
+
+- 用户确认将低使用率的「过往」页改造成照片优先的画廊模式，并要求首版按实施计划落地。
+- 画廊按月分组连续滚动，每个日期展示首图；点击后进入当天全部照片的沉浸式预览，纯文字记录继续从月历访问。
+
+### 决策 & 原因
+
+- 服务端新增只读月份游标接口和二进制图片渲染接口，浏览过程不创建日记、不修改 Markdown。
+- 画廊月份允许返回空月份以保持游标连续，但 Flutter 不渲染空图墙；月份跳转会清空当前列表并从目标月份重新加载。
+- 图片渲染优先输出纠正方向后的 WebP，转换失败回退原图；客户端按缩略图/预览宽度区分请求，并将缓存限制为 60 项。
+- 保留历史月历、只读详情、历史补录和最多九张相片上传约束；过往页不显示快速记录 FAB。
+
+### 改动文件清单
+
+- `server/src/services/vault.ts`
+- `server/src/services/gallery.ts`
+- `server/src/routes/history.ts`
+- `server/src/routes/diary.ts`
+- `server/src/routes/history.test.ts`
+- `server/src/routes/diary.test.ts`
+- `server/src/services/gallery.test.ts`
+- `server/package.json`
+- `server/package-lock.json`
+- `lib/models/gallery_result.dart`
+- `lib/services/gallery_service.dart`
+- `lib/services/api_client.dart`
+- `lib/widgets/gallery_image_tile.dart`
+- `lib/screens/gallery_image_viewer_screen.dart`
+- `lib/screens/past_screen.dart`
+- `test/widget_test.dart`
+- `pubspec.yaml`
+- `AGENTS.md`
+- `PLAN.md`
+- `CHANGELOG.md`
+- `README.md`
+- `SESSION_LOG.md`
+
+### 遇到的问题
+
+- 画廊图片请求的并发去重 Future 在清理 pending 映射时产生自引用，导致测试中的 `pumpAndSettle` 持续等待；改为无返回值的 `whenComplete` 清理回调后恢复正常。
+- 首屏连续月份都没有照片时无法仅靠滚动触发下一页，空状态增加「加载更早的照片」入口，避免用户被空月份挡住。
+- 代码审查发现配置切换后 IndexedStack 复用的过往页仍可能持有旧 `ApiClient`，已补充 `didUpdateWidget` 和请求代际保护；月份跳转也改为重载后等待布局完成并校验跳转代际，避免快速切月串位。
+
+### 最终结果
+
+- 版本更新为 `1.6.0+19`。
+- `flutter analyze` 通过，`flutter test` 355 项通过；`server npm run build` 通过，`server npm test` 29 项通过。
+- 尚未进行 PLG110 真机验收；后续重点观察连续浏览六个月、图片内存和深色模式表现。

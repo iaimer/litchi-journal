@@ -6,7 +6,7 @@ Flutter 客户端负责 UI、状态管理和 API 调用；`server/` 负责 Markd
 
 ## 当前状态
 
-当前版本：`1.6.0+19`
+当前版本：`1.6.1+20`
 
 当前版本定位：
 
@@ -14,7 +14,7 @@ Flutter 客户端负责 UI、状态管理和 API 调用；`server/` 负责 Markd
 Flutter 客户端 + 本仓库 API 服务端版
 ```
 
-截至 2026-08-29（1.6.0），已完成：
+截至 2026-08-30（1.6.1），已完成：
 
 - 今日页日记读取与结构化展示
 - 随手记、觉察、小确幸、焦虑四问写入
@@ -37,6 +37,7 @@ Flutter 客户端 + 本仓库 API 服务端版
 - 无日记历史日期仅在首次真正保存时创建标准日记，避免误触产生空文件
 - 过往详情隐藏明日寄语和习惯追踪
 - 过往页固定 header，不随内容滚动；画廊浏览不创建日记或修改 Markdown
+- 画廊索引过滤 Vault 中缺失附件；缺失图片显示为不可用，网络或服务错误保留重试入口
 - Android release 版远程服务端连接
 - 远程 API 配置编辑：支持在设置页修改服务器地址，并复用当前 Token 测试连接后保存
 - 远程 API 地址保存后即时生效，不再需要重启 App
@@ -151,4 +152,4 @@ curl http://localhost:4001/health
 
 图片上传接口已支持可选 `imagePrefix`。旧客户端不传时继续生成 `Image-YYYYMMDD-NNN.jpg`；Flutter 新客户端传入合法前缀时会生成 `{prefix}-YYYYMMDD-NNN.jpg`。
 
-画廊使用 `GET /api/v1/history/gallery?cursor=YYYY-MM&limit=3` 按月份分页；图片预览使用鉴权的 `GET /api/v1/diary/image/render/:year/:imageName?month=MM&maxWidth=...`，服务端按需返回经过方向纠正和缩放的二进制图片，不在 Vault 写缩略图缓存。
+画廊使用 `GET /api/v1/history/gallery?cursor=YYYY-MM&limit=3` 按月份分页；服务端只索引 Vault 中实际存在的安全图片文件，避免 Markdown 与附件尚未同步时产生必然 404。图片预览使用鉴权的 `GET /api/v1/diary/image/render/:year/:imageName?month=MM&maxWidth=...`，服务端按需返回经过方向纠正和缩放的二进制图片，不在 Vault 写缩略图缓存。

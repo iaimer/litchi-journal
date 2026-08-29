@@ -156,6 +156,7 @@ class _FakeHttpClient extends http.BaseClient {
 class _GalleryHttpClient extends http.BaseClient {
   final String galleryBody;
   final String? historyBody;
+  final int imageStatusCode;
   Uint8List imageBytes;
   final List<Uri> requests = [];
 
@@ -163,6 +164,7 @@ class _GalleryHttpClient extends http.BaseClient {
     required this.galleryBody,
     required this.imageBytes,
     this.historyBody,
+    this.imageStatusCode = 200,
   });
 
   @override
@@ -179,7 +181,7 @@ class _GalleryHttpClient extends http.BaseClient {
         path.startsWith('/api/v1/diary/image/render/')) {
       return http.StreamedResponse(
         Stream.value(imageBytes),
-        200,
+        imageStatusCode,
         headers: {'content-type': 'image/jpeg'},
       );
     }
@@ -1111,6 +1113,40 @@ void main() {
     );
 
     testWidgets(
+      'GalleryImageViewerScreen shows unavailable state for a missing image',
+      (tester) async {
+        final client = ApiClient(
+          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+          httpClient: _GalleryHttpClient(
+            galleryBody: '{"months":[],"nextCursor":null}',
+            imageBytes: Uint8List.fromList([1, 2, 3]),
+            imageStatusCode: 404,
+          ),
+        );
+        final service = GalleryService(client);
+        const day = GalleryDay(
+          date: '2024-03-08',
+          images: ['missing.jpg'],
+          hasContent: true,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: GalleryImageViewerScreen(
+              day: day,
+              galleryService: service,
+              apiClient: client,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('图片不可用'), findsOneWidget);
+        expect(find.text('图片加载失败，点击重试'), findsNothing);
+      },
+    );
+
+    testWidgets(
       'ReadOnlyDiaryScreen keeps refresh available for short content',
       (tester) async {
         final client = clientWithBody(
@@ -1552,6 +1588,80 @@ void main() {
         ),
         hasLength(2),
       );
+    });
+
+    testWidgets('404 gallery thumbnails show unavailable state without retry', (
+      tester,
+    ) async {
+      final service = GalleryService(
+        ApiClient(
+          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+          httpClient: _GalleryHttpClient(
+            galleryBody: '{"months":[],"nextCursor":null}',
+            imageBytes: Uint8List.fromList([1, 2, 3]),
+            imageStatusCode: 404,
+          ),
+        ),
+      );
+      const day = GalleryDay(
+        date: '2024-03-08',
+        images: ['first.jpg'],
+        hasContent: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GalleryImageTile(
+              day: day,
+              galleryService: service,
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('图片不可用'), findsOneWidget);
+      expect(find.text('点击重试'), findsNothing);
+    });
+
+    testWidgets('gallery date badge does not cover the whole tile width', (
+      tester,
+    ) async {
+      final image = img.Image(width: 2, height: 2);
+      final service = GalleryService(
+        ApiClient(
+          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+          httpClient: _GalleryHttpClient(
+            galleryBody: '{"months":[],"nextCursor":null}',
+            imageBytes: Uint8List.fromList(img.encodeJpg(image)),
+          ),
+        ),
+      );
+      const day = GalleryDay(
+        date: '2024-03-08',
+        images: ['first.jpg'],
+        hasContent: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GalleryImageTile(
+              day: day,
+              galleryService: service,
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final badge = find.byKey(const ValueKey('gallery_day_badge_2024-03-08'));
+      expect(badge, findsOneWidget);
+      expect(tester.getSize(badge).height, lessThan(32));
+      expect(tester.getSize(badge).width, lessThan(80));
     });
   });
 
@@ -5073,8 +5183,7 @@ tags:
           ),
         );
 
-        final body =
-            jsonDecode(client.lastRequestBody!) as Map<String, dynamic>;
+        final body = jsonDecode(client.lastRequestBody!) as Map<String, dynamic>;
         expect(body['max_tokens'], 512);
         expect(body, isNot(contains('thinking')));
       },

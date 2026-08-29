@@ -869,3 +869,49 @@
 - `server npm run build` 通过。
 - `server npm test` 通过，30 项全部通过。
 - 尚未进行 PLG110 真机验收。
+
+---
+
+## 2026-08-30 过往画廊图片状态修复
+
+### 讨论内容
+
+- 用户反馈画廊日期遮罩过高，遮挡单格照片约一半；部分日期显示「点击重试」但反复重试仍无法加载。
+- 已连接 PLG110（Android 16）复现：失败图片请求稳定返回 HTTP 404，确认不是客户端缓存、网络超时或图片解码问题。
+- 生产 Vault 与服务端配置不在本机，真实历史数据验证需推送后在 Mac mini 部署完成再进行。
+
+### 决策 & 原因
+
+- 将日期信息改为左下角紧凑胶囊，仅占用内容所需高度，保留照片主体可见性。
+- 服务端画廊索引复用安全图片路径解析，过滤实体文件不存在、符号链接越界或非普通文件的 Markdown 图片；仍保留 Markdown 中可用图片的原始顺序。
+- 客户端记录 HTTP 状态码：404 显示「图片不可用」并移除无效重试入口；网络、5xx 和解码失败继续允许重试。沉浸预览与缩略图保持一致。
+- 不修改 Vault、不生成缩略图缓存，保留原有月历和历史只读行为。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `AGENTS.md`
+- `PLAN.md`
+- `CHANGELOG.md`
+- `README.md`
+- `SESSION_LOG.md`
+- `server/src/services/vault.ts`
+- `server/src/routes/diary.ts`
+- `server/src/routes/history.ts`
+- `server/src/routes/history.test.ts`
+- `lib/services/api_client.dart`
+- `lib/widgets/gallery_image_tile.dart`
+- `lib/screens/gallery_image_viewer_screen.dart`
+- `test/widget_test.dart`
+
+### 遇到的问题
+
+- 本机没有生产 Vault，无法用真实历史附件执行服务端端到端请求；本地使用受控 fixture 验证缺失附件过滤和路径安全，生产数据留待 Mac mini 重部署后复验。
+- Dart 格式化会改写测试文件中与本次无关的旧排版，已恢复无关差异。
+
+### 最终结果
+
+- 版本更新为 `1.6.1+20`。
+- `flutter analyze` 通过；`flutter test` 363 项全部通过。
+- `server npm run build` 通过；`server npm test` 31 项全部通过。
+- 新版 Release APK 已使用 `adb install -r` 覆盖安装到 PLG110，设备信息确认 `versionName=1.6.1`、`versionCode=20`；设备随后进入锁屏并断开 ADB，画廊遮罩、404 状态、预览与返回链路需在重新连接并解锁后补做。

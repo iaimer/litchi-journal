@@ -1,10 +1,19 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
-import { join } from 'path';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'fs';
+import { isAbsolute, join, relative, resolve } from 'path';
 import config from '../config/index.js';
 import { getShanghaiDateParts, getShanghaiDateString } from '../utils/date.js';
 
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                     'July', 'August', 'September', 'October', 'November', 'December'];
+const SAFE_IMAGE_NAME_PATTERN = /^[^/\\\u0000-\u001F\u007F]+\.(jpg|jpeg|png|gif|webp|heic|heif)$/i;
 
 export function getDiaryPath(date: Date): string {
   const { year, month } = getShanghaiDateParts(date);
@@ -101,4 +110,68 @@ export function getAssetsDir(date: Date): string {
     `${month.toString().padStart(2, '0')}.${monthNames[month - 1]}`,
     'assets'
   );
+}
+
+/**
+ * 查找日记图片的实体文件，优先使用月份 assets，兼容旧的年份级 assets。
+ * 只返回 Vault 内的普通文件，避免画廊索引出不存在或越界的图片链接。
+ */
+export function resolveImagePath(
+  year: number,
+  imageName: string,
+  month: number | null,
+): string | null {
+  if (!SAFE_IMAGE_NAME_PATTERN.test(imageName)) return null;
+
+  const assetDirs = month === null
+    ? []
+    : [
+        join(
+          config.vaultPath,
+          '01.日记',
+          year.toString(),
+          `${month.toString().padStart(2, '0')}.${monthNames[month - 1]}`,
+          'assets',
+        ),
+      ];
+  assetDirs.push(join(config.vaultPath, '01.日记', year.toString(), 'assets'));
+
+  for (const assetsDir of assetDirs) {
+    const imagePath = resolveSafeImagePath(assetsDir, imageName);
+    if (imagePath) return imagePath;
+  }
+  return null;
+}
+
+function resolveSafeImagePath(assetsDir: string, imageName: string): string | null {
+  const resolvedAssetsDir = resolve(assetsDir);
+  const imagePath = resolve(resolvedAssetsDir, imageName);
+  const relativePath = relative(resolvedAssetsDir, imagePath);
+  if (!relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)) {
+    return null;
+  }
+  if (!existsSync(imagePath)) return null;
+
+  try {
+    const realVaultPath = realpathSync(resolve(config.vaultPath));
+    const realAssetsDir = realpathSync(resolvedAssetsDir);
+    const realImagePath = realpathSync(imagePath);
+    const vaultRelativePath = relative(realVaultPath, realAssetsDir);
+    const realRelativePath = relative(realAssetsDir, realImagePath);
+    if (
+      !vaultRelativePath ||
+      vaultRelativePath.startsWith('..') ||
+      isAbsolute(vaultRelativePath) ||
+      !realRelativePath ||
+      realRelativePath.startsWith('..') ||
+      isAbsolute(realRelativePath) ||
+      !statSync(realImagePath).isFile()
+    ) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  return imagePath;
 }

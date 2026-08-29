@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.6.1
+
+### 修复
+- 过往画廊日期改为紧凑胶囊标记，避免遮挡照片主体。
+- 画廊索引过滤 Vault 中已缺失或不在安全 assets 目录内的 Markdown 图片，避免把必然 404 的缩略图展示为可重试错误。
+- 缩略图与沉浸式预览区分「图片不可用」和可重试的网络/服务错误。
+
+### 验证
+- `flutter analyze` 通过，零问题。
+- `flutter test` 363 项全部通过。
+- `server npm run build` 通过。
+- `server npm test` 31 项全部通过。
+- 已构建并使用 `adb install -r` 安装 Android Release APK 到 PLG110（`versionCode=20`）；设备随后断开 ADB，画面回归待重新连接后补做，结果见会话日志。
+
+---
+
 ## 1.6.0
 
 ### 新增

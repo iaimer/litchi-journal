@@ -1,5 +1,13 @@
 import { Router } from 'express';
-import { readDiary, writeDiary, getDateString, getDiaryPath, existsDiary, getAssetsDir } from '../services/vault.js';
+import {
+  readDiary,
+  writeDiary,
+  getDateString,
+  getDiaryPath,
+  existsDiary,
+  getAssetsDir,
+  resolveImagePath,
+} from '../services/vault.js';
 import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, realpathSync } from 'fs';
 import { isAbsolute, join, relative, resolve } from 'path';
 import sharp from 'sharp';
@@ -95,9 +103,6 @@ function getRequestTime(time: unknown, date: Date): string {
     hour12: false
   });
 }
-
-const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                    'July', 'August', 'September', 'October', 'November', 'December'];
 
 const router = Router();
 
@@ -960,44 +965,6 @@ function getSafeAssetPath(assetsDir: string, imageName: string): string {
   }
 
   return imagePath;
-}
-
-function resolveImagePath(
-  year: number,
-  imageName: string,
-  month: number | null,
-): string | null {
-  if (month !== null) {
-    const monthDirName = `${month.toString().padStart(2, '0')}.${monthNames[month - 1]}`;
-    const monthAssetsDir = join(
-      config.vaultPath,
-      '01.日记',
-      year.toString(),
-      monthDirName,
-      'assets',
-    );
-    let monthAssetsPath: string;
-    try {
-      monthAssetsPath = getSafeAssetPath(monthAssetsDir, imageName);
-    } catch {
-      return null;
-    }
-    if (existsSync(monthAssetsPath)) return monthAssetsPath;
-  }
-
-  const yearAssetsDir = join(
-    config.vaultPath,
-    '01.日记',
-    year.toString(),
-    'assets',
-  );
-  let yearAssetsPath: string;
-  try {
-    yearAssetsPath = getSafeAssetPath(yearAssetsDir, imageName);
-  } catch {
-    return null;
-  }
-  return existsSync(yearAssetsPath) ? yearAssetsPath : null;
 }
 
 // 旧格式日记没有「影像记录」区块时，在末尾补建一个再追加 WikiLink。

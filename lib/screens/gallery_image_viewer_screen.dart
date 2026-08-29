@@ -197,16 +197,7 @@ class _ViewerImageState extends State<_ViewerImage> {
           );
         }
         if (snapshot.hasError || snapshot.data == null) {
-          return Center(
-            child: TextButton.icon(
-              onPressed: () => setState(() {
-                _imageFuture = _loadImage(forceRefresh: true);
-              }),
-              icon: const Icon(Icons.refresh),
-              label: const Text('图片加载失败，点击重试'),
-              style: TextButton.styleFrom(foregroundColor: Colors.white),
-            ),
-          );
+          return _buildError(snapshot.error);
         }
         return InteractiveViewer(
           minScale: 1,
@@ -216,7 +207,7 @@ class _ViewerImageState extends State<_ViewerImage> {
               snapshot.data!,
               fit: BoxFit.contain,
               cacheWidth: 1600,
-              errorBuilder: (_, _, _) => _buildRetryButton(),
+              errorBuilder: (_, error, _) => _buildError(error),
             ),
           ),
         );
@@ -224,7 +215,20 @@ class _ViewerImageState extends State<_ViewerImage> {
     );
   }
 
-  Widget _buildRetryButton() {
+  Widget _buildError(Object? error) {
+    final unavailable = error is ApiException && error.statusCode == 404;
+    if (unavailable) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_not_supported_outlined, color: Colors.white70),
+            SizedBox(height: 8),
+            Text('图片不可用', style: TextStyle(color: Colors.white70)),
+          ],
+        ),
+      );
+    }
     return TextButton.icon(
       onPressed: () => setState(() {
         _imageFuture = _loadImage(forceRefresh: true);

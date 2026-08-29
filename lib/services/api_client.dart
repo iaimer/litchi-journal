@@ -200,7 +200,10 @@ class ApiClient {
       timeout: uploadTimeout,
     );
     if (response.statusCode != 200) {
-      throw ApiException(_statusMessage('图片上传失败', response.statusCode));
+      throw ApiException(
+        _statusMessage('图片上传失败', response.statusCode),
+        statusCode: response.statusCode,
+      );
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -219,7 +222,10 @@ class ApiClient {
 
     final response = await _send(() => _http.get(uri, headers: _headers));
     if (response.statusCode != 200) {
-      throw ApiException(_statusMessage('图片加载失败', response.statusCode));
+      throw ApiException(
+        _statusMessage('图片加载失败', response.statusCode),
+        statusCode: response.statusCode,
+      );
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -237,7 +243,10 @@ class ApiClient {
 
     final response = await _send(() => _http.get(uri, headers: _headers));
     if (response.statusCode != 200) {
-      throw ApiException(_statusMessage('图片加载失败', response.statusCode));
+      throw ApiException(
+        _statusMessage('图片加载失败', response.statusCode),
+        statusCode: response.statusCode,
+      );
     }
     return response.bodyBytes;
   }
@@ -292,7 +301,10 @@ class ApiClient {
     final response = await _get('/api/v1/settings/tags');
 
     if (response.statusCode != 200) {
-      throw ApiException(_statusMessage('获取标签配置失败', response.statusCode));
+      throw ApiException(
+        _statusMessage('获取标签配置失败', response.statusCode),
+        statusCode: response.statusCode,
+      );
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -303,7 +315,10 @@ class ApiClient {
     final response = await _get('/api/v1/history/$year/$month');
 
     if (response.statusCode != 200) {
-      throw ApiException(_statusMessage('获取历史日记列表失败', response.statusCode));
+      throw ApiException(
+        _statusMessage('获取历史日记列表失败', response.statusCode),
+        statusCode: response.statusCode,
+      );
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -318,7 +333,10 @@ class ApiClient {
     ).replace(queryParameters: query);
     final response = await _send(() => _http.get(uri, headers: _headers));
     if (response.statusCode != 200) {
-      throw ApiException(_statusMessage('获取画廊记录失败', response.statusCode));
+      throw ApiException(
+        _statusMessage('获取画廊记录失败', response.statusCode),
+        statusCode: response.statusCode,
+      );
     }
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     return GalleryPage.fromJson(json);
@@ -405,8 +423,9 @@ class ApiClient {
 
 class ApiException implements Exception {
   final String message;
+  final int? statusCode;
 
-  const ApiException(this.message);
+  const ApiException(this.message, {this.statusCode});
 
   @override
   String toString() => message;

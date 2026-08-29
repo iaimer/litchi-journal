@@ -4,6 +4,7 @@ const fixture = vi.hoisted(() => ({
   months: [] as Array<{ year: number; month: number }>,
   diaries: new Map<string, string[]>(),
   contents: new Map<string, string>(),
+  availableImages: new Set<string>(),
 }));
 
 vi.mock('../services/vault.js', () => ({
@@ -16,6 +17,8 @@ vi.mock('../services/vault.js', () => ({
     if (content == null) throw new Error('Diary not found');
     return content;
   },
+  resolveImagePath: (_year: number, imageName: string, _month: number | null) =>
+    fixture.availableImages.has(imageName) ? `/vault/assets/${imageName}` : null,
 }));
 
 import historyRoutes from './history.js';
@@ -65,6 +68,7 @@ describe('history gallery route', () => {
         ].join('\n'),
       ],
     ]);
+    fixture.availableImages = new Set(['first.jpg', 'second.png']);
 
     const res = response();
     await galleryHandler()(
@@ -116,6 +120,7 @@ describe('history gallery route', () => {
         ['## 📸 影像记录', '![[december.jpg]]'].join('\n'),
       ],
     ]);
+    fixture.availableImages = new Set(['december.jpg']);
 
     const res = response();
     await galleryHandler()(
@@ -173,6 +178,7 @@ describe('history gallery route', () => {
       [date(0), ['## 📸 影像记录', '![[today.jpg]]'].join('\n')],
       [date(1), ['## 📸 影像记录', '![[future.jpg]]'].join('\n')],
     ]);
+    fixture.availableImages = new Set(['past.jpg', 'today.jpg', 'future.jpg']);
 
     const res = response();
     await galleryHandler()(
@@ -188,6 +194,40 @@ describe('history gallery route', () => {
         hasContent: false,
       },
     ]);
+  });
+
+  it('filters missing assets and promotes the first available image', async () => {
+    fixture.months = [{ year: 2024, month: 3 }];
+    fixture.diaries = new Map([['2024-3', ['2024-03-08', '2024-03-09']]]);
+    fixture.contents = new Map([
+      [
+        '2024-03-08',
+        ['## 📸 影像记录', '![[missing.jpg]] ![[second.png]]'].join('\n'),
+      ],
+      ['2024-03-09', ['## 📸 影像记录', '![[gone.jpg]]'].join('\n')],
+    ]);
+    fixture.availableImages = new Set(['second.png']);
+
+    const res = response();
+    await galleryHandler()(
+      { query: { cursor: '2024-03', limit: '1' } },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect((res.body as any).months[0]).toEqual({
+      year: 2024,
+      month: 3,
+      totalDays: 1,
+      totalImages: 1,
+      days: [
+        {
+          date: '2024-03-08',
+          images: ['second.png'],
+          hasContent: false,
+        },
+      ],
+    });
   });
 
   it('rejects malformed, out-of-range, and future pagination inputs', async () => {

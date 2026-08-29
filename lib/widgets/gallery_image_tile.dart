@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../models/gallery_result.dart';
+import '../services/api_client.dart';
 import '../services/gallery_service.dart';
 import 'flora_icon.dart';
 
@@ -74,7 +75,7 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
                 return _buildPlaceholder(theme, loading: true);
               }
               if (snapshot.hasError || snapshot.data == null) {
-                return _buildError(theme);
+                return _buildError(theme, error: snapshot.error);
               }
               return Stack(
                 fit: StackFit.expand,
@@ -83,20 +84,31 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
                     snapshot.data!,
                     fit: BoxFit.cover,
                     cacheWidth: 480,
-                    errorBuilder: (_, _, _) => _buildError(theme),
+                    errorBuilder: (_, error, _) =>
+                        _buildError(theme, error: error),
                   ),
-                  Align(
-                    alignment: Alignment.bottomLeft,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(8, 18, 8, 6),
-                      color: Colors.black38,
-                      child: Text(
-                        _dayNumber(widget.day.date),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                  Positioned(
+                    left: 8,
+                    bottom: 8,
+                    child: DecoratedBox(
+                      key: ValueKey('gallery_day_badge_${widget.day.date}'),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        child: Text(
+                          _dayNumber(widget.day.date),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            height: 1.15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -129,22 +141,28 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
     );
   }
 
-  Widget _buildError(ThemeData theme) {
+  Widget _buildError(ThemeData theme, {Object? error}) {
+    final unavailable = error is ApiException && error.statusCode == 404;
     return Material(
       color: theme.colorScheme.surfaceContainerHighest,
       child: InkWell(
-        onTap: _retry,
+        onTap: unavailable ? null : _retry,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.refresh,
+                unavailable
+                    ? Icons.image_not_supported_outlined
+                    : Icons.refresh,
                 size: 22,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
               const SizedBox(height: 4),
-              Text('点击重试', style: theme.textTheme.bodySmall),
+              Text(
+                unavailable ? '图片不可用' : '点击重试',
+                style: theme.textTheme.bodySmall,
+              ),
             ],
           ),
         ),

@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { readDiary, listDiaryMonths, listMonthDiaries } from '../services/vault.js';
+import {
+  listDiaryMonths,
+  listMonthDiaries,
+  readDiary,
+  resolveImagePath,
+} from '../services/vault.js';
 import { parseDiary } from '../services/markdown.js';
 import { getShanghaiDateParts, parseShanghaiDate } from '../utils/date.js';
 import {
@@ -141,7 +146,11 @@ function buildGalleryMonth(
 
     try {
       const entry = parseDiary(readDiary(date));
-      const images = extractGalleryImageNames(entry.sections.images);
+      // Markdown 可能先于附件同步到服务端；索引阶段过滤不存在的实体文件，
+      // 避免画廊把必然 404 的缩略图交给客户端。
+      const images = extractGalleryImageNames(entry.sections.images).filter(
+        imageName => resolveImagePath(year, imageName, month) !== null,
+      );
       if (images.length === 0) continue;
       days.push({
         date: dateStr,

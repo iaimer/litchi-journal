@@ -20,6 +20,7 @@ class GalleryService {
     required GalleryDay day,
     required String imageName,
     required int maxWidth,
+    bool forceRefresh = false,
   }) {
     return imageCache.load(
       apiClient,
@@ -27,6 +28,7 @@ class GalleryService {
       month: day.dateTime.month,
       imageName: imageName,
       maxWidth: maxWidth,
+      forceRefresh: forceRefresh,
     );
   }
 
@@ -46,10 +48,12 @@ class GalleryImageCache {
     required int month,
     required String imageName,
     required int maxWidth,
+    bool forceRefresh = false,
   }) {
     final key = '$year-$month-$imageName-$maxWidth';
     // 高分辨率预览只做请求去重，不长期留在缩略图缓存中。
     final cacheImage = maxWidth <= 480;
+    if (forceRefresh) _cache.remove(key);
     final cached = cacheImage ? _cache.remove(key) : null;
     if (cached != null) {
       _cache[key] = cached;

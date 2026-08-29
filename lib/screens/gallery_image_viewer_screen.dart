@@ -177,11 +177,12 @@ class _ViewerImageState extends State<_ViewerImage> {
     }
   }
 
-  Future<Uint8List> _loadImage() {
+  Future<Uint8List> _loadImage({bool forceRefresh = false}) {
     return widget.galleryService.loadImage(
       day: widget.day,
       imageName: widget.imageName,
       maxWidth: 1600,
+      forceRefresh: forceRefresh,
     );
   }
 
@@ -198,7 +199,9 @@ class _ViewerImageState extends State<_ViewerImage> {
         if (snapshot.hasError || snapshot.data == null) {
           return Center(
             child: TextButton.icon(
-              onPressed: () => setState(() => _imageFuture = _loadImage()),
+              onPressed: () => setState(() {
+                _imageFuture = _loadImage(forceRefresh: true);
+              }),
               icon: const Icon(Icons.refresh),
               label: const Text('图片加载失败，点击重试'),
               style: TextButton.styleFrom(foregroundColor: Colors.white),
@@ -223,7 +226,9 @@ class _ViewerImageState extends State<_ViewerImage> {
 
   Widget _buildRetryButton() {
     return TextButton.icon(
-      onPressed: () => setState(() => _imageFuture = _loadImage()),
+      onPressed: () => setState(() {
+        _imageFuture = _loadImage(forceRefresh: true);
+      }),
       icon: const Icon(Icons.refresh),
       label: const Text('图片无法显示，点击重试'),
       style: TextButton.styleFrom(foregroundColor: Colors.white),

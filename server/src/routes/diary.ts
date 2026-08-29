@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { readDiary, writeDiary, getDateString, getDiaryPath, existsDiary, getAssetsDir } from '../services/vault.js';
-import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, realpathSync } from 'fs';
 import { isAbsolute, join, relative, resolve } from 'path';
 import sharp from 'sharp';
 import config from '../config/index.js';
@@ -885,8 +885,12 @@ router.post('/delete-entry', async (req, res) => {
     const updatedContent = lines.join('\n');
     writeDiary(date, updatedContent);
     if (imageName && isSafeImageName(imageName) && !updatedContent.includes(`![[${imageName}]]`)) {
-      const imagePath = getSafeAssetPath(getAssetsDir(date), imageName);
-      if (existsSync(imagePath)) unlinkSync(imagePath);
+      try {
+        const imagePath = getSafeAssetPath(getAssetsDir(date), imageName);
+        if (existsSync(imagePath)) unlinkSync(imagePath);
+      } catch {
+        // 图片路径异常时保留文件，不能让已完成的日记删除操作返回失败。
+      }
     }
     res.json({ success: true });
   } catch (error) {
@@ -935,6 +939,26 @@ function getSafeAssetPath(assetsDir: string, imageName: string): string {
     throw new Error('Invalid image path');
   }
 
+  // 字符串路径位于 assets 目录内并不代表真实文件没有通过符号链接逃逸。
+  // 仅对已存在的路径做 realpath 校验，避免缺失目录仍能正常返回 404。
+  if (existsSync(imagePath)) {
+    const realVaultPath = realpathSync(resolve(config.vaultPath));
+    const realAssetsDir = realpathSync(resolvedAssetsDir);
+    const realImagePath = realpathSync(imagePath);
+    const vaultRelativePath = relative(realVaultPath, realAssetsDir);
+    const realRelativePath = relative(realAssetsDir, realImagePath);
+    if (
+      !vaultRelativePath ||
+      vaultRelativePath.startsWith('..') ||
+      isAbsolute(vaultRelativePath) ||
+      !realRelativePath ||
+      realRelativePath.startsWith('..') ||
+      isAbsolute(realRelativePath)
+    ) {
+      throw new Error('Invalid image path');
+    }
+  }
+
   return imagePath;
 }
 
@@ -952,7 +976,12 @@ function resolveImagePath(
       monthDirName,
       'assets',
     );
-    const monthAssetsPath = getSafeAssetPath(monthAssetsDir, imageName);
+    let monthAssetsPath: string;
+    try {
+      monthAssetsPath = getSafeAssetPath(monthAssetsDir, imageName);
+    } catch {
+      return null;
+    }
     if (existsSync(monthAssetsPath)) return monthAssetsPath;
   }
 
@@ -962,7 +991,12 @@ function resolveImagePath(
     year.toString(),
     'assets',
   );
-  const yearAssetsPath = getSafeAssetPath(yearAssetsDir, imageName);
+  let yearAssetsPath: string;
+  try {
+    yearAssetsPath = getSafeAssetPath(yearAssetsDir, imageName);
+  } catch {
+    return null;
+  }
   return existsSync(yearAssetsPath) ? yearAssetsPath : null;
 }
 

@@ -43,11 +43,16 @@ class _PastScreenState extends State<PastScreen> {
   bool _calendarExpanded = false;
   bool _calendarLoading = false;
   bool _calendarLoadFailed = false;
+  int _calendarRequestGeneration = 0;
   bool _monthSyncScheduled = false;
   int _galleryRequestGeneration = 0;
   int _todayRequestGeneration = 0;
   int _monthJumpGeneration = 0;
   DateTime _displayedMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+  );
+  DateTime _calendarDisplayedMonth = DateTime(
     DateTime.now().year,
     DateTime.now().month,
   );
@@ -70,7 +75,20 @@ class _PastScreenState extends State<PastScreen> {
     // 并让旧请求失效，确保画廊和「那年今日」立即使用新客户端。
     _memoryService = PastMemoryService(widget.apiClient);
     _galleryService = GalleryService(widget.apiClient);
+    _calendarRequestGeneration++;
+    _monthJumpGeneration++;
+    setState(() {
+      _todayMemory = null;
+      _todayLoading = true;
+      _recordedDatesByMonth.clear();
+      _calendarLoading = false;
+      _calendarLoadFailed = false;
+      _calendarDisplayedMonth = _displayedMonth;
+    });
     _load();
+    if (_calendarExpanded) {
+      _loadCalendarMonth(_calendarDisplayedMonth);
+    }
   }
 
   @override
@@ -112,6 +130,7 @@ class _PastScreenState extends State<PastScreen> {
     if (reset) {
       setState(() {
         _galleryLoading = true;
+        _galleryLoadingMore = false;
         _galleryError = null;
         _emptyMonthNotice = null;
         _galleryMonths = [];
@@ -221,12 +240,16 @@ class _PastScreenState extends State<PastScreen> {
 
   Future<void> _toggleCalendar() async {
     setState(() => _calendarExpanded = !_calendarExpanded);
-    if (_calendarExpanded) await _loadCalendarMonth(_displayedMonth);
+    if (_calendarExpanded) {
+      await _loadCalendarMonth(_calendarDisplayedMonth);
+    }
   }
 
   Future<void> _loadCalendarMonth(DateTime month, {bool force = false}) async {
     final key = _monthKeyForDate(month);
+    final requestGeneration = ++_calendarRequestGeneration;
     if (!force && _recordedDatesByMonth.containsKey(key)) {
+      if (!mounted || requestGeneration != _calendarRequestGeneration) return;
       setState(() {
         _calendarLoading = false;
         _calendarLoadFailed = false;
@@ -246,13 +269,13 @@ class _PastScreenState extends State<PastScreen> {
           .where((day) => day.hasContent || day.hasImages)
           .map((day) => day.date)
           .toSet();
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _calendarRequestGeneration) return;
       setState(() {
         _recordedDatesByMonth[key] = dates;
         _calendarLoading = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _calendarRequestGeneration) return;
       setState(() {
         _calendarLoading = false;
         _calendarLoadFailed = true;
@@ -261,7 +284,7 @@ class _PastScreenState extends State<PastScreen> {
   }
 
   Future<void> _changeCalendarMonth(DateTime month) async {
-    setState(() => _displayedMonth = month);
+    setState(() => _calendarDisplayedMonth = month);
     await _loadCalendarMonth(month);
   }
 
@@ -430,9 +453,11 @@ class _PastScreenState extends State<PastScreen> {
           if (_calendarExpanded) ...[
             const SizedBox(height: 16),
             HistoryCalendar(
-              displayedMonth: _displayedMonth,
+              displayedMonth: _calendarDisplayedMonth,
               recordedDateKeys:
-                  _recordedDatesByMonth[_monthKeyForDate(_displayedMonth)] ??
+                  _recordedDatesByMonth[_monthKeyForDate(
+                    _calendarDisplayedMonth,
+                  )] ??
                   const {},
               loading: _calendarLoading,
               markerLoadFailed: _calendarLoadFailed,

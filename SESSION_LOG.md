@@ -827,3 +827,45 @@
 - 版本更新为 `1.6.0+19`。
 - `flutter analyze` 通过，`flutter test` 355 项通过；`server npm run build` 通过，`server npm test` 29 项通过。
 - 尚未进行 PLG110 真机验收；后续重点观察连续浏览六个月、图片内存和深色模式表现。
+
+---
+
+## 2026-08-30 修复过往画廊审查问题
+
+### 讨论内容
+
+- 用户要求修复 1.6.0 过往画廊提交的代码审查问题，重点包括服务端重部署、配置切换、图片失败重试和月历状态一致性。
+
+### 决策 & 原因
+
+- 服务端更新部署流程补装依赖，并在部署脚本中拒绝低于 Node.js 20.9 的运行环境，避免新增 `sharp` 后构建或启动失败。
+- `PastScreen` 切换 `ApiClient` 时清理旧服务器的月历和「那年今日」状态，增加月历请求代际校验；画廊月份与月历月份使用独立状态，避免导航互相串位。
+- 缩略图失败重试强制绕过有界缓存；服务端图片路径在字符串校验之外增加 Vault 真实路径校验，拒绝通过符号链接读取 Vault 外文件。
+- 为状态切换、异步竞态、缩略图重试和符号链接安全边界补充回归测试。
+
+### 改动文件清单
+
+- `lib/screens/past_screen.dart`
+- `lib/services/gallery_service.dart`
+- `lib/widgets/gallery_image_tile.dart`
+- `lib/screens/gallery_image_viewer_screen.dart`
+- `server/src/routes/diary.ts`
+- `server/src/routes/diary.test.ts`
+- `server/DEPLOY.md`
+- `server/deploy.sh`
+- `README.md`
+- `test/widget_test.dart`
+- `SESSION_LOG.md`
+
+### 遇到的问题
+
+- 实际补测图片失败重试时发现，原有 `setState(() => future = _loadImage())` 的箭头闭包会返回 Future，在 Flutter debug 模式触发 `setState` 回调必须返回 void 的断言；已改为块级闭包。
+- 代码格式化会顺带改写旧测试中的无关排版，已恢复该无关变更，只保留本次画廊修复与测试改动。
+
+### 最终结果
+
+- `flutter analyze` 通过。
+- `flutter test test/widget_test.dart` 通过，包含新增的画廊状态、缓存重试和图片失败重试测试。
+- `server npm run build` 通过。
+- `server npm test` 通过，30 项全部通过。
+- 尚未进行 PLG110 真机验收。

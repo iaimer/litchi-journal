@@ -155,10 +155,15 @@ class _FakeHttpClient extends http.BaseClient {
 
 class _GalleryHttpClient extends http.BaseClient {
   final String galleryBody;
-  final Uint8List imageBytes;
+  final String? historyBody;
+  Uint8List imageBytes;
   final List<Uri> requests = [];
 
-  _GalleryHttpClient({required this.galleryBody, required this.imageBytes});
+  _GalleryHttpClient({
+    required this.galleryBody,
+    required this.imageBytes,
+    this.historyBody,
+  });
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -183,11 +188,12 @@ class _GalleryHttpClient extends http.BaseClient {
     }
     if (request.method == 'GET' && path.startsWith('/api/v1/history/')) {
       return _response(
-        jsonEncode({
-          'year': DateTime.now().year,
-          'month': DateTime.now().month,
-          'diaries': [],
-        }),
+        historyBody ??
+            jsonEncode({
+              'year': DateTime.now().year,
+              'month': DateTime.now().month,
+              'diaries': [],
+            }),
         200,
         'application/json',
       );
@@ -204,6 +210,48 @@ class _GalleryHttpClient extends http.BaseClient {
       Stream.value(utf8.encode(body)),
       statusCode,
       headers: {'content-type': contentType},
+    );
+  }
+}
+
+class _CalendarRaceHttpClient extends http.BaseClient {
+  final List<Completer<http.StreamedResponse>> historyResponses = [];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    final path = request.url.path;
+    if (request.method == 'GET' && path == '/api/v1/history/gallery') {
+      return Future.value(_response('{"months":[],"nextCursor":null}', 200));
+    }
+    if (request.method == 'GET' && path.startsWith('/api/v1/diary/')) {
+      return Future.value(_response('{}', 404));
+    }
+    if (request.method == 'GET' && path.startsWith('/api/v1/history/')) {
+      final completer = Completer<http.StreamedResponse>();
+      historyResponses.add(completer);
+      return completer.future;
+    }
+    return Future.value(_response('{}', 404));
+  }
+
+  void completeHistory(int index, {required int statusCode}) {
+    historyResponses[index].complete(
+      _response(
+        jsonEncode({
+          'year': DateTime.now().year,
+          'month': DateTime.now().month,
+          'diaries': [],
+        }),
+        statusCode,
+      ),
+    );
+  }
+
+  http.StreamedResponse _response(String body, int statusCode) {
+    return http.StreamedResponse(
+      Stream.value(utf8.encode(body)),
+      statusCode,
+      headers: {'content-type': 'application/json; charset=utf-8'},
     );
   }
 }
@@ -897,6 +945,136 @@ void main() {
       expect(find.text('随便走走'), findsNothing);
     });
 
+    testWidgets('calendar month navigation does not move the gallery picker', (
+      tester,
+    ) async {
+      final client = clientWithBody(
+        jsonEncode({
+          'year': DateTime.now().year,
+          'month': DateTime.now().month,
+          'diaries': [],
+          'raw': '',
+        }),
+      );
+      final now = DateTime.now();
+      final currentLabel = '${now.year}年${now.month}月';
+      final previous = DateTime(now.year, now.month - 1);
+      final previousLabel = '${previous.year}年${previous.month}月';
+
+      await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('history_calendar_previous_month')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('gallery_month_picker')),
+          matching: find.text(currentLabel),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('history_calendar')),
+          matching: find.text(previousLabel),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('stale calendar requests cannot overwrite the latest state', (
+      tester,
+    ) async {
+      final httpClient = _CalendarRaceHttpClient();
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: httpClient,
+      );
+
+      await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('history_calendar_previous_month')),
+      );
+      await tester.pump();
+
+      expect(httpClient.historyResponses, hasLength(2));
+      httpClient.completeHistory(1, statusCode: 200);
+      await tester.pumpAndSettle();
+      httpClient.completeHistory(0, statusCode: 500);
+      await tester.pumpAndSettle();
+
+      expect(find.text('记录标记暂未加载，仍可选择日期'), findsNothing);
+    });
+
+    testWidgets(
+      'switching api clients clears calendar markers from the old server',
+      (tester) async {
+        final now = DateTime.now();
+        final yesterday = now.subtract(const Duration(days: 1));
+        final yesterdayKey = ApiClient.formatDate(yesterday);
+        final oldClient = ApiClient(
+          ApiConfig(baseUrl: 'https://old.test', token: 'test'),
+          httpClient: _GalleryHttpClient(
+            galleryBody: '{"months":[],"nextCursor":null}',
+            imageBytes: Uint8List.fromList([1, 2, 3]),
+            historyBody: jsonEncode({
+              'year': now.year,
+              'month': now.month,
+              'diaries': [
+                {
+                  'date': yesterdayKey,
+                  'hasImages': false,
+                  'quickNotesCount': 1,
+                  'exists': true,
+                  'hasContent': true,
+                },
+              ],
+            }),
+          ),
+        );
+        final newClient = ApiClient(
+          ApiConfig(baseUrl: 'https://new.test', token: 'test'),
+          httpClient: _GalleryHttpClient(
+            galleryBody: '{"months":[],"nextCursor":null}',
+            imageBytes: Uint8List.fromList([1, 2, 3]),
+          ),
+        );
+        var currentClient = oldClient;
+        late VoidCallback switchClient;
+
+        await tester.pumpWidget(
+          StatefulBuilder(
+            builder: (context, setState) {
+              switchClient = () => setState(() => currentClient = newClient);
+              return MaterialApp(home: PastScreen(apiClient: currentClient));
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(ValueKey('history_calendar_marker_$yesterdayKey')),
+          findsOneWidget,
+        );
+
+        switchClient();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(ValueKey('history_calendar_marker_$yesterdayKey')),
+          findsNothing,
+        );
+      },
+    );
+
     testWidgets(
       'GalleryImageViewerScreen shows day photo count and diary action',
       (tester) async {
@@ -1273,6 +1451,108 @@ void main() {
         expect(fake.requests, hasLength(64));
       },
     );
+
+    test(
+      'forcing a thumbnail reload evicts the previous cached bytes',
+      () async {
+        final fake = _GalleryHttpClient(
+          galleryBody: '{"months":[],"nextCursor":null}',
+          imageBytes: Uint8List.fromList([1, 2, 3]),
+        );
+        final service = GalleryService(
+          ApiClient(
+            ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+            httpClient: fake,
+          ),
+        );
+        const day = GalleryDay(
+          date: '2024-03-08',
+          images: ['first.jpg'],
+          hasContent: false,
+        );
+
+        expect(
+          await service.loadImage(
+            day: day,
+            imageName: 'first.jpg',
+            maxWidth: 480,
+          ),
+          [1, 2, 3],
+        );
+        fake.imageBytes = Uint8List.fromList([4, 5, 6]);
+
+        expect(
+          await service.loadImage(
+            day: day,
+            imageName: 'first.jpg',
+            maxWidth: 480,
+            forceRefresh: true,
+          ),
+          [4, 5, 6],
+        );
+        expect(
+          await service.loadImage(
+            day: day,
+            imageName: 'first.jpg',
+            maxWidth: 480,
+          ),
+          [4, 5, 6],
+        );
+        expect(
+          fake.requests.where(
+            (request) => request.path.startsWith('/api/v1/diary/image/render/'),
+          ),
+          hasLength(2),
+        );
+      },
+    );
+
+    testWidgets('failed gallery thumbnails can be retried from the network', (
+      tester,
+    ) async {
+      final image = img.Image(width: 2, height: 2);
+      final fake = _GalleryHttpClient(
+        galleryBody: '{"months":[],"nextCursor":null}',
+        imageBytes: Uint8List.fromList([1, 2, 3]),
+      );
+      final service = GalleryService(
+        ApiClient(
+          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+          httpClient: fake,
+        ),
+      );
+      const day = GalleryDay(
+        date: '2024-03-08',
+        images: ['first.jpg'],
+        hasContent: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GalleryImageTile(
+              day: day,
+              galleryService: service,
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('点击重试'), findsOneWidget);
+
+      fake.imageBytes = Uint8List.fromList(img.encodeJpg(image));
+      await tester.tap(find.text('点击重试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('点击重试'), findsNothing);
+      expect(
+        fake.requests.where(
+          (request) => request.path.startsWith('/api/v1/diary/image/render/'),
+        ),
+        hasLength(2),
+      );
+    });
   });
 
   group('Quick record entry', () {

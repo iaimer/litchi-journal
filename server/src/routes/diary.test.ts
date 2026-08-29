@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'fs';
 import { join } from 'path';
@@ -160,5 +161,27 @@ describe('rendered diary image route', () => {
     );
     expect(missing.statusCode).toBe(404);
     expect(existsSync(join(assetsDir(2024, 3), 'missing.jpg'))).toBe(false);
+  });
+
+  it('does not follow an image symlink outside the vault', async () => {
+    const outsidePath = join(testConfig.vaultPath, '..', `outside-${process.pid}.jpg`);
+    const linkedPath = join(assetsDir(2024, 3), 'linked.jpg');
+    writeFileSync(outsidePath, Buffer.from('outside-vault-content'));
+    symlinkSync(outsidePath, linkedPath);
+
+    try {
+      const res = response();
+      await imageHandler()(
+        {
+          params: { year: '2024', imageName: 'linked.jpg' },
+          query: { month: '3', maxWidth: '480' },
+        },
+        res,
+      );
+
+      expect(res.statusCode).toBe(404);
+    } finally {
+      rmSync(outsidePath, { force: true });
+    }
   });
 });

@@ -141,6 +141,8 @@ cd server
 ./deploy.sh
 ```
 
+服务端运行要求 Node.js `20.9+`（`sharp` 依赖要求）；更新已有部署时先执行 `npm install` 再构建。
+
 健康检查：
 
 ```bash

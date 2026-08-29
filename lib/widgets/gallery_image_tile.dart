@@ -41,18 +41,21 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
     }
   }
 
-  Future<Uint8List> _loadImage() {
+  Future<Uint8List> _loadImage({bool forceRefresh = false}) {
     final imageName = widget.day.firstImage;
     if (imageName == null) return Future.error('图片不存在');
     return widget.galleryService.loadImage(
       day: widget.day,
       imageName: imageName,
       maxWidth: 480,
+      forceRefresh: forceRefresh,
     );
   }
 
   void _retry() {
-    setState(() => _imageFuture = _loadImage());
+    setState(() {
+      _imageFuture = _loadImage(forceRefresh: true);
+    });
   }
 
   @override

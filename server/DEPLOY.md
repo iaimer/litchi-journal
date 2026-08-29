@@ -2,7 +2,7 @@
 
 ## 前置要求
 
-- Mac mini 已安装 Node.js (v20+)
+- Mac mini 已安装 Node.js (v20.9+，`sharp` 运行要求)
 - Mac mini 已安装 Tailscale 并连接
 - 已确认 Obsidian Vault 的本地路径
 
@@ -104,6 +104,7 @@ git pull
 
 # 重新部署
 cd server
+npm install
 npm run build
 npm run pm2:restart
 ```

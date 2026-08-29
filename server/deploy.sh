@@ -15,6 +15,9 @@ fi
 
 echo "Node 版本: $(node --version)"
 
+# sharp 要求 Node.js >= 20.9.0，提前失败并给出明确提示。
+node -e "const [major, minor] = process.versions.node.split('.').map(Number); if (major < 20 || (major === 20 && minor < 9)) { console.error('错误：sharp 要求 Node.js >= 20.9.0'); process.exit(1); }"
+
 # 2. 安装依赖
 echo "安装依赖..."
 npm install

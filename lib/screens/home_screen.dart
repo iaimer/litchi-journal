@@ -36,7 +36,6 @@ import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
-import '../widgets/image_upload_strip.dart';
 
 typedef TodayImagePicker = Future<XFile?> Function(ImageSettings settings);
 typedef TodayImageCompressor =
@@ -993,14 +992,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        ImageUploadStrip(
-                          items: _imageUploads,
-                          onRetry: _retryImageUpload,
-                          onRemove: _removeImageUpload,
-                        ),
-                        if (_diary != null && _diary!.raw.isNotEmpty) ...[
+                        if (_diary?.raw.isNotEmpty == true ||
+                            _imageUploads.isNotEmpty) ...[
                           DiaryMarkdownView(
-                            markdown: _diary!.raw,
+                            markdown: _diary?.raw ?? '',
                             onHabitUpdate: _handleHabitUpdate,
                             onEntryDelete: _handleEntryDelete,
                             onEntryEdit: _handleEntryEdit,
@@ -1014,6 +1009,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             habitSettings:
                                 _habitSettings ?? HabitSettings.defaults,
                             onCustomCheckboxToggle: _handleCustomCheckboxToggle,
+                            imageUploads: _imageUploads,
+                            onImageUploadRetry: _retryImageUpload,
+                            onImageUploadRemove: _removeImageUpload,
                           ),
                         ] else ...[
                           Text(

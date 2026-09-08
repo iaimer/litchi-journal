@@ -4,6 +4,7 @@ import 'flora_icon.dart';
 
 import '../models/diary_document.dart';
 import '../models/habit_settings.dart';
+import '../models/image_upload_item.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/api_client.dart';
@@ -46,6 +47,10 @@ class DiaryMarkdownView extends StatelessWidget {
 
   /// 自定义 checkbox 习惯状态变化回调。
   final Future<bool> Function(Map<String, bool> states)? onCustomCheckboxToggle;
+  final List<ImageUploadItem> imageUploads;
+  final ValueChanged<ImageUploadItem>? onImageUploadRetry;
+  final ValueChanged<ImageUploadItem>? onImageUploadRemove;
+  final bool Function(ImageUploadItem item)? canRemoveImageUpload;
 
   const DiaryMarkdownView({
     super.key,
@@ -64,6 +69,10 @@ class DiaryMarkdownView extends StatelessWidget {
     this.activeHabitKeys,
     this.habitSettings,
     this.onCustomCheckboxToggle,
+    this.imageUploads = const [],
+    this.onImageUploadRetry,
+    this.onImageUploadRemove,
+    this.canRemoveImageUpload,
   });
 
   @override
@@ -71,7 +80,10 @@ class DiaryMarkdownView extends StatelessWidget {
     final document = const MarkdownParser().parse(markdown);
     final canGenerateCoach = !readOnly && onGenerateCoach != null;
     final canShowHabitFallback = !readOnly && onHabitUpdate != null;
-    if (document.isEmpty && !canGenerateCoach && !canShowHabitFallback) {
+    if (document.isEmpty &&
+        !canGenerateCoach &&
+        !canShowHabitFallback &&
+        imageUploads.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -94,11 +106,16 @@ class DiaryMarkdownView extends StatelessWidget {
 
     var hasCoachSection = false;
     var hasHabitSection = false;
+    var hasMediaSection = false;
     for (final section in document.sections) {
       if (section is HabitSection) hasHabitSection = true;
+      if (section is MediaSection) hasMediaSection = true;
       if (_isHiddenSection(section)) continue;
       if (section is CoachSection) hasCoachSection = true;
+      final shouldShowEmptyMedia =
+          section is MediaSection && imageUploads.isNotEmpty;
       if (section.isEmpty &&
+          !shouldShowEmptyMedia &&
           (section is! CoachSection || readOnly || onGenerateCoach == null)) {
         continue;
       }
@@ -116,6 +133,18 @@ class DiaryMarkdownView extends StatelessWidget {
       widgets.add(
         _buildCoachCard(
           const CoachSection(title: '🧠 人生教练', contents: []),
+          context,
+        ),
+      );
+    }
+
+    if (imageUploads.isNotEmpty &&
+        !hasMediaSection &&
+        apiClient != null &&
+        date != null) {
+      widgets.add(
+        _buildMediaSection(
+          const MediaSection(title: '📸 影像记录', contents: []),
           context,
         ),
       );
@@ -225,27 +254,35 @@ class DiaryMarkdownView extends StatelessWidget {
         }
         return const SizedBox.shrink();
       case MediaSection():
-        if (apiClient != null && date != null) {
-          return ImageSectionCard(
-            section: section,
-            accentColor: _accentColorFor(section),
-            apiClient: apiClient!,
-            date: date!,
-            onDeleteImage: onEntryDelete != null
-                ? (rawLine) => onEntryDelete!('images', rawLine)
-                : null,
-          );
-        }
-        return GenericSectionCard(
-          section: section,
-          accentColor: _accentColorFor(section),
-        );
+        return _buildMediaSection(section, context);
       default:
         return GenericSectionCard(
           section: section,
           accentColor: _accentColorFor(section),
         );
     }
+  }
+
+  Widget _buildMediaSection(MediaSection section, BuildContext context) {
+    if (apiClient != null && date != null) {
+      return ImageSectionCard(
+        section: section,
+        accentColor: _accentColorFor(section),
+        apiClient: apiClient!,
+        date: date!,
+        onDeleteImage: onEntryDelete != null
+            ? (rawLine) => onEntryDelete!('images', rawLine)
+            : null,
+        imageUploads: imageUploads,
+        onRetryImageUpload: onImageUploadRetry,
+        onRemoveImageUpload: onImageUploadRemove,
+        canRemoveImageUpload: canRemoveImageUpload,
+      );
+    }
+    return GenericSectionCard(
+      section: section,
+      accentColor: _accentColorFor(section),
+    );
   }
 
   /// 根据 section type 返回模块 accentColor（UI 表现层色值，非模型数据）。

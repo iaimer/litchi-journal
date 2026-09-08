@@ -11,6 +11,7 @@ class ImageUploadStrip extends StatelessWidget {
   final ValueChanged<ImageUploadItem> onRetry;
   final ValueChanged<ImageUploadItem> onRemove;
   final bool Function(ImageUploadItem item)? canRemove;
+  final EdgeInsetsGeometry padding;
 
   const ImageUploadStrip({
     super.key,
@@ -18,13 +19,14 @@ class ImageUploadStrip extends StatelessWidget {
     required this.onRetry,
     required this.onRemove,
     this.canRemove,
+    this.padding = const EdgeInsets.only(top: FloraSpacing.md),
   });
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: FloraSpacing.md),
+      padding: padding,
       child: SizedBox(
         height: 112,
         child: ListView.separated(

@@ -67,6 +67,7 @@ import 'package:litchi_journal_flutter/widgets/image_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/image_upload_strip.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
 import 'package:litchi_journal_flutter/widgets/review_card.dart';
+import 'package:litchi_journal_flutter/widgets/section_card.dart';
 import 'package:litchi_journal_flutter/widgets/tag_color_helper.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 
@@ -2036,7 +2037,13 @@ void main() {
       expect(find.text('上传失败\n点击重试'), findsOneWidget);
       expect(find.byType(Image), findsOneWidget);
 
-      await tester.tap(find.text('上传失败\n点击重试'));
+      final retry = find.text('上传失败\n点击重试');
+      ScaffoldMessenger.of(
+        tester.element(find.byType(HomeScreen)),
+      ).removeCurrentSnackBar();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(retry);
+      await tester.tap(retry);
       await tester.pumpAndSettle();
       expect(httpClient.uploadCalls, 2);
       expect(httpClient.uploadOperationIds.toSet(), hasLength(1));
@@ -7895,6 +7902,49 @@ tags:
   });
 
   group('Image upload status', () {
+    testWidgets('pending image preview stays inside media section', (
+      tester,
+    ) async {
+      final image = img.Image(width: 8, height: 8);
+      _fillSolidImage(image);
+      final item = ImageUploadItem(
+        id: 'media-section-preview',
+        file: XFile.fromData(
+          Uint8List.fromList(img.encodeJpg(image)),
+          name: 'preview.jpg',
+          mimeType: 'image/jpeg',
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: '',
+              apiClient: ApiClient(
+                ApiConfig(baseUrl: 'https://test.local', token: 'x'),
+              ),
+              date: DateTime(2026, 6, 8),
+              imageUploads: [item],
+              onImageUploadRetry: (_) {},
+              onImageUploadRemove: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('📸 影像记录'), findsOneWidget);
+      expect(find.byType(ImageUploadStrip), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.byType(ImageUploadStrip),
+          matching: find.byType(SectionCard),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('preview distinguishes preparing, real progress, and failure', (
       tester,
     ) async {

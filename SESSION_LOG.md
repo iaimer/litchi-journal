@@ -989,3 +989,68 @@
 ### 最终结果
 
 - 已创建提交 `edc90c8`，并成功推送到 `origin/main`。
+
+---
+
+## 2026-09-08 图片上传缩略图归位影像记录模块
+
+### 讨论内容
+
+- 用户反馈本地图片缩略图虽然已经即时出现，但显示在页面顶部，没有归入「影像记录」模块。
+
+### 决策 & 原因
+
+- 将上传中的图片列表从今天页和历史详情页的顶层 `ListView` 移入 `DiaryMarkdownView`，由 `ImageSectionCard` 与服务器已有图片共同渲染。
+- 当当前 Markdown 尚未包含影像 section 时，仅在 UI 中补建临时「影像记录」模块，不提前写入 Markdown；上传成功后仍由服务端内容刷新接管。
+- 保留原有逐图状态、失败重试、删除和历史多图暂停规则；仅调整展示归属和测试中的滚动点击路径。
+
+### 改动文件清单
+
+- `lib/widgets/image_upload_strip.dart`
+- `lib/widgets/image_section_card.dart`
+- `lib/widgets/diary_markdown_view.dart`
+- `lib/screens/home_screen.dart`
+- `lib/screens/read_only_diary_screen.dart`
+- `test/widget_test.dart`
+- `SESSION_LOG.md`
+
+### 验证
+
+- 新增测试确认待上传缩略图位于 `SectionCard` 的「影像记录」模块内。
+- 图片上传状态相关测试通过。
+- `flutter analyze` 通过，零问题。
+- `flutter test` 367 项全部通过。
+
+---
+
+## 2026-09-08 正式版 1.6.3+22 打包与推送
+
+### 讨论内容
+
+- 用户要求将图片缩略图归入影像记录模块的修复构建正式版并推送。
+
+### 决策 & 原因
+
+- 按兼容性 bug 修复递增 Flutter 版本，从 `1.6.2+21` 升至 `1.6.3+22`。
+- 发布前执行代码审查，确认服务器图片与本地 pending 图片可共存，今天页和历史补录的上传、重试、删除、文字编辑以及失败暂停规则没有回归。
+- 采纳审查发现的 Minor 视觉问题，将临时影像模块标题从带 Markdown 前缀的 `## 📸 影像记录` 修正为 `📸 影像记录`。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `CHANGELOG.md`
+- `README.md`
+- `SESSION_LOG.md`
+- 图片上传模块相关 Flutter 文件与回归测试
+
+### 验证
+
+- `flutter analyze` 通过，零问题。
+- `flutter test` 367 项全部通过。
+- Release APK 构建成功：`build/app/outputs/flutter-apk/app-release.apk`，包内 `versionName=1.6.3`、`versionCode=22`。
+- APK SHA-256：`3d3fd1b171332090e31c6fdb8c4a293c1b04e10dafe371ca237cde766cfed67d`。
+- 当前 `adb devices` 没有在线设备，未执行本次 APK 安装和真机回归。
+
+### 最终结果
+
+- 待提交并推送到 `origin/main`。

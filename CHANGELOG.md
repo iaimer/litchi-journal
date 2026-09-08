@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.3
+
+### 修复
+- 图片上传缩略图归入「影像记录」模块，与服务器已有图片共同展示；尚未生成影像 section 时也会提供仅用于本地反馈的模块容器。
+
+### 验证
+- `flutter analyze` 通过，零问题。
+- `flutter test` 367 项全部通过。
+- `flutter build apk --release` 构建成功；APK 内核对为 `versionName=1.6.3`、`versionCode=22`。
+- 当前 `adb devices` 没有在线设备，本次未执行安装和真机视觉回归。
+
 ## 1.6.2
 
 ### 调整

@@ -7,7 +7,10 @@ import 'flora_icon.dart';
 import 'section_card.dart';
 
 import '../models/diary_document.dart';
+import '../models/image_upload_item.dart';
 import '../services/api_client.dart';
+import '../theme/app_theme.dart';
+import 'image_upload_strip.dart';
 
 class ImageSectionCard extends StatelessWidget {
   final MediaSection section;
@@ -23,14 +26,23 @@ class ImageSectionCard extends StatelessWidget {
     required this.apiClient,
     required this.date,
     this.onDeleteImage,
+    this.imageUploads = const [],
+    this.onRetryImageUpload,
+    this.onRemoveImageUpload,
+    this.canRemoveImageUpload,
   });
+
+  final List<ImageUploadItem> imageUploads;
+  final ValueChanged<ImageUploadItem>? onRetryImageUpload;
+  final ValueChanged<ImageUploadItem>? onRemoveImageUpload;
+  final bool Function(ImageUploadItem item)? canRemoveImageUpload;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final filenames = parseWikiLinks(section);
 
-    if (filenames.isEmpty) {
+    if (filenames.isEmpty && imageUploads.isEmpty) {
       return SectionCard(
         title: section.title,
         accentColor: accentColor ?? theme.colorScheme.primary,
@@ -45,10 +57,9 @@ class ImageSectionCard extends StatelessWidget {
       );
     }
 
-    return SectionCard(
-      title: section.title,
-      accentColor: accentColor ?? theme.colorScheme.primary,
-      children: [
+    final children = <Widget>[];
+    if (filenames.isNotEmpty) {
+      children.add(
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -63,7 +74,28 @@ class ImageSectionCard extends StatelessWidget {
             );
           }).toList(),
         ),
-      ],
+      );
+    }
+
+    if (imageUploads.isNotEmpty) {
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: FloraSpacing.md));
+      }
+      children.add(
+        ImageUploadStrip(
+          items: imageUploads,
+          onRetry: onRetryImageUpload ?? (_) {},
+          onRemove: onRemoveImageUpload ?? (_) {},
+          canRemove: canRemoveImageUpload,
+          padding: EdgeInsets.zero,
+        ),
+      );
+    }
+
+    return SectionCard(
+      title: section.title,
+      accentColor: accentColor ?? theme.colorScheme.primary,
+      children: children,
     );
   }
 

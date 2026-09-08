@@ -22,7 +22,6 @@ import '../services/tag_settings_repository.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/historical_quick_record_fab.dart';
-import '../widgets/image_upload_strip.dart';
 import 'quick_capture_screen.dart';
 
 typedef HistoricalImagePicker =
@@ -397,13 +396,13 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           const SizedBox(height: 16),
-          if (_error != null)
+          if (_error != null && _imageUploads.isEmpty)
             _buildError(theme)
-          else if (_diary == null)
+          else if (_diary == null && _imageUploads.isEmpty)
             _buildEmpty(theme)
           else
             DiaryMarkdownView(
-              markdown: _diary!.raw,
+              markdown: _diary?.raw ?? '',
               onHabitUpdate: null,
               onEntryDelete: null,
               onEntryEdit: null,
@@ -412,13 +411,11 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
               date: widget.date,
               readOnly: true,
               hiddenSections: const {'tomorrow', 'habits'},
+              imageUploads: _imageUploads,
+              onImageUploadRetry: _retryImageUpload,
+              onImageUploadRemove: _removeImageUpload,
+              canRemoveImageUpload: _canRemoveImageUpload,
             ),
-          ImageUploadStrip(
-            items: _imageUploads,
-            onRetry: _retryImageUpload,
-            onRemove: _removeImageUpload,
-            canRemove: _canRemoveImageUpload,
-          ),
           const SizedBox(height: 96),
         ],
       ),

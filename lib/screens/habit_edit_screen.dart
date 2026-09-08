@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../widgets/flora_icon.dart';
 
@@ -137,10 +138,12 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
     int? target;
     if (_isQuantitativeHabit) {
       target = int.tryParse(_targetController.text.trim());
-      if (target == null || target <= 0) {
+      if (target == null ||
+          target <= 0 ||
+          target > HabitSettings.maxCounterTarget) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('每日目标请输入大于 0 的整数')));
+        ).showSnackBar(const SnackBar(content: Text('每日目标请输入 1–500000 的整数')));
         return;
       }
     }
@@ -318,6 +321,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                 key: const ValueKey('habit_target_field'),
                 controller: _targetController,
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
                   hintText: '输入每日目标',
                   suffixText: widget.habitKey == 'water' ? 'mL' : '步',

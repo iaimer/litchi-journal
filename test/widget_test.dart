@@ -4569,6 +4569,7 @@ tags:
     testWidgets('quantitative habits show progress bars with current targets', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       final section = HabitSection(
         title: '习惯打卡',
         contents: [],
@@ -4603,6 +4604,7 @@ tags:
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: AppTheme.light,
           home: Scaffold(
             body: HabitCard(section: section, onUpdate: (_) async => true),
           ),
@@ -4620,8 +4622,74 @@ tags:
         find.byKey(const ValueKey('habit_progress_steps')),
         findsOneWidget,
       );
+      final progressValue = tester.widget<Text>(find.text('3000/6000 步'));
+      expect(progressValue.style?.color, AppColors.textSecondary);
+      final progressSemantics = tester.getSemantics(
+        find.byKey(const ValueKey('habit_progress_steps')),
+      );
+      expect(progressSemantics.label, contains('运动进度'));
+      expect(progressSemantics.label, isNot(contains('3000/6000 步')));
+      expect(progressSemantics.value, '3000/6000 步');
+      expect(HabitVisualConfig.of('steps').color, AppColors.success);
       expect(find.byType(CircularProgressIndicator), findsNothing);
+      semantics.dispose();
     });
+
+    testWidgets(
+      'maximum quantitative target stays readable on narrow screens',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final section = HabitSection(
+          title: '习惯打卡',
+          contents: [],
+          habits: [
+            const HabitItem(
+              kind: HabitKind.counter,
+              label: '饮水',
+              checked: false,
+              checkable: false,
+              rawLine: '- 饮水 500000 mL',
+              value: 500000,
+              unit: 'mL',
+            ),
+          ],
+        );
+        const settings = HabitSettings(
+          statusMap: {'water': true},
+          targetMap: {'water': 500000},
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: HabitCard(
+                section: section,
+                habitSettings: settings,
+                onUpdate: (_) async => true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('500000/500000 mL'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        final quickButtonSize = tester.getSize(
+          find.byKey(const ValueKey('habit_water_quick_+250')),
+        );
+        expect(quickButtonSize.height, 36);
+        expect(quickButtonSize.width, greaterThanOrEqualTo(40));
+        final quickButton = tester.widget<OutlinedButton>(
+          find.byKey(const ValueKey('habit_water_quick_+250')),
+        );
+        expect(
+          quickButton.style?.backgroundColor?.resolve(<WidgetState>{})?.a,
+          greaterThan(0),
+        );
+      },
+    );
 
     testWidgets('onUpdate failure shows SnackBar, keeps old state', (
       tester,
@@ -4715,6 +4783,13 @@ tags:
       final restored = HabitSettings.fromJson(json);
       expect(restored.targetFor('water'), 1800);
       expect(restored.targetFor('steps'), 7000);
+
+      final oversized = HabitSettings.fromJson(const {
+        'schemaVersion': 5,
+        'targetMap': {'water': 500001, 'steps': 500000},
+      });
+      expect(oversized.targetFor('water'), 1500);
+      expect(oversized.targetFor('steps'), 500000);
 
       final reset = settings.resetHabit('water');
       expect(reset.targetFor('water'), 1500);
@@ -9532,7 +9607,7 @@ tags:
       expect(settings.targetFor('water'), 1800);
     });
 
-    testWidgets('habit edit rejects a non-positive quantitative target', (
+    testWidgets('habit edit rejects a quantitative target outside limits', (
       tester,
     ) async {
       FlutterSecureStorage.setMockInitialValues({});
@@ -9544,13 +9619,13 @@ tags:
 
       await tester.enterText(
         find.byKey(const ValueKey('habit_target_field')),
-        '0',
+        '500001',
       );
       await tester.ensureVisible(find.text('保存'));
       await tester.tap(find.text('保存'));
       await tester.pump();
 
-      expect(find.text('每日目标请输入大于 0 的整数'), findsOneWidget);
+      expect(find.text('每日目标请输入 1–500000 的整数'), findsOneWidget);
       expect(
         await HabitSettingsRepository().load().then(
           (s) => s.targetFor('steps'),

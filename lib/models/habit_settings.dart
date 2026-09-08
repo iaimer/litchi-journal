@@ -19,6 +19,9 @@ class HabitSettings {
   /// 首页进度条使用的默认每日目标，目标仅属于现有内置计数习惯。
   static const defaultTargets = <String, int>{'water': 1500, 'steps': 6000};
 
+  /// 与服务端计数写入上限保持一致，避免异常配置破坏首页布局。
+  static const maxCounterTarget = 500000;
+
   /// 习惯 key → isActive
   final Map<String, bool> statusMap;
 
@@ -116,7 +119,9 @@ class HabitSettings {
   int? targetFor(String key) {
     if (!defaultTargets.containsKey(key)) return null;
     final target = targetMap[key];
-    return target != null && target > 0 ? target : defaultTargets[key];
+    return target != null && target > 0 && target <= maxCounterTarget
+        ? target
+        : defaultTargets[key];
   }
 
   // ── 修改方法 ──
@@ -164,7 +169,9 @@ class HabitSettings {
 
     final newTargets = Map<String, int>.from(targetMap);
     if (target != null && defaultTargets.containsKey(key)) {
-      if (target > 0 && target != defaultTargets[key]) {
+      if (target > 0 &&
+          target <= maxCounterTarget &&
+          target != defaultTargets[key]) {
         newTargets[key] = target;
       } else {
         newTargets.remove(key);
@@ -260,7 +267,10 @@ class HabitSettings {
     'colorMap': colorMap,
     'targetMap': Map.fromEntries(
       targetMap.entries.where(
-        (entry) => defaultTargets.containsKey(entry.key) && entry.value > 0,
+        (entry) =>
+            defaultTargets.containsKey(entry.key) &&
+            entry.value > 0 &&
+            entry.value <= maxCounterTarget,
       ),
     ),
     'extraHabits': extraHabits,
@@ -325,7 +335,8 @@ class HabitSettings {
         if (key is String &&
             defaultTargets.containsKey(key) &&
             value != null &&
-            value > 0) {
+            value > 0 &&
+            value <= maxCounterTarget) {
           targetMap[key] = value;
         }
       }

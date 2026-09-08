@@ -32,7 +32,7 @@ class HabitVisualConfig {
       key: 'steps',
       displayName: '运动',
       icon: FloraIcons.habitWalk,
-      color: Color(0xFFE8A87C),
+      color: Color(0xFF7BA67A),
       group: HabitGroup.body,
     ),
     'reading': HabitVisualConfig(

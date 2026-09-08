@@ -576,7 +576,7 @@ class _WaterCounterRow extends StatelessWidget {
           );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -599,7 +599,7 @@ class _WaterCounterRow extends StatelessWidget {
           if (progress != null) ...[
             const SizedBox(height: 6),
             progress,
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
           ] else ...[
             const SizedBox(height: 6),
           ],
@@ -609,20 +609,30 @@ class _WaterCounterRow extends StatelessWidget {
             children: [
               _QuickButton(
                 label: '+250',
+                color: progressColor ?? theme.colorScheme.primary,
                 onTap: loading ? null : () => onIncrement(_add(250)),
               ),
               _QuickButton(
                 label: '+475',
+                color: progressColor ?? theme.colorScheme.primary,
                 onTap: loading ? null : () => onIncrement(_add(475)),
               ),
               _QuickButton(
                 label: '+500',
+                color: progressColor ?? theme.colorScheme.primary,
                 onTap: loading ? null : () => onIncrement(_add(500)),
               ),
               if (onCustom != null)
-                _QuickButton(label: '自定义', onTap: loading ? null : onCustom),
+                _QuickButton(
+                  label: '自定义',
+                  color: progressColor ?? theme.colorScheme.primary,
+                  variant: _QuickButtonVariant.outline,
+                  onTap: loading ? null : onCustom,
+                ),
               _QuickButton(
                 label: '清零',
+                color: progressColor ?? theme.colorScheme.primary,
+                variant: _QuickButtonVariant.neutral,
                 onTap: loading
                     ? null
                     : () => onIncrement(status.copyWith(water: 0)),
@@ -756,6 +766,7 @@ class _HabitProgressBar extends StatelessWidget {
     return Semantics(
       label: '$label进度',
       value: valueText,
+      excludeSemantics: true,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -790,12 +801,22 @@ class _HabitProgressBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            valueText,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-              height: 1.2,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 136),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                valueText,
+                maxLines: 1,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color:
+                      theme.textTheme.bodySmall?.color ??
+                      theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
             ),
           ),
         ],
@@ -1026,28 +1047,58 @@ class _HabitCheckboxPainter extends CustomPainter {
   }
 }
 
+enum _QuickButtonVariant { tonal, outline, neutral }
+
 class _QuickButton extends StatelessWidget {
   final String label;
+  final Color color;
+  final _QuickButtonVariant variant;
   final VoidCallback? onTap;
 
-  const _QuickButton({required this.label, this.onTap});
+  const _QuickButton({
+    required this.label,
+    required this.color,
+    this.variant = _QuickButtonVariant.tonal,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final backgroundColor = switch (variant) {
+      _QuickButtonVariant.tonal => color.withAlpha(isDark ? 52 : 34),
+      _QuickButtonVariant.outline ||
+      _QuickButtonVariant.neutral => Colors.transparent,
+    };
+    final borderColor = switch (variant) {
+      _QuickButtonVariant.tonal => color.withAlpha(isDark ? 82 : 62),
+      _QuickButtonVariant.outline => color.withAlpha(isDark ? 150 : 120),
+      _QuickButtonVariant.neutral => theme.dividerColor,
+    };
+
     return SizedBox(
-      height: 28,
+      height: 36,
       child: OutlinedButton(
+        key: ValueKey('habit_water_quick_$label'),
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          foregroundColor: theme.colorScheme.onSurface,
+          disabledForegroundColor: theme.colorScheme.onSurface.withAlpha(90),
+          backgroundColor: backgroundColor,
+          disabledBackgroundColor: backgroundColor.withAlpha(isDark ? 24 : 16),
+          overlayColor: color.withAlpha(isDark ? 38 : 24),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          side: const BorderSide(color: AppColors.primary, width: 0.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          side: BorderSide(color: borderColor, width: 0.75),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(FloraRadius.md),
+          ),
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 12, color: AppColors.primary),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ),
     );

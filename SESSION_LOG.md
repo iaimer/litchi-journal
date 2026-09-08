@@ -16,13 +16,18 @@
 
 - `HabitSettings` 升级到 schemaVersion 5，使用稀疏的 `targetMap` 保存内置计数习惯的本地目标，旧配置自动回退默认值。
 - 首页定量习惯采用名称、进度条、当前值/目标值的层级，进度超过目标时视觉保持满格但保留实际数值。
+- 代码审查后将目标限制为与服务端一致的 `1–500000`，进度值改用主题文字色并去除重复读屏语义，最大目标在 320dp 窄屏仍保持单行可读。
+- 运动默认色调整为成长绿；饮水快捷输入改为与蓝色进度轨道一致的紧凑操作条，加水、自定义和清零使用不同视觉层级但保持同一尺寸语言。
+- Android 应用显示名从开发期的「荔枝日记 dev」恢复为正式品牌名「荔枝日记」。
 - 保留已有静默乐观保存、失败回滚和正向操作完成音效，不修改 Markdown、服务端接口和统计判定。
 
 ### 改动文件清单
 
 - `lib/models/habit_settings.dart`
+- `lib/models/habit_visual_config.dart`
 - `lib/screens/habit_edit_screen.dart`、`lib/screens/habit_settings_screen.dart`
 - `lib/widgets/habit_card.dart`
+- `android/app/src/main/AndroidManifest.xml`
 - `test/widget_test.dart`
 - `README.md`、`PLAN.md`、`SESSION_LOG.md`
 
@@ -30,12 +35,14 @@
 
 - Flutter 首次测试启动时遇到残留 native-assets 构建目录，清理可再生 `build/` 后恢复正常。
 - 目标编辑测试最初未将屏幕外的保存按钮滚入视口，修正测试交互后通过。
+- 快捷按钮初版高度导致首页后续影像重试入口被推离测试首屏；在保留新按钮视觉的同时收紧水量行间距，使卡片总高度恢复到改动前水平。
 
 ### 最终结果
 
 - `flutter analyze` 通过，零问题。
-- `flutter test` 全部通过，共 376 项。
+- `flutter test` 全部通过，共 377 项。
 - Release APK 构建通过：`build/app/outputs/flutter-apk/app-release.apk`，约 65.5 MB。
+- APK SHA-256：`0a9aff22aee057e455fd349c45ed1370d4bdcb2682e1b4b2b401a3ed54572623`。
 - 按用户要求未执行 ADB 安装、真机截图或 PLG110 真机测试。
 
 ---

@@ -44,6 +44,7 @@
 - Release APK 构建通过：`build/app/outputs/flutter-apk/app-release.apk`，约 65.5 MB。
 - APK SHA-256：`0a9aff22aee057e455fd349c45ed1370d4bdcb2682e1b4b2b401a3ed54572623`。
 - 按用户要求未执行 ADB 安装、真机截图或 PLG110 真机测试。
+- 已通过快进合并进入 `main`，提交 `db7bb4f` 已推送至 `origin/main`。
 
 ---
 

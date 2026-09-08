@@ -375,16 +375,23 @@ class _HabitCardState extends State<HabitCard> {
             loading: _updatingField != null,
             displayName: _displayName(habit),
             icon: _icon(habit),
+            target: _settings.targetFor(habit.habitKey!),
+            progressColor: Color(_settings.colorFor(habit.habitKey!)),
             onIncrement: (next) => _handleWaterIncrement(next),
             onCustom: () => _handleWaterCustom(status),
           );
         }
+        final habitKey = habit.habitKey;
         return _StepsCounterRow(
           habit: habit,
           status: status,
           loading: _updatingField != null,
           displayName: _displayName(habit),
           icon: _icon(habit),
+          target: habitKey == null ? null : _settings.targetFor(habitKey),
+          progressColor: habitKey == null
+              ? null
+              : Color(_settings.colorFor(habitKey)),
           onEdit: _handleStepsEdit,
         );
     }
@@ -534,6 +541,8 @@ class _WaterCounterRow extends StatelessWidget {
   final bool loading;
   final String displayName;
   final String? icon;
+  final int? target;
+  final Color? progressColor;
   final void Function(HabitStatus next) onIncrement;
   final VoidCallback? onCustom;
 
@@ -543,6 +552,8 @@ class _WaterCounterRow extends StatelessWidget {
     required this.loading,
     required this.displayName,
     this.icon,
+    this.target,
+    this.progressColor,
     required this.onIncrement,
     this.onCustom,
   });
@@ -550,6 +561,19 @@ class _WaterCounterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final unit = habit.unit?.trim().isNotEmpty == true
+        ? habit.unit!.trim()
+        : 'mL';
+    final progress = target == null
+        ? null
+        : _HabitProgressBar(
+            key: const ValueKey('habit_progress_water'),
+            label: displayName,
+            current: status.water,
+            target: target!,
+            unit: unit,
+            color: progressColor ?? theme.colorScheme.primary,
+          );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -564,13 +588,21 @@ class _WaterCounterRow extends StatelessWidget {
               ],
               Expanded(
                 child: Text(
-                  '$displayName ${status.water} ${habit.unit ?? ""}',
+                  target == null
+                      ? '$displayName ${status.water} $unit'
+                      : displayName,
                   style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          if (progress != null) ...[
+            const SizedBox(height: 6),
+            progress,
+            const SizedBox(height: 8),
+          ] else ...[
+            const SizedBox(height: 6),
+          ],
           Wrap(
             spacing: 6,
             runSpacing: 4,
@@ -613,6 +645,8 @@ class _StepsCounterRow extends StatelessWidget {
   final bool loading;
   final String displayName;
   final String? icon;
+  final int? target;
+  final Color? progressColor;
   final VoidCallback onEdit;
 
   const _StepsCounterRow({
@@ -621,45 +655,150 @@ class _StepsCounterRow extends StatelessWidget {
     required this.loading,
     required this.displayName,
     this.icon,
+    this.target,
+    this.progressColor,
     required this.onEdit,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final unit = habit.unit?.trim().isNotEmpty == true
+        ? habit.unit!.trim()
+        : '步';
 
     return InkWell(
       onTap: loading ? null : onEdit,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (icon != null) ...[
-              HabitIcon(icon!, size: 16, color: theme.colorScheme.onSurface),
-              const SizedBox(width: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (icon != null) ...[
+                  HabitIcon(
+                    icon!,
+                    size: 16,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Expanded(
+                  child: Text(
+                    target == null
+                        ? '$displayName ${status.steps} $unit'
+                        : displayName,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+                  ),
+                ),
+                Text(
+                  '编辑',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                const FloraIcon(
+                  FloraIcons.edit,
+                  size: 14,
+                  color: AppColors.primary,
+                ),
+              ],
+            ),
+            if (target != null) ...[
+              const SizedBox(height: 6),
+              _HabitProgressBar(
+                key: const ValueKey('habit_progress_steps'),
+                label: displayName,
+                current: status.steps,
+                target: target!,
+                unit: unit,
+                color: progressColor ?? theme.colorScheme.primary,
+              ),
             ],
-            Expanded(
-              child: Text(
-                '$displayName ${status.steps} ${habit.unit ?? ""}',
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-              ),
-            ),
-            Text(
-              '编辑',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(width: 2),
-            const FloraIcon(
-              FloraIcons.edit,
-              size: 14,
-              color: AppColors.primary,
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _HabitProgressBar extends StatelessWidget {
+  final String label;
+  final int current;
+  final int target;
+  final String unit;
+  final Color color;
+
+  const _HabitProgressBar({
+    super.key,
+    required this.label,
+    required this.current,
+    required this.target,
+    required this.unit,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ratio = target <= 0
+        ? 0.0
+        : (current / target).clamp(0.0, 1.0).toDouble();
+    final valueText = '$current/$target $unit';
+    final trackColor = color.withAlpha(
+      theme.brightness == Brightness.dark ? 62 : 42,
+    );
+
+    return Semantics(
+      label: '$label进度',
+      value: valueText,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: SizedBox(
+                    height: 6,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ColoredBox(color: trackColor),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: AnimatedContainer(
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 200),
+                            curve: Curves.easeOutCubic,
+                            width: constraints.maxWidth * ratio,
+                            height: 6,
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            valueText,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+            ),
+          ),
+        ],
       ),
     );
   }

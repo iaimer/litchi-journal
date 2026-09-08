@@ -7,13 +7,17 @@ import 'habit_visual_config.dart';
 /// - displayNameMap: 自定义显示名称
 /// - iconMap: 自定义图标
 /// - colorMap: 自定义颜色（存储为 int ARGB）
+/// - targetMap: 内置计数习惯的每日目标（仅支持 water / steps）
 /// - extraHabits: 自定义习惯注册表（customKey → 初始显示名）
 /// - customHabitAliases: 自定义习惯历史名称（用于统计时匹配 Markdown）
 ///
-/// schemaVersion: 4（新增 customHabitAliases）
+/// schemaVersion: 5（新增内置计数习惯目标）
 class HabitSettings {
   /// schema 版本，用于兼容旧配置。
-  static const schemaVersion = 4;
+  static const schemaVersion = 5;
+
+  /// 首页进度条使用的默认每日目标，目标仅属于现有内置计数习惯。
+  static const defaultTargets = <String, int>{'water': 1500, 'steps': 6000};
 
   /// 习惯 key → isActive
   final Map<String, bool> statusMap;
@@ -26,6 +30,10 @@ class HabitSettings {
 
   /// 习惯 key → 自定义颜色 ARGB int
   final Map<String, int> colorMap;
+
+  /// 内置计数习惯 key → 每日目标。
+  /// 只保存用户改过且不同于默认值的覆盖项。
+  final Map<String, int> targetMap;
 
   /// 自定义习惯注册表：customKey → 初始显示名。
   /// 仅存储 key 和默认名。状态、图标、颜色仍用 statusMap / iconMap / colorMap 管理。
@@ -41,6 +49,7 @@ class HabitSettings {
     this.displayNameMap = const {},
     this.iconMap = const {},
     this.colorMap = const {},
+    this.targetMap = const {},
     this.extraHabits = const {},
     this.customHabitAliases = const {},
   });
@@ -103,6 +112,13 @@ class HabitSettings {
   int colorFor(String key) =>
       colorMap[key] ?? HabitVisualConfig.of(key).color.toARGB32();
 
+  /// 获取每日目标。checkbox 和自定义习惯没有目标，返回 null。
+  int? targetFor(String key) {
+    if (!defaultTargets.containsKey(key)) return null;
+    final target = targetMap[key];
+    return target != null && target > 0 ? target : defaultTargets[key];
+  }
+
   // ── 修改方法 ──
 
   /// 更新单个习惯的全部字段。
@@ -112,6 +128,7 @@ class HabitSettings {
     String? displayName,
     String? icon,
     int? color,
+    int? target,
   }) {
     final newStatus = Map<String, bool>.from(statusMap);
     if (active != null) newStatus[key] = active;
@@ -145,11 +162,21 @@ class HabitSettings {
       }
     }
 
+    final newTargets = Map<String, int>.from(targetMap);
+    if (target != null && defaultTargets.containsKey(key)) {
+      if (target > 0 && target != defaultTargets[key]) {
+        newTargets[key] = target;
+      } else {
+        newTargets.remove(key);
+      }
+    }
+
     return HabitSettings(
       statusMap: newStatus,
       displayNameMap: newDisplayName,
       iconMap: newIcon,
       colorMap: newColor,
+      targetMap: newTargets,
       extraHabits: extraHabits,
       customHabitAliases: customHabitAliases,
     );
@@ -185,11 +212,15 @@ class HabitSettings {
     final newColor = Map<String, int>.from(colorMap);
     newColor.remove(key);
 
+    final newTargets = Map<String, int>.from(targetMap);
+    newTargets.remove(key);
+
     return HabitSettings(
       statusMap: newStatus,
       displayNameMap: newDisplayName,
       iconMap: newIcon,
       colorMap: newColor,
+      targetMap: newTargets,
       extraHabits: extraHabits,
       customHabitAliases: customHabitAliases,
     );
@@ -204,6 +235,7 @@ class HabitSettings {
     Map<String, String>? displayNameMap,
     Map<String, String>? iconMap,
     Map<String, int>? colorMap,
+    Map<String, int>? targetMap,
     Map<String, String>? extraHabits,
     Map<String, List<String>>? customHabitAliases,
   }) {
@@ -212,6 +244,7 @@ class HabitSettings {
       displayNameMap: displayNameMap ?? this.displayNameMap,
       iconMap: iconMap ?? this.iconMap,
       colorMap: colorMap ?? this.colorMap,
+      targetMap: targetMap ?? this.targetMap,
       extraHabits: extraHabits ?? this.extraHabits,
       customHabitAliases: customHabitAliases ?? this.customHabitAliases,
     );
@@ -225,6 +258,11 @@ class HabitSettings {
     'displayNameMap': displayNameMap,
     'iconMap': iconMap,
     'colorMap': colorMap,
+    'targetMap': Map.fromEntries(
+      targetMap.entries.where(
+        (entry) => defaultTargets.containsKey(entry.key) && entry.value > 0,
+      ),
+    ),
     'extraHabits': extraHabits,
     'customHabitAliases': customHabitAliases,
   };
@@ -271,7 +309,29 @@ class HabitSettings {
       }
     }
 
-    return v3Settings.copyWith(customHabitAliases: customHabitAliases);
+    final v4Settings = v3Settings.copyWith(
+      customHabitAliases: customHabitAliases,
+    );
+
+    // 版本 5：无 targetMap 时使用默认目标；只接受内置计数习惯的正整数。
+    if (version < 5) return v4Settings;
+
+    final targetMap = <String, int>{};
+    final rawTargets = json['targetMap'];
+    if (rawTargets is Map) {
+      for (final entry in rawTargets.entries) {
+        final key = entry.key;
+        final value = entry.value is num ? (entry.value as num).toInt() : null;
+        if (key is String &&
+            defaultTargets.containsKey(key) &&
+            value != null &&
+            value > 0) {
+          targetMap[key] = value;
+        }
+      }
+    }
+
+    return v4Settings.copyWith(targetMap: targetMap);
   }
 
   static HabitSettings _parseV2(

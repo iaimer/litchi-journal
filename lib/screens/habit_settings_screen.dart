@@ -117,7 +117,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
           ),
           Expanded(
             child: Text(
-              '点击习惯编辑名称、图标、颜色和状态。\n'
+              '点击习惯编辑名称、图标、颜色和状态；饮水、步数还可设置每日目标。\n'
               '归档后将在今天页和统计页中隐藏。',
               style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
             ),

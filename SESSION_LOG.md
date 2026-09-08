@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-09-09 首页习惯进度条与每日目标
+
+### 讨论内容
+
+- 用户希望首页习惯打卡参考设计稿显示直观进度条，而不是只显示当前数值。
+- 确认本阶段只覆盖饮水和步数，不为 checkbox 或自定义习惯伪造 0%/100% 进度；目标只用于首页展示，不改变统计逻辑。
+- 默认目标确定为饮水 1500 mL、步数 6000 步；不执行真机安装和测试，由用户自行验证构建产物。
+
+### 决策 & 原因
+
+- `HabitSettings` 升级到 schemaVersion 5，使用稀疏的 `targetMap` 保存内置计数习惯的本地目标，旧配置自动回退默认值。
+- 首页定量习惯采用名称、进度条、当前值/目标值的层级，进度超过目标时视觉保持满格但保留实际数值。
+- 保留已有静默乐观保存、失败回滚和正向操作完成音效，不修改 Markdown、服务端接口和统计判定。
+
+### 改动文件清单
+
+- `lib/models/habit_settings.dart`
+- `lib/screens/habit_edit_screen.dart`、`lib/screens/habit_settings_screen.dart`
+- `lib/widgets/habit_card.dart`
+- `test/widget_test.dart`
+- `README.md`、`PLAN.md`、`SESSION_LOG.md`
+
+### 遇到的问题
+
+- Flutter 首次测试启动时遇到残留 native-assets 构建目录，清理可再生 `build/` 后恢复正常。
+- 目标编辑测试最初未将屏幕外的保存按钮滚入视口，修正测试交互后通过。
+
+### 最终结果
+
+- `flutter analyze` 通过，零问题。
+- `flutter test` 全部通过，共 376 项。
+- Release APK 构建通过：`build/app/outputs/flutter-apk/app-release.apk`，约 65.5 MB。
+- 按用户要求未执行 ADB 安装、真机截图或 PLG110 真机测试。
+
+---
+
 ## 2026-08-18 移除不可用的 OpenCode Go 预设
 
 ### 讨论内容

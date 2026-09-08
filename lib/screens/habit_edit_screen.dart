@@ -14,7 +14,7 @@ import '../widgets/flora_switch.dart';
 
 /// 习惯编辑页。
 ///
-/// 编辑单个习惯的显示名称、图标、颜色和状态。
+/// 编辑单个习惯的显示名称、图标、颜色、目标和状态。
 class HabitEditScreen extends StatefulWidget {
   final String habitKey;
 
@@ -34,6 +34,7 @@ class HabitEditScreen extends StatefulWidget {
 class _HabitEditScreenState extends State<HabitEditScreen> {
   final _repo = HabitSettingsRepository();
   final _nameController = TextEditingController();
+  final _targetController = TextEditingController();
 
   late HabitSettings _settings;
   late String _displayName;
@@ -81,6 +82,9 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
 
   HabitVisualConfig get _defaultConfig => HabitVisualConfig.of(widget.habitKey);
 
+  bool get _isQuantitativeHabit =>
+      HabitSettings.defaultTargets.containsKey(widget.habitKey);
+
   @override
   void initState() {
     super.initState();
@@ -97,6 +101,9 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       _colorArgb = settings.colorFor(widget.habitKey);
       _active = settings.isActive(widget.habitKey);
       _nameController.text = widget.isCreateMode ? '' : _displayName;
+      if (_isQuantitativeHabit) {
+        _targetController.text = settings.targetFor(widget.habitKey).toString();
+      }
       _loaded = true;
     });
   }
@@ -127,6 +134,17 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       return;
     }
 
+    int? target;
+    if (_isQuantitativeHabit) {
+      target = int.tryParse(_targetController.text.trim());
+      if (target == null || target <= 0) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('每日目标请输入大于 0 的整数')));
+        return;
+      }
+    }
+
     setState(() => _saving = true);
     try {
       final HabitSettings updated;
@@ -139,6 +157,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
           displayName: trimmed,
           icon: _icon,
           color: _colorArgb,
+          target: target,
         );
       }
 
@@ -209,7 +228,11 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('恢复默认'),
-        content: Text('将「$name」恢复为默认名称、图标、颜色和启用状态？'),
+        content: Text(
+          _isQuantitativeHabit
+              ? '将「$name」恢复为默认名称、图标、颜色、目标和启用状态？'
+              : '将「$name」恢复为默认名称、图标、颜色和启用状态？',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -224,6 +247,11 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                 _colorArgb = _defaultConfig.color.toARGB32();
                 _active = true;
                 _nameController.text = name;
+                if (_isQuantitativeHabit) {
+                  _targetController.text = HabitSettings
+                      .defaultTargets[widget.habitKey]
+                      .toString();
+                }
               });
             },
             child: const Text('恢复默认'),
@@ -238,6 +266,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _targetController.dispose();
     super.dispose();
   }
 
@@ -280,6 +309,26 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                     maxLength,
                   }) => null,
             ),
+
+            if (_isQuantitativeHabit) ...[
+              const SizedBox(height: 20),
+              _buildLabel(theme, '每日目标'),
+              const SizedBox(height: 4),
+              TextField(
+                key: const ValueKey('habit_target_field'),
+                controller: _targetController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: '输入每日目标',
+                  suffixText: widget.habitKey == 'water' ? 'mL' : '步',
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 20),
 

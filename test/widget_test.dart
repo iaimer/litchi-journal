@@ -4209,14 +4209,18 @@ tags:
 
         await tester.tap(find.text('+250'));
         await tester.pumpAndSettle();
-        expect(find.text('饮水 750 mL'), findsOneWidget);
+        expect(find.text('750/1500 mL'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('habit_progress_water')),
+          findsOneWidget,
+        );
         expect(updateCount, 1);
         expect(feedbackCount, 1);
         expect(find.byType(CircularProgressIndicator), findsNothing);
 
         await tester.tap(find.text('清零'));
         await tester.pumpAndSettle();
-        expect(find.text('饮水 0 mL'), findsOneWidget);
+        expect(find.text('0/1500 mL'), findsOneWidget);
         expect(feedbackCount, 1);
       },
     );
@@ -4256,13 +4260,13 @@ tags:
 
       await tester.tap(find.text('+250'));
       await tester.pump();
-      expect(find.text('饮水 750 mL'), findsOneWidget);
+      expect(find.text('750/1500 mL'), findsOneWidget);
       expect(feedbackCount, 0);
       expect(find.byType(CircularProgressIndicator), findsNothing);
 
       save.complete(false);
       await tester.pumpAndSettle();
-      expect(find.text('饮水 500 mL'), findsOneWidget);
+      expect(find.text('500/1500 mL'), findsOneWidget);
       expect(find.text('更新失败'), findsOneWidget);
       expect(feedbackCount, 0);
     });
@@ -4533,7 +4537,7 @@ tags:
         ),
       );
 
-      expect(find.text('运动 8000 步'), findsOneWidget);
+      expect(find.text('8000/6000 步'), findsOneWidget);
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
 
@@ -4557,9 +4561,66 @@ tags:
       await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
-      expect(find.text('运动 9000 步'), findsOneWidget);
+      expect(find.text('9000/6000 步'), findsOneWidget);
       expect(called!.steps, 9000);
       expect(feedbackCount, 1);
+    });
+
+    testWidgets('quantitative habits show progress bars with current targets', (
+      tester,
+    ) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 3000 mL',
+            value: 3000,
+            unit: 'mL',
+          ),
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '运动/拉伸/快走',
+            checked: false,
+            checkable: false,
+            rawLine: '- 运动/拉伸/快走 3000 步',
+            value: 3000,
+            unit: '步',
+          ),
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '阅读/亲子共读',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 阅读/亲子共读',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(section: section, onUpdate: (_) async => true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('3000/1500 mL'), findsOneWidget);
+      expect(find.text('3000/6000 步'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('habit_progress_water')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('habit_progress_steps')),
+        findsOneWidget,
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
     testWidgets('onUpdate failure shows SnackBar, keeps old state', (
@@ -4630,6 +4691,34 @@ tags:
       expect(find.text('更新失败'), findsOneWidget);
       // Verify no lingering spinner (loading cleared)
       expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+  });
+
+  group('HabitSettings targets', () {
+    test('migrates, persists, and resets built-in quantitative targets', () {
+      final migrated = HabitSettings.fromJson(const {
+        'schemaVersion': 4,
+        'statusMap': {'water': true, 'steps': true},
+      });
+      expect(migrated.targetFor('water'), 1500);
+      expect(migrated.targetFor('steps'), 6000);
+      expect(migrated.targetFor('custom_meditate'), isNull);
+
+      final settings = const HabitSettings(
+        statusMap: {'water': true, 'steps': true},
+        targetMap: {'water': 1800, 'steps': 7000, 'custom_meditate': 30},
+      );
+      final json = settings.toJson();
+      expect(json['schemaVersion'], HabitSettings.schemaVersion);
+      expect(json['targetMap'], {'water': 1800, 'steps': 7000});
+
+      final restored = HabitSettings.fromJson(json);
+      expect(restored.targetFor('water'), 1800);
+      expect(restored.targetFor('steps'), 7000);
+
+      final reset = settings.resetHabit('water');
+      expect(reset.targetFor('water'), 1500);
+      expect(reset.targetFor('steps'), 7000);
     });
   });
 
@@ -9419,6 +9508,55 @@ tags:
     test('reading and language are growth group', () {
       expect(HabitVisualConfig.of('reading').group, HabitGroup.growth);
       expect(HabitVisualConfig.of('language').group, HabitGroup.growth);
+    });
+
+    testWidgets('habit edit saves quantitative target', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+
+      await tester.pumpWidget(
+        const MaterialApp(home: HabitEditScreen(habitKey: 'water')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('每日目标'), findsOneWidget);
+      expect(find.text('mL'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('habit_target_field')),
+        '1800',
+      );
+      await tester.ensureVisible(find.text('保存'));
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      final settings = await HabitSettingsRepository().load();
+      expect(settings.targetFor('water'), 1800);
+    });
+
+    testWidgets('habit edit rejects a non-positive quantitative target', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+
+      await tester.pumpWidget(
+        const MaterialApp(home: HabitEditScreen(habitKey: 'steps')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('habit_target_field')),
+        '0',
+      );
+      await tester.ensureVisible(find.text('保存'));
+      await tester.tap(find.text('保存'));
+      await tester.pump();
+
+      expect(find.text('每日目标请输入大于 0 的整数'), findsOneWidget);
+      expect(
+        await HabitSettingsRepository().load().then(
+          (s) => s.targetFor('steps'),
+        ),
+        6000,
+      );
     });
 
     testWidgets('habit edit target candidate uses Flora icon and is tappable', (

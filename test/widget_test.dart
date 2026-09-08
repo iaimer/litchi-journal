@@ -9529,12 +9529,25 @@ tags:
       expect(find.text('远程 API'), findsOneWidget);
       expect(find.text('AI 服务配置'), findsOneWidget);
       expect(find.text('润色提示词'), findsOneWidget);
+      expect(find.byType(Card), findsNWidgets(3));
+      expect(
+        tester.getSize(find.byKey(const ValueKey('settings-item-外观'))).height,
+        56,
+      );
+      expect(find.text('跟随系统'), findsNothing);
+      expect(find.text('已启用 5 项'), findsNothing);
+      expect(find.text('标签管理'), findsNothing);
+      expect(find.text('https://obsidian.femkits.org'), findsNothing);
+      expect(find.text('未配置'), findsNothing);
+      expect(find.text('编辑润色与人生教练提示词'), findsNothing);
 
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
 
       expect(find.text('图片设置'), findsOneWidget);
       expect(find.text('关于'), findsOneWidget);
+      expect(find.text('压缩与文件命名'), findsNothing);
+      expect(find.text('荔枝日记 Flutter 客户端'), findsNothing);
     });
 
     testWidgets('remote api page shows token configured state', (tester) async {

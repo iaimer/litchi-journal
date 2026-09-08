@@ -3,12 +3,9 @@ import 'package:flutter/material.dart';
 import '../widgets/flora_icon.dart';
 import '../widgets/flora_page_scaffold.dart';
 
-import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
-import '../services/habit_settings_repository.dart';
 import '../services/api_client.dart';
 import '../services/tag_repository.dart';
-import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
 import 'about_page.dart';
 import 'appearance_settings_page.dart';
@@ -20,7 +17,7 @@ import 'polish_prompt_page.dart';
 import 'remote_api_page.dart';
 
 /// 设置页主框架。
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends StatelessWidget {
   final ApiConfig apiConfig;
   final ApiClient? apiClient;
   final bool tokenConfigured;
@@ -34,57 +31,15 @@ class SettingsPage extends StatefulWidget {
     this.onApiConfigChanged,
   });
 
-  @override
-  State<SettingsPage> createState() => _SettingsPageState();
-}
+  ApiClient get _apiClient => apiClient ?? ApiClient(apiConfig);
 
-class _SettingsPageState extends State<SettingsPage> {
-  final _habitSettingsRepo = HabitSettingsRepository();
-  final _aiConfigRepo = AIConfigRepository();
-  int _activeHabitCount = 5;
-  int _tagCount = 0;
-  String _aiModelName = '';
-
-  ApiClient get _apiClient => widget.apiClient ?? ApiClient(widget.apiConfig);
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHabitCount();
-    _loadTagCount();
-    _loadAIModelName();
-  }
-
-  Future<void> _loadHabitCount() async {
-    try {
-      final settings = await _habitSettingsRepo.load();
-      if (!mounted) return;
-      setState(() => _activeHabitCount = settings.activeCount);
-    } catch (_) {
-      // 静默失败，保持默认
-    }
-  }
-
-  Future<void> _loadTagCount() async {
+  Future<void> _openTagSettings(BuildContext context) async {
     try {
       final tagRepo = TagRepository(apiClient: _apiClient);
       final tagConfig = await tagRepo.loadTagConfig();
       final tagSettingsRepo = TagSettingsRepository();
       final tagSettings = await tagSettingsRepo.loadTagSettings(tagConfig);
-      if (!mounted) return;
-      setState(() => _tagCount = TagSettingsHelper.countEnabled(tagSettings));
-    } catch (_) {
-      // 静默失败，subtitle 保持"标签管理"
-    }
-  }
-
-  Future<void> _openTagSettings() async {
-    try {
-      final tagRepo = TagRepository(apiClient: _apiClient);
-      final tagConfig = await tagRepo.loadTagConfig();
-      final tagSettingsRepo = TagSettingsRepository();
-      final tagSettings = await tagSettingsRepo.loadTagSettings(tagConfig);
-      if (!mounted) return;
+      if (!context.mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => TagSettingsPage(
@@ -93,28 +48,13 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
       );
-      await _loadTagCount();
     } catch (_) {
       // 静默失败
     }
   }
 
-  Future<void> _loadAIModelName() async {
-    try {
-      final config = await _aiConfigRepo.loadAIConfig();
-      if (!mounted) return;
-      setState(() => _aiModelName = config.resolvedModel);
-    } catch (_) {
-      // 静默失败，保持默认空
-    }
-  }
-
-  Future<void> _openHabitSettings() async {
-    final screen = HabitSettingsScreen();
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-    // 返回后刷新习惯数量
-    await _loadHabitCount();
-  }
+  Future<void> _openHabitSettings(BuildContext context) =>
+      _push(context, const HabitSettingsScreen());
 
   @override
   Widget build(BuildContext context) {
@@ -127,84 +67,66 @@ class _SettingsPageState extends State<SettingsPage> {
         onPressed: () => Navigator.of(context).pop(),
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
         children: [
           _buildSectionHeader(theme, '常用'),
-          _buildMenuItem(
-            context,
-            icon: const FloraIcon(FloraIcons.settingAppearance, size: 22),
-            title: '外观',
-            subtitle: '跟随系统',
-            onTap: () => _push(context, const AppearanceSettingsPage()),
-          ),
-          _buildMenuItem(
-            context,
-            icon: const FloraIcon(FloraIcons.settingHabits, size: 22),
-            title: '习惯设置',
-            subtitle: '已启用 $_activeHabitCount 项',
-            onTap: _openHabitSettings,
-          ),
-          _buildMenuItem(
-            context,
-            icon: const FloraIcon(FloraIcons.settingTags, size: 22),
-            title: '标签设置',
-            subtitle: _tagCount > 0 ? '已启用 $_tagCount 个标签' : '标签管理',
-            onTap: _openTagSettings,
-          ),
-          const SizedBox(height: 8),
+          _buildMenuGroup(context, [
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingAppearance, size: 22),
+              title: '外观',
+              onTap: () => _push(context, const AppearanceSettingsPage()),
+            ),
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingHabits, size: 22),
+              title: '习惯设置',
+              onTap: () => _openHabitSettings(context),
+            ),
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingTags, size: 22),
+              title: '标签设置',
+              onTap: () => _openTagSettings(context),
+            ),
+          ]),
           _buildSectionHeader(theme, '连接与智能'),
-          _buildMenuItem(
-            context,
-            icon: const FloraIcon(FloraIcons.settingCloud, size: 22),
-            title: '远程 API',
-            subtitle: widget.apiConfig.baseUrl,
-            onTap: () => _push(
-              context,
-              RemoteApiPage(
-                apiConfig: widget.apiConfig,
-                apiClient: widget.apiClient,
-                tokenConfigured: widget.tokenConfigured,
-                onConfigChanged: widget.onApiConfigChanged,
+          _buildMenuGroup(context, [
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingCloud, size: 22),
+              title: '远程 API',
+              onTap: () => _push(
+                context,
+                RemoteApiPage(
+                  apiConfig: apiConfig,
+                  apiClient: apiClient,
+                  tokenConfigured: tokenConfigured,
+                  onConfigChanged: onApiConfigChanged,
+                ),
               ),
             ),
-          ),
-          _buildMenuItem(
-            context,
-            icon: const FloraIcon(FloraIcons.settingAi, size: 22),
-            title: 'AI 服务配置',
-            subtitle: _aiModelName.isNotEmpty ? _aiModelName : '未配置',
-            onTap: () async {
-              await _push(
-                context,
-                AiSettingsScreen(apiConfig: widget.apiConfig),
-              );
-              await _loadAIModelName();
-            },
-          ),
-          _buildMenuItem(
-            context,
-            icon: const FloraIcon(FloraIcons.settingPrompt, size: 22),
-            title: '润色提示词',
-            subtitle: '编辑润色与人生教练提示词',
-            onTap: () => _push(context, const PolishPromptPage()),
-          ),
-          const SizedBox(height: 8),
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingAi, size: 22),
+              title: 'AI 服务配置',
+              onTap: () =>
+                  _push(context, AiSettingsScreen(apiConfig: apiConfig)),
+            ),
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingPrompt, size: 22),
+              title: '润色提示词',
+              onTap: () => _push(context, const PolishPromptPage()),
+            ),
+          ]),
           _buildSectionHeader(theme, '媒体与应用'),
-          _buildMenuItem(
-            context,
-            icon: const FloraIcon(FloraIcons.settingImage, size: 22),
-            title: '图片设置',
-            subtitle: '压缩与文件命名',
-            onTap: () => _push(context, const ImageCompressPage()),
-          ),
-          _buildMenuItem(
-            context,
-            icon: const FloraIcon(FloraIcons.settingAbout, size: 22),
-            title: '关于',
-            subtitle: '荔枝日记 Flutter 客户端',
-            onTap: () => _push(context, const AboutPage()),
-          ),
-          const SizedBox(height: 32),
+          _buildMenuGroup(context, [
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingImage, size: 22),
+              title: '图片设置',
+              onTap: () => _push(context, const ImageCompressPage()),
+            ),
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingAbout, size: 22),
+              title: '关于',
+              onTap: () => _push(context, const AboutPage()),
+            ),
+          ]),
         ],
       ),
     );
@@ -216,7 +138,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildSectionHeader(ThemeData theme, String title) {
     return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 4),
+      padding: const EdgeInsets.only(top: 20, bottom: 8),
       child: Text(
         title,
         style: theme.textTheme.titleSmall?.copyWith(
@@ -227,35 +149,80 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildMenuItem(
-    BuildContext context, {
-    required Widget icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildMenuGroup(BuildContext context, List<_SettingsMenuItem> items) {
     final theme = Theme.of(context);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 4),
-      child: ListTile(
-        leading: SizedBox(width: 22, height: 22, child: icon),
-        title: Text(title, style: theme.textTheme.bodyMedium),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            _buildMenuItem(context, item: items[index]),
+            if (index < items.length - 1)
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                indent: 52,
+                endIndent: 16,
+                color: theme.colorScheme.onSurface.withAlpha(28),
+              ),
+          ],
+        ],
       ),
     );
   }
+
+  Widget _buildMenuItem(
+    BuildContext context, {
+    required _SettingsMenuItem item,
+  }) {
+    final theme = Theme.of(context);
+
+    return Semantics(
+      button: true,
+      label: item.title,
+      child: SizedBox(
+        key: ValueKey('settings-item-${item.title}'),
+        height: 56,
+        child: InkWell(
+          onTap: item.onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                SizedBox(width: 22, height: 22, child: item.icon),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    item.title,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 22,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsMenuItem {
+  final Widget icon;
+  final String title;
+  final VoidCallback onTap;
+
+  const _SettingsMenuItem({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
 }

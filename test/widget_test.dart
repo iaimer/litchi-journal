@@ -1168,6 +1168,13 @@ void main() {
         expect(find.text('2024年3月8日'), findsNWidgets(2));
         expect(find.text('1 / 2'), findsOneWidget);
         expect(find.text('查看当天日记'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(AppBar),
+            matching: find.byIcon(Icons.menu_book_outlined),
+          ),
+          findsNothing,
+        );
       },
     );
 
@@ -6721,11 +6728,11 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      // PopupMenu shows edit/delete items
-      expect(find.text('编辑'), findsOneWidget);
+      // The action sheet only shows operations with available callbacks.
+      expect(find.text('编辑'), findsNothing);
       expect(find.text('删除'), findsOneWidget);
 
-      // Tap delete in the popup menu
+      // Tap delete in the action sheet
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
@@ -6770,7 +6777,7 @@ tags:
         );
         await tester.pumpAndSettle();
 
-        // Tap delete in popup menu
+        // Tap delete in action sheet
         await tester.tap(find.text('删除'));
         await tester.pumpAndSettle();
 
@@ -6933,7 +6940,7 @@ tags:
         );
         await tester.pumpAndSettle();
 
-        // Tap delete in popup menu
+        // Tap delete in action sheet
         await tester.tap(find.text('删除'));
         await tester.pumpAndSettle();
 
@@ -7040,7 +7047,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      // Tap delete in popup menu
+      // Tap delete in action sheet
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 
@@ -7084,7 +7091,7 @@ tags:
       );
     });
 
-    testWidgets('PopupMenu shows edit and delete options', (tester) async {
+    testWidgets('action sheet shows edit and delete options', (tester) async {
       final section = QuickNoteSection(
         title: '随手记',
         contents: [],
@@ -7117,6 +7124,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
+      expect(find.byType(BottomSheet), findsOneWidget);
       expect(find.text('编辑'), findsOneWidget);
       expect(find.text('删除'), findsOneWidget);
     });

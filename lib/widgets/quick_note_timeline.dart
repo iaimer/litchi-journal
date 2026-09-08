@@ -8,6 +8,7 @@ import '../models/tag_settings.dart';
 import 'entry_edit_sheet.dart';
 import 'section_card.dart';
 import 'tag_color_helper.dart';
+import 'timeline_action_sheet.dart';
 
 class QuickNoteTimeline extends StatelessWidget {
   final QuickNoteSection section;
@@ -142,6 +143,24 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
     );
   }
 
+  Future<void> _openActions() async {
+    if (!_showActions) return;
+    final action = await showTimelineActionSheet(
+      context,
+      showEdit: widget.onEdit != null,
+      showDelete: widget.onDelete != null,
+    );
+    if (!mounted) return;
+    switch (action) {
+      case TimelineAction.edit:
+        _openEdit();
+      case TimelineAction.delete:
+        _confirmDelete();
+      case null:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -187,27 +206,18 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
                           SizedBox(
                             width: 28,
                             height: 28,
-                            child: PopupMenuButton<_QuickNoteAction>(
+                            child: IconButton(
                               padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 28,
+                                height: 28,
+                              ),
                               iconSize: 16,
+                              tooltip: '更多操作',
                               icon: const FloraIcon(FloraIcons.more, size: 16),
-                              onSelected: (action) {
-                                if (action == _QuickNoteAction.delete) {
-                                  _confirmDelete();
-                                } else if (action == _QuickNoteAction.edit) {
-                                  _openEdit();
-                                }
+                              onPressed: () {
+                                _openActions();
                               },
-                              itemBuilder: (_) => [
-                                const PopupMenuItem(
-                                  value: _QuickNoteAction.edit,
-                                  child: Text('编辑'),
-                                ),
-                                const PopupMenuItem(
-                                  value: _QuickNoteAction.delete,
-                                  child: Text('删除'),
-                                ),
-                              ],
                             ),
                           ),
                         if (_busy)
@@ -268,5 +278,3 @@ class _TimelineMarker extends StatelessWidget {
     );
   }
 }
-
-enum _QuickNoteAction { edit, delete }

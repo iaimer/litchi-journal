@@ -57,13 +57,6 @@ class _GalleryImageViewerScreenState extends State<GalleryImageViewerScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: Text(dateLabel),
-        actions: [
-          IconButton(
-            tooltip: '查看当天日记',
-            icon: const Icon(Icons.menu_book_outlined),
-            onPressed: _openDiary,
-          ),
-        ],
       ),
       body: Column(
         children: [

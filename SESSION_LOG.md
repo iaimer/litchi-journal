@@ -1054,3 +1054,43 @@
 ### 最终结果
 
 - 已创建提交 `906c461`，并成功推送到 `origin/main`。
+
+---
+
+## 2026-09-08 操作菜单与沉浸预览入口优化
+
+### 讨论内容
+
+- 用户反馈今日页点击记录右侧三个小点后出现的悬浮选项菜单过于机械，希望参考底部操作面板的交互形式。
+- 用户同时要求移除过往照片沉浸式大图右上角重复的「查看当天日记」图标，保留底部文字入口。
+
+### 决策 & 原因
+
+- 新增共享 `timeline_action_sheet.dart`，用带拖拽把手、圆角和暖色操作卡片的底部面板承载编辑与删除操作。
+- `QuickNoteTimeline` 和 `GenericSectionCard` 共用该面板；只展示实际存在回调的操作，避免显示无效入口。
+- 保留编辑表单、删除确认、rawLine 传递和忙碌状态逻辑，不修改数据写入流程。
+- 过往照片预览只删除顶部重复入口，底部「查看当天日记」继续作为唯一日记入口。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `CHANGELOG.md`
+- `README.md`
+- `SESSION_LOG.md`
+- `lib/widgets/timeline_action_sheet.dart`
+- `lib/widgets/quick_note_timeline.dart`
+- `lib/widgets/generic_section_card.dart`
+- `lib/screens/gallery_image_viewer_screen.dart`
+- `test/widget_test.dart`
+
+### 验证
+
+- `flutter analyze` 通过，零问题。
+- `flutter test` 367 项全部通过。
+- Release APK 构建成功：`build/app/outputs/flutter-apk/app-release.apk`，包内 `versionName=1.6.4`、`versionCode=23`。
+- APK SHA-256：`7d5ee90b533cd61570d6703bcf6476d8bfe8c5d07ae909515a3d47b6291d6705`。
+- 当前 `adb devices` 没有在线设备，未执行本次 APK 安装和真机回归。
+
+### 最终结果
+
+- 待提交并推送到 `origin/main`。

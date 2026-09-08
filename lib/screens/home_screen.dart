@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +11,7 @@ import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
 import '../models/habit_settings.dart';
 import '../models/image_settings.dart';
+import '../models/image_upload_item.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
@@ -34,6 +36,11 @@ import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
+import '../widgets/image_upload_strip.dart';
+
+typedef TodayImagePicker = Future<XFile?> Function(ImageSettings settings);
+typedef TodayImageCompressor =
+    Future<String> Function(Uint8List bytes, ImageSettings settings);
 
 class HomeScreen extends StatefulWidget {
   static const maxImageUploadPayloadChars = 9 * 1024 * 1024;
@@ -41,6 +48,8 @@ class HomeScreen extends StatefulWidget {
   final ApiClient apiClient;
   final HabitSettingsRepository? habitSettingsRepo;
   final Future<void> Function()? imageUploadHandler;
+  final TodayImagePicker? imagePicker;
+  final TodayImageCompressor? imageCompressor;
   final ValueChanged<ApiConfig>? onApiConfigChanged;
 
   const HomeScreen({
@@ -48,6 +57,8 @@ class HomeScreen extends StatefulWidget {
     required this.apiClient,
     this.habitSettingsRepo,
     this.imageUploadHandler,
+    this.imagePicker,
+    this.imageCompressor,
     this.onApiConfigChanged,
   });
 
@@ -122,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _imageSettingsRepository = ImageSettingsRepository();
   final _imagePicker = ImagePicker();
   final _scrollController = ScrollController();
-  bool _imageUploading = false;
+  final List<ImageUploadItem> _imageUploads = [];
   bool _generatingCoach = false;
   bool _quickRecordExpanded = false;
   HabitSettings? _habitSettings;
@@ -499,23 +510,49 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleImageUpload() async {
-    if (_imageUploading) return;
-
+    if (_hasActiveImageUpload) return;
     final imageSettings = await _loadImageSettings();
-    final file = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: imageSettings.maxLongSidePx.toDouble(),
-      maxHeight: imageSettings.maxLongSidePx.toDouble(),
-      imageQuality: imageSettings.initialQuality,
-    );
-    if (file == null) return;
+    final file =
+        await (widget.imagePicker?.call(imageSettings) ??
+            _imagePicker.pickImage(
+              source: ImageSource.gallery,
+              maxWidth: imageSettings.maxLongSidePx.toDouble(),
+              maxHeight: imageSettings.maxLongSidePx.toDouble(),
+              imageQuality: imageSettings.initialQuality,
+            ));
+    if (file == null || !mounted) return;
 
-    setState(() => _imageUploading = true);
+    final item = ImageUploadItem(id: ApiClient.generateUuidV4(), file: file);
+    setState(() => _imageUploads.add(item));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_imageUploads.contains(item)) return;
+      _uploadImage(item, imageSettings);
+    });
+  }
+
+  bool get _hasActiveImageUpload => _imageUploads.any(
+    (item) =>
+        item.status == ImageUploadStatus.preparing ||
+        item.status == ImageUploadStatus.uploading,
+  );
+
+  Future<void> _uploadImage(
+    ImageUploadItem item,
+    ImageSettings imageSettings,
+  ) async {
+    setState(() {
+      item.status = ImageUploadStatus.preparing;
+      item.sentBytes = 0;
+      item.totalBytes = 0;
+      item.errorMessage = null;
+    });
 
     try {
-      final bytes = await file.readAsBytes();
+      final bytes = await item.file.readAsBytes();
       final compressService = ImageCompressService.fromSettings(imageSettings);
-      final base64 = compressService.compressToBase64(bytes);
+      final base64 =
+          await (widget.imageCompressor?.call(bytes, imageSettings) ??
+              compressService.compressToBase64InBackground(bytes));
       if (base64.length > HomeScreen.maxImageUploadPayloadChars) {
         throw Exception('图片压缩后仍过大，请在图片设置中降低尺寸或质量');
       }
@@ -523,22 +560,48 @@ class _HomeScreenState extends State<HomeScreen> {
       await widget.apiClient.uploadImage(
         _activeDate,
         base64,
+        operationId: item.id,
         imagePrefix: imageSettings.filenamePrefix,
+        onProgress: (sentBytes, totalBytes) {
+          if (!mounted || !_imageUploads.contains(item)) return;
+          setState(() {
+            item.status = ImageUploadStatus.uploading;
+            item.sentBytes = sentBytes;
+            item.totalBytes = totalBytes;
+          });
+        },
       );
 
       if (!mounted) return;
+      setState(() => item.status = ImageUploadStatus.success);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('已添加照片')));
-      _loadDiarySilently();
+      await _loadDiarySilently();
+      if (mounted) setState(() => _imageUploads.remove(item));
     } catch (e) {
       if (!mounted) return;
+      setState(() {
+        item.status = ImageUploadStatus.failed;
+        item.errorMessage = _imageUploadErrorMessage(e);
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(_imageUploadErrorMessage(e))));
-    } finally {
-      if (mounted) setState(() => _imageUploading = false);
     }
+  }
+
+  Future<void> _retryImageUpload(ImageUploadItem item) async {
+    if (item.status != ImageUploadStatus.failed) return;
+    await _uploadImage(item, await _loadImageSettings());
+  }
+
+  void _removeImageUpload(ImageUploadItem item) {
+    if (item.status != ImageUploadStatus.selected &&
+        item.status != ImageUploadStatus.failed) {
+      return;
+    }
+    setState(() => _imageUploads.remove(item));
   }
 
   String _imageUploadErrorMessage(Object error) {
@@ -930,6 +993,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 16),
                         ],
+                        ImageUploadStrip(
+                          items: _imageUploads,
+                          onRetry: _retryImageUpload,
+                          onRemove: _removeImageUpload,
+                        ),
                         if (_diary != null && _diary!.raw.isNotEmpty) ...[
                           DiaryMarkdownView(
                             markdown: _diary!.raw,

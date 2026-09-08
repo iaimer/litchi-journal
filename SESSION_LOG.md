@@ -915,3 +915,77 @@
 - `flutter analyze` 通过；`flutter test` 363 项全部通过。
 - `server npm run build` 通过；`server npm test` 31 项全部通过。
 - 新版 Release APK 已使用 `adb install -r` 覆盖安装到 PLG110，设备信息确认 `versionName=1.6.1`、`versionCode=20`；设备随后进入锁屏并断开 ADB，画廊遮罩、404 状态、预览与返回链路需在重新连接并解锁后补做。
+
+---
+
+## 2026-09-08 图片上传即时预览与真实进度
+
+### 讨论内容
+
+- 用户要求解决选图后直到上传完成前缺少反馈的问题，明确区分本地已选择、预处理、真实上传、成功和失败五种状态。
+- 今天页原链路为选图后读取、同步压缩并直接发送普通 JSON POST，只维护全局布尔值；历史补录虽支持多图，也只有全局“第几张”提示，HTTP 层没有上传字节回调。
+
+### 决策 & 原因
+
+- 每张图片使用独立 `ImageUploadItem` 状态，选中后先绘制本地缩略图；`preparing` 只显示不确定型 loading，`uploading` 才显示真实百分比，失败项保留缩略图并可原地重试。
+- 保持服务端 Base64 JSON 接口不变，将图片请求改为 64KB 分块的 `BaseRequest`；进度来自 HTTP 客户端消费请求流时累计的 `sentBytes / totalBytes`，不使用 Timer 或人为递增。同一图片重试复用稳定 `operationId`，避免响应丢失后重复写入。
+- 图片解码压缩和大型 JSON 请求体编码均通过 Flutter `compute` 移出 UI isolate；历史补录上传时不再隐藏快速记录 FAB，保证用户仍可进入文字与标签编辑流程。
+- 历史多图继续遵守按顺序上传和失败暂停规则；已成功图片正常刷新，失败项重试后继续其后的待上传项。
+
+### 改动文件清单
+
+- `lib/models/image_upload_item.dart`
+- `lib/widgets/image_upload_strip.dart`
+- `lib/services/api_client.dart`
+- `lib/services/image_compress_service.dart`
+- `lib/screens/home_screen.dart`
+- `lib/screens/read_only_diary_screen.dart`
+- `test/widget_test.dart`
+- `AGENTS.md`
+- `SESSION_LOG.md`
+
+### 遇到的问题
+
+- 为保证 `selected` 状态真实绘制一帧，上传准备流程改由首帧回调启动；这避免选中态被同一帧内的预处理状态覆盖。
+- 后台 isolate 压缩在 Widget 测试的 fake async 环境中不适合直接等待，页面保留可注入压缩器用于受控测试，生产默认仍走 `compute`。
+- 代码审查发现重试幂等、历史失败项移除后自动续传和 JSON 主线程编码三个边界；最终改为稳定操作 ID、保留“失败暂停”语义，并将请求体编码迁入后台 isolate。测试 HTTP fake 也会实际消费请求流。
+- 工作区原有 `.reasonix/` 三个删除状态与本次任务无关，未做修改或恢复。
+
+### 最终结果
+
+- `flutter analyze` 通过，零问题。
+- `flutter test` 366 项全部通过，新增覆盖本地待上传预览、准备阶段无百分比、真实字节进度、今天页失败重试和历史多图部分成功后重试。
+- 尚未在 PLG110 慢网络环境做真机视觉验收。
+
+---
+
+## 2026-09-08 正式版 1.6.2+21 打包
+
+### 讨论内容
+
+- 用户要求将图片上传反馈改动打包为正式版并推送到远端。
+
+### 决策 & 原因
+
+- 将 Flutter 版本从 `1.6.1+20` 升至 `1.6.2+21`，同步更新发布说明和 README 当前版本。
+- 使用 `flutter build apk --release` 生成 Android 正式包，并用 `aapt` 核对包内版本号，避免只根据工作区文件判断构建结果。
+- 保留工作区原有 `.reasonix/` 三个删除状态，不把与本次发布无关的文件带入提交。
+
+### 改动文件清单
+
+- `pubspec.yaml`
+- `CHANGELOG.md`
+- `README.md`
+- `SESSION_LOG.md`
+
+### 验证
+
+- `flutter analyze` 通过，零问题。
+- `flutter test` 366 项全部通过。
+- Release APK 构建成功：`build/app/outputs/flutter-apk/app-release.apk`，包内 `versionName=1.6.2`、`versionCode=21`。
+- APK SHA-256：`c222ed5f2e41a27b8a939614b1b0b893612514346dc84138479ceb6f3da625d5`。
+- 当前 `adb devices` 没有在线设备，未执行本次 APK 安装和真机回归。
+
+### 最终结果
+
+- 待提交并推送到 `origin/main`。

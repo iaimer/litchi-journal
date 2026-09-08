@@ -40,6 +40,7 @@ import 'package:litchi_journal_flutter/models/habit_stats.dart';
 import 'package:litchi_journal_flutter/models/habit_settings.dart';
 import 'package:litchi_journal_flutter/models/habit_visual_config.dart';
 import 'package:litchi_journal_flutter/models/image_settings.dart';
+import 'package:litchi_journal_flutter/models/image_upload_item.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:litchi_journal_flutter/screens/anxiety_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
@@ -63,6 +64,7 @@ import 'package:litchi_journal_flutter/widgets/gallery_image_tile.dart';
 import 'package:litchi_journal_flutter/widgets/habit_card.dart';
 import 'package:litchi_journal_flutter/widgets/history_calendar.dart';
 import 'package:litchi_journal_flutter/widgets/image_section_card.dart';
+import 'package:litchi_journal_flutter/widgets/image_upload_strip.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
 import 'package:litchi_journal_flutter/widgets/review_card.dart';
 import 'package:litchi_journal_flutter/widgets/tag_color_helper.dart';
@@ -79,6 +81,10 @@ import 'package:litchi_journal_flutter/services/appearance_settings_repository.d
 
 import 'package:litchi_journal_flutter/screens/appearance_settings_page.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
+
+Future<Uint8List> _encodeUploadBodyForTest(Map<String, dynamic> body) async {
+  return Uint8List.fromList(utf8.encode(jsonEncode(body)));
+}
 
 TagConfig _testTagConfig() {
   return TagConfig(
@@ -275,6 +281,7 @@ class _HistoricalBackfillHttpClient extends http.BaseClient {
   int createCalls = 0;
   int appendCalls = 0;
   int uploadCalls = 0;
+  final uploadOperationIds = <String>[];
   String? lastAppendBody;
 
   @override
@@ -306,12 +313,63 @@ class _HistoricalBackfillHttpClient extends http.BaseClient {
       return _response('{"ok":true}', diaryCreated ? 200 : 404);
     }
     if (request.method == 'POST' && path == '/api/v1/diary/image/upload') {
+      final bodyBytes = await request.finalize().fold<List<int>>(
+        [],
+        (bytes, chunk) => bytes..addAll(chunk),
+      );
+      final body = jsonDecode(utf8.decode(bodyBytes)) as Map<String, dynamic>;
+      uploadOperationIds.add(body['operationId'] as String);
       uploadCalls++;
-      return uploadCalls == 1
-          ? _response('{"ok":true}', 200)
-          : _response('{"error":"upload failed"}', 500);
+      return uploadCalls == 2
+          ? _response('{"error":"upload failed"}', 500)
+          : _response('{"ok":true}', 200);
     }
     return _response('{}', 404);
+  }
+
+  http.StreamedResponse _response(String body, int statusCode) {
+    return http.StreamedResponse(
+      Stream.value(utf8.encode(body)),
+      statusCode,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+  }
+}
+
+class _TodayImageUploadHttpClient extends http.BaseClient {
+  int uploadCalls = 0;
+  final uploadOperationIds = <String>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final path = request.url.path;
+    if (request.method == 'GET' && path == '/api/v1/settings/tags') {
+      return _response('{}', 500);
+    }
+    if (request.method == 'GET' && path.startsWith('/api/v1/diary/')) {
+      return _response(
+        jsonEncode({
+          'date': path.split('/').last,
+          'title': '今天',
+          'raw': '# 今天\n',
+          'sections': {},
+        }),
+        200,
+      );
+    }
+    if (request.method == 'POST' && path == '/api/v1/diary/image/upload') {
+      final bodyBytes = await request.finalize().fold<List<int>>(
+        [],
+        (bytes, chunk) => bytes..addAll(chunk),
+      );
+      final body = jsonDecode(utf8.decode(bodyBytes)) as Map<String, dynamic>;
+      uploadOperationIds.add(body['operationId'] as String);
+      uploadCalls++;
+      return uploadCalls == 1
+          ? _response('{"error":"upload failed"}', 500)
+          : _response('{"ok":true}', 200);
+    }
+    return _response('{"ok":true}', 200);
   }
 
   http.StreamedResponse _response(String body, int statusCode) {
@@ -1295,6 +1353,7 @@ void main() {
       final client = ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'test'),
         httpClient: httpClient,
+        uploadBodyEncoder: _encodeUploadBodyForTest,
       );
       final image = img.Image(width: 8, height: 8);
       _fillSolidImage(image);
@@ -1309,6 +1368,11 @@ void main() {
             date: DateTime(2026, 6, 8),
             apiClient: client,
             imageSettingsRepository: imageSettingsRepository,
+            imageCompressor: (bytes, settings) async {
+              return ImageCompressService.fromSettings(
+                settings,
+              ).compressToBase64(bytes);
+            },
             imagePicker: (_) async => [
               XFile.fromData(bytes, name: 'first.jpg', mimeType: 'image/jpeg'),
               XFile.fromData(bytes, name: 'second.jpg', mimeType: 'image/jpeg'),
@@ -1325,6 +1389,21 @@ void main() {
       expect(httpClient.createCalls, 1);
       expect(httpClient.uploadCalls, 2);
       expect(find.textContaining('已成功 1 张，第 2 张失败'), findsOneWidget);
+      expect(find.text('上传失败\n点击重试'), findsOneWidget);
+
+      await tester.tap(find.text('上传失败\n点击重试'));
+      await tester.pumpAndSettle();
+
+      expect(httpClient.uploadCalls, 3);
+      expect(
+        httpClient.uploadOperationIds[0],
+        isNot(httpClient.uploadOperationIds[1]),
+      );
+      expect(
+        httpClient.uploadOperationIds[1],
+        httpClient.uploadOperationIds[2],
+      );
+      expect(find.text('上传失败\n点击重试'), findsNothing);
     });
 
     testWidgets('historical text backfill creates diary only on save', (
@@ -1676,10 +1755,14 @@ void main() {
       });
     }
 
-    ApiClient homeClient(http.BaseClient httpClient) {
+    ApiClient homeClient(
+      http.BaseClient httpClient, {
+      UploadBodyEncoder? uploadBodyEncoder,
+    }) {
       return ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'test'),
         httpClient: httpClient,
+        uploadBodyEncoder: uploadBodyEncoder,
       );
     }
 
@@ -1910,6 +1993,54 @@ void main() {
 
       expect(called, isTrue);
       expect(find.byKey(const Key('quick_record_image')), findsNothing);
+    });
+
+    testWidgets('today image appears locally before upload and can retry', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final httpClient = _TodayImageUploadHttpClient();
+      final image = img.Image(width: 8, height: 8);
+      _fillSolidImage(image);
+      final bytes = Uint8List.fromList(img.encodeJpg(image));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            apiClient: homeClient(
+              httpClient,
+              uploadBodyEncoder: _encodeUploadBodyForTest,
+            ),
+            habitSettingsRepo: HabitSettingsRepository(
+              storage: _TestStorage(),
+            ),
+            imagePicker: (_) async => XFile.fromData(
+              bytes,
+              name: 'today.jpg',
+              mimeType: 'image/jpeg',
+            ),
+            imageCompressor: (bytes, settings) async {
+              return ImageCompressService.fromSettings(
+                settings,
+              ).compressToBase64(bytes);
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('quick_record_image')));
+      await tester.pumpAndSettle();
+      expect(find.text('上传失败\n点击重试'), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+
+      await tester.tap(find.text('上传失败\n点击重试'));
+      await tester.pumpAndSettle();
+      expect(httpClient.uploadCalls, 2);
+      expect(httpClient.uploadOperationIds.toSet(), hasLength(1));
+      expect(find.text('上传失败\n点击重试'), findsNothing);
     });
 
     testWidgets('quick note entry opens QuickCaptureScreen', (tester) async {
@@ -7763,6 +7894,63 @@ tags:
     });
   });
 
+  group('Image upload status', () {
+    testWidgets('preview distinguishes preparing, real progress, and failure', (
+      tester,
+    ) async {
+      final image = img.Image(width: 8, height: 8);
+      _fillSolidImage(image);
+      final item = ImageUploadItem(
+        id: 'preview',
+        file: XFile.fromData(
+          Uint8List.fromList(img.encodeJpg(image)),
+          name: 'preview.jpg',
+          mimeType: 'image/jpeg',
+        ),
+      );
+
+      Widget buildPreview() {
+        return MaterialApp(
+          home: Scaffold(
+            body: ImageUploadStrip(
+              items: [item],
+              onRetry: (_) {},
+              onRemove: (_) {},
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(buildPreview());
+      await tester.pump();
+      expect(find.text('待上传'), findsOneWidget);
+
+      item.status = ImageUploadStatus.preparing;
+      await tester.pumpWidget(buildPreview());
+      expect(find.text('准备中'), findsOneWidget);
+      expect(find.textContaining('%'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('image_preparing_indicator')),
+        findsOneWidget,
+      );
+
+      item.status = ImageUploadStatus.uploading;
+      item.sentBytes = 25;
+      item.totalBytes = 100;
+      await tester.pumpWidget(buildPreview());
+      expect(find.text('25%'), findsOneWidget);
+      final indicator = tester.widget<CircularProgressIndicator>(
+        find.byKey(const ValueKey('image_upload_progress_indicator')),
+      );
+      expect(indicator.value, 0.25);
+
+      item.status = ImageUploadStatus.failed;
+      await tester.pumpWidget(buildPreview());
+      expect(find.text('上传失败\n点击重试'), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+    });
+  });
+
   group('ApiClient image', () {
     ApiClient makeImageClient(_CapturingClient client) {
       return ApiClient(
@@ -7787,6 +7975,34 @@ tags:
       expect(body['imageData'], 'data:image/jpeg;base64,abc123');
       expect(body['imagePrefix'], 'Litchi_Img');
     });
+
+    test(
+      'uploadImage reports streamed request bytes as real progress',
+      () async {
+        final client = _CapturingHttpClient(body: '{"ok":true}');
+        final api = ApiClient(
+          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+          httpClient: client,
+        );
+        final events = <(int, int)>[];
+
+        await api.uploadImage(
+          DateTime(2026, 6, 8),
+          'data:image/jpeg;base64,${'a' * (150 * 1024)}',
+          onProgress: (sentBytes, totalBytes) {
+            events.add((sentBytes, totalBytes));
+          },
+        );
+
+        expect(events.length, greaterThan(2));
+        expect(events.first.$1, 0);
+        expect(events.last.$1, events.last.$2);
+        expect(events.every((event) => event.$2 == events.last.$2), isTrue);
+        for (var index = 1; index < events.length; index++) {
+          expect(events[index].$1, greaterThan(events[index - 1].$1));
+        }
+      },
+    );
 
     test('uploadImage throws on non-200 response', () async {
       final failClient = _CapturingClient(statusCode: 500);

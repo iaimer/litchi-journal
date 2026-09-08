@@ -1,9 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/default_tag_config.dart';
 import '../models/diary_entry.dart';
 import '../models/image_settings.dart';
+import '../models/image_upload_item.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
@@ -19,10 +22,13 @@ import '../services/tag_settings_repository.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/historical_quick_record_fab.dart';
+import '../widgets/image_upload_strip.dart';
 import 'quick_capture_screen.dart';
 
 typedef HistoricalImagePicker =
     Future<List<XFile>> Function(ImageSettings settings);
+typedef HistoricalImageCompressor =
+    Future<String> Function(Uint8List bytes, ImageSettings settings);
 
 /// 历史日记详情页。
 /// 已有内容保持只读，只允许新增相片、随手记、觉察和小确幸。
@@ -34,6 +40,7 @@ class ReadOnlyDiaryScreen extends StatefulWidget {
   final HistoricalImagePicker? imagePicker;
   final DraftRepository? draftRepository;
   final ImageSettingsRepository? imageSettingsRepository;
+  final HistoricalImageCompressor? imageCompressor;
 
   const ReadOnlyDiaryScreen({
     super.key,
@@ -42,6 +49,7 @@ class ReadOnlyDiaryScreen extends StatefulWidget {
     this.imagePicker,
     this.draftRepository,
     this.imageSettingsRepository,
+    this.imageCompressor,
   });
 
   @override
@@ -58,9 +66,8 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   TagSettings? _tagSettings;
   bool _loading = true;
   bool _quickRecordExpanded = false;
-  bool _imageUploading = false;
-  int _uploadedImages = 0;
-  int _totalImages = 0;
+  final List<ImageUploadItem> _imageUploads = [];
+  bool _diaryReadyForImageUpload = false;
   String? _error;
 
   TagConfig get _effectiveTagConfig {
@@ -92,6 +99,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
       if (!mounted) return;
       setState(() {
         _diary = diary?.raw.isNotEmpty == true ? diary : null;
+        _diaryReadyForImageUpload = diary != null;
         _loading = false;
       });
     } catch (_) {
@@ -224,41 +232,43 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   }
 
   Future<void> _uploadImages() async {
-    if (_imageUploading) return;
+    if (_hasActiveImageUpload) return;
     setState(() => _quickRecordExpanded = false);
     final settings = await _loadImageSettings();
     final images = await _pickImages(settings);
     if (images.isEmpty || !mounted) return;
 
-    setState(() {
-      _imageUploading = true;
-      _uploadedImages = 0;
-      _totalImages = images.length;
+    final newItems = images
+        .map(
+          (image) =>
+              ImageUploadItem(id: ApiClient.generateUuidV4(), file: image),
+        )
+        .toList();
+    setState(() => _imageUploads.addAll(newItems));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _uploadImageQueue(newItems, settings);
     });
+  }
 
+  bool get _hasActiveImageUpload => _imageUploads.any(
+    (item) =>
+        item.status == ImageUploadStatus.preparing ||
+        item.status == ImageUploadStatus.uploading,
+  );
+
+  Future<void> _uploadImageQueue(
+    List<ImageUploadItem> items,
+    ImageSettings settings,
+  ) async {
+    var uploadedImages = 0;
     Object? uploadError;
-    var diaryReady = _diary != null;
-    final compressor = ImageCompressService.fromSettings(settings);
 
-    for (final image in images) {
+    for (final item in items) {
+      if (!mounted || !_imageUploads.contains(item)) continue;
       try {
-        final bytes = await image.readAsBytes();
-        final base64 = compressor.compressToBase64(bytes);
-        if (base64.length > ReadOnlyDiaryScreen.maxImageUploadPayloadChars) {
-          throw Exception('图片压缩后仍过大，请在图片设置中降低尺寸或质量');
-        }
-        if (!diaryReady) {
-          diaryReady = await widget.apiClient.ensureDiary(widget.date);
-          if (!diaryReady) throw Exception('无法创建这一天的日记');
-        }
-        await widget.apiClient.uploadImage(
-          widget.date,
-          base64,
-          operationId: ApiClient.generateUuidV4(),
-          imagePrefix: settings.filenamePrefix,
-        );
-        _uploadedImages++;
-        if (mounted) setState(() {});
+        await _uploadImage(item, settings);
+        uploadedImages++;
       } catch (error) {
         uploadError = error;
         break;
@@ -266,17 +276,111 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
     }
 
     if (!mounted) return;
-    setState(() => _imageUploading = false);
-    if (_uploadedImages > 0) await _loadDiary();
-    if (!mounted) return;
+    if (uploadedImages > 0) {
+      await _loadDiary();
+      if (!mounted) return;
+      setState(
+        () => _imageUploads.removeWhere(
+          (item) => item.status == ImageUploadStatus.success,
+        ),
+      );
+    }
 
     final message = uploadError == null
-        ? '已补录 $_uploadedImages 张相片'
-        : '已成功 $_uploadedImages 张，第 ${_uploadedImages + 1} 张失败：'
+        ? '已补录 $uploadedImages 张相片'
+        : '已成功 $uploadedImages 张，第 ${uploadedImages + 1} 张失败：'
               '${_uploadErrorMessage(uploadError)}';
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _uploadImage(
+    ImageUploadItem item,
+    ImageSettings settings,
+  ) async {
+    setState(() {
+      item.status = ImageUploadStatus.preparing;
+      item.sentBytes = 0;
+      item.totalBytes = 0;
+      item.errorMessage = null;
+    });
+
+    try {
+      final bytes = await item.file.readAsBytes();
+      final compressor = ImageCompressService.fromSettings(settings);
+      final base64 =
+          await (widget.imageCompressor?.call(bytes, settings) ??
+              compressor.compressToBase64InBackground(bytes));
+      if (base64.length > ReadOnlyDiaryScreen.maxImageUploadPayloadChars) {
+        throw Exception('图片压缩后仍过大，请在图片设置中降低尺寸或质量');
+      }
+      if (!_diaryReadyForImageUpload) {
+        _diaryReadyForImageUpload = await widget.apiClient.ensureDiary(
+          widget.date,
+        );
+        if (!_diaryReadyForImageUpload) {
+          throw Exception('无法创建这一天的日记');
+        }
+      }
+      await widget.apiClient.uploadImage(
+        widget.date,
+        base64,
+        operationId: item.id,
+        imagePrefix: settings.filenamePrefix,
+        onProgress: (sentBytes, totalBytes) {
+          if (!mounted || !_imageUploads.contains(item)) return;
+          setState(() {
+            item.status = ImageUploadStatus.uploading;
+            item.sentBytes = sentBytes;
+            item.totalBytes = totalBytes;
+          });
+        },
+      );
+      if (mounted) setState(() => item.status = ImageUploadStatus.success);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          item.status = ImageUploadStatus.failed;
+          item.errorMessage = _uploadErrorMessage(error);
+        });
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _retryImageUpload(ImageUploadItem item) async {
+    if (_hasActiveImageUpload || item.status != ImageUploadStatus.failed) {
+      return;
+    }
+    final startIndex = _imageUploads.indexOf(item);
+    if (startIndex < 0) return;
+    final pendingItems = _imageUploads
+        .skip(startIndex)
+        .where(
+          (candidate) =>
+              candidate.status == ImageUploadStatus.selected ||
+              candidate.status == ImageUploadStatus.failed,
+        )
+        .toList();
+    await _uploadImageQueue(pendingItems, await _loadImageSettings());
+  }
+
+  void _removeImageUpload(ImageUploadItem item) {
+    if (item.status != ImageUploadStatus.selected &&
+        item.status != ImageUploadStatus.failed) {
+      return;
+    }
+    setState(() => _imageUploads.remove(item));
+  }
+
+  bool _canRemoveImageUpload(ImageUploadItem item) {
+    if (item.status != ImageUploadStatus.failed) return true;
+    final itemIndex = _imageUploads.indexOf(item);
+    if (itemIndex < 0) return false;
+    return !_imageUploads
+        .skip(itemIndex + 1)
+        .any((item) => item.status == ImageUploadStatus.selected);
   }
 
   String _uploadErrorMessage(Object error) {
@@ -309,6 +413,12 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
               readOnly: true,
               hiddenSections: const {'tomorrow', 'habits'},
             ),
+          ImageUploadStrip(
+            items: _imageUploads,
+            onRetry: _retryImageUpload,
+            onRemove: _removeImageUpload,
+            canRemove: _canRemoveImageUpload,
+          ),
           const SizedBox(height: 96),
         ],
       ),
@@ -361,44 +471,16 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Theme(
         data: theme.copyWith(canvasColor: theme.scaffoldBackgroundColor),
-        child: Stack(
-          children: [
-            _buildBody(theme),
-            if (_imageUploading)
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        const SizedBox(width: 12),
-                        Text('正在上传 ${_uploadedImages + 1}/$_totalImages'),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        child: _buildBody(theme),
       ),
-      floatingActionButton: _imageUploading
-          ? null
-          : HistoricalQuickRecordFab(
-              expanded: _quickRecordExpanded,
-              onToggle: () {
-                setState(() => _quickRecordExpanded = !_quickRecordExpanded);
-              },
-              onEntrySelected: _openQuickCapture,
-              onImagesSelected: _uploadImages,
-            ),
+      floatingActionButton: HistoricalQuickRecordFab(
+        expanded: _quickRecordExpanded,
+        onToggle: () {
+          setState(() => _quickRecordExpanded = !_quickRecordExpanded);
+        },
+        onEntrySelected: _openQuickCapture,
+        onImagesSelected: _uploadImages,
+      ),
     );
   }
 }

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/diary_entry.dart';
@@ -12,11 +12,16 @@ import '../models/history_month_result.dart';
 import '../models/tag_config.dart';
 import 'api_config.dart';
 
+typedef UploadProgressCallback = void Function(int sentBytes, int totalBytes);
+typedef UploadBodyEncoder =
+    Future<Uint8List> Function(Map<String, dynamic> body);
+
 class ApiClient {
   static const requestTimeout = Duration(seconds: 12);
   static const uploadTimeout = Duration(seconds: 30);
 
   final ApiConfig _config;
+  late final UploadBodyEncoder? _uploadBodyEncoder;
   late final http.Client _http;
   late final String _baseUrl;
   late final Map<String, String> _headers;
@@ -29,7 +34,12 @@ class ApiClient {
     return ApiConfig(baseUrl: baseUrl, token: _config.token);
   }
 
-  ApiClient(this._config, {http.Client? httpClient}) {
+  ApiClient(
+    this._config, {
+    http.Client? httpClient,
+    UploadBodyEncoder? uploadBodyEncoder,
+  }) {
+    _uploadBodyEncoder = uploadBodyEncoder;
     _http = httpClient ?? http.Client();
     _baseUrl = _normalizeUrl(_config.baseUrl);
     _headers = {
@@ -186,19 +196,28 @@ class ApiClient {
     String imageBase64, {
     String? operationId,
     String? imagePrefix,
+    UploadProgressCallback? onProgress,
   }) async {
-    final response = await _post(
-      '/api/v1/diary/image/upload',
-      body: {
-        'date': formatDate(date),
-        'imageData': imageBase64,
-        if (imagePrefix != null && imagePrefix.trim().isNotEmpty)
-          'imagePrefix': imagePrefix.trim(),
-        // ignore: use_null_aware_elements
-        if (operationId != null) 'operationId': operationId,
-      },
-      timeout: uploadTimeout,
-    );
+    final body = {
+      'date': formatDate(date),
+      'imageData': imageBase64,
+      if (imagePrefix != null && imagePrefix.trim().isNotEmpty)
+        'imagePrefix': imagePrefix.trim(),
+      // ignore: use_null_aware_elements
+      if (operationId != null) 'operationId': operationId,
+    };
+    final response = onProgress == null
+        ? await _post(
+            '/api/v1/diary/image/upload',
+            body: body,
+            timeout: uploadTimeout,
+          )
+        : await _postWithProgress(
+            '/api/v1/diary/image/upload',
+            body: body,
+            onProgress: onProgress,
+            timeout: uploadTimeout,
+          );
     if (response.statusCode != 200) {
       throw ApiException(
         _statusMessage('图片上传失败', response.statusCode),
@@ -388,6 +407,28 @@ class ApiClient {
     );
   }
 
+  Future<http.Response> _postWithProgress(
+    String path, {
+    required Map<String, dynamic> body,
+    required UploadProgressCallback onProgress,
+    Duration timeout = requestTimeout,
+  }) async {
+    final bodyBytes =
+        await (_uploadBodyEncoder?.call(body) ??
+            compute(_encodeJsonBody, body));
+    final request = _ProgressRequest(
+      'POST',
+      Uri.parse('$_baseUrl$path'),
+      bodyBytes: bodyBytes,
+      onProgress: onProgress,
+    );
+    request.headers.addAll(_headers);
+    return _send(
+      () async => http.Response.fromStream(await _http.send(request)),
+      timeout: timeout,
+    );
+  }
+
   Future<http.Response> _send(
     Future<http.Response> Function() request, {
     Duration timeout = requestTimeout,
@@ -418,6 +459,42 @@ class ApiClient {
 
   void dispose() {
     _http.close();
+  }
+}
+
+Uint8List _encodeJsonBody(Map<String, dynamic> body) {
+  return Uint8List.fromList(utf8.encode(jsonEncode(body)));
+}
+
+class _ProgressRequest extends http.BaseRequest {
+  static const _chunkSize = 64 * 1024;
+
+  final Uint8List bodyBytes;
+  final UploadProgressCallback onProgress;
+
+  _ProgressRequest(
+    super.method,
+    super.url, {
+    required this.bodyBytes,
+    required this.onProgress,
+  }) {
+    contentLength = bodyBytes.length;
+  }
+
+  @override
+  http.ByteStream finalize() {
+    super.finalize();
+    return http.ByteStream(_chunks());
+  }
+
+  Stream<List<int>> _chunks() async* {
+    final totalBytes = bodyBytes.length;
+    onProgress(0, totalBytes);
+    for (var start = 0; start < totalBytes; start += _chunkSize) {
+      final end = min(start + _chunkSize, totalBytes);
+      yield Uint8List.sublistView(bodyBytes, start, end);
+      onProgress(end, totalBytes);
+    }
   }
 }
 

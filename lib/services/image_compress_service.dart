@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 import '../models/image_settings.dart';
@@ -33,6 +33,19 @@ class ImageCompressService {
       initialQuality: settings.initialQuality,
       minLongSidePx: settings.minLongSidePx,
       targetSizeBytes: settings.targetBytes,
+    );
+  }
+
+  Future<String> compressToBase64InBackground(Uint8List bytes) {
+    return compute(
+      _compressImage,
+      _ImageCompressionInput(
+        bytes: bytes,
+        maxLongSidePx: maxLongSidePx,
+        initialQuality: initialQuality,
+        minLongSidePx: minLongSidePx,
+        targetSizeBytes: targetSizeBytes,
+      ),
     );
   }
 
@@ -102,4 +115,29 @@ class ImageCompressService {
   String _toBase64(Uint8List jpgBytes) {
     return 'data:image/jpeg;base64,${base64Encode(jpgBytes)}';
   }
+}
+
+class _ImageCompressionInput {
+  final Uint8List bytes;
+  final int maxLongSidePx;
+  final int initialQuality;
+  final int minLongSidePx;
+  final int targetSizeBytes;
+
+  const _ImageCompressionInput({
+    required this.bytes,
+    required this.maxLongSidePx,
+    required this.initialQuality,
+    required this.minLongSidePx,
+    required this.targetSizeBytes,
+  });
+}
+
+String _compressImage(_ImageCompressionInput input) {
+  return ImageCompressService(
+    maxLongSidePx: input.maxLongSidePx,
+    initialQuality: input.initialQuality,
+    minLongSidePx: input.minLongSidePx,
+    targetSizeBytes: input.targetSizeBytes,
+  ).compressToBase64(input.bytes);
 }

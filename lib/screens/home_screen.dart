@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -24,6 +25,7 @@ import '../services/api_config.dart';
 import '../services/draft_repository.dart';
 import '../services/entry_line_builder.dart';
 import '../services/habit_settings_repository.dart';
+import '../services/habit_completion_sound.dart';
 import '../services/habit_stats_service.dart';
 import '../services/image_compress_service.dart';
 import '../services/image_settings_repository.dart';
@@ -132,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _imageSettingsRepository = ImageSettingsRepository();
   final _imagePicker = ImagePicker();
   final _scrollController = ScrollController();
+  final _habitCompletionSound = HabitCompletionSound();
   final List<ImageUploadItem> _imageUploads = [];
   bool _generatingCoach = false;
   bool _quickRecordExpanded = false;
@@ -158,6 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _habitCompletionSound.preload();
     _loadDiary();
     _loadTagConfig();
   }
@@ -165,6 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    unawaited(_habitCompletionSound.dispose());
     super.dispose();
   }
 
@@ -219,6 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _loading = false;
         _habitSettings = settings;
         _activeHabitKeys = settings.activeKeys.toSet();
+        _customCheckboxStates = _readCustomCheckboxStates(diary, settings);
       });
     } catch (e) {
       if (!mounted) return;
@@ -242,6 +248,35 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       // 静默失败，保持现有过滤状态
     }
+  }
+
+  Map<String, bool> _readCustomCheckboxStates(
+    DiaryEntry? diary,
+    HabitSettings settings,
+  ) {
+    if (diary == null || diary.raw.isEmpty) return {};
+
+    final document = const MarkdownParser().parse(diary.raw);
+    HabitSection? habitSection;
+    for (final section in document.sections) {
+      if (section is HabitSection) {
+        habitSection = section;
+        break;
+      }
+    }
+    if (habitSection == null) return {};
+
+    final states = <String, bool>{};
+    for (final item in habitSection.habits) {
+      if (item.habitKey != null) continue;
+      for (final entry in settings.extraHabits.entries) {
+        if (item.label.contains(entry.value)) {
+          states[entry.key] = item.checked;
+          break;
+        }
+      }
+    }
+    return states;
   }
 
   Future<void> _loadDiarySilently() async {
@@ -317,7 +352,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<bool> _updateHabitsAPI(HabitStatus status) async {
+  Future<bool> _updateHabitsAPI(
+    HabitStatus status, {
+    Map<String, bool>? customStates,
+  }) async {
     return widget.apiClient.updateHabits(
       _activeDate,
       water: status.water,
@@ -325,46 +363,37 @@ class _HomeScreenState extends State<HomeScreen> {
       reading: status.reading,
       language: status.language,
       supplements: status.supplements,
-      extraCheckboxes: _buildExtraCheckboxes(),
+      extraCheckboxes: _buildExtraCheckboxes(customStates),
     );
   }
 
-  Future<bool> _handleCustomCheckboxToggle(Map<String, bool> states) async {
-    _customCheckboxStates = Map.from(states);
-    // 使用当前日记中已有的习惯状态，不覆盖为 0
-    final status = _currentHabitStatus();
-    final ok = await _updateHabitsAPI(status);
-    if (ok && mounted) _loadDiarySilently();
-    return ok;
-  }
-
-  /// 从当前已加载日记中提取 HabitStatus，无日记时返回全默认。
-  HabitStatus _currentHabitStatus() {
-    if (_diary != null && _diary!.raw.isNotEmpty) {
-      final document = const MarkdownParser().parse(_diary!.raw);
-      for (final section in document.sections) {
-        if (section is HabitSection) {
-          return HabitStatus.fromHabitSection(section);
-        }
+  Future<bool> _handleCustomCheckboxToggle(
+    HabitStatus status,
+    Map<String, bool> states,
+  ) async {
+    try {
+      final ok = await _updateHabitsAPI(status, customStates: states);
+      if (ok) {
+        _customCheckboxStates = Map.from(states);
+        if (mounted) _loadDiarySilently();
       }
+      return ok;
+    } catch (_) {
+      return false;
     }
-    return const HabitStatus(
-      water: 0,
-      steps: 0,
-      reading: false,
-      language: false,
-      supplements: false,
-    );
   }
 
-  Map<String, Map<String, dynamic>> _buildExtraCheckboxes() {
+  Map<String, Map<String, dynamic>> _buildExtraCheckboxes(
+    Map<String, bool>? customStates,
+  ) {
     final settings = _habitSettings ?? HabitSettings.defaults;
+    final states = customStates ?? _customCheckboxStates;
     final result = <String, Map<String, dynamic>>{};
     for (final entry in settings.extraHabits.entries) {
       final key = entry.key;
       if (!settings.isActive(key)) continue;
       result[key] = {
-        'checked': _customCheckboxStates[key] ?? false,
+        'checked': states[key] ?? false,
         'label': '📝 ${settings.displayNameFor(key)}',
       };
     }
@@ -1009,6 +1038,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             habitSettings:
                                 _habitSettings ?? HabitSettings.defaults,
                             onCustomCheckboxToggle: _handleCustomCheckboxToggle,
+                            onPositiveFeedback: _habitCompletionSound.play,
                             imageUploads: _imageUploads,
                             onImageUploadRetry: _retryImageUpload,
                             onImageUploadRemove: _removeImageUpload,
@@ -1029,6 +1059,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             habitSettings:
                                 _habitSettings ?? HabitSettings.defaults,
                             onCustomCheckboxToggle: _handleCustomCheckboxToggle,
+                            onPositiveFeedback: _habitCompletionSound.play,
                           ),
                         ],
                         const SizedBox(height: 96),

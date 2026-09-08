@@ -1094,3 +1094,38 @@
 ### 最终结果
 
 - 已创建提交 `828e121`，并成功推送到 `origin/main`。
+
+## 2026-09-08 首页习惯打卡反馈优化
+
+### 讨论内容
+
+- 用户要求首页习惯打卡点击后立即反馈，保存过程静默执行，成功后播放短促完成音效，失败时回滚并提示。
+
+### 决策 & 原因
+
+- 习惯卡增加本地乐观状态和单次保存保护，避免等待网络回读，也避免连续操作互相覆盖。
+- 仅在 checkbox 完成、饮水增加或步数增加成功后播放音效；取消、清零、减少和相同数值保存不播放。
+- 自定义习惯回调同时传递完整内置习惯状态和自定义状态，服务端请求格式、Markdown 写入、统计和设置范围保持不变。
+- 使用预加载 `AudioPool` 和本地原创 WAV 音效；音效失败不影响保存，平台上下文遵守静音且不抢占其他音频。
+
+### 改动文件清单
+
+- `lib/widgets/habit_card.dart`
+- `lib/widgets/diary_markdown_view.dart`
+- `lib/screens/home_screen.dart`
+- `lib/services/habit_completion_sound.dart`
+- `pubspec.yaml`
+- `pubspec.lock`
+- `assets/sounds/habit_complete.wav`
+- `test/widget_test.dart`
+
+### 验证
+
+- `flutter analyze` 通过，零问题。
+- `flutter test` 372 项全部通过。
+- Release APK 构建成功：`build/app/outputs/flutter-apk/app-release.apk`，音效资源已打包进 `assets/flutter_assets`。
+- ADB 服务可启动，但当前没有在线设备，未执行 PLG110 覆盖安装和真机音量/静音回归。
+
+### 最终结果
+
+- 首页习惯打卡已完成乐观更新、静默保存、失败回滚和成功音效反馈实现。

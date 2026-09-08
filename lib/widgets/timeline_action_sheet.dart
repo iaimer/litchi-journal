@@ -16,13 +16,13 @@ Future<TimelineAction?> showTimelineActionSheet(
       const _TimelineSheetAction(
         action: TimelineAction.edit,
         label: '编辑',
-        icon: FloraIcon(FloraIcons.edit, size: 28),
+        icon: FloraIcon(FloraIcons.edit, size: 24),
       ),
     if (showDelete)
       const _TimelineSheetAction(
         action: TimelineAction.delete,
         label: '删除',
-        icon: Icon(Icons.delete_outline_rounded, size: 28),
+        icon: Icon(Icons.delete_outline_rounded, size: 24),
       ),
   ];
 
@@ -31,7 +31,7 @@ Future<TimelineAction?> showTimelineActionSheet(
     showDragHandle: true,
     backgroundColor: theme.colorScheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(FloraRadius.lg)),
     ),
     builder: (sheetContext) {
       final actionLayout = actions.length == 1
@@ -39,6 +39,7 @@ Future<TimelineAction?> showTimelineActionSheet(
               width: double.infinity,
               child: _TimelineActionTile(
                 action: actions.first,
+                horizontal: true,
                 onTap: () =>
                     Navigator.of(sheetContext).pop(actions.first.action),
               ),
@@ -88,9 +89,14 @@ class _TimelineSheetAction {
 
 class _TimelineActionTile extends StatelessWidget {
   final _TimelineSheetAction action;
+  final bool horizontal;
   final VoidCallback onTap;
 
-  const _TimelineActionTile({required this.action, required this.onTap});
+  const _TimelineActionTile({
+    required this.action,
+    this.horizontal = false,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -98,41 +104,62 @@ class _TimelineActionTile extends StatelessWidget {
     final tileColor = theme.brightness == Brightness.dark
         ? AppColors.darkSurfaceElevated
         : AppColors.surfaceSoft;
+    final contentColor = action.action == TimelineAction.delete
+        ? theme.colorScheme.error
+        : theme.colorScheme.onSurface;
 
     return Semantics(
       button: true,
       label: action.label,
       child: Material(
         color: tileColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(FloraRadius.lg),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 108),
+          borderRadius: BorderRadius.circular(FloraRadius.lg),
+          child: SizedBox(
+            height: horizontal ? 56 : 88,
             child: Padding(
-              padding: const EdgeInsets.all(FloraSpacing.lg),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconTheme(
-                    data: IconThemeData(
-                      color: theme.colorScheme.onSurface,
-                      size: 28,
+              padding: horizontal
+                  ? const EdgeInsets.symmetric(horizontal: FloraSpacing.lg)
+                  : const EdgeInsets.all(FloraSpacing.md),
+              child: horizontal
+                  ? Row(
+                      children: [
+                        IconTheme(
+                          data: IconThemeData(color: contentColor, size: 24),
+                          child: action.icon,
+                        ),
+                        const SizedBox(width: FloraSpacing.md),
+                        Text(
+                          action.label,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: contentColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconTheme(
+                          data: IconThemeData(color: contentColor, size: 24),
+                          child: action.icon,
+                        ),
+                        const SizedBox(height: FloraSpacing.xs),
+                        Text(
+                          action.label,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: contentColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                    child: action.icon,
-                  ),
-                  const SizedBox(height: FloraSpacing.sm),
-                  Text(
-                    action.label,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),

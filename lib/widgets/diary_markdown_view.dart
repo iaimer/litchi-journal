@@ -46,7 +46,11 @@ class DiaryMarkdownView extends StatelessWidget {
   final HabitSettings? habitSettings;
 
   /// 自定义 checkbox 习惯状态变化回调。
-  final Future<bool> Function(Map<String, bool> states)? onCustomCheckboxToggle;
+  final Future<bool> Function(HabitStatus status, Map<String, bool> states)?
+  onCustomCheckboxToggle;
+
+  /// 正向习惯操作保存成功后的完成反馈。
+  final VoidCallback? onPositiveFeedback;
   final List<ImageUploadItem> imageUploads;
   final ValueChanged<ImageUploadItem>? onImageUploadRetry;
   final ValueChanged<ImageUploadItem>? onImageUploadRemove;
@@ -69,6 +73,7 @@ class DiaryMarkdownView extends StatelessWidget {
     this.activeHabitKeys,
     this.habitSettings,
     this.onCustomCheckboxToggle,
+    this.onPositiveFeedback,
     this.imageUploads = const [],
     this.onImageUploadRetry,
     this.onImageUploadRemove,
@@ -187,6 +192,7 @@ class DiaryMarkdownView extends StatelessWidget {
           activeHabitKeys: activeHabitKeys,
           habitSettings: habitSettings,
           onCustomCheckboxToggle: onCustomCheckboxToggle,
+          onPositiveFeedback: onPositiveFeedback,
         );
       case QuickNoteSection():
         final accentColor = _accentColorFor(section);

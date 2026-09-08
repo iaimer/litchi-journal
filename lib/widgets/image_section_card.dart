@@ -11,6 +11,7 @@ import '../models/image_upload_item.dart';
 import '../services/api_client.dart';
 import '../theme/app_theme.dart';
 import 'image_upload_strip.dart';
+import 'timeline_action_sheet.dart';
 
 class ImageSectionCard extends StatelessWidget {
   final MediaSection section;
@@ -222,6 +223,17 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
     );
   }
 
+  Future<void> _openActions() async {
+    if (widget.onDelete == null) return;
+    final action = await showTimelineActionSheet(
+      context,
+      showEdit: false,
+      showDelete: true,
+    );
+    if (!mounted || action != TimelineAction.delete) return;
+    _confirmDelete();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -292,25 +304,10 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
             child: SizedBox(
               width: 28,
               height: 28,
-              child: PopupMenuButton<String>(
+              child: IconButton(
+                onPressed: _openActions,
                 padding: EdgeInsets.zero,
                 icon: const FloraIcon(FloraIcons.more, size: 16),
-                color: theme.colorScheme.surface,
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Text(
-                      '删除',
-                      style: TextStyle(
-                        color: theme.colorScheme.error,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-                onSelected: (value) {
-                  if (value == 'delete') _confirmDelete();
-                },
               ),
             ),
           ),

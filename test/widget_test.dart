@@ -2019,9 +2019,7 @@ void main() {
               httpClient,
               uploadBodyEncoder: _encodeUploadBodyForTest,
             ),
-            habitSettingsRepo: HabitSettingsRepository(
-              storage: _TestStorage(),
-            ),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
             imagePicker: (_) async => XFile.fromData(
               bytes,
               name: 'today.jpg',
@@ -4105,6 +4103,254 @@ tags:
       expect(called!.steps, 0);
     });
 
+    testWidgets('saving a habit is silent and plays feedback after success', (
+      tester,
+    ) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '阅读/亲子共读',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 阅读/亲子共读',
+          ),
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '学语言',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 学语言',
+          ),
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+        ],
+      );
+      var updateCount = 0;
+      var feedbackCount = 0;
+      final save = Completer<bool>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (_) {
+                updateCount++;
+                return save.future;
+              },
+              onPositiveFeedback: () => feedbackCount++,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('亲子共读'));
+      await tester.pump();
+
+      expect(updateCount, 1);
+      expect(feedbackCount, 0);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      // 保存一组完整习惯状态时，第二个请求会被锁住。
+      await tester.tap(find.text('学语言'));
+      await tester.pump();
+      expect(updateCount, 1);
+
+      save.complete(true);
+      await tester.pumpAndSettle();
+      expect(feedbackCount, 1);
+    });
+
+    testWidgets(
+      'counter updates optimistically and only increases play sound',
+      (tester) async {
+        final section = HabitSection(
+          title: '习惯打卡',
+          contents: [],
+          habits: [
+            const HabitItem(
+              kind: HabitKind.counter,
+              label: '饮水',
+              checked: false,
+              checkable: false,
+              rawLine: '- 饮水 500 mL',
+              value: 500,
+              unit: 'mL',
+            ),
+          ],
+        );
+        var feedbackCount = 0;
+        var updateCount = 0;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HabitCard(
+                section: section,
+                onUpdate: (_) async {
+                  updateCount++;
+                  return true;
+                },
+                onPositiveFeedback: () => feedbackCount++,
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('+250'));
+        await tester.pumpAndSettle();
+        expect(find.text('饮水 750 mL'), findsOneWidget);
+        expect(updateCount, 1);
+        expect(feedbackCount, 1);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+
+        await tester.tap(find.text('清零'));
+        await tester.pumpAndSettle();
+        expect(find.text('饮水 0 mL'), findsOneWidget);
+        expect(feedbackCount, 1);
+      },
+    );
+
+    testWidgets('failed optimistic update rolls back without feedback', (
+      tester,
+    ) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+        ],
+      );
+      var feedbackCount = 0;
+      final save = Completer<bool>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (_) => save.future,
+              onPositiveFeedback: () => feedbackCount++,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('+250'));
+      await tester.pump();
+      expect(find.text('饮水 750 mL'), findsOneWidget);
+      expect(feedbackCount, 0);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      save.complete(false);
+      await tester.pumpAndSettle();
+      expect(find.text('饮水 500 mL'), findsOneWidget);
+      expect(find.text('更新失败'), findsOneWidget);
+      expect(feedbackCount, 0);
+    });
+
+    testWidgets('custom checkbox sends current built-in status and feedback', (
+      tester,
+    ) async {
+      final settings = const HabitSettings(
+        statusMap: {'custom_meditate': true},
+        extraHabits: {'custom_meditate': '冥想'},
+      );
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '阅读/亲子共读',
+            checked: true,
+            checkable: true,
+            rawLine: '- [x] 阅读/亲子共读',
+          ),
+        ],
+      );
+      HabitStatus? submittedStatus;
+      Map<String, bool>? submittedCustomStates;
+      var feedbackCount = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              habitSettings: settings,
+              onUpdate: (_) async => true,
+              onCustomCheckboxToggle: (status, states) async {
+                submittedStatus = status;
+                submittedCustomStates = states;
+                return true;
+              },
+              onPositiveFeedback: () => feedbackCount++,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('冥想'));
+      await tester.pumpAndSettle();
+
+      expect(submittedStatus?.reading, isTrue);
+      expect(submittedCustomStates, {'custom_meditate': true});
+      expect(feedbackCount, 1);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets('unchecking a habit does not play feedback', (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.checkbox,
+            label: '阅读/亲子共读',
+            checked: true,
+            checkable: true,
+            rawLine: '- [x] 阅读/亲子共读',
+          ),
+        ],
+      );
+      var feedbackCount = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (_) async => true,
+              onPositiveFeedback: () => feedbackCount++,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('亲子共读'));
+      await tester.pumpAndSettle();
+      expect(feedbackCount, 0);
+    });
+
     testWidgets('shows default habit icons', (tester) async {
       final section = HabitSection(
         title: '习惯打卡',
@@ -4271,6 +4517,7 @@ tags:
       );
 
       HabitStatus? called;
+      var feedbackCount = 0;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -4280,6 +4527,7 @@ tags:
                 called = status;
                 return true;
               },
+              onPositiveFeedback: () => feedbackCount++,
             ),
           ),
         ),
@@ -4301,6 +4549,17 @@ tags:
       expect(called, isNotNull);
       expect(called!.steps, 6000);
       expect(called!.water, 0);
+      expect(feedbackCount, 0);
+
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '9000');
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('运动 9000 步'), findsOneWidget);
+      expect(called!.steps, 9000);
+      expect(feedbackCount, 1);
     });
 
     testWidgets('onUpdate failure shows SnackBar, keeps old state', (
@@ -5308,31 +5567,28 @@ tags:
       },
     );
 
-    test(
-      'OpenCode Go polish uses a compatible bounded request body',
-      () async {
-        final client = _CapturingHttpClient(
-          body: '{"choices":[{"message":{"content":"正文 #亲子 #亲子沟通"}}]}',
-        );
-        final service = PolisherService(httpClient: client);
+    test('OpenCode Go polish uses a compatible bounded request body', () async {
+      final client = _CapturingHttpClient(
+        body: '{"choices":[{"message":{"content":"正文 #亲子 #亲子沟通"}}]}',
+      );
+      final service = PolisherService(httpClient: client);
 
-        await service.polish(
-          content: '今天记录了一件小事',
-          entryType: EntryType.quickNote,
-          tagConfig: tagConfig,
-          config: const AIConfig(
-            enabled: true,
-            baseUrl: 'https://opencode.ai/zen/go',
-            apiKey: 'key',
-            model: 'deepseek-v4-flash',
-          ),
-        );
+      await service.polish(
+        content: '今天记录了一件小事',
+        entryType: EntryType.quickNote,
+        tagConfig: tagConfig,
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://opencode.ai/zen/go',
+          apiKey: 'key',
+          model: 'deepseek-v4-flash',
+        ),
+      );
 
-        final body = jsonDecode(client.lastRequestBody!) as Map<String, dynamic>;
-        expect(body['max_tokens'], 512);
-        expect(body, isNot(contains('thinking')));
-      },
-    );
+      final body = jsonDecode(client.lastRequestBody!) as Map<String, dynamic>;
+      expect(body['max_tokens'], 512);
+      expect(body, isNot(contains('thinking')));
+    });
 
     test('official DeepSeek requests explicitly disable thinking', () async {
       final client = _CapturingHttpClient(
@@ -7127,6 +7383,7 @@ tags:
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(find.text('编辑'), findsOneWidget);
       expect(find.text('删除'), findsOneWidget);
+      expect(tester.getSize(find.byType(BottomSheet)).height, lessThan(200));
     });
 
     testWidgets('edit opens EntryEditSheet with pre-filled content', (
@@ -7735,6 +7992,8 @@ tags:
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(tester.getSize(find.byType(BottomSheet)).height, lessThan(140));
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 

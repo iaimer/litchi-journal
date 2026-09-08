@@ -21,8 +21,12 @@ class HabitCard extends StatefulWidget {
   final HabitSettings? habitSettings;
 
   /// 自定义 checkbox 习惯状态变化回调。
-  /// key → checked。
-  final Future<bool> Function(Map<String, bool> states)? onCustomCheckboxToggle;
+  /// 传入当前内置习惯状态和自定义习惯状态。
+  final Future<bool> Function(HabitStatus status, Map<String, bool> states)?
+  onCustomCheckboxToggle;
+
+  /// 正向习惯操作保存成功后的完成反馈。
+  final VoidCallback? onPositiveFeedback;
 
   const HabitCard({
     super.key,
@@ -32,6 +36,7 @@ class HabitCard extends StatefulWidget {
     this.activeHabitKeys,
     this.habitSettings,
     this.onCustomCheckboxToggle,
+    this.onPositiveFeedback,
   });
 
   @override
@@ -40,6 +45,7 @@ class HabitCard extends StatefulWidget {
 
 class _HabitCardState extends State<HabitCard> {
   String? _updatingField;
+  late HabitStatus _status;
   late Map<String, bool> _customCheckboxStates;
 
   HabitSettings get _settings => widget.habitSettings ?? HabitSettings.defaults;
@@ -47,6 +53,7 @@ class _HabitCardState extends State<HabitCard> {
   @override
   void initState() {
     super.initState();
+    _status = HabitStatus.fromHabitSection(widget.section);
     _customCheckboxStates = {};
     // 从已解析的 Markdown 中读取自定义习惯的 checked 状态
     for (final item in widget.section.habits) {
@@ -61,24 +68,52 @@ class _HabitCardState extends State<HabitCard> {
     }
   }
 
-  Future<void> _update(HabitStatus next, String field) async {
-    setState(() => _updatingField = field);
+  @override
+  void didUpdateWidget(covariant HabitCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_updatingField != null) return;
+
+    final oldStatus = HabitStatus.fromHabitSection(oldWidget.section);
+    final nextStatus = HabitStatus.fromHabitSection(widget.section);
+    if (!_sameStatus(oldStatus, nextStatus)) {
+      _status = nextStatus;
+    }
+  }
+
+  Future<bool> _update(HabitStatus next, String field) async {
+    if (_updatingField != null) return false;
+
+    final previous = _status;
+    setState(() {
+      _status = next;
+      _updatingField = field;
+    });
+
+    var ok = false;
     try {
-      final ok = await widget.onUpdate(next);
-      if (!mounted) return;
-      if (!ok) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('更新失败')));
-      }
+      ok = await widget.onUpdate(next);
     } catch (_) {
-      if (!mounted) return;
+      ok = false;
+    }
+
+    if (!mounted) return ok;
+
+    if (!ok) {
+      setState(() {
+        _status = previous;
+        _updatingField = null;
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('更新失败')));
-    } finally {
-      if (mounted) setState(() => _updatingField = null);
+      return false;
     }
+
+    if (_isPositiveTransition(previous, next, field)) {
+      widget.onPositiveFeedback?.call();
+    }
+    setState(() => _updatingField = null);
+    return true;
   }
 
   void _handleCheckboxTap(HabitStatus next, String field) {
@@ -144,7 +179,7 @@ class _HabitCardState extends State<HabitCard> {
   }
 
   Future<void> _handleStepsEdit() async {
-    final currentStatus = HabitStatus.fromHabitSection(widget.section);
+    final currentStatus = _status;
     final controller = TextEditingController();
     final result = await showDialog<int>(
       context: context,
@@ -175,8 +210,7 @@ class _HabitCardState extends State<HabitCard> {
       ),
     );
     if (result != null && result >= 0 && result != currentStatus.steps) {
-      final freshStatus = HabitStatus.fromHabitSection(widget.section);
-      final next = freshStatus.copyWith(steps: result);
+      final next = _status.copyWith(steps: result);
       _update(next, 'steps');
     }
   }
@@ -227,6 +261,35 @@ class _HabitCardState extends State<HabitCard> {
     }
   }
 
+  bool _isPositiveTransition(
+    HabitStatus previous,
+    HabitStatus next,
+    String field,
+  ) {
+    switch (field) {
+      case 'water':
+        return next.water > previous.water;
+      case 'steps':
+        return next.steps > previous.steps;
+      case 'reading':
+        return !previous.reading && next.reading;
+      case 'language':
+        return !previous.language && next.language;
+      case 'supplements':
+        return !previous.supplements && next.supplements;
+      default:
+        return false;
+    }
+  }
+
+  bool _sameStatus(HabitStatus first, HabitStatus second) {
+    return first.water == second.water &&
+        first.steps == second.steps &&
+        first.reading == second.reading &&
+        first.language == second.language &&
+        first.supplements == second.supplements;
+  }
+
   /// 获取自定义颜色（用于 SectionCard 强调色）
   Color get _accentColor {
     // 取第一个习惯的自定义颜色，没有则用默认
@@ -239,7 +302,7 @@ class _HabitCardState extends State<HabitCard> {
 
   @override
   Widget build(BuildContext context) {
-    final status = HabitStatus.fromHabitSection(widget.section);
+    final status = _status;
 
     // 按活跃状态过滤 Markdown 习惯
     final activeHabits = widget.section.habits.where((h) {
@@ -267,6 +330,7 @@ class _HabitCardState extends State<HabitCard> {
             settings: settings,
             checked: _customCheckboxStates[key] ?? false,
             onToggle: _handleCustomCheckboxToggle,
+            enabled: !widget.readOnly && _updatingField == null,
           ),
         );
       }
@@ -326,19 +390,42 @@ class _HabitCardState extends State<HabitCard> {
     }
   }
 
-  Future<void> _handleCustomCheckboxToggle(String key, bool newChecked) async {
+  Future<bool> _handleCustomCheckboxToggle(String key, bool newChecked) async {
+    if (_updatingField != null) return false;
+
+    final previous = Map<String, bool>.from(_customCheckboxStates);
     setState(() => _customCheckboxStates[key] = newChecked);
-    if (widget.onCustomCheckboxToggle == null) return;
+    if (widget.onCustomCheckboxToggle == null) return true;
+
+    setState(() => _updatingField = 'custom:$key');
+    var ok = false;
     try {
-      final ok = await widget.onCustomCheckboxToggle!(
+      ok = await widget.onCustomCheckboxToggle!(
+        _status,
         Map.from(_customCheckboxStates),
       );
-      if (!mounted) return;
-      if (!ok) setState(() => _customCheckboxStates[key] = !newChecked);
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _customCheckboxStates[key] = !newChecked);
+      ok = false;
     }
+
+    if (!mounted) return ok;
+
+    if (!ok) {
+      setState(() {
+        _customCheckboxStates = previous;
+        _updatingField = null;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('更新失败')));
+      return false;
+    }
+
+    if (!(previous[key] ?? false) && newChecked) {
+      widget.onPositiveFeedback?.call();
+    }
+    setState(() => _updatingField = null);
+    return true;
   }
 
   Widget _buildReadOnlyRow(HabitItem habit, HabitStatus status) {
@@ -434,14 +521,6 @@ class _CheckboxRow extends StatelessWidget {
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
               ),
             ),
-            if (loading) ...[
-              const SizedBox(width: 8),
-              const SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(strokeWidth: 1.5),
-              ),
-            ],
           ],
         ),
       ),
@@ -489,12 +568,6 @@ class _WaterCounterRow extends StatelessWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
                 ),
               ),
-              if (loading)
-                const SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 1.5),
-                ),
             ],
           ),
           const SizedBox(height: 6),
@@ -585,14 +658,6 @@ class _StepsCounterRow extends StatelessWidget {
               size: 14,
               color: AppColors.primary,
             ),
-            if (loading) ...[
-              const SizedBox(width: 8),
-              const SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(strokeWidth: 1.5),
-              ),
-            ],
           ],
         ),
       ),
@@ -604,7 +669,8 @@ class _CustomCheckboxRow extends StatefulWidget {
   final String habitKey;
   final HabitSettings settings;
   final bool checked;
-  final Future<void> Function(String key, bool checked) onToggle;
+  final Future<bool> Function(String key, bool checked) onToggle;
+  final bool enabled;
 
   const _CustomCheckboxRow({
     super.key,
@@ -612,6 +678,7 @@ class _CustomCheckboxRow extends StatefulWidget {
     required this.settings,
     required this.checked,
     required this.onToggle,
+    required this.enabled,
   });
 
   @override
@@ -643,11 +710,7 @@ class _CustomCheckboxRowState extends State<_CustomCheckboxRow> {
     final color = Color(widget.settings.colorFor(widget.habitKey));
 
     return InkWell(
-      onTap: () {
-        final next = !_checked;
-        setState(() => _checked = next);
-        widget.onToggle(widget.habitKey, next);
-      },
+      onTap: widget.enabled ? _toggle : null,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -670,6 +733,15 @@ class _CustomCheckboxRowState extends State<_CustomCheckboxRow> {
         ),
       ),
     );
+  }
+
+  Future<void> _toggle() async {
+    final previous = _checked;
+    final next = !previous;
+    setState(() => _checked = next);
+    final ok = await widget.onToggle(widget.habitKey, next);
+    if (!mounted || ok) return;
+    setState(() => _checked = previous);
   }
 }
 

@@ -272,6 +272,24 @@ void main() {
       );
     }
 
+    HabitSection sectionWithMaxMinutes() {
+      return const HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          HabitItem(
+            kind: HabitKind.duration,
+            label: '📖 阅读/亲子共读 500000 分钟',
+            checked: true,
+            checkable: true,
+            rawLine: '- [x] 📖 阅读/亲子共读 500000 分钟',
+            value: 500000,
+            unit: '分钟',
+          ),
+        ],
+      );
+    }
+
     testWidgets('starts from the whole row and manually appends duration', (
       tester,
     ) async {
@@ -307,7 +325,9 @@ void main() {
       expect(started?.habitKey, 'reading');
       expect(started?.diaryDate, isNotNull);
 
-      await tester.tap(find.byTooltip('手动记录时长'));
+      await tester.longPress(
+        find.byKey(const ValueKey('duration_row_reading')),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '15');
       await tester.tap(find.text('追加'));
@@ -334,14 +354,17 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('手动记录时长'));
+      await tester.longPress(
+        find.byKey(const ValueKey('duration_row_reading')),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '15');
       await tester.tap(find.text('追加'));
       await tester.pumpAndSettle();
 
       expect(find.text('更新失败'), findsOneWidget);
-      expect(find.text('未开始'), findsOneWidget);
+      expect(find.text('未开始'), findsNothing);
+      expect(find.text('亲子共读'), findsOneWidget);
     });
 
     testWidgets(
@@ -361,17 +384,424 @@ void main() {
           ),
         );
 
-      expect(find.text('20 分钟'), findsOneWidget);
-        await tester.tap(find.byTooltip('手动记录时长'));
+        expect(find.text('20 分钟'), findsOneWidget);
+        await tester.longPress(
+          find.byKey(const ValueKey('duration_row_reading')),
+        );
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), '0');
         await tester.tap(find.text('设为'));
         await tester.pumpAndSettle();
 
-        expect(find.text('未开始'), findsOneWidget);
-      expect(find.text('20 分钟'), findsNothing);
+        expect(find.text('未开始'), findsNothing);
+        expect(find.text('亲子共读'), findsOneWidget);
+        expect(find.text('20 分钟'), findsNothing);
       },
     );
+
+    testWidgets('duration row restores the original compact height', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: sectionWithMinutes(),
+              habitSettings: HabitSettings.defaults,
+              onUpdate: (_) async => true,
+              onStartDuration: (_) async => true,
+              onDurationUpdate: (_, _, _) async => true,
+            ),
+          ),
+        ),
+      );
+
+      final row = find.byKey(const ValueKey('duration_row_reading'));
+      expect(
+        find.descendant(of: row, matching: find.text('亲子共读')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('20 分钟')),
+        findsOneWidget,
+      );
+      expect(find.text('未开始'), findsNothing);
+      expect(find.text('已完成'), findsNothing);
+      expect(find.text('0 分钟'), findsNothing);
+      expect(find.byTooltip('手动记录时长'), findsNothing);
+      expect(
+        tester
+            .getCenter(find.descendant(of: row, matching: find.text('亲子共读')))
+            .dy,
+        closeTo(
+          tester
+              .getCenter(find.descendant(of: row, matching: find.text('20 分钟')))
+              .dy,
+          1,
+        ),
+      );
+      expect(tester.getSize(row).height, closeTo(30, 1));
+      expect(
+        find.descendant(of: row, matching: find.byType(IconButton)),
+        findsNothing,
+      );
+    });
+
+    testWidgets('checkable duration rows share a compact visual rhythm', (
+      tester,
+    ) async {
+      const section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          HabitItem(
+            kind: HabitKind.duration,
+            label: '📖 阅读/亲子共读 0 分钟',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 📖 阅读/亲子共读 0 分钟',
+            value: 0,
+            unit: '分钟',
+          ),
+          HabitItem(
+            kind: HabitKind.duration,
+            label: '📝 学语言 0 分钟',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 📝 学语言 0 分钟',
+            value: 0,
+            unit: '分钟',
+          ),
+          HabitItem(
+            kind: HabitKind.checkbox,
+            label: '补充剂',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 补充剂',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              habitSettings: HabitSettings.defaults,
+              onUpdate: (_) async => true,
+              onStartDuration: (_) async => true,
+              onDurationUpdate: (_, _, _) async => true,
+            ),
+          ),
+        ),
+      );
+
+      final reading = find.text('亲子共读');
+      final language = find.text('学语言');
+      final supplements = find.text('补充剂');
+      expect(reading, findsOneWidget);
+      expect(language, findsOneWidget);
+      expect(supplements, findsOneWidget);
+
+      final readingCenter = tester.getCenter(reading).dy;
+      final languageCenter = tester.getCenter(language).dy;
+      final supplementsCenter = tester.getCenter(supplements).dy;
+      expect(languageCenter - readingCenter, closeTo(30, 1));
+      expect(supplementsCenter - languageCenter, closeTo(30, 1));
+
+      final readingRow = find.byKey(const ValueKey('duration_row_reading'));
+      final supplementRow = find.ancestor(
+        of: supplements,
+        matching: find.byType(InkWell),
+      );
+      expect(tester.getSize(readingRow).height, closeTo(30, 1));
+      expect(supplementRow, findsOneWidget);
+      expect(tester.getSize(supplementRow).height, closeTo(30, 1));
+      expect(
+        tester.getRect(supplementRow).bottom - tester.getRect(readingRow).top,
+        closeTo(90, 1),
+      );
+      final supplementVisual = find.descendant(
+        of: supplementRow,
+        matching: find.byType(CustomPaint),
+      );
+      expect(tester.getSize(supplementVisual).height, closeTo(22, 1));
+      expect(find.byType(Divider), findsNothing);
+    });
+
+    testWidgets('compact habit rows fit a narrow screen', (tester) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(320, 700));
+
+      final settings = HabitSettings.defaults.copyWith(
+        statusMap: {
+          'reading': true,
+          'language': true,
+          'supplements': true,
+          'custom_check': true,
+        },
+        extraHabits: {'custom_check': '晨间习惯'},
+      );
+      const section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          HabitItem(
+            kind: HabitKind.duration,
+            label: '📖 阅读/亲子共读 500000 分钟',
+            checked: true,
+            checkable: true,
+            rawLine: '- [x] 📖 阅读/亲子共读 500000 分钟',
+            value: 500000,
+            unit: '分钟',
+          ),
+          HabitItem(
+            kind: HabitKind.duration,
+            label: '📝 学语言 500000 分钟',
+            checked: true,
+            checkable: true,
+            rawLine: '- [x] 📝 学语言 500000 分钟',
+            value: 500000,
+            unit: '分钟',
+          ),
+          HabitItem(
+            kind: HabitKind.checkbox,
+            label: '鱼油 / 植物甾醇',
+            checked: false,
+            checkable: true,
+            rawLine: '- [ ] 鱼油 / 植物甾醇',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              habitSettings: settings,
+              onUpdate: (_) async => true,
+              onStartDuration: (_) async => true,
+              onDurationUpdate: (_, _, _) async => true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('亲子共读'), findsOneWidget);
+      expect(find.text('学语言'), findsOneWidget);
+      expect(find.text('补充剂'), findsOneWidget);
+      expect(find.text('晨间习惯'), findsOneWidget);
+
+      final readingCenter = tester.getCenter(find.text('亲子共读')).dy;
+      final languageCenter = tester.getCenter(find.text('学语言')).dy;
+      final supplementCenter = tester.getCenter(find.text('补充剂')).dy;
+      final customCenter = tester.getCenter(find.text('晨间习惯')).dy;
+      expect(languageCenter - readingCenter, closeTo(30, 1));
+      expect(supplementCenter - languageCenter, closeTo(30, 1));
+      expect(customCenter - supplementCenter, closeTo(30, 1));
+
+      final supplementRow = find.ancestor(
+        of: find.text('补充剂'),
+        matching: find.byType(InkWell),
+      );
+      final customRow = find.ancestor(
+        of: find.text('晨间习惯'),
+        matching: find.byType(InkWell),
+      );
+      expect(tester.getSize(supplementRow).height, closeTo(30, 1));
+      expect(tester.getSize(customRow).height, closeTo(30, 1));
+      expect(
+        tester.getRect(customRow).bottom - tester.getRect(supplementRow).top,
+        closeTo(60, 1),
+      );
+    });
+
+    testWidgets('zero-minute duration rows remain compact and readable', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section(),
+              habitSettings: HabitSettings.defaults,
+              onUpdate: (_) async => true,
+              onStartDuration: (_) async => true,
+              onDurationUpdate: (_, _, _) async => true,
+            ),
+          ),
+        ),
+      );
+
+      final row = find.byKey(const ValueKey('duration_row_reading'));
+      expect(find.text('亲子共读'), findsOneWidget);
+      expect(find.text('0 分钟'), findsNothing);
+      expect(find.text('未开始'), findsNothing);
+      expect(find.text('已完成'), findsNothing);
+      expect(tester.getSize(row).height, closeTo(30, 1));
+    });
+
+    testWidgets('duration row exposes completion and gesture semantics', (
+      tester,
+    ) async {
+      final semanticsHandle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HabitCard(
+                section: sectionWithMinutes(),
+                habitSettings: HabitSettings.defaults,
+                onUpdate: (_) async => true,
+                onStartDuration: (_) async => true,
+                onDurationUpdate: (_, _, _) async => true,
+              ),
+            ),
+          ),
+        );
+
+        expect(
+          tester.getSemantics(
+            find.byKey(const ValueKey('duration_row_reading')),
+          ),
+          matchesSemantics(
+            label: '亲子共读，已记录 20 分钟',
+            hint: '点击开始计时，长按手动记录时长',
+            hasCheckedState: true,
+            isChecked: true,
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasTapAction: true,
+            hasLongPressAction: true,
+            onTapHint: '开始计时',
+            onLongPressHint: '手动记录时长',
+          ),
+        );
+      } finally {
+        semanticsHandle.dispose();
+      }
+    });
+
+    testWidgets('read-only duration rows do not respond to gestures', (
+      tester,
+    ) async {
+      var startCount = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: sectionWithMinutes(),
+              habitSettings: HabitSettings.defaults,
+              readOnly: true,
+              onUpdate: (_) async => true,
+              onStartDuration: (_) async {
+                startCount++;
+                return true;
+              },
+              onDurationUpdate: (_, _, _) async => true,
+            ),
+          ),
+        ),
+      );
+
+      final row = find.byKey(const ValueKey('duration_row_reading'));
+      await tester.tap(row);
+      await tester.longPress(row);
+      await tester.pumpAndSettle();
+
+      expect(startCount, 0);
+      expect(find.byType(TextField), findsNothing);
+    });
+
+    testWidgets('custom duration rows use the same compact interaction', (
+      tester,
+    ) async {
+      final settings = HabitSettings.defaults.copyWith(
+        statusMap: {'custom_focus': true},
+        extraHabits: {'custom_focus': '专注阅读'},
+        trackingTypeMap: {'custom_focus': HabitTrackingType.duration},
+      );
+      Map<String, int>? savedDurations;
+      var startCount = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: const HabitSection(
+                title: '习惯打卡',
+                contents: [],
+                habits: [],
+              ),
+              habitSettings: settings,
+              onUpdate: (_) async => true,
+              onStartDuration: (_) async {
+                startCount++;
+                return true;
+              },
+              onCustomDurationUpdate: (_, _, durations) async {
+                savedDurations = durations;
+                return true;
+              },
+            ),
+          ),
+        ),
+      );
+
+      final row = find.byKey(const ValueKey('duration_row_custom_focus'));
+      expect(
+        find.descendant(of: row, matching: find.text('专注阅读')),
+        findsOneWidget,
+      );
+      expect(tester.getSize(row).height, closeTo(30, 1));
+
+      await tester.longPress(row);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '15');
+      await tester.tap(find.text('追加'));
+      await tester.pumpAndSettle();
+
+      expect(startCount, 0);
+      expect(savedDurations?['custom_focus'], 15);
+      expect(find.text('15 分钟'), findsOneWidget);
+    });
+
+    testWidgets('long duration labels fit narrow screens with large text', (
+      tester,
+    ) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: HabitCard(
+                section: sectionWithMaxMinutes(),
+                habitSettings: HabitSettings.defaults,
+                onUpdate: (_) async => true,
+                onStartDuration: (_) async => true,
+                onDurationUpdate: (_, _, _) async => true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('500000 分钟'), findsOneWidget);
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('duration_row_reading')))
+            .height,
+        greaterThan(30),
+      );
+    });
   });
 
   testWidgets('focus timer saves whole minutes and clears the session', (

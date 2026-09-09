@@ -4,7 +4,7 @@
 
 ## 当前目标与上下文
 
-荔枝日记当前位于 `codex/focus-duration-20260909` 分支，已完成 H3「专注计时与时长统计」的代码实现和验证。项目流程已迁移到 Project Docs Workflow；旧的 `SESSION_LOG.md` 保留为历史档案，不再追加。
+荔枝日记当前已合并到 `main`，完成 H3「专注计时与时长统计」以及首页习惯紧凑布局修复。项目流程已迁移到 Project Docs Workflow；旧的 `SESSION_LOG.md` 保留为历史档案，不再追加。
 
 ## 已完成工作
 
@@ -14,7 +14,7 @@
 - 首页习惯模块保持既有 Markdown、服务端接口和统计边界。
 - 阅读/亲子阅读、学语言和自定义习惯支持 duration 模式；新增 `FocusTimerScreen`、单会话时间戳恢复、手动追加/设为/清零，以及按开始日写回完整分钟。
 - 服务端新增 `/api/v1/diary/habit/duration` 与 `days=all` 统计数据；旧的无分钟 checkbox 记录继续计入完成/连续记录，但不虚构时长。
-- 当前工作区未递增版本号，发布版本仍为 `1.6.6+25`；审查结论中的 6 个边界问题已修复并补充回归测试，Release APK 待本轮最终构建；未安装真机、未推送远端。
+- 当前工作区未递增版本号，发布版本仍为 `1.6.6+25`；审查结论中的 6 个边界问题已修复并补充回归测试。首页习惯任务已恢复为正常字体约 30dp 的原始紧凑行高，Release APK 已构建；未安装真机。
 
 ## 关键决策与原因
 
@@ -25,7 +25,7 @@
 
 ## 未完成事项与下一步
 
-- 代码侧验证已完成：`flutter analyze`、397 项 `flutter test`、服务端 build/test（34 项）均通过；待确认 `git diff --check` 并完成 Release APK 最终构建。
+- 代码侧验证已完成：`flutter analyze`、406 项 `flutter test`、服务端 build/test（34 项）均通过，`git diff --check` 和 Release APK 构建均已完成。
 - 用户侧验收：由用户自行安装 APK，验证计时开始/暂停/恢复/保存、跨午夜归属、统计累计/平均、旧 checkbox 兼容，以及 H2 首页习惯反馈。
 - 后续若发现问题，先按 `AGENTS.md` 的数据完整性和 UI 规则定位，再更新本文件中的当前状态。
 

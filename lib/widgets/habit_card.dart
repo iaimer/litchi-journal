@@ -365,6 +365,7 @@ class _HabitCardState extends State<HabitCard> {
     return SectionCard(
       title: widget.section.title,
       accentColor: _accentColor,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: children,
     );
   }
@@ -578,7 +579,6 @@ class _HabitCardState extends State<HabitCard> {
     final key = habit.habitKey!;
     final minutes = _durationMinutes(habit, status);
     final color = _color(habit) ?? Color(_settings.colorFor(key));
-    final target = _settings.durationDailyTargetFor(key);
     final item = _DurationHabitRow(
       key: ValueKey('habit_duration_$key'),
       habitKey: key,
@@ -586,7 +586,6 @@ class _HabitCardState extends State<HabitCard> {
       icon: _icon(habit),
       color: color,
       minutes: minutes,
-      target: target,
       checked: _durationCompleted(key, minutes, status),
       onStart: readOnly
           ? null
@@ -601,7 +600,7 @@ class _HabitCardState extends State<HabitCard> {
                 minutes: minutes,
               ),
             ),
-      onEdit: readOnly
+      onLongPress: readOnly
           ? null
           : () => _editDuration(
               _timerTarget(
@@ -879,10 +878,9 @@ class _DurationHabitRow extends StatelessWidget {
   final String? icon;
   final Color color;
   final int minutes;
-  final int? target;
   final bool checked;
   final VoidCallback? onStart;
-  final VoidCallback? onEdit;
+  final VoidCallback? onLongPress;
   final bool enabled;
 
   const _DurationHabitRow({
@@ -892,101 +890,86 @@ class _DurationHabitRow extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.minutes,
-    required this.target,
     required this.checked,
     required this.onStart,
-    required this.onEdit,
+    required this.onLongPress,
     required this.enabled,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final trackColor = color.withAlpha(
-      theme.brightness == Brightness.dark ? 58 : 34,
-    );
-    final ratio = target == null || target! <= 0
-        ? 0.0
-        : (minutes / target!).clamp(0.0, 1.0).toDouble();
-    final summary = minutes > 0 ? '$minutes 分钟' : (checked ? '已完成' : '未开始');
+    final minutesLabel = minutes > 0 ? '$minutes 分钟' : null;
+    final canStart = enabled && onStart != null;
+    final canEdit = enabled && onLongPress != null;
+    final interactive = canStart || canEdit;
+    final semanticLabel = minutesLabel == null
+        ? displayName
+        : '$displayName，已记录 $minutesLabel';
+    final semanticHint = canStart && canEdit
+        ? '点击开始计时，长按手动记录时长'
+        : canStart
+        ? '点击开始计时'
+        : canEdit
+        ? '长按手动记录时长'
+        : null;
 
-    return InkWell(
-      key: ValueKey('duration_row_$habitKey'),
-      onTap: enabled ? onStart : null,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: _AnimatedHabitCheckbox(checked: checked, color: color),
-            ),
-            const SizedBox(width: 8),
-            if (icon != null) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: HabitIcon(
-                  icon!,
-                  size: 16,
-                  color: theme.colorScheme.onSurface,
+    return Semantics(
+      container: true,
+      excludeSemantics: true,
+      button: interactive,
+      enabled: interactive,
+      checked: checked,
+      label: semanticLabel,
+      hint: semanticHint,
+      onTapHint: canStart ? '开始计时' : null,
+      onLongPressHint: canEdit ? '手动记录时长' : null,
+      onTap: canStart ? onStart : null,
+      onLongPress: canEdit ? onLongPress : null,
+      child: InkWell(
+        key: ValueKey('duration_row_$habitKey'),
+        onTap: canStart ? onStart : null,
+        onLongPress: canEdit ? onLongPress : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _AnimatedHabitCheckbox(checked: checked, color: color),
+              const SizedBox(width: 8),
+              if (icon != null) ...[
+                HabitIcon(icon!, size: 16, color: theme.colorScheme.onSurface),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
+                child: Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
                 ),
               ),
-              const SizedBox(width: 4),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayName,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
-                  ),
-                  const SizedBox(height: 5),
-                  if (target != null)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: SizedBox(
-                        height: 5,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ColoredBox(color: trackColor),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: FractionallySizedBox(
-                                widthFactor: ratio,
-                                child: ColoredBox(color: color),
-                              ),
-                            ),
-                          ],
-                        ),
+              if (minutesLabel != null) ...[
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 112),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      minutesLabel,
+                      maxLines: 1,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  const SizedBox(height: 3),
-                  Text(
-                    target == null ? summary : '$summary / $target 分钟',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
-                ],
-              ),
-            ),
-            if (onEdit != null)
-              Semantics(
-                button: true,
-                label: '手动记录时长',
-                child: IconButton(
-                  onPressed: enabled ? onEdit : null,
-                  icon: const Icon(Icons.edit_outlined, size: 19),
-                  tooltip: '手动记录时长',
-                  visualDensity: VisualDensity.compact,
                 ),
-              ),
-          ],
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -1024,7 +1007,6 @@ class _CustomDurationRow extends StatelessWidget {
       icon: settings.iconFor(habitKey),
       color: color,
       minutes: minutes,
-      target: target,
       checked: target == null ? minutes > 0 : minutes >= target,
       onStart: enabled
           ? () => onStart(
@@ -1041,7 +1023,7 @@ class _CustomDurationRow extends StatelessWidget {
               ),
             )
           : null,
-      onEdit: enabled ? () => onEdit(habitKey) : null,
+      onLongPress: enabled ? () => onEdit(habitKey) : null,
       enabled: enabled,
     );
   }
@@ -1101,6 +1083,8 @@ class _CheckboxRow extends StatelessWidget {
             Expanded(
               child: Text(
                 displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
               ),
             ),
@@ -1427,6 +1411,8 @@ class _CustomCheckboxRowState extends State<_CustomCheckboxRow> {
             Expanded(
               child: Text(
                 displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
               ),
             ),

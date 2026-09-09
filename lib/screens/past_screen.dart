@@ -72,7 +72,7 @@ class _PastScreenState extends State<PastScreen> {
     if (identical(oldWidget.apiClient, widget.apiClient)) return;
 
     // AppEntry 保存新地址后会复用 IndexedStack 中的页面 State；重建服务
-    // 并让旧请求失效，确保画廊和「那年今日」立即使用新客户端。
+    // 并让旧请求失效，确保画廊和「随机漫步」立即使用新客户端。
     _memoryService = PastMemoryService(widget.apiClient);
     _galleryService = GalleryService(widget.apiClient);
     _calendarRequestGeneration++;
@@ -820,7 +820,7 @@ class _MemoryCapsuleState extends State<_MemoryCapsule> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('那年今日', style: theme.textTheme.titleMedium),
+                    Text('随机漫步', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text(
                       '${widget.entry.date.year}年${widget.entry.date.month}月${widget.entry.date.day}日',

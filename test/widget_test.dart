@@ -223,6 +223,82 @@ class _GalleryHttpClient extends http.BaseClient {
   }
 }
 
+class _PastMemoryHttpClient extends http.BaseClient {
+  final Uint8List imageBytes;
+
+  _PastMemoryHttpClient({required this.imageBytes});
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final path = request.url.path;
+    if (request.method == 'GET' && path == '/api/v1/history/gallery') {
+      return _response(
+        jsonEncode({
+          'months': [
+            {
+              'year': 2024,
+              'month': 3,
+              'totalDays': 1,
+              'totalImages': 1,
+              'days': [
+                {
+                  'date': '2024-03-08',
+                  'images': ['memory.jpg'],
+                  'hasContent': true,
+                },
+              ],
+            },
+          ],
+          'nextCursor': null,
+        }),
+        200,
+      );
+    }
+    if (request.method == 'GET' && path == '/api/v1/settings/tags') {
+      return _response('{}', 500);
+    }
+    if (request.method == 'GET' &&
+        path.startsWith('/api/v1/diary/image/render/')) {
+      return http.StreamedResponse(
+        Stream.value(imageBytes),
+        200,
+        headers: {'content-type': 'image/jpeg'},
+      );
+    }
+    if (request.method == 'GET' && path.startsWith('/api/v1/diary/')) {
+      final date = path.substring('/api/v1/diary/'.length);
+      return _response(
+        jsonEncode({
+          'date': date,
+          'title': '旧日记',
+          'raw': '# 旧日记\n\n### 🖼️ 影像记录\n![[memory.jpg]]',
+          'sections': <String, List<String>>{},
+        }),
+        200,
+      );
+    }
+    if (request.method == 'GET' && path.startsWith('/api/v1/history/')) {
+      return _response(
+        jsonEncode({
+          'year': DateTime.now().year,
+          'month': DateTime.now().month,
+          'diaries': [],
+        }),
+        200,
+      );
+    }
+    return _response('{}', 404);
+  }
+
+  http.StreamedResponse _response(String body, int statusCode) {
+    return http.StreamedResponse(
+      Stream.value(utf8.encode(body)),
+      statusCode,
+      headers: {'content-type': 'application/json'},
+    );
+  }
+}
+
 class _CalendarRaceHttpClient extends http.BaseClient {
   final List<Completer<http.StreamedResponse>> historyResponses = [];
 
@@ -972,6 +1048,23 @@ void main() {
         find.byType(CustomScrollView),
       );
       expect(scrollView.physics, isA<AlwaysScrollableScrollPhysics>());
+    });
+
+    testWidgets('PastScreen labels the memory capsule as 随机漫步', (tester) async {
+      final image = img.Image(width: 2, height: 2);
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: _PastMemoryHttpClient(
+          imageBytes: Uint8List.fromList(img.encodeJpg(image)),
+        ),
+      );
+
+      await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('随机漫步'), findsOneWidget);
+      expect(find.text('那年今日'), findsNothing);
+      expect(find.byTooltip('随机回顾'), findsOneWidget);
     });
 
     testWidgets('PastScreen renders one gallery tile per photo day', (

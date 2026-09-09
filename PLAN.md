@@ -1,7 +1,7 @@
 # 荔枝日记开发计划（PLAN）
 
 > **定位**：产品需求、路线图与开发进度的唯一来源文档。
-> **工作流**：新想法先记入「10. 新需求 & 新想法」→ 确认后转为任务；版本发布更新 `CHANGELOG.md`；会话结束追加 `SESSION_LOG.md`；功能/结构变更同步 `README.md`。
+> **工作流**：新想法先记入「10. 新需求 & 新想法」→ 确认后转为任务；推送或发布前按 Project Docs Workflow 检查 `AGENTS.md`、`HANDOFF.md`、`CHANGELOG.md`、`README.md`、`PLAN.md`；历史 `SESSION_LOG.md` 不再维护。
 
 ---
 

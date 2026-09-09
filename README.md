@@ -52,16 +52,21 @@ Flutter 客户端 + 本仓库 API 服务端版
 
 ## 关键文档
 
-文档体系共 6 份，合并与精简后以此为准：
+推送工作流使用以下 5 份核心项目文档：
 
 - `AGENTS.md` — 项目知识库：规则、架构、数据完整性与开发约束。
-- `PLAN.md` — 产品需求（定位、用户故事、实现决策）与路线图、开发进度。
+- `HANDOFF.md` — 当前可交接状态、关键决策、未完成事项与已知阻塞。
+- `CHANGELOG.md` — 已发布版本的变更记录。
+- `README.md` — 项目简介、当前状态、验证命令与发布流程。
+- `PLAN.md` — 产品需求、实现决策、路线图与开发进度。
+
+补充文档：
+
 - `DESIGN.md` — 设计语言：色彩、排版、组件、Flora 图标与空状态规范。
-- `SESSION_LOG.md` — 逐次开发会话记录和验证状态。
-- `CHANGELOG.md` — 版本发布记录。
+- `SESSION_LOG.md` — 旧流程遗留的历史档案，不再更新，也不作为接手必读文档。
 - `docs/design-reference/` — 品牌视觉源图，更新启动页或 App 图标时优先读取这里。
 
-新 agent 接手前应先阅读 `AGENTS.md`、`PLAN.md`、`SESSION_LOG.md`。
+新 agent 接手前应先阅读 `AGENTS.md`、`HANDOFF.md` 和 `PLAN.md`，再按需查阅 `README.md`、`DESIGN.md` 与 `CHANGELOG.md`。
 
 ## 验证命令
 

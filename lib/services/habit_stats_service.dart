@@ -27,6 +27,8 @@ class HabitStatsService {
   /// 最近 7 天统计（loadRecent7 填充，loadRecent30 更新）
   HabitStats? _cachedStats;
   String? _cachedActiveKeySignature;
+  final Map<String, int> _lifetimeDurationMinutes = {};
+  final Map<String, int> _lifetimeDurationKnownDays = {};
 
   /// 最近 30 天日期列表（loadRecent7 填充）
   List<DateTime>? _recent30Dates;
@@ -38,6 +40,8 @@ class HabitStatsService {
     _cachedStats = null;
     _cachedActiveKeySignature = null;
     _recent30Dates = null;
+    _lifetimeDurationMinutes.clear();
+    _lifetimeDurationKnownDays.clear();
   }
 
   String get _cacheNamespace => _apiClient.cacheNamespace;
@@ -108,8 +112,8 @@ class HabitStatsService {
     final records = await mapWithConcurrency<HabitDayRecord, DateTime>(
       items: recent7,
       concurrency: 4,
-      mapper:
-          (d) => _getOrLoadDay(d, existingDates, habitSettings: habitSettings),
+      mapper: (d) =>
+          _getOrLoadDay(d, existingDates, habitSettings: habitSettings),
     );
     final dayRecords = records.where((r) => r.date != DateTime(0)).toList();
     if (dayRecords.length != recent7.length) {
@@ -183,8 +187,8 @@ class HabitStatsService {
       await mapWithConcurrency<HabitDayRecord, DateTime>(
         items: missing,
         concurrency: 4,
-        mapper:
-            (d) => _getOrLoadDay(d, existingDates, habitSettings: habitSettings),
+        mapper: (d) =>
+            _getOrLoadDay(d, existingDates, habitSettings: habitSettings),
       );
     }
 
@@ -199,6 +203,8 @@ class HabitStatsService {
     final monthDays = days30
         .where((r) => r.date.year == now.year && r.date.month == now.month)
         .toList();
+
+    await _loadLifetimeDurations(habitSettings ?? HabitSettings.defaults);
 
     // 复用已缓存的 7 天 records
     final dayRecords7 = stats7.recentDays;
@@ -311,8 +317,7 @@ class HabitStatsService {
       return empty;
     }
     try {
-      final record =
-          await _loadDayRecord(d, habitSettings: habitSettings);
+      final record = await _loadDayRecord(d, habitSettings: habitSettings);
       _dayCache[key] = record;
       return record;
     } catch (_) {
@@ -322,7 +327,10 @@ class HabitStatsService {
     }
   }
 
-  Future<HabitDayRecord> _loadDayRecord(DateTime date, {HabitSettings? habitSettings}) async {
+  Future<HabitDayRecord> _loadDayRecord(
+    DateTime date, {
+    HabitSettings? habitSettings,
+  }) async {
     final diary = await _apiClient.getDiary(date);
     if (diary == null || diary.raw.isEmpty) {
       return _emptyDayRecord(date);
@@ -342,18 +350,29 @@ class HabitStatsService {
     }
 
     final status = HabitStatus.fromHabitSection(habitSection);
+    int? readingMinutes;
+    int? languageMinutes;
+    final customDurationMinutes = <String, int>{};
+    for (final item in habitSection.habits) {
+      if (item.habitKey == 'reading' && item.kind == HabitKind.duration) {
+        readingMinutes = item.value ?? 0;
+      } else if (item.habitKey == 'language' &&
+          item.kind == HabitKind.duration) {
+        languageMinutes = item.value ?? 0;
+      }
+    }
 
     // 解析自定义 checkbox 习惯
     final customCheckboxes = <String, bool>{};
     if (habitSettings != null) {
       for (final item in habitSection.habits) {
         if (item.habitKey != null) continue; // 内置习惯，已由 status 处理
-        final pureName = _stripEmojiPrefix(item.label);
-        if (pureName.isEmpty) continue;
-        final matchedKey =
-            _matchCustomHabit(pureName, habitSettings);
+        final matchedKey = habitSettings.customHabitKeyForLabel(item.label);
         if (matchedKey != null) {
           customCheckboxes[matchedKey] = item.checked;
+          if (item.kind == HabitKind.duration) {
+            customDurationMinutes[matchedKey] = item.value ?? 0;
+          }
         }
       }
     }
@@ -368,8 +387,49 @@ class HabitStatsService {
       readingDone: status.reading,
       languageDone: status.language,
       supplementDone: status.supplements,
+      readingMinutes: readingMinutes,
+      languageMinutes: languageMinutes,
       customCheckboxes: customCheckboxes,
+      customDurationMinutes: customDurationMinutes,
     );
+  }
+
+  Future<void> _loadLifetimeDurations(HabitSettings settings) async {
+    if (_lifetimeDurationMinutes.isNotEmpty) return;
+    try {
+      final records = await _apiClient.fetchHabitDurationHistory();
+      for (final record in records) {
+        final builtIns = <String, int?>{
+          'reading': record.readingMinutes,
+          'language': record.languageMinutes,
+        };
+        for (final entry in builtIns.entries) {
+          if (entry.value == null ||
+              settings.trackingTypeFor(entry.key) !=
+                  HabitTrackingType.duration) {
+            continue;
+          }
+          _lifetimeDurationMinutes[entry.key] =
+              (_lifetimeDurationMinutes[entry.key] ?? 0) + entry.value!;
+          _lifetimeDurationKnownDays[entry.key] =
+              (_lifetimeDurationKnownDays[entry.key] ?? 0) + 1;
+        }
+        for (final entry in record.customDurations.entries) {
+          final customKey = settings.customHabitKeyForLabel(entry.key);
+          if (customKey == null ||
+              settings.trackingTypeFor(customKey) !=
+                  HabitTrackingType.duration) {
+            continue;
+          }
+          _lifetimeDurationMinutes[customKey] =
+              (_lifetimeDurationMinutes[customKey] ?? 0) + entry.value;
+          _lifetimeDurationKnownDays[customKey] =
+              (_lifetimeDurationKnownDays[customKey] ?? 0) + 1;
+        }
+      }
+    } catch (_) {
+      // 统计接口不可用时，最近 30 天仍由日记解析结果提供。
+    }
   }
 
   // ── 统计计算 ──
@@ -391,58 +451,85 @@ class HabitStatsService {
 
     final items = filteredKeys.map((key) {
       final config = HabitVisualConfig.of(key);
-      final type = _habitTypes[key]!;
+      final isDuration =
+          settings.trackingTypeFor(key) == HabitTrackingType.duration;
+      final type = isDuration ? HabitStatType.duration : _habitTypes[key]!;
       final getter = _habitGetters[key]!;
+      int valueFor(HabitDayRecord day) {
+        if (!isDuration && key == 'reading') {
+          return day.readingDone ? 1 : 0;
+        }
+        if (!isDuration && key == 'language') {
+          return day.languageDone ? 1 : 0;
+        }
+        return getter(day);
+      }
 
       final values7 = <int>[];
+      final completedValues7 = <bool>[];
       var completed7 = 0;
+      var known7 = 0;
       for (var i = days7.length - 1; i >= 0; i--) {
-        final v = getter(days7[i]);
+        final day = days7[i];
+        final v = valueFor(day);
+        final done = _isCompletedFor(key, day, v, type, settings);
         values7.add(v);
-        if (_isCompleted(v, type)) completed7++;
+        completedValues7.add(done);
+        if (!isDuration || _durationValueKnown(key, day)) known7++;
+        if (done) completed7++;
       }
       final reversed7 = values7.reversed.toList();
+      final reversedCompleted7 = completedValues7.reversed.toList();
 
-      // 7天当前连续
       var streak7 = 0;
       var streakStart = days7.lastIndexWhere((day) => day.hasDiary);
       if (streakStart == -1) streakStart = days7.length - 1;
       for (var i = streakStart; i >= 0; i--) {
-        if (_isCompleted(getter(days7[i]), type)) {
+        if (_isCompletedFor(
+          key,
+          days7[i],
+          valueFor(days7[i]),
+          type,
+          settings,
+        )) {
           streak7++;
         } else {
           break;
         }
       }
 
-      var avg = 0.0;
-      if (reversed7.isNotEmpty) {
-        var sum = 0;
-        for (final v in reversed7) {
-          sum += v;
-        }
-        avg = sum / reversed7.length;
-      }
+      final avg = _average(values7, isDuration ? known7 : values7.length);
 
-      // 30 天数据（如果有）
       List<int> reversed30 = const [];
+      List<bool> reversedCompleted30 = const [];
       var completed30 = 0;
       var completionRate30 = 0.0;
       var longestStreak30 = 0;
 
       if (has30) {
         final values30 = <int>[];
+        final completedValues30 = <bool>[];
         for (var i = days30.length - 1; i >= 0; i--) {
-          final v = getter(days30[i]);
+          final day = days30[i];
+          final v = valueFor(day);
+          final done = _isCompletedFor(key, day, v, type, settings);
           values30.add(v);
-          if (_isCompleted(v, type)) completed30++;
+          completedValues30.add(done);
+          if (done) completed30++;
         }
         reversed30 = values30.reversed.toList();
+        reversedCompleted30 = completedValues30.reversed.toList();
 
         var longest = 0;
         var currentRun = 0;
         for (var i = days30.length - 1; i >= 0; i--) {
-          if (_isCompleted(getter(days30[i]), type)) {
+          if (_isCompletedFor(
+            key,
+            days30[i],
+            valueFor(days30[i]),
+            type,
+            settings,
+          )) {
             currentRun++;
             if (currentRun > longest) longest = currentRun;
           } else {
@@ -452,6 +539,14 @@ class HabitStatsService {
         longestStreak30 = longest;
         completionRate30 = days30.isNotEmpty ? completed30 / days30.length : 0;
       }
+
+      final lifetimeValue = isDuration
+          ? (_lifetimeDurationMinutes[key] ?? _sumKnownDuration(days30, key))
+          : 0;
+      final lifetimeKnownDays = isDuration
+          ? (_lifetimeDurationKnownDays[key] ??
+                _countKnownDuration(days30, key))
+          : 0;
 
       return HabitItemStats(
         key: key,
@@ -467,9 +562,13 @@ class HabitStatsService {
         icon: settings.iconFor(key),
         color: Color(settings.colorFor(key)),
         recent30Values: reversed30,
+        recent7Completed: reversedCompleted7,
+        recent30Completed: reversedCompleted30,
         completedDays30: completed30,
         completionRate30: completionRate30,
         longestStreak30: longestStreak30,
+        lifetimeValue: lifetimeValue,
+        lifetimeKnownDays: lifetimeKnownDays,
       );
     }).toList();
 
@@ -485,8 +584,69 @@ class HabitStatsService {
     return items;
   }
 
-  /// 为自定义 checkbox 习惯构建 [HabitItemStats] 列表。
-  /// 类型固定为 boolean（checkbox），视觉配置来自 [settings]。
+  double _average(List<int> values, int denominator) {
+    if (denominator <= 0) return 0;
+    var sum = 0;
+    for (final value in values) {
+      sum += value;
+    }
+    return sum / denominator;
+  }
+
+  bool _durationValueKnown(String key, HabitDayRecord day) {
+    switch (key) {
+      case 'reading':
+        return day.readingMinutes != null;
+      case 'language':
+        return day.languageMinutes != null;
+      default:
+        return day.customDurationMinutes.containsKey(key);
+    }
+  }
+
+  int _sumKnownDuration(List<HabitDayRecord> days, String key) {
+    var total = 0;
+    for (final day in days) {
+      if (_durationValueKnown(key, day)) total += _durationValue(key, day);
+    }
+    return total;
+  }
+
+  int _countKnownDuration(List<HabitDayRecord> days, String key) {
+    return days.where((day) => _durationValueKnown(key, day)).length;
+  }
+
+  int _durationValue(String key, HabitDayRecord day) {
+    switch (key) {
+      case 'reading':
+        return day.readingMinutes ?? 0;
+      case 'language':
+        return day.languageMinutes ?? 0;
+      default:
+        return day.customDurationMinutes[key] ?? 0;
+    }
+  }
+
+  bool _isCompletedFor(
+    String key,
+    HabitDayRecord day,
+    int value,
+    HabitStatType type,
+    HabitSettings settings,
+  ) {
+    if (type == HabitStatType.boolean) return value == 1;
+    if (type == HabitStatType.numeric) return value > 0;
+    if (!_durationValueKnown(key, day)) {
+      // 旧日记只有 [x]，没有虚构分钟数，但完成率和连续记录仍保留。
+      if (key == 'reading') return day.readingDone;
+      if (key == 'language') return day.languageDone;
+      return false;
+    }
+    final target = settings.durationDailyTargetFor(key);
+    return target == null ? value > 0 : value >= target;
+  }
+
+  /// 为自定义习惯构建统计项；记录方式由设置决定。
   List<HabitItemStats> _buildCustomItemStats(
     List<HabitDayRecord> days7,
     List<HabitDayRecord> days30, {
@@ -496,53 +656,70 @@ class HabitStatsService {
     final customKeys = settings.extraHabits.keys.toList();
     if (customKeys.isEmpty) return const [];
 
-    return customKeys
-        .where((key) => settings.isActive(key))
-        .map((key) {
+    return customKeys.where((key) => settings.isActive(key)).map((key) {
+      final isDuration =
+          settings.trackingTypeFor(key) == HabitTrackingType.duration;
+      final type = isDuration ? HabitStatType.duration : HabitStatType.boolean;
+      int valueOf(HabitDayRecord day) => isDuration
+          ? day.customDurationMinutes[key] ?? 0
+          : (day.customCheckboxes[key] ?? false ? 1 : 0);
+      bool known(HabitDayRecord day) =>
+          !isDuration || day.customDurationMinutes.containsKey(key);
+      bool completed(HabitDayRecord day) {
+        final value = valueOf(day);
+        if (!known(day)) return day.customCheckboxes[key] ?? false;
+        if (!isDuration) return value == 1;
+        final target = settings.durationDailyTargetFor(key);
+        return target == null ? value > 0 : value >= target;
+      }
+
       final values7 = <int>[];
+      final completedValues7 = <bool>[];
       var completed7 = 0;
+      var known7 = 0;
       for (var i = days7.length - 1; i >= 0; i--) {
-        final checked = days7[i].customCheckboxes[key] ?? false;
-        values7.add(checked ? 1 : 0);
-        if (checked) completed7++;
+        final value = valueOf(days7[i]);
+        final done = completed(days7[i]);
+        values7.add(value);
+        completedValues7.add(done);
+        if (known(days7[i])) known7++;
+        if (done) completed7++;
       }
       final reversed7 = values7.reversed.toList();
+      final reversedCompleted7 = completedValues7.reversed.toList();
 
-      // 7天当前连续
       var streak7 = 0;
       var streakStart = days7.lastIndexWhere((day) => day.hasDiary);
       if (streakStart == -1) streakStart = days7.length - 1;
       for (var i = streakStart; i >= 0; i--) {
-        final checked = days7[i].customCheckboxes[key] ?? false;
-        if (checked) {
+        if (completed(days7[i])) {
           streak7++;
         } else {
           break;
         }
       }
 
-      final avg = days7.isNotEmpty ? completed7 / days7.length : 0.0;
-
-      // 30 天数据
       List<int> reversed30 = const [];
+      List<bool> reversedCompleted30 = const [];
       var completed30 = 0;
       var completionRate30 = 0.0;
       var longestStreak30 = 0;
-
       if (has30) {
         final values30 = <int>[];
+        final completedValues30 = <bool>[];
         for (var i = days30.length - 1; i >= 0; i--) {
-          final checked = days30[i].customCheckboxes[key] ?? false;
-          values30.add(checked ? 1 : 0);
-          if (checked) completed30++;
+          final value = valueOf(days30[i]);
+          final done = completed(days30[i]);
+          values30.add(value);
+          completedValues30.add(done);
+          if (done) completed30++;
         }
         reversed30 = values30.reversed.toList();
-
+        reversedCompleted30 = completedValues30.reversed.toList();
         var longest = 0;
         var currentRun = 0;
         for (var i = days30.length - 1; i >= 0; i--) {
-          final checked = days30[i].customCheckboxes[key] ?? false;
-          if (checked) {
+          if (completed(days30[i])) {
             currentRun++;
             if (currentRun > longest) longest = currentRun;
           } else {
@@ -553,29 +730,37 @@ class HabitStatsService {
         completionRate30 = days30.isNotEmpty ? completed30 / days30.length : 0;
       }
 
+      final lifetimeValue = isDuration
+          ? (_lifetimeDurationMinutes[key] ??
+                days30.fold<int>(0, (sum, day) => sum + valueOf(day)))
+          : 0;
+      final lifetimeKnownDays = isDuration
+          ? (_lifetimeDurationKnownDays[key] ?? days30.where(known).length)
+          : 0;
+
       return HabitItemStats(
         key: key,
         title: settings.displayNameFor(key),
         group: HabitGroup.body,
-        type: HabitStatType.boolean,
+        type: type,
         recent7Values: reversed7,
         completedDays: completed7,
         totalDays: days7.length,
-        averageValue: avg,
+        averageValue: _average(values7, isDuration ? known7 : values7.length),
         currentStreak: streak7,
         displayName: settings.displayNameFor(key),
         icon: settings.iconFor(key),
         color: Color(settings.colorFor(key)),
         recent30Values: reversed30,
+        recent7Completed: reversedCompleted7,
+        recent30Completed: reversedCompleted30,
         completedDays30: completed30,
         completionRate30: completionRate30,
         longestStreak30: longestStreak30,
+        lifetimeValue: lifetimeValue,
+        lifetimeKnownDays: lifetimeKnownDays,
       );
     }).toList();
-  }
-
-  static bool _isCompleted(int value, HabitStatType type) {
-    return type == HabitStatType.boolean ? value == 1 : value > 0;
   }
 
   double _calcOverallRate(List<HabitDayRecord> days) {
@@ -685,57 +870,10 @@ class HabitStatsService {
   static final _habitGetters = {
     'water': (HabitDayRecord r) => r.waterMl,
     'steps': (HabitDayRecord r) => r.steps,
-    'reading': (HabitDayRecord r) => r.readingDone ? 1 : 0,
-    'language': (HabitDayRecord r) => r.languageDone ? 1 : 0,
+    'reading': (HabitDayRecord r) => r.readingMinutes ?? 0,
+    'language': (HabitDayRecord r) => r.languageMinutes ?? 0,
     'supplements': (HabitDayRecord r) => r.supplementDone ? 1 : 0,
   };
-
-  // ── 自定义习惯匹配 ──
-
-  /// 去掉 label 前导的 emoji/图标字符，提取纯名称。
-  /// 例如 "🧘 冥想" → "冥想"，"📖 阅读/亲子共读" → "阅读/亲子共读"。
-  static String _stripEmojiPrefix(String label) {
-    final text = label.trim();
-    for (var i = 0; i < text.length; i++) {
-      final cp = text.codeUnitAt(i);
-      if (_isTextChar(cp)) {
-        return text.substring(i).trim();
-      }
-    }
-    return text;
-  }
-
-  /// 首字符是否属于有效文字（CJK / ASCII 字母数字 / 常见标点）。
-  static bool _isTextChar(int cp) {
-    // CJK 统一表意文字
-    if (cp >= 0x4E00 && cp <= 0x9FFF) return true;
-    if (cp >= 0x3400 && cp <= 0x4DBF) return true;
-    // ASCII 字母数字
-    if (cp >= 0x41 && cp <= 0x5A) return true;
-    if (cp >= 0x61 && cp <= 0x7A) return true;
-    if (cp >= 0x30 && cp <= 0x39) return true;
-    // 习惯名称中常见标点
-    if (cp == 0x2F || cp == 0x2D) return true; // '/' '-'
-    return false;
-  }
-
-  /// 用精确匹配从 [habitSettings] 中找到匹配 [pureName] 的自定义习惯 key。
-  /// 遍历 extraHabits 和 customHabitAliases，返回第一个匹配的 customKey。
-  /// 匹配不上返回 null。
-  static String? _matchCustomHabit(
-    String pureName,
-    HabitSettings settings,
-  ) {
-    for (final entry in settings.extraHabits.entries) {
-      final customKey = entry.key;
-      final aliases = settings.customHabitAliases[customKey] ??
-          [entry.value]; // 无 aliases 时 fallback 到初始名
-      if (aliases.any((alias) => pureName == alias)) {
-        return customKey;
-      }
-    }
-    return null;
-  }
 
   // ── 辅助 ──
 

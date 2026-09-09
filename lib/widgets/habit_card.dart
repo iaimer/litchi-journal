@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/diary_document.dart';
+import '../models/focus_timer.dart';
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 import '../theme/app_theme.dart';
@@ -30,6 +31,29 @@ class HabitCard extends StatefulWidget {
   /// 保存全局饮水快捷量。
   final Future<bool> Function(List<int> amounts)? onWaterQuickAmountsChanged;
 
+  /// 从习惯行打开全局专注计时页。
+  final Future<bool> Function(HabitTimerTarget target)? onStartDuration;
+
+  /// 手动设置或追加计时型习惯的今日分钟数。
+  /// 第三个参数为 true 时覆盖今日总量，否则追加分钟数。
+  final Future<bool> Function(
+    HabitTimerTarget target,
+    int minutes,
+    bool replace,
+  )?
+  onDurationUpdate;
+
+  /// 自定义计时习惯状态变化回调。
+  final Future<bool> Function(
+    HabitStatus status,
+    Map<String, bool> checkboxStates,
+    Map<String, int> durationStates,
+  )?
+  onCustomDurationUpdate;
+
+  /// 当前习惯所属日，用于跨日计时写回。
+  final DateTime? diaryDate;
+
   const HabitCard({
     super.key,
     required this.section,
@@ -40,6 +64,10 @@ class HabitCard extends StatefulWidget {
     this.onCustomCheckboxToggle,
     this.onPositiveFeedback,
     this.onWaterQuickAmountsChanged,
+    this.onStartDuration,
+    this.onDurationUpdate,
+    this.onCustomDurationUpdate,
+    this.diaryDate,
   });
 
   @override
@@ -50,6 +78,7 @@ class _HabitCardState extends State<HabitCard> {
   String? _updatingField;
   late HabitStatus _status;
   late Map<String, bool> _customCheckboxStates;
+  late Map<String, int> _customDurationStates;
 
   HabitSettings get _settings => widget.habitSettings ?? HabitSettings.defaults;
 
@@ -58,14 +87,15 @@ class _HabitCardState extends State<HabitCard> {
     super.initState();
     _status = HabitStatus.fromHabitSection(widget.section);
     _customCheckboxStates = {};
+    _customDurationStates = {};
     // 从已解析的 Markdown 中读取自定义习惯的 checked 状态
     for (final item in widget.section.habits) {
       if (item.habitKey != null) continue;
-      final label = item.label;
-      for (final entry in _settings.extraHabits.entries) {
-        if (label.contains(entry.value)) {
-          _customCheckboxStates[entry.key] = item.checked;
-          break;
+      final key = _settings.customHabitKeyForLabel(item.label);
+      if (key != null) {
+        _customCheckboxStates[key] = item.checked;
+        if (item.kind == HabitKind.duration) {
+          _customDurationStates[key] = item.value ?? 0;
         }
       }
     }
@@ -80,6 +110,20 @@ class _HabitCardState extends State<HabitCard> {
     final nextStatus = HabitStatus.fromHabitSection(widget.section);
     if (!_sameStatus(oldStatus, nextStatus)) {
       _status = nextStatus;
+    }
+    _syncCustomStatesFromSection();
+  }
+
+  void _syncCustomStatesFromSection() {
+    for (final item in widget.section.habits) {
+      if (item.habitKey != null) continue;
+      final key = _settings.customHabitKeyForLabel(item.label);
+      if (key == null) continue;
+      if (item.kind == HabitKind.duration) {
+        _customDurationStates[key] = item.value ?? 0;
+      } else {
+        _customCheckboxStates[key] = item.checked;
+      }
     }
   }
 
@@ -249,7 +293,9 @@ class _HabitCardState extends State<HabitCard> {
         first.steps == second.steps &&
         first.reading == second.reading &&
         first.language == second.language &&
-        first.supplements == second.supplements;
+        first.supplements == second.supplements &&
+        first.readingMinutes == second.readingMinutes &&
+        first.languageMinutes == second.languageMinutes;
   }
 
   /// 获取自定义颜色（用于 SectionCard 强调色）
@@ -285,15 +331,29 @@ class _HabitCardState extends State<HabitCard> {
       for (final entry in settings.extraHabits.entries) {
         final key = entry.key;
         if (!settings.isActive(key)) continue;
+        final isDuration =
+            settings.trackingTypeFor(key) == HabitTrackingType.duration &&
+            widget.onStartDuration != null;
         children.add(
-          _CustomCheckboxRow(
-            key: ValueKey('custom_habit_$key'),
-            habitKey: key,
-            settings: settings,
-            checked: _customCheckboxStates[key] ?? false,
-            onToggle: _handleCustomCheckboxToggle,
-            enabled: !widget.readOnly && _updatingField == null,
-          ),
+          isDuration
+              ? _CustomDurationRow(
+                  key: ValueKey('custom_duration_$key'),
+                  habitKey: key,
+                  settings: settings,
+                  minutes: _customDurationStates[key] ?? 0,
+                  diaryDate: widget.diaryDate ?? DateTime.now(),
+                  onStart: _startDuration,
+                  onEdit: _editCustomDuration,
+                  enabled: !widget.readOnly && _updatingField == null,
+                )
+              : _CustomCheckboxRow(
+                  key: ValueKey('custom_habit_$key'),
+                  habitKey: key,
+                  settings: settings,
+                  checked: _customCheckboxStates[key] ?? false,
+                  onToggle: _handleCustomCheckboxToggle,
+                  enabled: !widget.readOnly && _updatingField == null,
+                ),
         );
       }
     }
@@ -312,6 +372,9 @@ class _HabitCardState extends State<HabitCard> {
   Widget _buildRow(HabitItem habit, HabitStatus status) {
     if (widget.readOnly) {
       return _buildReadOnlyRow(habit, status);
+    }
+    if (_isDurationHabit(habit)) {
+      return _buildDurationRow(habit, status);
     }
     switch (habit.kind) {
       case HabitKind.checkbox:
@@ -356,6 +419,17 @@ class _HabitCardState extends State<HabitCard> {
               : Color(_settings.colorFor(habitKey)),
           onEdit: _handleStepsEdit,
         );
+      case HabitKind.duration:
+        return habit.habitKey == null
+            ? _CheckboxRow(
+                habit: habit,
+                status: status,
+                loading: _updatingField != null,
+                displayName: _displayName(habit),
+                icon: _icon(habit),
+                onTap: () {},
+              )
+            : _buildDurationRow(habit, status);
     }
   }
 
@@ -398,6 +472,9 @@ class _HabitCardState extends State<HabitCard> {
   }
 
   Widget _buildReadOnlyRow(HabitItem habit, HabitStatus status) {
+    if (_isDurationHabit(habit)) {
+      return _buildDurationRow(habit, status, readOnly: true);
+    }
     switch (habit.kind) {
       case HabitKind.checkbox:
         return _CheckboxRow(
@@ -427,10 +504,547 @@ class _HabitCardState extends State<HabitCard> {
           icon: _icon(habit),
           onEdit: () {},
         );
+      case HabitKind.duration:
+        return habit.habitKey == null
+            ? _CheckboxRow(
+                habit: habit,
+                status: status,
+                loading: false,
+                displayName: _displayName(habit),
+                icon: _icon(habit),
+                onTap: () {},
+              )
+            : _buildDurationRow(habit, status, readOnly: true);
     }
   }
 
   bool _isWaterHabit(HabitItem item) => item.habitKey == 'water';
+
+  bool _isDurationHabit(HabitItem item) {
+    final key = item.habitKey;
+    return key != null &&
+        widget.onStartDuration != null &&
+        _settings.trackingTypeFor(key) == HabitTrackingType.duration;
+  }
+
+  int _durationMinutes(HabitItem item, HabitStatus status) {
+    switch (item.habitKey) {
+      case 'reading':
+        return status.readingMinutes;
+      case 'language':
+        return status.languageMinutes;
+      default:
+        return item.value ?? 0;
+    }
+  }
+
+  bool _durationCompleted(String key, int minutes, HabitStatus status) {
+    final target = _settings.durationDailyTargetFor(key);
+    if (minutes > 0) return target == null || minutes >= target;
+    // 旧日记只有 checkbox 标记，没有时长，继续保留其完成状态和 streak。
+    if (key == 'reading') return status.reading;
+    if (key == 'language') return status.language;
+    return false;
+  }
+
+  HabitTimerTarget _timerTarget({
+    required String key,
+    required String displayName,
+    required String markdownLabel,
+    required String? icon,
+    required Color color,
+    required String rawLine,
+    required int minutes,
+  }) {
+    final date = widget.diaryDate ?? DateTime.now();
+    return HabitTimerTarget(
+      habitKey: key,
+      displayName: displayName,
+      markdownLabel: markdownLabel,
+      icon: icon ?? HabitVisualConfig.of(key).icon,
+      colorArgb: color.toARGB32(),
+      diaryDate: date,
+      rawLine: rawLine,
+      currentMinutes: minutes,
+      dailyTargetMinutes: _settings.durationDailyTargetFor(key),
+    );
+  }
+
+  Widget _buildDurationRow(
+    HabitItem habit,
+    HabitStatus status, {
+    bool readOnly = false,
+  }) {
+    final key = habit.habitKey!;
+    final minutes = _durationMinutes(habit, status);
+    final color = _color(habit) ?? Color(_settings.colorFor(key));
+    final target = _settings.durationDailyTargetFor(key);
+    final item = _DurationHabitRow(
+      key: ValueKey('habit_duration_$key'),
+      habitKey: key,
+      displayName: _displayName(habit),
+      icon: _icon(habit),
+      color: color,
+      minutes: minutes,
+      target: target,
+      checked: _durationCompleted(key, minutes, status),
+      onStart: readOnly
+          ? null
+          : () => _startDuration(
+              _timerTarget(
+                key: key,
+                displayName: _displayName(habit),
+                markdownLabel: habit.label,
+                icon: _icon(habit),
+                color: color,
+                rawLine: habit.rawLine,
+                minutes: minutes,
+              ),
+            ),
+      onEdit: readOnly
+          ? null
+          : () => _editDuration(
+              _timerTarget(
+                key: key,
+                displayName: _displayName(habit),
+                markdownLabel: habit.label,
+                icon: _icon(habit),
+                color: color,
+                rawLine: habit.rawLine,
+                minutes: minutes,
+              ),
+            ),
+      enabled: !readOnly && _updatingField == null,
+    );
+    return item;
+  }
+
+  Future<void> _startDuration(HabitTimerTarget target) async {
+    if (widget.onStartDuration == null || _updatingField != null) return;
+    final ok = await widget.onStartDuration!(target);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已有一个专注计时正在进行')));
+    }
+  }
+
+  Future<void> _editDuration(HabitTimerTarget target) async {
+    final result = await _showDurationEditSheet(
+      target.displayName,
+      target.currentMinutes,
+    );
+    if (!mounted || result == null) return;
+    await _updateDuration(
+      target,
+      result.minutes,
+      result.replace,
+      'duration:${target.habitKey}',
+    );
+  }
+
+  Future<void> _editCustomDuration(String key) async {
+    final settings = _settings;
+    final minutes = _customDurationStates[key] ?? 0;
+    final target = _timerTarget(
+      key: key,
+      displayName: settings.displayNameFor(key),
+      markdownLabel: '📝 ${settings.displayNameFor(key)}',
+      icon: settings.iconFor(key),
+      color: Color(settings.colorFor(key)),
+      rawLine: _customRawLine(key),
+      minutes: minutes,
+    );
+    final result = await _showDurationEditSheet(target.displayName, minutes);
+    if (!mounted || result == null) return;
+    await _updateCustomDuration(target, result.minutes, result.replace);
+  }
+
+  String _customRawLine(String key) {
+    for (final item in widget.section.habits) {
+      if (item.habitKey == null &&
+          _settings.customHabitKeyForLabel(item.label) == key) {
+        return item.rawLine;
+      }
+    }
+    return '';
+  }
+
+  Future<bool> _updateDuration(
+    HabitTimerTarget target,
+    int minutes,
+    bool replace,
+    String field,
+  ) async {
+    if (_updatingField != null ||
+        minutes < 0 ||
+        minutes > HabitSettings.maxDurationTarget) {
+      return false;
+    }
+    final previous = _status;
+    final current = target.currentMinutes;
+    final nextMinutes = replace ? minutes : current + minutes;
+    if (nextMinutes > HabitSettings.maxDurationTarget) return false;
+    setState(() {
+      _status = _statusForDuration(target.habitKey, nextMinutes);
+      _updatingField = field;
+    });
+    var ok = false;
+    try {
+      ok = widget.onDurationUpdate == null
+          ? true
+          : await widget.onDurationUpdate!(target, minutes, replace);
+    } catch (_) {
+      ok = false;
+    }
+    if (!mounted) return ok;
+    if (!ok) {
+      setState(() {
+        _status = previous;
+        _updatingField = null;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('更新失败')));
+      return false;
+    }
+    if (nextMinutes > current) widget.onPositiveFeedback?.call();
+    setState(() => _updatingField = null);
+    return true;
+  }
+
+  HabitStatus _statusForDuration(String key, int minutes) {
+    final completed = _settings.durationDailyTargetFor(key) == null
+        ? minutes > 0
+        : minutes >= _settings.durationDailyTargetFor(key)!;
+    if (key == 'reading') {
+      return _status.copyWith(reading: completed, readingMinutes: minutes);
+    }
+    if (key == 'language') {
+      return _status.copyWith(language: completed, languageMinutes: minutes);
+    }
+    return _status;
+  }
+
+  Future<bool> _updateCustomDuration(
+    HabitTimerTarget target,
+    int minutes,
+    bool replace,
+  ) async {
+    if (_updatingField != null ||
+        minutes < 0 ||
+        minutes > HabitSettings.maxDurationTarget) {
+      return false;
+    }
+    final previous = _customDurationStates[target.habitKey] ?? 0;
+    final next = replace ? minutes : previous + minutes;
+    if (next > HabitSettings.maxDurationTarget) return false;
+    setState(() {
+      _customDurationStates[target.habitKey] = next;
+      _updatingField = 'duration:${target.habitKey}';
+    });
+    var ok = false;
+    try {
+      ok = widget.onCustomDurationUpdate == null
+          ? true
+          : await widget.onCustomDurationUpdate!(
+              _status,
+              Map.from(_customCheckboxStates),
+              Map.from(_customDurationStates),
+            );
+    } catch (_) {
+      ok = false;
+    }
+    if (!mounted) return ok;
+    if (!ok) {
+      setState(() {
+        _customDurationStates[target.habitKey] = previous;
+        _updatingField = null;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('更新失败')));
+      return false;
+    }
+    if (next > previous) widget.onPositiveFeedback?.call();
+    setState(() => _updatingField = null);
+    return true;
+  }
+
+  Future<_DurationEditResult?> _showDurationEditSheet(
+    String displayName,
+    int currentMinutes,
+  ) async {
+    final controller = TextEditingController();
+    final result = await showModalBottomSheet<_DurationEditResult>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            0,
+            20,
+            MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('记录「$displayName」', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(
+                '今日已记录 $currentMinutes 分钟',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: '分钟数',
+                  suffixText: '分钟',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(
+                        sheetContext,
+                        const _DurationEditResult(minutes: 0, replace: true),
+                      ),
+                      child: const Text('清零'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        final value = int.tryParse(controller.text.trim());
+                        if (value == null || value <= 0) return;
+                        Navigator.pop(
+                          sheetContext,
+                          _DurationEditResult(minutes: value, replace: false),
+                        );
+                      },
+                      child: const Text('追加'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        final value = int.tryParse(controller.text.trim());
+                        if (value == null || value < 0) return;
+                        Navigator.pop(
+                          sheetContext,
+                          _DurationEditResult(minutes: value, replace: true),
+                        );
+                      },
+                      child: const Text('设为'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    // 弹层 Future 返回时，退出动画的最后一帧可能仍在使用 TextField。
+    // 延后一帧释放，避免重建期间访问已 dispose 的 controller。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
+    return result;
+  }
+}
+
+class _DurationEditResult {
+  final int minutes;
+  final bool replace;
+
+  const _DurationEditResult({required this.minutes, required this.replace});
+}
+
+class _DurationHabitRow extends StatelessWidget {
+  final String habitKey;
+  final String displayName;
+  final String? icon;
+  final Color color;
+  final int minutes;
+  final int? target;
+  final bool checked;
+  final VoidCallback? onStart;
+  final VoidCallback? onEdit;
+  final bool enabled;
+
+  const _DurationHabitRow({
+    super.key,
+    required this.habitKey,
+    required this.displayName,
+    required this.icon,
+    required this.color,
+    required this.minutes,
+    required this.target,
+    required this.checked,
+    required this.onStart,
+    required this.onEdit,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final trackColor = color.withAlpha(
+      theme.brightness == Brightness.dark ? 58 : 34,
+    );
+    final ratio = target == null || target! <= 0
+        ? 0.0
+        : (minutes / target!).clamp(0.0, 1.0).toDouble();
+    final summary = minutes > 0 ? '$minutes 分钟' : (checked ? '已完成' : '未开始');
+
+    return InkWell(
+      key: ValueKey('duration_row_$habitKey'),
+      onTap: enabled ? onStart : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: _AnimatedHabitCheckbox(checked: checked, color: color),
+            ),
+            const SizedBox(width: 8),
+            if (icon != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: HabitIcon(
+                  icon!,
+                  size: 16,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                  ),
+                  const SizedBox(height: 5),
+                  if (target != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: SizedBox(
+                        height: 5,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ColoredBox(color: trackColor),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: FractionallySizedBox(
+                                widthFactor: ratio,
+                                child: ColoredBox(color: color),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 3),
+                  Text(
+                    target == null ? summary : '$summary / $target 分钟',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onEdit != null)
+              Semantics(
+                button: true,
+                label: '手动记录时长',
+                child: IconButton(
+                  onPressed: enabled ? onEdit : null,
+                  icon: const Icon(Icons.edit_outlined, size: 19),
+                  tooltip: '手动记录时长',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomDurationRow extends StatelessWidget {
+  final String habitKey;
+  final HabitSettings settings;
+  final int minutes;
+  final DateTime diaryDate;
+  final Future<void> Function(HabitTimerTarget target) onStart;
+  final Future<void> Function(String key) onEdit;
+  final bool enabled;
+
+  const _CustomDurationRow({
+    super.key,
+    required this.habitKey,
+    required this.settings,
+    required this.minutes,
+    required this.diaryDate,
+    required this.onStart,
+    required this.onEdit,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Color(settings.colorFor(habitKey));
+    final target = settings.durationDailyTargetFor(habitKey);
+    final name = settings.displayNameFor(habitKey);
+    return _DurationHabitRow(
+      habitKey: habitKey,
+      displayName: name,
+      icon: settings.iconFor(habitKey),
+      color: color,
+      minutes: minutes,
+      target: target,
+      checked: target == null ? minutes > 0 : minutes >= target,
+      onStart: enabled
+          ? () => onStart(
+              HabitTimerTarget(
+                habitKey: habitKey,
+                displayName: name,
+                markdownLabel: '📝 $name',
+                icon: settings.iconFor(habitKey),
+                colorArgb: color.toARGB32(),
+                diaryDate: diaryDate,
+                rawLine: '',
+                currentMinutes: minutes,
+                dailyTargetMinutes: target,
+              ),
+            )
+          : null,
+      onEdit: enabled ? () => onEdit(habitKey) : null,
+      enabled: enabled,
+    );
+  }
 }
 
 class _CheckboxRow extends StatelessWidget {

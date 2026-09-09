@@ -36,12 +36,15 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
   final _repo = HabitSettingsRepository();
   final _nameController = TextEditingController();
   final _targetController = TextEditingController();
+  final _durationDailyTargetController = TextEditingController();
+  final _durationLifetimeTargetController = TextEditingController();
 
   late HabitSettings _settings;
   late String _displayName;
   late String _icon;
   late int _colorArgb;
   late bool _active;
+  late HabitTrackingType _trackingType;
   bool _saving = false;
   bool _loaded = false;
 
@@ -86,6 +89,9 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
   bool get _isQuantitativeHabit =>
       HabitSettings.defaultTargets.containsKey(widget.habitKey);
 
+  bool get _supportsDuration =>
+      HabitSettings.supportsDurationFor(widget.habitKey);
+
   @override
   void initState() {
     super.initState();
@@ -101,10 +107,20 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       _icon = settings.iconFor(widget.habitKey);
       _colorArgb = settings.colorFor(widget.habitKey);
       _active = settings.isActive(widget.habitKey);
+      _trackingType = _supportsDuration
+          ? settings.trackingTypeFor(widget.habitKey)
+          : HabitTrackingType.checkbox;
       _nameController.text = widget.isCreateMode ? '' : _displayName;
       if (_isQuantitativeHabit) {
         _targetController.text = settings.targetFor(widget.habitKey).toString();
       }
+      _durationDailyTargetController.text = _supportsDuration
+          ? settings.durationDailyTargetFor(widget.habitKey)?.toString() ?? ''
+          : '';
+      _durationLifetimeTargetController.text = _supportsDuration
+          ? settings.durationLifetimeTargetFor(widget.habitKey)?.toString() ??
+                ''
+          : '';
       _loaded = true;
     });
   }
@@ -148,11 +164,34 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       }
     }
 
+    int? durationDailyTarget;
+    int? durationLifetimeTarget;
+    if (_supportsDuration && _trackingType == HabitTrackingType.duration) {
+      durationDailyTarget = _parseOptionalDurationTarget(
+        _durationDailyTargetController.text,
+      );
+      durationLifetimeTarget = _parseOptionalDurationTarget(
+        _durationLifetimeTargetController.text,
+      );
+      if (durationDailyTarget == -1 || durationLifetimeTarget == -1) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('时长目标请输入 1–500000 的整数，留空表示不设置')),
+        );
+        return;
+      }
+    }
+
     setState(() => _saving = true);
     try {
-      final HabitSettings updated;
+      late HabitSettings updated;
       if (widget.isCreateMode) {
         updated = _saveCreate(trimmed);
+        updated = updated.updateHabit(
+          key: widget.habitKey,
+          trackingType: _trackingType,
+          durationDailyTargetMinutes: durationDailyTarget ?? 0,
+          durationLifetimeTargetMinutes: durationLifetimeTarget ?? 0,
+        );
       } else {
         updated = _settings.updateHabit(
           key: widget.habitKey,
@@ -161,6 +200,9 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
           icon: _icon,
           color: _colorArgb,
           target: target,
+          trackingType: _trackingType,
+          durationDailyTargetMinutes: durationDailyTarget ?? 0,
+          durationLifetimeTargetMinutes: durationLifetimeTarget ?? 0,
         );
       }
 
@@ -188,6 +230,18 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  int? _parseOptionalDurationTarget(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return null;
+    final value = int.tryParse(text);
+    if (value == null ||
+        value <= 0 ||
+        value > HabitSettings.maxDurationTarget) {
+      return -1;
+    }
+    return value;
   }
 
   HabitSettings _saveCreate(String name) {
@@ -232,9 +286,9 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('恢复默认'),
         content: Text(
-          _isQuantitativeHabit
-              ? '将「$name」恢复为默认名称、图标、颜色、目标和启用状态？'
-              : '将「$name」恢复为默认名称、图标、颜色和启用状态？',
+          _isQuantitativeHabit || _trackingType == HabitTrackingType.duration
+              ? '将「$name」恢复为默认名称、图标、颜色、记录方式、目标和启用状态？'
+              : '将「$name」恢复为默认名称、图标、颜色、记录方式和启用状态？',
         ),
         actions: [
           TextButton(
@@ -249,12 +303,17 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                 _icon = _defaultConfig.icon;
                 _colorArgb = _defaultConfig.color.toARGB32();
                 _active = true;
+                _trackingType = _supportsDuration
+                    ? HabitSettings.defaults.trackingTypeFor(widget.habitKey)
+                    : HabitTrackingType.checkbox;
                 _nameController.text = name;
                 if (_isQuantitativeHabit) {
                   _targetController.text = HabitSettings
                       .defaultTargets[widget.habitKey]
                       .toString();
                 }
+                _durationDailyTargetController.clear();
+                _durationLifetimeTargetController.clear();
               });
             },
             child: const Text('恢复默认'),
@@ -270,6 +329,8 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
   void dispose() {
     _nameController.dispose();
     _targetController.dispose();
+    _durationDailyTargetController.dispose();
+    _durationLifetimeTargetController.dispose();
     super.dispose();
   }
 
@@ -332,6 +393,60 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                   ),
                 ),
               ),
+            ],
+
+            if (!_isQuantitativeHabit && _supportsDuration) ...[
+              const SizedBox(height: 20),
+              _buildLabel(theme, '记录方式'),
+              const SizedBox(height: 8),
+              SegmentedButton<HabitTrackingType>(
+                segments: const [
+                  ButtonSegment(
+                    value: HabitTrackingType.checkbox,
+                    label: Text('纯打卡'),
+                    icon: Icon(Icons.check_circle_outline),
+                  ),
+                  ButtonSegment(
+                    value: HabitTrackingType.duration,
+                    label: Text('计时'),
+                    icon: Icon(Icons.timer_outlined),
+                  ),
+                ],
+                selected: {_trackingType},
+                onSelectionChanged: (selection) {
+                  if (selection.isNotEmpty) {
+                    setState(() => _trackingType = selection.first);
+                  }
+                },
+              ),
+              if (_trackingType == HabitTrackingType.duration) ...[
+                const SizedBox(height: 14),
+                TextField(
+                  key: const ValueKey('habit_duration_daily_target_field'),
+                  controller: _durationDailyTargetController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: '每日目标（可选）',
+                    hintText: '例如 30',
+                    suffixText: '分钟',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const ValueKey('habit_duration_lifetime_target_field'),
+                  controller: _durationLifetimeTargetController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: '长期目标（可选）',
+                    hintText: '例如 1000',
+                    suffixText: '分钟',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
             ],
 
             const SizedBox(height: 20),

@@ -25,8 +25,8 @@ export function createObsidianDiaryContent(date: Date): string {
   lines.push('## 🏃 习惯打卡');
   lines.push('- 🥛饮水 0 mL');
   lines.push('- 🧘 运动/拉伸/快走 0 步');
-  lines.push('- [ ] 📖 阅读/亲子共读');
-  lines.push('- [ ] 🇬🇧 学语言');
+  lines.push('- [ ] 📖 阅读/亲子共读 0 分钟');
+  lines.push('- [ ] 🇬🇧 学语言 0 分钟');
   lines.push('- [ ] 💊 鱼油/植物甾醇');
   lines.push('');
   lines.push('---');

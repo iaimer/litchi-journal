@@ -517,6 +517,7 @@ class _HabitTestHttpClient extends http.BaseClient {
   final Map<int, bool> readingByDay;
   final Map<int, bool> languageByDay;
   final Map<int, bool> supplementByDay;
+  final String? customCheckboxLabel;
   int historyRequestCount = 0;
   int diaryRequestCount = 0;
 
@@ -528,6 +529,7 @@ class _HabitTestHttpClient extends http.BaseClient {
     required this.readingByDay,
     required this.languageByDay,
     required this.supplementByDay,
+    this.customCheckboxLabel,
   });
 
   @override
@@ -611,12 +613,17 @@ class _HabitTestHttpClient extends http.BaseClient {
       final readingCheck = reading ? 'x' : ' ';
       final languageCheck = language ? 'x' : ' ';
       final suppCheck = supp ? 'x' : ' ';
+      final readingMinutes = reading ? 30 : 0;
+      final languageMinutes = language ? 10 : 0;
+      final customLine = customCheckboxLabel == null
+          ? ''
+          : '\n- [x] 📝 $customCheckboxLabel';
 
       final body = jsonEncode({
         'date': dateStr,
         'title': '今天',
         'raw':
-            '# 今天\n\n### 📋 习惯打卡\n- [$readingCheck] 阅读 30 分钟\n- [$languageCheck] 学语言\n- [$suppCheck] 鱼油 / 植物甾醇\n- 饮水 $water mL\n- 运动 $steps 步',
+            '# 今天\n\n### 📋 习惯打卡\n- [$readingCheck] 阅读 $readingMinutes 分钟\n- [$languageCheck] 学语言 $languageMinutes 分钟\n- [$suppCheck] 鱼油 / 植物甾醇\n- 饮水 $water mL\n- 运动 $steps 步$customLine',
         'sections': {},
       });
       return http.StreamedResponse(
@@ -1818,7 +1825,8 @@ void main() {
       expect(find.byKey(const ValueKey('habit_card')), findsOneWidget);
       expect(find.text('亲子共读'), findsOneWidget);
 
-      await tester.tap(find.text('亲子共读'));
+      // 阅读改为计时型习惯；用仍保留的 checkbox 习惯验证整组保存接口。
+      await tester.tap(find.text('补充剂'));
       await tester.pumpAndSettle();
 
       expect(
@@ -2042,12 +2050,17 @@ void main() {
       expect(find.text('上传失败\n点击重试'), findsOneWidget);
       expect(find.byType(Image), findsOneWidget);
 
-      final retry = find.text('上传失败\n点击重试');
+      final retry = find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith('retry_image_'),
+      );
       ScaffoldMessenger.of(
         tester.element(find.byType(HomeScreen)),
       ).removeCurrentSnackBar();
       await tester.pumpAndSettle();
-      await tester.ensureVisible(retry);
+      await Scrollable.ensureVisible(tester.element(retry), alignment: 0.5);
+      await tester.pumpAndSettle();
       await tester.tap(retry);
       await tester.pumpAndSettle();
       expect(httpClient.uploadCalls, 2);
@@ -8877,6 +8890,7 @@ tags:
       required Map<int, bool> readingByDay,
       required Map<int, bool> languageByDay,
       required Map<int, bool> supplementByDay,
+      String? customCheckboxLabel,
     }) {
       final now = DateTime.now();
       return ApiClient(
@@ -8889,6 +8903,7 @@ tags:
           readingByDay: readingByDay,
           languageByDay: languageByDay,
           supplementByDay: supplementByDay,
+          customCheckboxLabel: customCheckboxLabel,
         ),
       );
     }
@@ -8907,7 +8922,7 @@ tags:
       }
     });
 
-    test('parses numeric and boolean habits correctly', () async {
+    test('parses numeric and duration habits correctly', () async {
       final now = DateTime.now();
       final today = now.day;
       final apiClient = habitTestClient(
@@ -8930,7 +8945,7 @@ tags:
 
       // 亲子共读
       final reading = stats.items.firstWhere((i) => i.key == 'reading');
-      expect(reading.type, HabitStatType.boolean);
+      expect(reading.type, HabitStatType.duration);
       expect(reading.completedDays, 2);
 
       // 鱼油
@@ -8939,6 +8954,66 @@ tags:
       expect(supp.completedDays, 3);
       expect(supp.currentStreak, 3);
     });
+
+    test(
+      'uses checkbox completion when reading is configured as checkbox',
+      () async {
+        final now = DateTime.now();
+        final today = now.day;
+        final apiClient = habitTestClient(
+          waterByDay: {},
+          stepsByDay: {},
+          readingByDay: {today - 1: true, today - 2: true},
+          languageByDay: {},
+          supplementByDay: {},
+        );
+        final settings = HabitSettings.defaults.updateHabit(
+          key: 'reading',
+          trackingType: HabitTrackingType.checkbox,
+        );
+
+        final stats = await HabitStatsService(
+          apiClient,
+        ).loadStats(habitSettings: settings);
+        final reading = stats.items.firstWhere((item) => item.key == 'reading');
+
+        expect(reading.type, HabitStatType.boolean);
+        expect(reading.completedDays, 2);
+        expect(reading.recent7Values.where((value) => value == 1).length, 2);
+      },
+    );
+
+    test(
+      'keeps an old custom checkbox completion after switching to duration',
+      () async {
+        final today = DateTime.now().day;
+        final apiClient = habitTestClient(
+          waterByDay: {today - 1: 0},
+          stepsByDay: {},
+          readingByDay: {},
+          languageByDay: {},
+          supplementByDay: {},
+          customCheckboxLabel: '专注学习',
+        );
+        final settings = HabitSettings.defaults.copyWith(
+          statusMap: {'custom_focus': true},
+          extraHabits: {'custom_focus': '专注学习'},
+          trackingTypeMap: {'custom_focus': HabitTrackingType.duration},
+        );
+
+        final stats = await HabitStatsService(
+          apiClient,
+        ).loadStats(habitSettings: settings);
+        final focus = stats.items.firstWhere(
+          (item) => item.key == 'custom_focus',
+        );
+
+        expect(focus.type, HabitStatType.duration);
+        expect(focus.completedDays, 1);
+        expect(focus.lifetimeValue, 0);
+        expect(focus.recent7Completed.where((done) => done).length, 1);
+      },
+    );
 
     test('returns empty stats when no habit data', () async {
       final apiClient = habitTestClient(

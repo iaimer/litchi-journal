@@ -10,6 +10,7 @@ import '../widgets/flora_icon.dart';
 import '../models/default_tag_config.dart';
 import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
+import '../models/focus_timer.dart';
 import '../models/habit_settings.dart';
 import '../models/image_settings.dart';
 import '../models/image_upload_item.dart';
@@ -17,6 +18,7 @@ import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../screens/anxiety_screen.dart';
+import '../screens/focus_timer_screen.dart';
 import '../screens/quick_capture_screen.dart';
 import '../screens/settings_page.dart';
 import '../services/ai_config_repository.dart';
@@ -26,6 +28,7 @@ import '../services/draft_repository.dart';
 import '../services/entry_line_builder.dart';
 import '../services/habit_settings_repository.dart';
 import '../services/habit_completion_sound.dart';
+import '../services/focus_timer_controller.dart';
 import '../services/habit_stats_service.dart';
 import '../services/image_compress_service.dart';
 import '../services/image_settings_repository.dart';
@@ -38,6 +41,7 @@ import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
+import '../widgets/habit_icon.dart';
 
 typedef TodayImagePicker = Future<XFile?> Function(ImageSettings settings);
 typedef TodayImageCompressor =
@@ -126,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   DiaryEntry? _diary;
   DateTime? _diaryDate;
+  int _diaryRefreshSerial = 0;
   bool _loading = true;
   String? _error;
   TagConfig? _tagConfig;
@@ -135,6 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _imagePicker = ImagePicker();
   final _scrollController = ScrollController();
   final _habitCompletionSound = HabitCompletionSound();
+  late final FocusTimerController _focusTimerController;
   final List<ImageUploadItem> _imageUploads = [];
   bool _generatingCoach = false;
   bool _quickRecordExpanded = false;
@@ -149,6 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 自定义 checkbox 习惯的当前状态。
   Map<String, bool> _customCheckboxStates = {};
+  Map<String, int> _customDurationStates = {};
 
   /// 只含 enabled 标签、name 替换为 displayName 的 TagConfig。
   /// 用于快速记录入口（新建记录不需要隐藏标签）。
@@ -161,6 +168,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _focusTimerController = FocusTimerController();
+    unawaited(_focusTimerController.load());
     _habitCompletionSound.preload();
     _loadDiary();
     _loadTagConfig();
@@ -168,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _focusTimerController.dispose();
     _scrollController.dispose();
     unawaited(_habitCompletionSound.dispose());
     super.dispose();
@@ -194,6 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadDiary() async {
+    final requestId = ++_diaryRefreshSerial;
     setState(() {
       _loading = true;
       _error = null;
@@ -217,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen> {
           widget.habitSettingsRepo ?? HabitSettingsRepository();
       final settings = await settingsRepo.load();
 
-      if (!mounted) return;
+      if (!mounted || requestId != _diaryRefreshSerial) return;
       setState(() {
         _diary = diary;
         _diaryDate = date;
@@ -225,9 +236,10 @@ class _HomeScreenState extends State<HomeScreen> {
         _habitSettings = settings;
         _activeHabitKeys = settings.activeKeys.toSet();
         _customCheckboxStates = _readCustomCheckboxStates(diary, settings);
+        _customDurationStates = _readCustomDurationStates(diary, settings);
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestId != _diaryRefreshSerial) return;
       setState(() {
         _error = '加载失败';
         _loading = false;
@@ -269,25 +281,41 @@ class _HomeScreenState extends State<HomeScreen> {
     final states = <String, bool>{};
     for (final item in habitSection.habits) {
       if (item.habitKey != null) continue;
-      for (final entry in settings.extraHabits.entries) {
-        if (item.label.contains(entry.value)) {
-          states[entry.key] = item.checked;
-          break;
-        }
-      }
+      final key = settings.customHabitKeyForLabel(item.label);
+      if (key != null) states[key] = item.checked;
     }
     return states;
   }
 
+  Map<String, int> _readCustomDurationStates(
+    DiaryEntry? diary,
+    HabitSettings settings,
+  ) {
+    if (diary == null || diary.raw.isEmpty) return {};
+    final document = const MarkdownParser().parse(diary.raw);
+    for (final section in document.sections) {
+      if (section is! HabitSection) continue;
+      final states = <String, int>{};
+      for (final item in section.habits) {
+        if (item.habitKey != null || item.kind != HabitKind.duration) continue;
+        final key = settings.customHabitKeyForLabel(item.label);
+        if (key != null) states[key] = item.value ?? 0;
+      }
+      return states;
+    }
+    return {};
+  }
+
   Future<void> _loadDiarySilently() async {
+    final requestId = ++_diaryRefreshSerial;
     try {
       final diary = await widget.apiClient.getDiary(_activeDate);
-      if (!mounted) return;
+      if (!mounted || requestId != _diaryRefreshSerial) return;
       // 日记内容更新后清除习惯统计日缓存，避免显示旧数据
       HabitStatsService.clearDayCache();
       setState(() => _diary = diary);
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || requestId != _diaryRefreshSerial) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('已保存，但刷新失败')));
@@ -378,6 +406,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<bool> _updateHabitsAPI(
     HabitStatus status, {
     Map<String, bool>? customStates,
+    Map<String, int>? durationStates,
   }) async {
     return widget.apiClient.updateHabits(
       _activeDate,
@@ -387,6 +416,11 @@ class _HomeScreenState extends State<HomeScreen> {
       language: status.language,
       supplements: status.supplements,
       extraCheckboxes: _buildExtraCheckboxes(customStates),
+      readingMinutes: status.readingMinutes > 0 ? status.readingMinutes : null,
+      languageMinutes: status.languageMinutes > 0
+          ? status.languageMinutes
+          : null,
+      extraDurations: _buildExtraDurations(durationStates),
     );
   }
 
@@ -406,6 +440,95 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<bool> _handleCustomDurationUpdate(
+    HabitStatus status,
+    Map<String, bool> checkboxStates,
+    Map<String, int> durationStates,
+  ) async {
+    try {
+      final ok = await _updateHabitsAPI(
+        status,
+        customStates: checkboxStates,
+        durationStates: durationStates,
+      );
+      if (ok) {
+        _customCheckboxStates = Map.from(checkboxStates);
+        _customDurationStates = Map.from(durationStates);
+        if (mounted) _loadDiarySilently();
+      }
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _handleDurationUpdate(
+    HabitTimerTarget target,
+    int minutes,
+    bool replace,
+  ) async {
+    try {
+      final result = await widget.apiClient.updateHabitDuration(
+        target.diaryDate,
+        habitKey: target.habitKey,
+        label: target.markdownLabel,
+        rawLine: target.rawLine,
+        minutes: minutes,
+        replace: replace,
+        dailyTargetMinutes: target.dailyTargetMinutes,
+      );
+      if (result == null) return false;
+      if (mounted) _loadDiarySilently();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _handleStartDuration(HabitTimerTarget target) async {
+    final current = _focusTimerController.session;
+    if (current != null) {
+      if (current.habitKey != target.habitKey) return false;
+      await _openFocusTimer();
+      return true;
+    }
+    final started = await _focusTimerController.start(target);
+    if (!started) return false;
+    await _openFocusTimer();
+    return true;
+  }
+
+  Future<void> _openFocusTimer() async {
+    if (!mounted || _focusTimerController.session == null) return;
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => FocusTimerScreen(
+          controller: _focusTimerController,
+          onSave: _saveFocusDuration,
+          onPositiveFeedback: _habitCompletionSound.play,
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _saveFocusDuration(
+    FocusTimerSession session,
+    int minutes,
+  ) async {
+    final result = await widget.apiClient.updateHabitDuration(
+      session.diaryDate,
+      habitKey: session.habitKey,
+      label: session.markdownLabel,
+      rawLine: session.rawLine,
+      minutes: minutes,
+      replace: false,
+      dailyTargetMinutes: session.dailyTargetMinutes,
+    );
+    if (result == null) return false;
+    if (mounted) _loadDiarySilently();
+    return true;
+  }
+
   Map<String, Map<String, dynamic>> _buildExtraCheckboxes(
     Map<String, bool>? customStates,
   ) {
@@ -414,13 +537,59 @@ class _HomeScreenState extends State<HomeScreen> {
     final result = <String, Map<String, dynamic>>{};
     for (final entry in settings.extraHabits.entries) {
       final key = entry.key;
-      if (!settings.isActive(key)) continue;
+      if (!settings.isActive(key) ||
+          settings.trackingTypeFor(key) == HabitTrackingType.duration) {
+        continue;
+      }
       result[key] = {
         'checked': states[key] ?? false,
         'label': '📝 ${settings.displayNameFor(key)}',
       };
     }
     return result;
+  }
+
+  Map<String, Map<String, dynamic>> _buildExtraDurations(
+    Map<String, int>? customStates,
+  ) {
+    final settings = _habitSettings ?? HabitSettings.defaults;
+    final states = customStates ?? _customDurationStates;
+    final result = <String, Map<String, dynamic>>{};
+    for (final entry in settings.extraHabits.entries) {
+      final key = entry.key;
+      if (!settings.isActive(key) ||
+          settings.trackingTypeFor(key) != HabitTrackingType.duration) {
+        continue;
+      }
+      final minutes = states[key] ?? 0;
+      result[key] = {
+        'minutes': minutes,
+        'label': '📝 ${settings.displayNameFor(key)}',
+        'rawLine': _customDurationRawLine(key),
+        'checked': _durationIsComplete(settings, key, minutes),
+      };
+    }
+    return result;
+  }
+
+  bool _durationIsComplete(HabitSettings settings, String key, int minutes) {
+    final target = settings.durationDailyTargetFor(key);
+    return target == null ? minutes > 0 : minutes >= target;
+  }
+
+  String _customDurationRawLine(String key) {
+    final settings = _habitSettings ?? HabitSettings.defaults;
+    final names = <String>{
+      settings.displayNameFor(key),
+      ...(settings.customHabitAliases[key] ?? const <String>[]),
+    };
+    final raw = _diary?.raw;
+    if (raw == null) return '';
+    for (final line in raw.split('\n')) {
+      if (!line.contains('分钟')) continue;
+      if (names.any(line.contains)) return line;
+    }
+    return '';
   }
 
   Future<PolishResult> _handlePolish(
@@ -970,6 +1139,74 @@ class _HomeScreenState extends State<HomeScreen> {
     _startImageUpload();
   }
 
+  Widget _buildFocusTimerStrip(ThemeData theme) {
+    return AnimatedBuilder(
+      animation: _focusTimerController,
+      builder: (context, _) {
+        final session = _focusTimerController.session;
+        if (session == null) return const SizedBox.shrink();
+        final color = Color(session.colorArgb);
+        final seconds = _focusTimerController.elapsedSeconds();
+        final hours = seconds ~/ 3600;
+        final minutes = (seconds % 3600) ~/ 60;
+        final rest = seconds % 60;
+        final elapsed =
+            '${hours.toString().padLeft(2, '0')}'
+            ':${minutes.toString().padLeft(2, '0')}'
+            ':${rest.toString().padLeft(2, '0')}';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Semantics(
+            button: true,
+            label: '继续${session.displayName}专注，已计时 $elapsed',
+            child: Material(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: _openFocusTimer,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
+                  child: Row(
+                    children: [
+                      HabitIcon(session.icon, size: 19, color: color),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          session.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        elapsed,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1037,6 +1274,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
                         const SizedBox(height: 16),
+                        _buildFocusTimerStrip(theme),
                         if (_error != null) ...[
                           Text(
                             _error!,
@@ -1064,6 +1302,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             onPositiveFeedback: _habitCompletionSound.play,
                             onWaterQuickAmountsChanged:
                                 _handleWaterQuickAmountsChanged,
+                            onStartDuration: _handleStartDuration,
+                            onDurationUpdate: _handleDurationUpdate,
+                            onCustomDurationUpdate: _handleCustomDurationUpdate,
                             imageUploads: _imageUploads,
                             onImageUploadRetry: _retryImageUpload,
                             onImageUploadRemove: _removeImageUpload,
@@ -1087,6 +1328,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             onPositiveFeedback: _habitCompletionSound.play,
                             onWaterQuickAmountsChanged:
                                 _handleWaterQuickAmountsChanged,
+                            onStartDuration: _handleStartDuration,
+                            onDurationUpdate: _handleDurationUpdate,
+                            onCustomDurationUpdate: _handleCustomDurationUpdate,
+                            diaryDate: _activeDate,
                           ),
                         ],
                         const SizedBox(height: 96),

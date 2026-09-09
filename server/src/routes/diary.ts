@@ -48,6 +48,33 @@ function isValidCount(value: unknown): boolean {
     value <= 500000;
 }
 
+function isValidDuration(value: unknown): boolean {
+  return isValidCount(value);
+}
+
+function durationFromHabitLine(line: string): number | null {
+  const match = line.match(/(\d+)\s*(?:分钟|min)\s*$/i);
+  return match ? Number(match[1]) : null;
+}
+
+function habitLabelFromLine(line: string): string {
+  return line
+    .replace(/^\s*-\s*(?:\[[ xX]\]\s*)?/, '')
+    .replace(/\s+\d+\s*(?:分钟|min)\s*$/i, '')
+    .trim();
+}
+
+function cleanHabitLabel(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const label = value.replace(/[\r\n]/g, ' ').trim();
+  if (!label || label.length > 120) return null;
+  return label.replace(/\s+\d+\s*(?:分钟|min)\s*$/i, '').trim() || null;
+}
+
+function hasOwn(body: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(body, key);
+}
+
 function stripOldOpMarkers(content: string): string {
   return content
     .split('\n')
@@ -206,11 +233,28 @@ router.post('/quick-note', async (req, res) => {
 
 router.post('/habit', async (req, res) => {
   try {
-    const { water, steps, reading, language, supplements, operationId, extraCheckboxes } = req.body;
+    const {
+      water,
+      steps,
+      reading,
+      language,
+      supplements,
+      readingMinutes,
+      languageMinutes,
+      operationId,
+      extraCheckboxes,
+      extraDurations,
+    } = req.body;
     const date = getRequestDate(req.body.date);
 
     if (!isValidCount(water) || !isValidCount(steps)) {
       return res.status(400).json({ error: '习惯数值无效' });
+    }
+    if (hasOwn(req.body, 'readingMinutes') && !isValidDuration(readingMinutes)) {
+      return res.status(400).json({ error: '阅读时长无效' });
+    }
+    if (hasOwn(req.body, 'languageMinutes') && !isValidDuration(languageMinutes)) {
+      return res.status(400).json({ error: '学语言时长无效' });
     }
 
     let originalContent: string;
@@ -226,6 +270,24 @@ router.post('/habit', async (req, res) => {
       }
     }
 
+    const existingHabitLines = parseDiary(originalContent).sections.habits;
+    const existingReadingLine = existingHabitLines.find(line =>
+      line.includes('📖') || line.includes('阅读/亲子共读'));
+    const existingLanguageLine = existingHabitLines.find(line =>
+      line.includes('🇬🇧') || line.includes('学语言'));
+    const existingReadingMinutes = existingReadingLine == null
+      ? null
+      : durationFromHabitLine(existingReadingLine);
+    const existingLanguageMinutes = existingLanguageLine == null
+      ? null
+      : durationFromHabitLine(existingLanguageLine);
+    const readingHasDuration = hasOwn(req.body, 'readingMinutes') ||
+      existingReadingMinutes !== null;
+    const languageHasDuration = hasOwn(req.body, 'languageMinutes') ||
+      existingLanguageMinutes !== null;
+    const nextReadingMinutes = readingMinutes ?? existingReadingMinutes ?? 0;
+    const nextLanguageMinutes = languageMinutes ?? existingLanguageMinutes ?? 0;
+
     const waterEmoji = '🥤';
     const waterCount = Math.floor(water / 250);
     const waterStr = waterCount > 0
@@ -235,8 +297,12 @@ router.post('/habit', async (req, res) => {
     const habits = [
       waterStr,
       `- 🧘 运动/拉伸/快走 ${steps} 步`,
-      `- [${reading ? 'x' : ' '}] 📖 阅读/亲子共读`,
-      `- [${language ? 'x' : ' '}] 🇬🇧 学语言`,
+      readingHasDuration
+        ? `- [${reading ? 'x' : ' '}] 📖 阅读/亲子共读 ${nextReadingMinutes} 分钟`
+        : `- [${reading ? 'x' : ' '}] 📖 阅读/亲子共读`,
+      languageHasDuration
+        ? `- [${language ? 'x' : ' '}] 🇬🇧 学语言 ${nextLanguageMinutes} 分钟`
+        : `- [${language ? 'x' : ' '}] 🇬🇧 学语言`,
       `- [${supplements ? 'x' : ' '}] 💊 鱼油/植物甾醇`
     ];
 
@@ -244,12 +310,48 @@ router.post('/habit', async (req, res) => {
     if (extraCheckboxes && typeof extraCheckboxes === 'object') {
       for (const [_, info] of Object.entries(extraCheckboxes)) {
         const item = info as any;
+        if (extraDurations && typeof extraDurations === 'object' &&
+            Object.prototype.hasOwnProperty.call(extraDurations, _)) {
+          continue;
+        }
         const mark = item.checked ? 'x' : ' ';
         const label = typeof item.label === 'string' && item.label.trim()
           ? item.label.trim()
           : '?';
         habits.push(`- [${mark}] ${label}`);
       }
+    }
+
+    const durationLabels = new Set<string>();
+    const durationRawLines = new Set<string>();
+    if (extraDurations && typeof extraDurations === 'object') {
+      for (const [key, info] of Object.entries(extraDurations)) {
+        const item = info as any;
+        if (!isValidDuration(item.minutes)) {
+          return res.status(400).json({ error: '自定义习惯时长无效' });
+        }
+        const label = cleanHabitLabel(item.label);
+        if (!label) return res.status(400).json({ error: '自定义习惯名称无效' });
+        durationLabels.add(label);
+        if (typeof item.rawLine === 'string' && item.rawLine.trim()) {
+          durationRawLines.add(item.rawLine);
+        }
+        const mark = item.checked ? 'x' : ' ';
+        habits.push(`- [${mark}] ${label} ${item.minutes} 分钟`);
+      }
+    }
+
+    // 旧客户端没有 duration 字段时，保留日记中已经存在的自定义计时行。
+    for (const line of existingHabitLines) {
+      if (durationFromHabitLine(line) === null) continue;
+      if (durationRawLines.has(line)) continue;
+      const label = habitLabelFromLine(line);
+      if (label.includes('📖') || label.includes('阅读/亲子共读') ||
+          label.includes('🇬🇧') || label.includes('学语言') ||
+          durationLabels.has(label)) {
+        continue;
+      }
+      habits.push(line);
     }
 
     const updated = stripOldOpMarkers(updateHabitsSection(originalContent, habits));
@@ -261,6 +363,115 @@ router.post('/habit', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.post('/habit/duration', async (req, res) => {
+  try {
+    const {
+      date: rawDate,
+      habitKey,
+      label: rawLabel,
+      rawLine,
+      minutes,
+      operation,
+      dailyTargetMinutes,
+      operationId,
+    } = req.body;
+    const date = getRequestDate(rawDate);
+
+    if (typeof habitKey !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(habitKey)) {
+      return res.status(400).json({ error: '习惯 key 无效' });
+    }
+    if (!isValidDuration(minutes) || (operation !== 'add' && operation !== 'set')) {
+      return res.status(400).json({ error: '习惯时长参数无效' });
+    }
+    if (dailyTargetMinutes != null && !isValidDuration(dailyTargetMinutes)) {
+      return res.status(400).json({ error: '每日时长目标无效' });
+    }
+    const fallbackLabel = cleanHabitLabel(rawLabel);
+    if (!fallbackLabel) return res.status(400).json({ error: '习惯名称无效' });
+    if (typeof rawLine !== 'string' || rawLine.length > 500 || /[\r\n]/.test(rawLine)) {
+      return res.status(400).json({ error: '习惯原始行无效' });
+    }
+
+    let originalContent: string;
+    try {
+      originalContent = readDiary(date);
+    } catch {
+      return res.status(404).json({ error: '日记文件不存在，请先创建' });
+    }
+
+    const existingLines = parseDiary(originalContent).sections.habits;
+    const findExistingLine = (): string | null => {
+      const exactIndex = rawLine ? existingLines.indexOf(rawLine) : -1;
+      if (exactIndex !== -1) return existingLines[exactIndex];
+      return existingLines.find(line => {
+        const label = habitLabelFromLine(line);
+        return label === fallbackLabel || label.includes(fallbackLabel);
+      }) ?? null;
+    };
+
+    const target = dailyTargetMinutes == null || dailyTargetMinutes === 0
+      ? null
+      : dailyTargetMinutes;
+
+    if (operationId && validateOperationId(operationId) &&
+        hasOpRecord(date, originalContent, operationId)) {
+      const dedupLine = findExistingLine();
+      const dedupMinutes = dedupLine == null
+          ? 0
+          : durationFromHabitLine(dedupLine) ?? 0;
+      const dedupCompleted = target == null
+          ? dedupMinutes > 0
+          : dedupMinutes >= target;
+      return res.json({
+        success: true,
+        dedup: true,
+        minutes: dedupMinutes,
+        completed: dedupCompleted,
+        rawLine: dedupLine ?? rawLine,
+      });
+    }
+
+    const existingLine = findExistingLine();
+    const currentMinutes = existingLine == null
+      ? 0
+      : durationFromHabitLine(existingLine) ?? 0;
+    const nextMinutes = operation === 'add' ? currentMinutes + minutes : minutes;
+    if (!isValidDuration(nextMinutes)) {
+      return res.status(400).json({ error: '习惯时长超出范围' });
+    }
+
+    const completed = target == null
+      ? nextMinutes > 0
+      : nextMinutes >= target;
+    const baseLabel = existingLine == null
+      ? fallbackLabel
+      : habitLabelFromLine(existingLine);
+    const indent = existingLine?.match(/^\s*/)?.[0] ?? '';
+    const nextLine = `${indent}- [${completed ? 'x' : ' '}] ${baseLabel} ${nextMinutes} 分钟`;
+    const updated = replaceHabitLineInSection(
+      originalContent,
+      existingLine,
+      nextLine,
+    );
+    if (updated === null) {
+      return res.status(400).json({ error: '日记缺少习惯区块' });
+    }
+
+    writeDiary(date, stripOldOpMarkers(updated));
+    if (operationId && validateOperationId(operationId)) {
+      recordOperation(date, operationId);
+    }
+    return res.json({
+      success: true,
+      minutes: nextMinutes,
+      completed,
+      rawLine: nextLine,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
   }
 });
 
@@ -645,6 +856,42 @@ function updateHabitsSection(content: string, habits: string[]): string {
   const after = lines.slice(endIndex);
 
   return [...before, ...habits, '', ...after].join('\n');
+}
+
+function replaceHabitLineInSection(
+  content: string,
+  existingLine: string | null,
+  nextLine: string,
+): string | null {
+  const lines = content.split('\n');
+  const header = '## 🏃 习惯打卡';
+  const startIndex = lines.findIndex(line => line.startsWith(header));
+  if (startIndex === -1) return null;
+
+  let endIndex = lines.length;
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    if (/^(?:##|###)\s/.test(lines[i])) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  if (existingLine != null) {
+    const exactIndex = lines.findIndex(
+      (line, index) => index > startIndex && index < endIndex && line === existingLine,
+    );
+    if (exactIndex !== -1) {
+      lines[exactIndex] = nextLine;
+      return lines.join('\n');
+    }
+  }
+
+  let insertIndex = endIndex;
+  while (insertIndex > startIndex + 1 && lines[insertIndex - 1].trim() === '') {
+    insertIndex--;
+  }
+  lines.splice(insertIndex, 0, nextLine);
+  return lines.join('\n');
 }
 
 function replaceAnxietySection(content: string, newText: string): string {

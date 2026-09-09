@@ -21,6 +21,7 @@ vi.mock('../config/index.js', () => ({
 }));
 
 import diaryRoutes from './diary.js';
+import { readDiary, writeDiary } from '../services/vault.js';
 
 type Handler = (req: unknown, res: any) => Promise<void>;
 
@@ -29,6 +30,12 @@ function imageHandler(): Handler {
   const layer = stack.find(
     item => item.route?.path === '/image/render/:year/:imageName',
   );
+  return layer.route.stack[0].handle as Handler;
+}
+
+function habitDurationHandler(): Handler {
+  const stack = (diaryRoutes as any).stack as any[];
+  const layer = stack.find(item => item.route?.path === '/habit/duration');
   return layer.route.stack[0].handle as Handler;
 }
 
@@ -183,5 +190,95 @@ describe('rendered diary image route', () => {
     } finally {
       rmSync(outsidePath, { force: true });
     }
+  });
+});
+
+describe('habit duration route', () => {
+  const date = new Date('2024-08-12T12:00:00+08:00');
+  const content = [
+    '# 今天',
+    '',
+    '## 🏃 习惯打卡',
+    '- [ ] 📖 阅读/亲子共读 0 分钟',
+    '',
+    '## ✍️ 随手记 & 灵感',
+  ].join('\n');
+
+  beforeEach(() => {
+    rmSync(testConfig.vaultPath, { recursive: true, force: true });
+    writeDiary(date, content);
+  });
+
+  afterAll(() => {
+    rmSync(testConfig.vaultPath, { recursive: true, force: true });
+  });
+
+  it('adds minutes, marks completion, and preserves the raw habit section', async () => {
+    const res = response();
+    await habitDurationHandler()(
+      {
+        body: {
+          date: '2024-08-12',
+          habitKey: 'reading',
+          label: '📖 阅读/亲子共读 0 分钟',
+          rawLine: '- [ ] 📖 阅读/亲子共读 0 分钟',
+          minutes: 35,
+          operation: 'add',
+          dailyTargetMinutes: 30,
+          operationId: '123e4567-e89b-12d3-a456-426614174000',
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ minutes: 35, completed: true });
+    const updated = readDiary(date);
+    expect(updated).toContain('- [x] 📖 阅读/亲子共读 35 分钟');
+    expect(updated).toContain('## ✍️ 随手记 & 灵感');
+  });
+
+  it('returns a complete deduplicated result without adding minutes twice', async () => {
+    const request = {
+      body: {
+        date: '2024-08-12',
+        habitKey: 'reading',
+        label: '📖 阅读/亲子共读 0 分钟',
+        rawLine: '- [ ] 📖 阅读/亲子共读 0 分钟',
+        minutes: 15,
+        operation: 'add',
+        dailyTargetMinutes: 30,
+        operationId: '123e4567-e89b-12d3-a456-426614174001',
+      },
+    };
+    const first = response();
+    await habitDurationHandler()(request, first);
+    const second = response();
+    await habitDurationHandler()(request, second);
+
+    expect(second.statusCode).toBe(200);
+    expect(second.body).toMatchObject({ dedup: true, minutes: 15 });
+    expect(readDiary(date)).toContain('- [ ] 📖 阅读/亲子共读 15 分钟');
+    expect(readDiary(date)).not.toContain('30 分钟');
+  });
+
+  it('inserts a custom duration row when the raw line is not present', async () => {
+    const res = response();
+    await habitDurationHandler()(
+      {
+        body: {
+          date: '2024-08-12',
+          habitKey: 'custom_language',
+          label: '📝 法语听力',
+          rawLine: '',
+          minutes: 12,
+          operation: 'add',
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(readDiary(date)).toContain('- [x] 📝 法语听力 12 分钟');
   });
 });

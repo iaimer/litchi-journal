@@ -270,10 +270,26 @@ class _DraftSection {
   List<HabitItem> _buildHabitItems() {
     final habits = <HabitItem>[];
     final counterPattern = RegExp(r'(\d+)\s*(\S+)$');
+    final durationPattern = RegExp(r'^(.*?)\s+(\d+)\s*(?:分钟|min)$');
     final cleanLabel = RegExp(r'^[^\w\u4e00-\u9fff]+');
 
     for (final content in contents) {
       if (content is CheckboxContent) {
+        final durationMatch = durationPattern.firstMatch(content.text);
+        if (durationMatch != null) {
+          habits.add(
+            HabitItem(
+              kind: HabitKind.duration,
+              label: durationMatch.group(1)!.trim(),
+              checked: content.checked,
+              checkable: true,
+              rawLine: content.rawLine,
+              value: int.tryParse(durationMatch.group(2)!),
+              unit: '分钟',
+            ),
+          );
+          continue;
+        }
         habits.add(
           HabitItem(
             kind: HabitKind.checkbox,

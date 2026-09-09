@@ -99,9 +99,21 @@ class HabitRhythmGrid extends StatelessWidget {
             ),
           ),
           ...List.generate(item.recent7Values.length, (i) {
+            final value = item.recent7Values[i];
+            final day = i < days.length ? days[i] : null;
             final done = item.type == HabitStatType.boolean
-                ? item.recent7Values[i] == 1
-                : item.recent7Values[i] > 0;
+                ? value == 1
+                : item.type == HabitStatType.duration
+                ? item.recent7Completed.length > i
+                      ? item.recent7Completed[i]
+                      : value > 0 ||
+                            (item.key == 'reading' &&
+                                day?.readingDone == true &&
+                                day?.readingMinutes == null) ||
+                            (item.key == 'language' &&
+                                day?.languageDone == true &&
+                                day?.languageMinutes == null)
+                : value > 0;
 
             return Expanded(
               child: Center(

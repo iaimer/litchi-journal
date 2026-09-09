@@ -1,5 +1,8 @@
 import 'habit_visual_config.dart';
 
+/// 习惯在今天页上的记录方式。
+enum HabitTrackingType { checkbox, counter, duration }
+
 /// 习惯设置：管理习惯的显示状态和视觉配置。
 ///
 /// 支持：
@@ -8,19 +11,23 @@ import 'habit_visual_config.dart';
 /// - iconMap: 自定义图标
 /// - colorMap: 自定义颜色（存储为 int ARGB）
 /// - targetMap: 内置计数习惯的每日目标（仅支持 water / steps）
+/// - trackingTypeMap: 可切换习惯的记录方式（checkbox / duration）
+/// - durationDailyTargetMap: 计时型习惯的每日目标（分钟）
+/// - durationLifetimeTargetMap: 计时型习惯的长期目标（分钟）
 /// - extraHabits: 自定义习惯注册表（customKey → 初始显示名）
 /// - customHabitAliases: 自定义习惯历史名称（用于统计时匹配 Markdown）
 ///
-/// schemaVersion: 6（新增饮水快捷水量）
+/// schemaVersion: 7（新增计时型习惯配置）
 class HabitSettings {
   /// schema 版本，用于兼容旧配置。
-  static const schemaVersion = 6;
+  static const schemaVersion = 7;
 
   /// 首页进度条使用的默认每日目标，目标仅属于现有内置计数习惯。
   static const defaultTargets = <String, int>{'water': 1500, 'steps': 6000};
 
   /// 与服务端计数写入上限保持一致，避免异常配置破坏首页布局。
   static const maxCounterTarget = 500000;
+  static const maxDurationTarget = 500000;
 
   static const defaultWaterQuickAmounts = <int>[250, 475, 500];
 
@@ -40,6 +47,16 @@ class HabitSettings {
   /// 只保存用户改过且不同于默认值的覆盖项。
   final Map<String, int> targetMap;
 
+  /// 可切换习惯 key → 记录方式。
+  /// 缺省规则：reading / language 为 duration，其他可切换习惯为 checkbox。
+  final Map<String, HabitTrackingType> trackingTypeMap;
+
+  /// 计时型习惯 key → 每日目标分钟数，未配置表示不设目标。
+  final Map<String, int> durationDailyTargetMap;
+
+  /// 计时型习惯 key → 长期累计目标分钟数，未配置表示不设目标。
+  final Map<String, int> durationLifetimeTargetMap;
+
   /// 饮水快捷添加量，始终为 3 个升序、不重复的正整数。
   final List<int> waterQuickAmounts;
 
@@ -58,6 +75,9 @@ class HabitSettings {
     this.iconMap = const {},
     this.colorMap = const {},
     this.targetMap = const {},
+    this.trackingTypeMap = const {},
+    this.durationDailyTargetMap = const {},
+    this.durationLifetimeTargetMap = const {},
     this.waterQuickAmounts = defaultWaterQuickAmounts,
     this.extraHabits = const {},
     this.customHabitAliases = const {},
@@ -116,6 +136,48 @@ class HabitSettings {
       extraHabits[key] ??
       HabitVisualConfig.of(key).displayName;
 
+  /// 从 Markdown 习惯行的 label 中匹配自定义习惯 key。
+  ///
+  /// 习惯行可能带有 `📝` 等图标前缀；重命名后的旧名称则通过 aliases
+  /// 继续匹配。集中在设置模型中，避免首页和统计页各自使用不同口径。
+  String? customHabitKeyForLabel(String label) {
+    final normalized = _normalizeCustomHabitLabel(label);
+    if (normalized.isEmpty) return null;
+
+    for (final key in extraHabits.keys) {
+      final names = <String>{
+        displayNameFor(key),
+        extraHabits[key] ?? '',
+        ...(customHabitAliases[key] ?? const <String>[]),
+      };
+      if (names.any(
+        (name) =>
+            name.trim().isNotEmpty &&
+            _normalizeCustomHabitLabel(name) == normalized,
+      )) {
+        return key;
+      }
+    }
+    return null;
+  }
+
+  static String _normalizeCustomHabitLabel(String label) {
+    final text = label.trim();
+    for (var i = 0; i < text.length; i++) {
+      final codeUnit = text.codeUnitAt(i);
+      if ((codeUnit >= 0x4E00 && codeUnit <= 0x9FFF) ||
+          (codeUnit >= 0x3400 && codeUnit <= 0x4DBF) ||
+          (codeUnit >= 0x41 && codeUnit <= 0x5A) ||
+          (codeUnit >= 0x61 && codeUnit <= 0x7A) ||
+          (codeUnit >= 0x30 && codeUnit <= 0x39) ||
+          codeUnit == 0x2F ||
+          codeUnit == 0x2D) {
+        return text.substring(i).trim();
+      }
+    }
+    return text;
+  }
+
   /// 获取图标，无自定义时返回默认。
   String iconFor(String key) => iconMap[key] ?? HabitVisualConfig.of(key).icon;
 
@@ -132,6 +194,35 @@ class HabitSettings {
         : defaultTargets[key];
   }
 
+  /// 获取习惯记录方式。阅读和学语言在旧配置中也按计时型处理。
+  HabitTrackingType trackingTypeFor(String key) {
+    if (key == 'water' || key == 'steps') return HabitTrackingType.counter;
+    if (!supportsDurationFor(key)) return HabitTrackingType.checkbox;
+    final configured = trackingTypeMap[key];
+    if (configured != null) return configured;
+    if (key == 'reading' || key == 'language') {
+      return HabitTrackingType.duration;
+    }
+    return HabitTrackingType.checkbox;
+  }
+
+  /// 目前只有阅读、学语言和自定义习惯支持累计时长。
+  static bool supportsDurationFor(String key) {
+    return key == 'reading' || key == 'language' || key.startsWith('custom_');
+  }
+
+  /// 获取计时型习惯每日目标，未设置时返回 null。
+  int? durationDailyTargetFor(String key) {
+    if (trackingTypeFor(key) != HabitTrackingType.duration) return null;
+    return _validDurationTarget(durationDailyTargetMap[key]);
+  }
+
+  /// 获取计时型习惯长期目标，未设置时返回 null。
+  int? durationLifetimeTargetFor(String key) {
+    if (trackingTypeFor(key) != HabitTrackingType.duration) return null;
+    return _validDurationTarget(durationLifetimeTargetMap[key]);
+  }
+
   // ── 修改方法 ──
 
   /// 更新单个习惯的全部字段。
@@ -142,6 +233,9 @@ class HabitSettings {
     String? icon,
     int? color,
     int? target,
+    HabitTrackingType? trackingType,
+    int? durationDailyTargetMinutes,
+    int? durationLifetimeTargetMinutes,
   }) {
     final newStatus = Map<String, bool>.from(statusMap);
     if (active != null) newStatus[key] = active;
@@ -186,12 +280,65 @@ class HabitSettings {
       }
     }
 
+    final newTrackingTypes = Map<String, HabitTrackingType>.from(
+      trackingTypeMap,
+    );
+    if (trackingType != null &&
+        supportsDurationFor(key) &&
+        key != 'water' &&
+        key != 'steps' &&
+        trackingType != HabitTrackingType.counter) {
+      final defaultType = key == 'reading' || key == 'language'
+          ? HabitTrackingType.duration
+          : HabitTrackingType.checkbox;
+      if (trackingType == defaultType) {
+        newTrackingTypes.remove(key);
+      } else {
+        newTrackingTypes[key] = trackingType;
+      }
+    } else if (trackingType != null) {
+      newTrackingTypes.remove(key);
+    }
+
+    final newDurationDailyTargets = Map<String, int>.from(
+      durationDailyTargetMap,
+    );
+    if (durationDailyTargetMinutes != null) {
+      if (supportsDurationFor(key)) {
+        _updateDurationTarget(
+          newDurationDailyTargets,
+          key,
+          durationDailyTargetMinutes,
+        );
+      } else {
+        newDurationDailyTargets.remove(key);
+      }
+    }
+
+    final newDurationLifetimeTargets = Map<String, int>.from(
+      durationLifetimeTargetMap,
+    );
+    if (durationLifetimeTargetMinutes != null) {
+      if (supportsDurationFor(key)) {
+        _updateDurationTarget(
+          newDurationLifetimeTargets,
+          key,
+          durationLifetimeTargetMinutes,
+        );
+      } else {
+        newDurationLifetimeTargets.remove(key);
+      }
+    }
+
     return HabitSettings(
       statusMap: newStatus,
       displayNameMap: newDisplayName,
       iconMap: newIcon,
       colorMap: newColor,
       targetMap: newTargets,
+      trackingTypeMap: newTrackingTypes,
+      durationDailyTargetMap: newDurationDailyTargets,
+      durationLifetimeTargetMap: newDurationLifetimeTargets,
       waterQuickAmounts: waterQuickAmounts,
       extraHabits: extraHabits,
       customHabitAliases: customHabitAliases,
@@ -231,12 +378,25 @@ class HabitSettings {
     final newTargets = Map<String, int>.from(targetMap);
     newTargets.remove(key);
 
+    final newTrackingTypes = Map<String, HabitTrackingType>.from(
+      trackingTypeMap,
+    )..remove(key);
+    final newDurationDailyTargets = Map<String, int>.from(
+      durationDailyTargetMap,
+    )..remove(key);
+    final newDurationLifetimeTargets = Map<String, int>.from(
+      durationLifetimeTargetMap,
+    )..remove(key);
+
     return HabitSettings(
       statusMap: newStatus,
       displayNameMap: newDisplayName,
       iconMap: newIcon,
       colorMap: newColor,
       targetMap: newTargets,
+      trackingTypeMap: newTrackingTypes,
+      durationDailyTargetMap: newDurationDailyTargets,
+      durationLifetimeTargetMap: newDurationLifetimeTargets,
       waterQuickAmounts: key == 'water'
           ? defaultWaterQuickAmounts
           : waterQuickAmounts,
@@ -255,6 +415,9 @@ class HabitSettings {
     Map<String, String>? iconMap,
     Map<String, int>? colorMap,
     Map<String, int>? targetMap,
+    Map<String, HabitTrackingType>? trackingTypeMap,
+    Map<String, int>? durationDailyTargetMap,
+    Map<String, int>? durationLifetimeTargetMap,
     List<int>? waterQuickAmounts,
     Map<String, String>? extraHabits,
     Map<String, List<String>>? customHabitAliases,
@@ -265,6 +428,11 @@ class HabitSettings {
       iconMap: iconMap ?? this.iconMap,
       colorMap: colorMap ?? this.colorMap,
       targetMap: targetMap ?? this.targetMap,
+      trackingTypeMap: trackingTypeMap ?? this.trackingTypeMap,
+      durationDailyTargetMap:
+          durationDailyTargetMap ?? this.durationDailyTargetMap,
+      durationLifetimeTargetMap:
+          durationLifetimeTargetMap ?? this.durationLifetimeTargetMap,
       waterQuickAmounts: waterQuickAmounts ?? this.waterQuickAmounts,
       extraHabits: extraHabits ?? this.extraHabits,
       customHabitAliases: customHabitAliases ?? this.customHabitAliases,
@@ -287,6 +455,13 @@ class HabitSettings {
             entry.value <= maxCounterTarget,
       ),
     ),
+    'trackingTypeMap': {
+      for (final entry in trackingTypeMap.entries)
+        if (entry.key != 'water' && entry.key != 'steps')
+          entry.key: entry.value.name,
+    },
+    'durationDailyTargetMap': _validTargetMap(durationDailyTargetMap),
+    'durationLifetimeTargetMap': _validTargetMap(durationLifetimeTargetMap),
     'waterQuickAmounts': waterQuickAmounts,
     'extraHabits': extraHabits,
     'customHabitAliases': customHabitAliases,
@@ -361,9 +536,80 @@ class HabitSettings {
     final v5Settings = v4Settings.copyWith(targetMap: targetMap);
     if (version < 6) return v5Settings;
 
-    return v5Settings.copyWith(
+    final v6Settings = v5Settings.copyWith(
       waterQuickAmounts: _parseWaterQuickAmounts(json['waterQuickAmounts']),
     );
+    if (version < 7) return v6Settings;
+
+    final trackingTypeMap = _parseTrackingTypeMap(json['trackingTypeMap']);
+    final durationDailyTargetMap = _parseDurationTargetMap(
+      json['durationDailyTargetMap'],
+    );
+    final durationLifetimeTargetMap = _parseDurationTargetMap(
+      json['durationLifetimeTargetMap'],
+    );
+    return v6Settings.copyWith(
+      trackingTypeMap: trackingTypeMap,
+      durationDailyTargetMap: durationDailyTargetMap,
+      durationLifetimeTargetMap: durationLifetimeTargetMap,
+    );
+  }
+
+  static int? _validDurationTarget(int? value) {
+    if (value == null || value <= 0 || value > maxDurationTarget) return null;
+    return value;
+  }
+
+  static void _updateDurationTarget(
+    Map<String, int> targetMap,
+    String key,
+    int value,
+  ) {
+    final valid = _validDurationTarget(value);
+    if (valid == null) {
+      targetMap.remove(key);
+    } else {
+      targetMap[key] = valid;
+    }
+  }
+
+  static Map<String, int> _validTargetMap(Map<String, int> source) {
+    return Map.fromEntries(
+      source.entries.where(
+        (entry) =>
+            _validDurationTarget(entry.value) != null &&
+            entry.key != 'water' &&
+            entry.key != 'steps',
+      ),
+    );
+  }
+
+  static Map<String, HabitTrackingType> _parseTrackingTypeMap(Object? raw) {
+    if (raw is! Map) return {};
+    final result = <String, HabitTrackingType>{};
+    for (final entry in raw.entries) {
+      if (entry.key is! String || entry.value is! String) continue;
+      if (!supportsDurationFor(entry.key as String)) continue;
+      final type = HabitTrackingType.values.where(
+        (candidate) => candidate.name == entry.value,
+      );
+      if (type.isEmpty || type.single == HabitTrackingType.counter) continue;
+      result[entry.key as String] = type.single;
+    }
+    return result;
+  }
+
+  static Map<String, int> _parseDurationTargetMap(Object? raw) {
+    if (raw is! Map) return {};
+    final result = <String, int>{};
+    for (final entry in raw.entries) {
+      if (entry.key is! String || entry.value is! num) continue;
+      final value = (entry.value as num).toInt();
+      if (entry.value != value) continue;
+      final valid = _validDurationTarget(value);
+      if (valid != null) result[entry.key as String] = valid;
+    }
+    return result;
   }
 
   static List<int> _parseWaterQuickAmounts(Object? raw) {

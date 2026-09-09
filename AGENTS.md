@@ -60,7 +60,8 @@ Flutter 原生组件
 
 Flutter 端已建立的领域组件：
 
-- 习惯打卡 → `HabitCard`（checkbox toggle + counter 快捷按钮）
+- 习惯打卡 → `HabitCard`（checkbox/counter/duration 追踪）
+- 专注计时 → `FocusTimerController` + `FocusTimerScreen`（单会话时间戳计时与保存确认）
 - 随手记 → `QuickNoteTimeline`（条目渲染 + 编辑/删除）
 - 焦虑时刻 → `AnxietyCard` / `AnxietyComposer`
 - 快速记录入口 → 今日页右下角 FAB 扇形菜单，统一进入 `QuickCaptureScreen`、`AnxietyScreen` 或图片上传
@@ -221,7 +222,7 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前状态：363 项 Flutter 测试全部通过，analyze 零问题；服务端 31 项测试全部通过。
+当前状态：397 项 Flutter 测试全部通过，analyze 零问题；服务端 34 项测试全部通过。当前工作区的专注计时功能尚未递增发布版本，真机安装与验收由用户自行执行。
 
 ## 数据完整性规则
 
@@ -238,6 +239,9 @@ flutter test
 - **AI 润色分场景**：普通入口（quickNote/reflection/happiness）走 `polish()`，返回 tags；焦虑走 `polishPlainText()`，不含标签。
 - **标签配置兜底**：`TagRepository.loadTagConfig()` 失败时必须返回 `DefaultTagConfig.value`；缓存读写失败不能让标签功能不可用。
 - **create 文件格式**：Flutter 不本地拼 Markdown 模板，服务端 `POST /api/v1/diary/create` 负责生成。
+- **习惯时长写入**：阅读/亲子阅读、学语言和自定义习惯才允许使用 duration；计时结果由服务端写入可读的 `N 分钟` Markdown 行，更新优先匹配 Parser 提供的 `rawLine`，并使用 `operationId` 防止重试重复累加。
+- **计时会话归属**：客户端只保留一个活动计时会话，持久化开始/暂停时间戳以支持后台、锁屏和重启恢复；保存按开始日期归属，按完整分钟落盘，少于 1 分钟不写入。
+- **旧习惯兼容**：没有分钟信息的旧 checkbox 记录继续保留完成和连续记录语义，但 duration 统计中的累计与平均值保持未知，不根据 checkbox 时长猜测。
 - **不泄露 API Key**：不在 toString、error、log、SnackBar、test failure message 中出现。
 
 ## 项目文档

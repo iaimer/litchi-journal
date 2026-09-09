@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'flora_icon.dart';
 
 import '../models/diary_document.dart';
+import '../models/focus_timer.dart';
 import '../models/habit_settings.dart';
 import '../models/image_upload_item.dart';
 import '../models/tag_config.dart';
@@ -52,6 +53,19 @@ class DiaryMarkdownView extends StatelessWidget {
   /// 正向习惯操作保存成功后的完成反馈。
   final VoidCallback? onPositiveFeedback;
   final Future<bool> Function(List<int> amounts)? onWaterQuickAmountsChanged;
+  final Future<bool> Function(HabitTimerTarget target)? onStartDuration;
+  final Future<bool> Function(
+    HabitTimerTarget target,
+    int minutes,
+    bool replace,
+  )?
+  onDurationUpdate;
+  final Future<bool> Function(
+    HabitStatus status,
+    Map<String, bool> checkboxStates,
+    Map<String, int> durationStates,
+  )?
+  onCustomDurationUpdate;
   final List<ImageUploadItem> imageUploads;
   final ValueChanged<ImageUploadItem>? onImageUploadRetry;
   final ValueChanged<ImageUploadItem>? onImageUploadRemove;
@@ -76,6 +90,9 @@ class DiaryMarkdownView extends StatelessWidget {
     this.onCustomCheckboxToggle,
     this.onPositiveFeedback,
     this.onWaterQuickAmountsChanged,
+    this.onStartDuration,
+    this.onDurationUpdate,
+    this.onCustomDurationUpdate,
     this.imageUploads = const [],
     this.onImageUploadRetry,
     this.onImageUploadRemove,
@@ -196,6 +213,10 @@ class DiaryMarkdownView extends StatelessWidget {
           onCustomCheckboxToggle: onCustomCheckboxToggle,
           onPositiveFeedback: onPositiveFeedback,
           onWaterQuickAmountsChanged: onWaterQuickAmountsChanged,
+          onStartDuration: onStartDuration,
+          onDurationUpdate: onDurationUpdate,
+          onCustomDurationUpdate: onCustomDurationUpdate,
+          diaryDate: date,
         );
       case QuickNoteSection():
         final accentColor = _accentColorFor(section);

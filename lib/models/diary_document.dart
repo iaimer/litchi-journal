@@ -221,7 +221,7 @@ class SubSectionContent extends DiaryContent {
   bool get hasRealContent => false;
 }
 
-enum HabitKind { checkbox, counter }
+enum HabitKind { checkbox, counter, duration }
 
 class HabitItem {
   final HabitKind kind;
@@ -263,6 +263,8 @@ class HabitStatus {
   final bool reading;
   final bool language;
   final bool supplements;
+  final int readingMinutes;
+  final int languageMinutes;
 
   const HabitStatus({
     required this.water,
@@ -270,6 +272,8 @@ class HabitStatus {
     required this.reading,
     required this.language,
     required this.supplements,
+    this.readingMinutes = 0,
+    this.languageMinutes = 0,
   });
 
   factory HabitStatus.fromHabitSection(HabitSection section) {
@@ -278,6 +282,8 @@ class HabitStatus {
     bool reading = false;
     bool language = false;
     bool supplements = false;
+    int readingMinutes = 0;
+    int languageMinutes = 0;
 
     for (final item in section.habits) {
       switch (item.habitKey) {
@@ -287,8 +293,10 @@ class HabitStatus {
           steps = item.value ?? 0;
         case 'reading':
           reading = item.checked;
+          readingMinutes = item.value ?? 0;
         case 'language':
           language = item.checked;
+          languageMinutes = item.value ?? 0;
         case 'supplements':
           supplements = item.checked;
         default:
@@ -302,6 +310,8 @@ class HabitStatus {
       reading: reading,
       language: language,
       supplements: supplements,
+      readingMinutes: readingMinutes,
+      languageMinutes: languageMinutes,
     );
   }
 
@@ -311,6 +321,8 @@ class HabitStatus {
     bool? reading,
     bool? language,
     bool? supplements,
+    int? readingMinutes,
+    int? languageMinutes,
   }) {
     return HabitStatus(
       water: water ?? this.water,
@@ -318,6 +330,8 @@ class HabitStatus {
       reading: reading ?? this.reading,
       language: language ?? this.language,
       supplements: supplements ?? this.supplements,
+      readingMinutes: readingMinutes ?? this.readingMinutes,
+      languageMinutes: languageMinutes ?? this.languageMinutes,
     );
   }
 }

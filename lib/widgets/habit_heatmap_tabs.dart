@@ -102,6 +102,15 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
             fontWeight: FontWeight.w500,
           ),
         ),
+        if (_selected.type == HabitStatType.duration) ...[
+          const SizedBox(width: 12),
+          Text(
+            '累计 ${_formatMinutes(_selected.lifetimeValue)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -134,6 +143,8 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
                 }
                 final done = _selected.type == HabitStatType.boolean
                     ? values[index] == 1
+                    : _selected.recent30Completed.length > index
+                    ? _selected.recent30Completed[index]
                     : values[index] > 0;
 
                 return Container(
@@ -169,6 +180,17 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
         final unit = _unit(_selected.key);
         text = '最近 30 天，平均每天${_selected.displayName} $avg $unit。';
       }
+    } else if (_selected.type == HabitStatType.duration) {
+      final knownDays = _selected.lifetimeKnownDays > 0
+          ? _selected.lifetimeKnownDays
+          : _selected.recent30Values.where((v) => v > 0).length;
+      if (knownDays == 0) {
+        text = '最近 30 天还没有可统计的时长。';
+      } else {
+        text =
+            '最近 30 天，平均每天专注 ${_formatMinutes(_selected.averageValue.round())}；'
+            '累计 ${_formatMinutes(_selected.lifetimeValue)}。';
+      }
     } else {
       text = '最近 30 天，完成了 ${_selected.completedDays30}/30 天。';
     }
@@ -191,6 +213,14 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
       default:
         return '';
     }
+  }
+
+  String _formatMinutes(num minutes) {
+    final whole = minutes.round();
+    if (whole < 60) return '$whole 分钟';
+    final hours = whole ~/ 60;
+    final rest = whole % 60;
+    return rest == 0 ? '$hours 小时' : '$hours 小时 $rest 分钟';
   }
 }
 

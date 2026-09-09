@@ -11,16 +11,18 @@ import 'habit_visual_config.dart';
 /// - extraHabits: 自定义习惯注册表（customKey → 初始显示名）
 /// - customHabitAliases: 自定义习惯历史名称（用于统计时匹配 Markdown）
 ///
-/// schemaVersion: 5（新增内置计数习惯目标）
+/// schemaVersion: 6（新增饮水快捷水量）
 class HabitSettings {
   /// schema 版本，用于兼容旧配置。
-  static const schemaVersion = 5;
+  static const schemaVersion = 6;
 
   /// 首页进度条使用的默认每日目标，目标仅属于现有内置计数习惯。
   static const defaultTargets = <String, int>{'water': 1500, 'steps': 6000};
 
   /// 与服务端计数写入上限保持一致，避免异常配置破坏首页布局。
   static const maxCounterTarget = 500000;
+
+  static const defaultWaterQuickAmounts = <int>[250, 475, 500];
 
   /// 习惯 key → isActive
   final Map<String, bool> statusMap;
@@ -38,6 +40,9 @@ class HabitSettings {
   /// 只保存用户改过且不同于默认值的覆盖项。
   final Map<String, int> targetMap;
 
+  /// 饮水快捷添加量，始终为 3 个升序、不重复的正整数。
+  final List<int> waterQuickAmounts;
+
   /// 自定义习惯注册表：customKey → 初始显示名。
   /// 仅存储 key 和默认名。状态、图标、颜色仍用 statusMap / iconMap / colorMap 管理。
   final Map<String, String> extraHabits;
@@ -53,6 +58,7 @@ class HabitSettings {
     this.iconMap = const {},
     this.colorMap = const {},
     this.targetMap = const {},
+    this.waterQuickAmounts = defaultWaterQuickAmounts,
     this.extraHabits = const {},
     this.customHabitAliases = const {},
   });
@@ -88,8 +94,10 @@ class HabitSettings {
 
   /// 所有可管理习惯的 key：5 个内置 + 所有已注册自定义习惯。
   /// 今日页用 activeKeys，设置页用此列表确保归档习惯不丢失。
-  List<String> get manageableKeys =>
-      [...HabitVisualConfig.defaults.keys, ...extraHabits.keys];
+  List<String> get manageableKeys => [
+    ...HabitVisualConfig.defaults.keys,
+    ...extraHabits.keys,
+  ];
 
   // ── 视觉配置 ──
 
@@ -184,6 +192,7 @@ class HabitSettings {
       iconMap: newIcon,
       colorMap: newColor,
       targetMap: newTargets,
+      waterQuickAmounts: waterQuickAmounts,
       extraHabits: extraHabits,
       customHabitAliases: customHabitAliases,
     );
@@ -228,6 +237,9 @@ class HabitSettings {
       iconMap: newIcon,
       colorMap: newColor,
       targetMap: newTargets,
+      waterQuickAmounts: key == 'water'
+          ? defaultWaterQuickAmounts
+          : waterQuickAmounts,
       extraHabits: extraHabits,
       customHabitAliases: customHabitAliases,
     );
@@ -243,6 +255,7 @@ class HabitSettings {
     Map<String, String>? iconMap,
     Map<String, int>? colorMap,
     Map<String, int>? targetMap,
+    List<int>? waterQuickAmounts,
     Map<String, String>? extraHabits,
     Map<String, List<String>>? customHabitAliases,
   }) {
@@ -252,6 +265,7 @@ class HabitSettings {
       iconMap: iconMap ?? this.iconMap,
       colorMap: colorMap ?? this.colorMap,
       targetMap: targetMap ?? this.targetMap,
+      waterQuickAmounts: waterQuickAmounts ?? this.waterQuickAmounts,
       extraHabits: extraHabits ?? this.extraHabits,
       customHabitAliases: customHabitAliases ?? this.customHabitAliases,
     );
@@ -273,6 +287,7 @@ class HabitSettings {
             entry.value <= maxCounterTarget,
       ),
     ),
+    'waterQuickAmounts': waterQuickAmounts,
     'extraHabits': extraHabits,
     'customHabitAliases': customHabitAliases,
   };
@@ -314,8 +329,9 @@ class HabitSettings {
     final customHabitAliases = <String, List<String>>{};
     for (final entry in rawAliases.entries) {
       if (entry.value is List) {
-        customHabitAliases[entry.key] =
-            (entry.value as List).whereType<String>().toList();
+        customHabitAliases[entry.key] = (entry.value as List)
+            .whereType<String>()
+            .toList();
       }
     }
 
@@ -342,7 +358,28 @@ class HabitSettings {
       }
     }
 
-    return v4Settings.copyWith(targetMap: targetMap);
+    final v5Settings = v4Settings.copyWith(targetMap: targetMap);
+    if (version < 6) return v5Settings;
+
+    return v5Settings.copyWith(
+      waterQuickAmounts: _parseWaterQuickAmounts(json['waterQuickAmounts']),
+    );
+  }
+
+  static List<int> _parseWaterQuickAmounts(Object? raw) {
+    if (raw is! List || raw.length != 3) return defaultWaterQuickAmounts;
+    final numericValues = raw.whereType<num>().toList();
+    if (numericValues.any((value) => value != value.toInt())) {
+      return defaultWaterQuickAmounts;
+    }
+    final values = numericValues.map((value) => value.toInt()).toList();
+    if (values.length != 3 ||
+        values.any((value) => value <= 0 || value > maxCounterTarget) ||
+        values.toSet().length != 3) {
+      return defaultWaterQuickAmounts;
+    }
+    values.sort();
+    return values;
   }
 
   static HabitSettings _parseV2(

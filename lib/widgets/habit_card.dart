@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'flora_icon.dart';
-
 import '../models/diary_document.dart';
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 import '../theme/app_theme.dart';
 import 'habit_icon.dart';
+import 'habit_water_sheet.dart';
 import 'section_card.dart';
 
 class HabitCard extends StatefulWidget {
@@ -28,6 +27,9 @@ class HabitCard extends StatefulWidget {
   /// 正向习惯操作保存成功后的完成反馈。
   final VoidCallback? onPositiveFeedback;
 
+  /// 保存全局饮水快捷量。
+  final Future<bool> Function(List<int> amounts)? onWaterQuickAmountsChanged;
+
   const HabitCard({
     super.key,
     required this.section,
@@ -37,6 +39,7 @@ class HabitCard extends StatefulWidget {
     this.habitSettings,
     this.onCustomCheckboxToggle,
     this.onPositiveFeedback,
+    this.onWaterQuickAmountsChanged,
   });
 
   @override
@@ -120,62 +123,21 @@ class _HabitCardState extends State<HabitCard> {
     _update(next, field);
   }
 
-  void _handleWaterIncrement(HabitStatus next) {
-    _update(next, 'water');
-  }
-
-  Future<void> _handleWaterCustom(HabitStatus currentStatus) async {
-    final controller = TextEditingController();
-    String? error;
-
-    final result = await showDialog<int>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: const Text('自定义饮水量'),
-            content: TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: '输入毫升数',
-                border: const OutlineInputBorder(),
-                errorText: error,
-              ),
-              onChanged: (_) => setDialogState(() => error = null),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final text = controller.text.trim();
-                  if (text.isEmpty) {
-                    setDialogState(() => error = '请输入毫升数');
-                    return;
-                  }
-                  final value = int.tryParse(text);
-                  if (value == null || value <= 0) {
-                    setDialogState(() => error = '请输入有效的正整数');
-                    return;
-                  }
-                  Navigator.pop(ctx, value);
-                },
-                child: const Text('确认'),
-              ),
-            ],
-          );
-        },
-      ),
+  Future<void> _handleWaterSheet(Color color) async {
+    if (_updatingField != null) return;
+    final result = await showHabitWaterSheet(
+      context,
+      current: _status.water,
+      quickAmounts: _settings.waterQuickAmounts,
+      accentColor: color,
+      onQuickAmountsChanged: widget.onWaterQuickAmountsChanged,
     );
-
-    if (result != null && result > 0) {
-      final next = currentStatus.copyWith(water: currentStatus.water + result);
-      _update(next, 'water');
-    }
+    if (!mounted || result == null) return;
+    final nextWater = result.type == HabitWaterActionType.clear
+        ? 0
+        : _status.water + result.amount;
+    if (nextWater == _status.water) return;
+    _update(_status.copyWith(water: nextWater), 'water');
   }
 
   Future<void> _handleStepsEdit() async {
@@ -377,8 +339,8 @@ class _HabitCardState extends State<HabitCard> {
             icon: _icon(habit),
             target: _settings.targetFor(habit.habitKey!),
             progressColor: Color(_settings.colorFor(habit.habitKey!)),
-            onIncrement: (next) => _handleWaterIncrement(next),
-            onCustom: () => _handleWaterCustom(status),
+            onOpen: () =>
+                _handleWaterSheet(Color(_settings.colorFor(habit.habitKey!))),
           );
         }
         final habitKey = habit.habitKey;
@@ -454,7 +416,7 @@ class _HabitCardState extends State<HabitCard> {
             loading: false,
             displayName: _displayName(habit),
             icon: _icon(habit),
-            onIncrement: (_) {},
+            onOpen: null,
           );
         }
         return _StepsCounterRow(
@@ -543,8 +505,7 @@ class _WaterCounterRow extends StatelessWidget {
   final String? icon;
   final int? target;
   final Color? progressColor;
-  final void Function(HabitStatus next) onIncrement;
-  final VoidCallback? onCustom;
+  final VoidCallback? onOpen;
 
   const _WaterCounterRow({
     required this.habit,
@@ -554,8 +515,7 @@ class _WaterCounterRow extends StatelessWidget {
     this.icon,
     this.target,
     this.progressColor,
-    required this.onIncrement,
-    this.onCustom,
+    this.onOpen,
   });
 
   @override
@@ -573,6 +533,9 @@ class _WaterCounterRow extends StatelessWidget {
             target: target!,
             unit: unit,
             color: progressColor ?? theme.colorScheme.primary,
+            onTap: onOpen,
+            enabled: !loading,
+            tapHint: '点击快捷记录饮水',
           );
 
     return Padding(
@@ -599,53 +562,12 @@ class _WaterCounterRow extends StatelessWidget {
           if (progress != null) ...[
             const SizedBox(height: 6),
             progress,
-            const SizedBox(height: 4),
           ] else ...[
             const SizedBox(height: 6),
           ],
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              _QuickButton(
-                label: '+250',
-                color: progressColor ?? theme.colorScheme.primary,
-                onTap: loading ? null : () => onIncrement(_add(250)),
-              ),
-              _QuickButton(
-                label: '+475',
-                color: progressColor ?? theme.colorScheme.primary,
-                onTap: loading ? null : () => onIncrement(_add(475)),
-              ),
-              _QuickButton(
-                label: '+500',
-                color: progressColor ?? theme.colorScheme.primary,
-                onTap: loading ? null : () => onIncrement(_add(500)),
-              ),
-              if (onCustom != null)
-                _QuickButton(
-                  label: '自定义',
-                  color: progressColor ?? theme.colorScheme.primary,
-                  variant: _QuickButtonVariant.outline,
-                  onTap: loading ? null : onCustom,
-                ),
-              _QuickButton(
-                label: '清零',
-                color: progressColor ?? theme.colorScheme.primary,
-                variant: _QuickButtonVariant.neutral,
-                onTap: loading
-                    ? null
-                    : () => onIncrement(status.copyWith(water: 0)),
-              ),
-            ],
-          ),
         ],
       ),
     );
-  }
-
-  HabitStatus _add(int amount) {
-    return status.copyWith(water: status.water + amount);
   }
 }
 
@@ -677,61 +599,41 @@ class _StepsCounterRow extends StatelessWidget {
         ? habit.unit!.trim()
         : '步';
 
-    return InkWell(
-      onTap: loading ? null : onEdit,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (icon != null) ...[
-                  HabitIcon(
-                    icon!,
-                    size: 16,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                Expanded(
-                  child: Text(
-                    target == null
-                        ? '$displayName ${status.steps} $unit'
-                        : displayName,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-                  ),
-                ),
-                Text(
-                  '编辑',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                const FloraIcon(
-                  FloraIcons.edit,
-                  size: 14,
-                  color: AppColors.primary,
-                ),
-              ],
-            ),
-            if (target != null) ...[
-              const SizedBox(height: 6),
-              _HabitProgressBar(
-                key: const ValueKey('habit_progress_steps'),
-                label: displayName,
-                current: status.steps,
-                target: target!,
-                unit: unit,
-                color: progressColor ?? theme.colorScheme.primary,
-              ),
+            if (icon != null) ...[
+              HabitIcon(icon!, size: 16, color: theme.colorScheme.onSurface),
+              const SizedBox(width: 4),
             ],
+            Expanded(
+              child: Text(
+                target == null
+                    ? '$displayName ${status.steps} $unit'
+                    : displayName,
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+              ),
+            ),
           ],
         ),
-      ),
+        if (target != null) ...[
+          const SizedBox(height: 2),
+          _HabitProgressBar(
+            key: const ValueKey('habit_progress_steps'),
+            label: displayName,
+            current: status.steps,
+            target: target!,
+            unit: unit,
+            color: progressColor ?? theme.colorScheme.primary,
+            onTap: onEdit,
+            enabled: !loading,
+            tapHint: '点击编辑步数',
+          ),
+        ],
+      ],
     );
   }
 }
@@ -742,6 +644,9 @@ class _HabitProgressBar extends StatelessWidget {
   final int target;
   final String unit;
   final Color color;
+  final VoidCallback? onTap;
+  final String? tapHint;
+  final bool enabled;
 
   const _HabitProgressBar({
     super.key,
@@ -750,6 +655,9 @@ class _HabitProgressBar extends StatelessWidget {
     required this.target,
     required this.unit,
     required this.color,
+    this.onTap,
+    this.tapHint,
+    this.enabled = true,
   });
 
   @override
@@ -763,64 +671,83 @@ class _HabitProgressBar extends StatelessWidget {
       theme.brightness == Brightness.dark ? 62 : 42,
     );
 
-    return Semantics(
-      label: '$label进度',
-      value: valueText,
-      excludeSemantics: true,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: SizedBox(
-                    height: 6,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ColoredBox(color: trackColor),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: AnimatedContainer(
-                            duration: MediaQuery.disableAnimationsOf(context)
-                                ? Duration.zero
-                                : const Duration(milliseconds: 200),
-                            curve: Curves.easeOutCubic,
-                            width: constraints.maxWidth * ratio,
-                            height: 6,
-                            color: color,
-                          ),
+    final progressRow = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return ClipRRect(
+                key: ValueKey('habit_progress_track_$label'),
+                borderRadius: BorderRadius.circular(3),
+                child: SizedBox(
+                  height: 6,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ColoredBox(color: trackColor),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: AnimatedContainer(
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
+                          width: constraints.maxWidth * ratio,
+                          height: 6,
+                          color: color,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 10),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 136),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Text(
-                valueText,
-                maxLines: 1,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color:
-                      theme.textTheme.bodySmall?.color ??
-                      theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
                 ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 96,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              valueText,
+              maxLines: 1,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color:
+                    theme.textTheme.bodySmall?.color ??
+                    theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+    final hasTapTarget = onTap != null;
+    final content = !hasTapTarget
+        ? progressRow
+        : InkWell(
+            onTap: enabled ? onTap : null,
+            excludeFromSemantics: true,
+            borderRadius: BorderRadius.circular(FloraRadius.sm),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: progressRow,
+            ),
+          );
+
+    return Semantics(
+      label: '$label进度',
+      value: valueText,
+      hint: enabled && hasTapTarget ? tapHint : null,
+      button: hasTapTarget,
+      enabled: enabled,
+      onTap: enabled ? onTap : null,
+      excludeSemantics: true,
+      child: content,
     );
   }
 }
@@ -1044,63 +971,5 @@ class _HabitCheckboxPainter extends CustomPainter {
     return oldDelegate.progress != progress ||
         oldDelegate.color != color ||
         oldDelegate.inactiveColor != inactiveColor;
-  }
-}
-
-enum _QuickButtonVariant { tonal, outline, neutral }
-
-class _QuickButton extends StatelessWidget {
-  final String label;
-  final Color color;
-  final _QuickButtonVariant variant;
-  final VoidCallback? onTap;
-
-  const _QuickButton({
-    required this.label,
-    required this.color,
-    this.variant = _QuickButtonVariant.tonal,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final backgroundColor = switch (variant) {
-      _QuickButtonVariant.tonal => color.withAlpha(isDark ? 52 : 34),
-      _QuickButtonVariant.outline ||
-      _QuickButtonVariant.neutral => Colors.transparent,
-    };
-    final borderColor = switch (variant) {
-      _QuickButtonVariant.tonal => color.withAlpha(isDark ? 82 : 62),
-      _QuickButtonVariant.outline => color.withAlpha(isDark ? 150 : 120),
-      _QuickButtonVariant.neutral => theme.dividerColor,
-    };
-
-    return SizedBox(
-      height: 36,
-      child: OutlinedButton(
-        key: ValueKey('habit_water_quick_$label'),
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: theme.colorScheme.onSurface,
-          disabledForegroundColor: theme.colorScheme.onSurface.withAlpha(90),
-          backgroundColor: backgroundColor,
-          disabledBackgroundColor: backgroundColor.withAlpha(isDark ? 24 : 16),
-          overlayColor: color.withAlpha(isDark ? 38 : 24),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          side: BorderSide(color: borderColor, width: 0.75),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(FloraRadius.md),
-          ),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
   }
 }

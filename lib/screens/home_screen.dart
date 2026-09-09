@@ -352,6 +352,29 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<bool> _handleWaterQuickAmountsChanged(List<int> amounts) async {
+    try {
+      final values = [...amounts]..sort();
+      if (values.length != 3 ||
+          values.toSet().length != 3 ||
+          values.any(
+            (value) => value <= 0 || value > HabitSettings.maxCounterTarget,
+          )) {
+        return false;
+      }
+      final settings = (_habitSettings ?? HabitSettings.defaults).copyWith(
+        waterQuickAmounts: values,
+      );
+      final repo = widget.habitSettingsRepo ?? HabitSettingsRepository();
+      await repo.save(settings);
+      if (!mounted) return true;
+      setState(() => _habitSettings = settings);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> _updateHabitsAPI(
     HabitStatus status, {
     Map<String, bool>? customStates,
@@ -1039,6 +1062,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _habitSettings ?? HabitSettings.defaults,
                             onCustomCheckboxToggle: _handleCustomCheckboxToggle,
                             onPositiveFeedback: _habitCompletionSound.play,
+                            onWaterQuickAmountsChanged:
+                                _handleWaterQuickAmountsChanged,
                             imageUploads: _imageUploads,
                             onImageUploadRetry: _retryImageUpload,
                             onImageUploadRemove: _removeImageUpload,
@@ -1060,6 +1085,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _habitSettings ?? HabitSettings.defaults,
                             onCustomCheckboxToggle: _handleCustomCheckboxToggle,
                             onPositiveFeedback: _habitCompletionSound.play,
+                            onWaterQuickAmountsChanged:
+                                _handleWaterQuickAmountsChanged,
                           ),
                         ],
                         const SizedBox(height: 96),

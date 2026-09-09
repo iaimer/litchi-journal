@@ -18,6 +18,10 @@
 - 首页定量习惯采用名称、进度条、当前值/目标值的层级，进度超过目标时视觉保持满格但保留实际数值。
 - 代码审查后将目标限制为与服务端一致的 `1–500000`，进度值改用主题文字色并去除重复读屏语义，最大目标在 320dp 窄屏仍保持单行可读。
 - 运动默认色调整为成长绿；饮水快捷输入改为与蓝色进度轨道一致的紧凑操作条，加水、自定义和清零使用不同视觉层级但保持同一尺寸语言。
+- 运动行移除重复的「编辑」文字与图标，标题改为纯展示；仅绿色进度条区域可点击编辑步数，并保留明确的读屏操作提示。
+- 饮水与运动进度条改用相同的固定数值栏宽度，确保轨道等长；饮水快捷按钮从卡片中移入点击进度条后展开的底部面板。
+- 底部面板上下均为三列等宽操作，设置按钮位于清零右侧；自定义水量和三个快捷量在同一面板内切换。
+- `HabitSettings` 升级到 schemaVersion 6，快捷水量默认为 250/475/500 mL，仅保存三个不重复的合法整数并按升序展示。
 - Android 应用显示名从开发期的「荔枝日记 dev」恢复为正式品牌名「荔枝日记」。
 - 保留已有静默乐观保存、失败回滚和正向操作完成音效，不修改 Markdown、服务端接口和统计判定。
 
@@ -27,6 +31,8 @@
 - `lib/models/habit_visual_config.dart`
 - `lib/screens/habit_edit_screen.dart`、`lib/screens/habit_settings_screen.dart`
 - `lib/widgets/habit_card.dart`
+- `lib/widgets/habit_water_sheet.dart`
+- `lib/widgets/diary_markdown_view.dart`、`lib/screens/home_screen.dart`
 - `android/app/src/main/AndroidManifest.xml`
 - `test/widget_test.dart`
 - `README.md`、`PLAN.md`、`SESSION_LOG.md`
@@ -40,11 +46,49 @@
 ### 最终结果
 
 - `flutter analyze` 通过，零问题。
-- `flutter test` 全部通过，共 377 项。
-- Release APK 构建通过：`build/app/outputs/flutter-apk/app-release.apk`，约 65.5 MB。
-- APK SHA-256：`0a9aff22aee057e455fd349c45ed1370d4bdcb2682e1b4b2b401a3ed54572623`。
+- `flutter test` 全部通过，共 381 项。
+- Release APK 构建通过：`build/app/outputs/flutter-apk/app-release.apk`，约 65.6 MB。
+- APK SHA-256：`3a8de2fc98908c18dbc6887da7314ac916d321058c23b64bee8a6d9e5158b8ba`。
 - 按用户要求未执行 ADB 安装、真机截图或 PLG110 真机测试。
-- 已通过快进合并进入 `main`，提交 `db7bb4f` 已推送至 `origin/main`。
+- 本轮改动保留在 `codex/water-quick-sheet-20260909` 功能分支，未合并、未推送。
+
+## 2026-09-09 延长首页习惯进度条
+
+### 讨论内容
+
+- 用户反馈饮水与运动进度条过短，且进度条与右侧数值之间存在大量空白。
+- 确认保持两条轨道等长，同时让数值紧接轨道显示。
+
+### 决策 & 原因
+
+- 共享固定数值栏宽度从 120dp 调整为 96dp，间距从 10dp 调整为 8dp。
+- 数值在固定栏内左对齐，把剩余空间移到数值右侧，避免视觉上割裂进度与数值。
+- 版本由 `1.6.4+23` 递增为 `1.6.5+24`。
+
+### 改动文件清单
+
+- `lib/widgets/habit_card.dart`
+- `test/widget_test.dart`
+- `pubspec.yaml`、`README.md`、`CHANGELOG.md`、`SESSION_LOG.md`
+
+## 2026-09-09 修复习惯保存期间行间距跳变
+
+### 讨论内容
+
+- 用户发现添加饮水记录后，饮水与运动习惯项目间距会在保存期间缩小，随后恢复。
+- 通过临时 Widget 回归测试测得间距从约 `49.85dp` 缩至 `37.85dp`，完成后恢复，确认变化稳定为 `12dp`。
+
+### 决策 & 原因
+
+- 根因是 `_HabitProgressBar` 在 loading 时把 `onTap` 变为 `null`，从可点击结构切换为裸进度行，连带移除了上下各 `6dp` 的内边距。
+- 保留 InkWell 和固定内边距，只将点击回调置为禁用；保存期间不允许重复操作，但布局高度保持稳定。
+- 版本由 `1.6.5+24` 递增为 `1.6.6+25`。
+
+### 改动文件清单
+
+- `lib/widgets/habit_card.dart`
+- `test/widget_test.dart`
+- `pubspec.yaml`、`README.md`、`CHANGELOG.md`、`SESSION_LOG.md`
 
 ---
 

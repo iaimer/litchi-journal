@@ -4207,6 +4207,9 @@ tags:
           ),
         );
 
+        expect(find.text('+250'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('+250'));
         await tester.pumpAndSettle();
         expect(find.text('750/1500 mL'), findsOneWidget);
@@ -4218,6 +4221,8 @@ tags:
         expect(feedbackCount, 1);
         expect(find.byType(CircularProgressIndicator), findsNothing);
 
+        await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('清零'));
         await tester.pumpAndSettle();
         expect(find.text('0/1500 mL'), findsOneWidget);
@@ -4258,6 +4263,8 @@ tags:
         ),
       );
 
+      await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('+250'));
       await tester.pump();
       expect(find.text('750/1500 mL'), findsOneWidget);
@@ -4450,6 +4457,9 @@ tags:
         ),
       );
 
+      expect(find.text('+250'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+      await tester.pumpAndSettle();
       expect(find.text('+250'), findsOneWidget);
       await tester.tap(find.text('+250'));
       await tester.pump();
@@ -4494,11 +4504,250 @@ tags:
         ),
       );
 
+      await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('清零'));
       await tester.pump();
 
       expect(called, isNotNull);
       expect(called!.water, 0);
+    });
+
+    testWidgets('water sheet uses two aligned rows and custom amount inline', (
+      tester,
+    ) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+        ],
+      );
+      HabitStatus? called;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (status) async {
+                called = status;
+                return true;
+              },
+              onWaterQuickAmountsChanged: (_) async => true,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+      await tester.pumpAndSettle();
+      final firstRowWidths = [250, 475, 500]
+          .map(
+            (amount) => tester
+                .getSize(find.byKey(ValueKey('habit_water_quick_$amount')))
+                .width,
+          )
+          .toList();
+      final secondRowWidths = [
+        tester.getSize(find.byKey(const ValueKey('habit_water_custom'))).width,
+        tester.getSize(find.byKey(const ValueKey('habit_water_clear'))).width,
+        tester
+            .getSize(find.byKey(const ValueKey('habit_water_settings')))
+            .width,
+      ];
+      for (final width in [...firstRowWidths, ...secondRowWidths]) {
+        expect(width, closeTo(firstRowWidths.first, 0.01));
+      }
+
+      await tester.tap(find.text('自定义'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('habit_water_sheet_custom')),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('habit_water_custom_input')),
+        '300',
+      );
+      await tester.tap(find.text('添加'));
+      await tester.pumpAndSettle();
+      expect(called?.water, 800);
+    });
+
+    testWidgets('water quick settings validate, sort, and return to actions', (
+      tester,
+    ) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+        ],
+      );
+      List<int>? saved;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (_) async => true,
+              onWaterQuickAmountsChanged: (amounts) async {
+                saved = amounts;
+                return true;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('habit_water_settings')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('habit_water_setting_1')),
+        '600',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('habit_water_setting_2')),
+        '300',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('habit_water_setting_3')),
+        '300',
+      );
+      await tester.tap(find.text('保存'));
+      await tester.pump();
+      expect(find.text('三个快捷量不能重复'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('habit_water_setting_3')),
+        '450',
+      );
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+      expect(saved, [300, 450, 600]);
+      expect(find.text('+300'), findsOneWidget);
+      expect(find.text('+450'), findsOneWidget);
+      expect(find.text('+600'), findsOneWidget);
+    });
+
+    testWidgets('water quick settings keep editor open when saving fails', (
+      tester,
+    ) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (_) async => true,
+              onWaterQuickAmountsChanged: (_) async => false,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('habit_water_settings')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('保存失败，请重试'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('habit_water_sheet_settings')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('water save keeps habit row spacing stable while pending', (
+      tester,
+    ) async {
+      final pendingSave = Completer<bool>();
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 500 mL',
+            value: 500,
+            unit: 'mL',
+          ),
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '运动/拉伸/快走',
+            checked: false,
+            checkable: false,
+            rawLine: '- 运动/拉伸/快走 3000 步',
+            value: 3000,
+            unit: '步',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (_) => pendingSave.future,
+            ),
+          ),
+        ),
+      );
+
+      double rowSpacing() =>
+          tester.getTopLeft(find.text('运动')).dy -
+          tester.getTopLeft(find.text('饮水')).dy;
+
+      final before = rowSpacing();
+      await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('+250'));
+      await tester.pump();
+
+      expect(rowSpacing(), closeTo(before, 0.01));
+
+      pendingSave.complete(true);
+      await tester.pumpAndSettle();
     });
 
     testWidgets('steps edit shows dialog and calls onUpdate with new value', (
@@ -4538,7 +4787,12 @@ tags:
       );
 
       expect(find.text('8000/6000 步'), findsOneWidget);
-      await tester.tap(find.text('编辑'));
+      expect(find.text('编辑'), findsNothing);
+      await tester.tap(find.text('运动'));
+      await tester.pump();
+      expect(find.text('输入今日步数'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('habit_progress_steps')));
       await tester.pumpAndSettle();
 
       // Dialog appears
@@ -4555,7 +4809,7 @@ tags:
       expect(called!.water, 0);
       expect(feedbackCount, 0);
 
-      await tester.tap(find.text('编辑'));
+      await tester.tap(find.byKey(const ValueKey('habit_progress_steps')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '9000');
       await tester.tap(find.text('保存'));
@@ -4630,8 +4884,21 @@ tags:
       expect(progressSemantics.label, contains('运动进度'));
       expect(progressSemantics.label, isNot(contains('3000/6000 步')));
       expect(progressSemantics.value, '3000/6000 步');
+      expect(progressSemantics.hint, '点击编辑步数');
       expect(HabitVisualConfig.of('steps').color, AppColors.success);
       expect(find.byType(CircularProgressIndicator), findsNothing);
+      final waterProgressWidth = tester
+          .getSize(find.byKey(const ValueKey('habit_progress_track_饮水')))
+          .width;
+      final stepsProgressWidth = tester
+          .getSize(find.byKey(const ValueKey('habit_progress_track_运动')))
+          .width;
+      expect(waterProgressWidth, stepsProgressWidth);
+      final waterTrackRect = tester.getRect(
+        find.byKey(const ValueKey('habit_progress_track_饮水')),
+      );
+      final waterValueRect = tester.getRect(find.text('3000/1500 mL'));
+      expect(waterValueRect.left - waterTrackRect.right, closeTo(8, 1));
       semantics.dispose();
     });
 
@@ -4676,18 +4943,19 @@ tags:
 
         expect(find.text('500000/500000 mL'), findsOneWidget);
         expect(tester.takeException(), isNull);
-        final quickButtonSize = tester.getSize(
-          find.byKey(const ValueKey('habit_water_quick_+250')),
-        );
-        expect(quickButtonSize.height, 36);
-        expect(quickButtonSize.width, greaterThanOrEqualTo(40));
-        final quickButton = tester.widget<OutlinedButton>(
-          find.byKey(const ValueKey('habit_water_quick_+250')),
-        );
+        expect(find.text('+250'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
+        await tester.pumpAndSettle();
+        expect(find.text('+250'), findsOneWidget);
+        expect(find.text('+475'), findsOneWidget);
+        expect(find.text('+500'), findsOneWidget);
+        expect(find.text('自定义'), findsOneWidget);
+        expect(find.text('清零'), findsOneWidget);
         expect(
-          quickButton.style?.backgroundColor?.resolve(<WidgetState>{})?.a,
-          greaterThan(0),
+          find.byKey(const ValueKey('habit_water_settings')),
+          findsOneWidget,
         );
+        expect(tester.takeException(), isNull);
       },
     );
 
@@ -4794,6 +5062,46 @@ tags:
       final reset = settings.resetHabit('water');
       expect(reset.targetFor('water'), 1500);
       expect(reset.targetFor('steps'), 7000);
+    });
+
+    test('migrates, validates, persists, and resets water quick amounts', () {
+      final migrated = HabitSettings.fromJson(const {
+        'schemaVersion': 5,
+        'statusMap': {'water': true},
+      });
+      expect(
+        migrated.waterQuickAmounts,
+        HabitSettings.defaultWaterQuickAmounts,
+      );
+
+      final restored = HabitSettings.fromJson(const {
+        'schemaVersion': 6,
+        'statusMap': {'water': true},
+        'waterQuickAmounts': [600, 300, 450],
+      });
+      expect(restored.waterQuickAmounts, [300, 450, 600]);
+      expect(restored.toJson()['waterQuickAmounts'], [300, 450, 600]);
+      expect(
+        restored.resetHabit('water').waterQuickAmounts,
+        HabitSettings.defaultWaterQuickAmounts,
+      );
+
+      for (final invalid in [
+        [250, 250, 500],
+        [0, 250, 500],
+        [250, 500, 500001],
+        [250, 475.5, 500],
+        [250, 500],
+      ]) {
+        final settings = HabitSettings.fromJson({
+          'schemaVersion': 6,
+          'waterQuickAmounts': invalid,
+        });
+        expect(
+          settings.waterQuickAmounts,
+          HabitSettings.defaultWaterQuickAmounts,
+        );
+      }
     });
   });
 

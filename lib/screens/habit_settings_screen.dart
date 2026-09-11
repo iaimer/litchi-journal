@@ -10,6 +10,7 @@ import '../widgets/flora_empty.dart';
 import '../widgets/flora_icon.dart';
 import '../widgets/habit_icon.dart';
 import 'habit_edit_screen.dart';
+import 'habit_dashboard_settings_screen.dart';
 
 /// 习惯设置页面。
 ///
@@ -17,19 +18,22 @@ import 'habit_edit_screen.dart';
 /// 每个习惯可点击进入编辑页修改名称/图标/颜色/状态。
 /// 归档后数据保留在历史中，可随时恢复。
 class HabitSettingsScreen extends StatefulWidget {
-  const HabitSettingsScreen({super.key});
+  final HabitSettingsRepository? repository;
+
+  const HabitSettingsScreen({super.key, this.repository});
 
   @override
   State<HabitSettingsScreen> createState() => HabitSettingsScreenState();
 }
 
 class HabitSettingsScreenState extends State<HabitSettingsScreen> {
-  final _repo = HabitSettingsRepository();
+  late final HabitSettingsRepository _repo;
   late HabitSettings _settings;
 
   @override
   void initState() {
     super.initState();
+    _repo = widget.repository ?? HabitSettingsRepository();
     _settings = HabitSettings.defaults;
     _load();
   }
@@ -53,6 +57,15 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
     }
   }
 
+  Future<void> _openDashboardSettings() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => HabitDashboardSettingsScreen(repository: _repo),
+      ),
+    );
+    if (result == true) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -62,30 +75,53 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
       body: HabitVisualConfig.defaults.isEmpty
           ? Center(child: const FloraEmpty(name: FloraIcons.emptyHabits))
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 说明文案
-            _buildDescription(theme),
-            const SizedBox(height: 16),
-            // 启用中的习惯
-            ..._buildActiveSection(theme),
-            // 已归档
-            ..._buildArchivedSection(theme),
-            const SizedBox(height: 16),
-            // 新增习惯入口
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _addNewHabit,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('新增习惯'),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 说明文案
+                  _buildDescription(theme),
+                  const SizedBox(height: 16),
+                  _buildDashboardEntry(theme),
+                  const SizedBox(height: 16),
+                  // 启用中的习惯
+                  ..._buildActiveSection(theme),
+                  // 已归档
+                  ..._buildArchivedSection(theme),
+                  const SizedBox(height: 16),
+                  // 新增习惯入口
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _addNewHabit,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('新增习惯'),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-          ],
+    );
+  }
+
+  Widget _buildDashboardEntry(ThemeData theme) {
+    final names = _settings.resolvedTrendDashboardHabitKeys
+        .map(_settings.displayNameFor)
+        .join('、');
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: const FloraIcon(FloraIcons.habits, size: 22),
+        title: const Text('仪表盘显示'),
+        subtitle: Text(
+          names.isEmpty ? '暂无启用习惯' : names,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall,
         ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: _openDashboardSettings,
       ),
     );
   }
@@ -158,10 +194,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
               const SizedBox(width: 12),
               // 名称
               Expanded(
-                child: Text(
-                  displayName,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                child: Text(displayName, style: theme.textTheme.bodyMedium),
               ),
               // 右箭头
               Icon(
@@ -182,11 +215,9 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
     return [
       _buildSectionHeader(theme, '启用中的习惯', keys.length),
       const SizedBox(height: 8),
-      ...keys.map((key) => _buildHabitRow(
-            theme,
-            key: key,
-            onTap: () => _openEdit(key),
-          )),
+      ...keys.map(
+        (key) => _buildHabitRow(theme, key: key, onTap: () => _openEdit(key)),
+      ),
     ];
   }
 
@@ -199,11 +230,9 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
       const SizedBox(height: 20),
       _buildSectionHeader(theme, '已归档', keys.length),
       const SizedBox(height: 8),
-      ...keys.map((key) => _buildHabitRow(
-            theme,
-            key: key,
-            onTap: () => _openEdit(key),
-          )),
+      ...keys.map(
+        (key) => _buildHabitRow(theme, key: key, onTap: () => _openEdit(key)),
+      ),
     ];
   }
 
@@ -229,5 +258,4 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
       ),
     );
   }
-
 }

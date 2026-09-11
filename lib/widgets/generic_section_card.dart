@@ -4,10 +4,12 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'flora_icon.dart';
 
 import '../models/diary_document.dart';
+import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
+import '../screens/quick_capture_screen.dart';
 import '../theme/app_theme.dart';
-import 'entry_edit_sheet.dart';
+import 'entry_type.dart';
 import 'section_card.dart';
 import 'tag_color_helper.dart';
 import 'timeline_action_sheet.dart';
@@ -27,6 +29,9 @@ class GenericSectionCard extends StatelessWidget {
   onTimelineEdit;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
+  final DateTime? recordDate;
+  final Future<PolishResult> Function(String content, EntryType entryType)?
+  onPolish;
 
   const GenericSectionCard({
     super.key,
@@ -36,6 +41,8 @@ class GenericSectionCard extends StatelessWidget {
     this.onTimelineEdit,
     this.tagConfig,
     this.tagSettings,
+    this.recordDate,
+    this.onPolish,
   });
 
   @override
@@ -115,6 +122,9 @@ class GenericSectionCard extends StatelessWidget {
             tagConfig: tagConfig,
             tagSettings: tagSettings,
             accentColor: accentColor,
+            recordDate: recordDate,
+            entryType: _entryTypeForSection(section),
+            onPolish: onPolish,
           ),
         );
       case MarkdownContent():
@@ -130,6 +140,12 @@ class GenericSectionCard extends StatelessWidget {
       default:
         break;
     }
+  }
+
+  EntryType? _entryTypeForSection(DiarySection section) {
+    if (section is ReviewSection) return EntryType.reflection;
+    if (section is HappinessSection) return EntryType.happiness;
+    return null;
   }
 
   MarkdownStyleSheet _baseStyleSheet(BuildContext context, {Color? textColor}) {
@@ -469,6 +485,10 @@ class _TimelineDeleteRow extends StatefulWidget {
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
   final Color? accentColor;
+  final DateTime? recordDate;
+  final EntryType? entryType;
+  final Future<PolishResult> Function(String content, EntryType entryType)?
+  onPolish;
 
   const _TimelineDeleteRow({
     required this.content,
@@ -477,6 +497,9 @@ class _TimelineDeleteRow extends StatefulWidget {
     this.tagConfig,
     this.tagSettings,
     this.accentColor,
+    this.recordDate,
+    this.entryType,
+    this.onPolish,
   });
 
   @override
@@ -525,19 +548,23 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
   }
 
   void _openEdit() {
-    if (widget.onEdit == null) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => EntryEditSheet(
-        initialContent: widget.content.text,
-        initialTime: widget.content.time,
-        initialTags: widget.content.tags,
-        tagConfig: widget.tagConfig,
-        tagSettings: widget.tagSettings,
-        onSave: (content, tags, time) async {
-          await widget.onEdit!(widget.content.rawLine, content, tags, time);
-        },
+    final entryType = widget.entryType;
+    if (widget.onEdit == null || entryType == null) return;
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => QuickCaptureScreen(
+          entryType: entryType,
+          openedAt: DateTime.now(),
+          recordDate: widget.recordDate,
+          initialContent: widget.content.text,
+          initialTime: widget.content.time,
+          initialTags: widget.content.tags,
+          tagConfig: widget.tagConfig,
+          tagSettings: widget.tagSettings,
+          onPolish: widget.onPolish,
+          onSave: (content, tags, time) =>
+              widget.onEdit!(widget.content.rawLine, content, tags, time),
+        ),
       ),
     );
   }

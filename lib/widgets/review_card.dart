@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/diary_document.dart';
+import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
+import 'entry_type.dart';
 import 'generic_section_card.dart';
 
 class ReviewCard extends StatelessWidget {
@@ -18,6 +20,9 @@ class ReviewCard extends StatelessWidget {
   onTimelineEdit;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
+  final DateTime? recordDate;
+  final Future<PolishResult> Function(String content, EntryType entryType)?
+  onPolish;
 
   const ReviewCard({
     super.key,
@@ -27,6 +32,8 @@ class ReviewCard extends StatelessWidget {
     this.onTimelineEdit,
     this.tagConfig,
     this.tagSettings,
+    this.recordDate,
+    this.onPolish,
   });
 
   @override
@@ -38,6 +45,8 @@ class ReviewCard extends StatelessWidget {
       onTimelineEdit: onTimelineEdit,
       tagConfig: tagConfig,
       tagSettings: tagSettings,
+      recordDate: recordDate,
+      onPolish: onPolish,
     );
   }
 }

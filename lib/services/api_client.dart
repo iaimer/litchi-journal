@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../models/diary_entry.dart';
 import '../models/gallery_result.dart';
 import '../models/history_month_result.dart';
+import '../models/habit_stats.dart';
 import '../models/tag_config.dart';
 import 'api_config.dart';
 
@@ -434,6 +435,31 @@ class ApiClient {
     return raw
         .whereType<Map<String, dynamic>>()
         .map(HabitDurationHistoryDay.fromJson)
+        .toList();
+  }
+
+  /// 获取指定日期区间内的每日习惯快照。
+  ///
+  /// 服务端只读取并解析 Markdown，不会因为统计请求创建日记或修改内容。
+  Future<List<HabitDayRecord>> fetchHabitStatsRange({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/stats/habit').replace(
+      queryParameters: {'from': formatDate(start), 'to': formatDate(end)},
+    );
+    final response = await _send(() => _http.get(uri, headers: _headers));
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _statusMessage('获取习惯趋势失败', response.statusCode),
+        statusCode: response.statusCode,
+      );
+    }
+    final raw = jsonDecode(response.body);
+    if (raw is! List) throw const FormatException('习惯趋势响应无效');
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(HabitDayRecord.fromJson)
         .toList();
   }
 

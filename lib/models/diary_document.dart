@@ -242,14 +242,42 @@ class HabitItem {
     this.unit,
   });
 
-  /// 从 label 推断习惯 key，用于数据映射和 UI 过滤。
-  /// 包含关系匹配：'饮' 匹配 '饮水'、'运动' 匹配 '运动步数' 等。
+  /// 从内置习惯的完整 label 推断 key，用于数据映射和 UI 过滤。
   static String? keyForLabel(String label) {
-    if (label.contains('饮')) return 'water';
-    if (label.contains('运动')) return 'steps';
-    if (label.contains('阅读')) return 'reading';
-    if (label.contains('语言')) return 'language';
-    if (label.contains('鱼油') || label.contains('植物甾醇')) return 'supplements';
+    final normalized = label
+        .trim()
+        .replaceFirst(RegExp(r'\s+\d+\s*(?:分钟|min)\s*$'), '')
+        .replaceAll(RegExp(r'\s*/\s*'), '/');
+    if ({'饮水', '🥛饮水', '🥛🥤饮水'}.contains(normalized)) return 'water';
+    if ({'运动', '运动/拉伸/快走', '🧘 运动/拉伸/快走'}.contains(normalized)) {
+      return 'steps';
+    }
+    if ({
+      '阅读',
+      '亲子共读',
+      '亲子阅读',
+      '阅读/亲子共读',
+      '📖 阅读',
+      '📖 亲子共读',
+      '📖 阅读/亲子共读',
+    }.contains(normalized)) {
+      return 'reading';
+    }
+    if ({'学语言', '🇬🇧 学语言', '💡 学语言'}.contains(normalized)) {
+      return 'language';
+    }
+    if ({
+      '鱼油',
+      '植物甾醇',
+      '鱼油/植物甾醇',
+      '补充剂',
+      '💊 鱼油',
+      '💊 植物甾醇',
+      '💊 鱼油/植物甾醇',
+      '💊 补充剂',
+    }.contains(normalized)) {
+      return 'supplements';
+    }
     return null;
   }
 

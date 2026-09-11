@@ -6,11 +6,13 @@ import '../models/diary_document.dart';
 import '../models/focus_timer.dart';
 import '../models/habit_settings.dart';
 import '../models/image_upload_item.dart';
+import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/api_client.dart';
 import '../services/markdown_parser.dart';
 import 'anxiety_card.dart';
+import 'entry_type.dart';
 import 'generic_section_card.dart';
 import 'habit_card.dart';
 import 'image_section_card.dart';
@@ -31,6 +33,8 @@ class DiaryMarkdownView extends StatelessWidget {
     String time,
   )?
   onEntryEdit;
+  final Future<PolishResult> Function(String content, EntryType entryType)?
+  onEntryPolish;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
   final ApiClient? apiClient;
@@ -77,6 +81,7 @@ class DiaryMarkdownView extends StatelessWidget {
     this.onHabitUpdate,
     this.onEntryDelete,
     this.onEntryEdit,
+    this.onEntryPolish,
     this.tagConfig,
     this.tagSettings,
     this.apiClient,
@@ -239,6 +244,8 @@ class DiaryMarkdownView extends StatelessWidget {
                 : null,
             tagConfig: tagConfig,
             tagSettings: tagSettings,
+            recordDate: date,
+            onPolish: onEntryPolish,
           ),
         );
       case AnxietySection():
@@ -259,6 +266,8 @@ class DiaryMarkdownView extends StatelessWidget {
               : null,
           tagConfig: tagConfig,
           tagSettings: tagSettings,
+          recordDate: date,
+          onPolish: onEntryPolish,
         );
       case ReviewSection():
         return ReviewCard(
@@ -273,6 +282,8 @@ class DiaryMarkdownView extends StatelessWidget {
               : null,
           tagConfig: tagConfig,
           tagSettings: tagSettings,
+          recordDate: date,
+          onPolish: onEntryPolish,
         );
       case CoachSection():
         return _buildCoachCard(section, context);

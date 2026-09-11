@@ -127,14 +127,18 @@ class HabitDayRecord {
   };
 
   factory HabitDayRecord.fromJson(Map<String, dynamic> json) {
-    final rawCustom =
-        json['customCheckboxes'] as Map<String, dynamic>? ?? const {};
+    final rawCustom = json['customCheckboxes'] is Map
+        ? Map<String, dynamic>.from(json['customCheckboxes'] as Map)
+        : const <String, dynamic>{};
     final customCheckboxes = <String, bool>{};
     for (final entry in rawCustom.entries) {
       customCheckboxes[entry.key] = entry.value as bool? ?? false;
     }
-    final rawDurations =
-        json['customDurationMinutes'] as Map<String, dynamic>? ?? const {};
+    final rawDurations = json['customDurationMinutes'] is Map
+        ? Map<String, dynamic>.from(json['customDurationMinutes'] as Map)
+        : json['customDurations'] is Map
+        ? Map<String, dynamic>.from(json['customDurations'] as Map)
+        : const <String, dynamic>{};
     final customDurationMinutes = <String, int>{};
     for (final entry in rawDurations.entries) {
       final value = entry.value;
@@ -146,11 +150,16 @@ class HabitDayRecord {
       date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime(2000),
       weekday: json['weekday'] as String? ?? '',
       hasDiary: json['hasDiary'] as bool? ?? false,
-      waterMl: json['waterMl'] as int? ?? 0,
-      steps: json['steps'] as int? ?? 0,
-      readingDone: json['readingDone'] as bool? ?? false,
-      languageDone: json['languageDone'] as bool? ?? false,
-      supplementDone: json['supplementDone'] as bool? ?? false,
+      waterMl: _parseInt(json['waterMl'] ?? json['water']),
+      steps: _parseInt(json['steps']),
+      readingDone:
+          json['readingDone'] as bool? ?? json['reading'] as bool? ?? false,
+      languageDone:
+          json['languageDone'] as bool? ?? json['language'] as bool? ?? false,
+      supplementDone:
+          json['supplementDone'] as bool? ??
+          json['supplements'] as bool? ??
+          false,
       readingMinutes: _parseOptionalInt(json['readingMinutes']),
       languageMinutes: _parseOptionalInt(json['languageMinutes']),
       customCheckboxes: customCheckboxes,
@@ -163,6 +172,11 @@ class HabitDayRecord {
 
   static int? _parseOptionalInt(Object? value) {
     if (value is! num || value < 0 || value != value.toInt()) return null;
+    return value.toInt();
+  }
+
+  static int _parseInt(Object? value) {
+    if (value is! num || value < 0 || value != value.toInt()) return 0;
     return value.toInt();
   }
 }

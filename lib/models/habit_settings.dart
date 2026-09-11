@@ -17,10 +17,10 @@ enum HabitTrackingType { checkbox, counter, duration }
 /// - extraHabits: 自定义习惯注册表（customKey → 初始显示名）
 /// - customHabitAliases: 自定义习惯历史名称（用于统计时匹配 Markdown）
 ///
-/// schemaVersion: 7（新增计时型习惯配置）
+/// schemaVersion: 8（新增趋势仪表盘优先习惯配置）
 class HabitSettings {
   /// schema 版本，用于兼容旧配置。
-  static const schemaVersion = 7;
+  static const schemaVersion = 8;
 
   /// 首页进度条使用的默认每日目标，目标仅属于现有内置计数习惯。
   static const defaultTargets = <String, int>{'water': 1500, 'steps': 6000};
@@ -60,6 +60,10 @@ class HabitSettings {
   /// 饮水快捷添加量，始终为 3 个升序、不重复的正整数。
   final List<int> waterQuickAmounts;
 
+  /// 趋势页顶部仪表盘的优先习惯，最多保存 4 个 key。
+  /// 未指定或指定不足时，趋势页按启用习惯顺序自动补齐。
+  final List<String> trendDashboardHabitKeys;
+
   /// 自定义习惯注册表：customKey → 初始显示名。
   /// 仅存储 key 和默认名。状态、图标、颜色仍用 statusMap / iconMap / colorMap 管理。
   final Map<String, String> extraHabits;
@@ -79,6 +83,7 @@ class HabitSettings {
     this.durationDailyTargetMap = const {},
     this.durationLifetimeTargetMap = const {},
     this.waterQuickAmounts = defaultWaterQuickAmounts,
+    this.trendDashboardHabitKeys = const [],
     this.extraHabits = const {},
     this.customHabitAliases = const {},
   });
@@ -111,6 +116,34 @@ class HabitSettings {
 
   /// 活跃习惯数量
   int get activeCount => activeKeys.length;
+
+  /// 用户实际保存过的、仍属于可管理习惯的仪表盘优先项。
+  /// 归档习惯保留在偏好中，恢复后可以自动回到仪表盘。
+  List<String> get validTrendDashboardHabitKeys {
+    final manageable = manageableKeys.toSet();
+    final result = <String>[];
+    for (final key in trendDashboardHabitKeys) {
+      if (manageable.contains(key) && !result.contains(key)) {
+        result.add(key);
+      }
+      if (result.length == 4) break;
+    }
+    return result;
+  }
+
+  /// 按优先项和启用习惯顺序解析仪表盘最终显示的习惯。
+  List<String> get resolvedTrendDashboardHabitKeys {
+    final result = <String>[];
+    final active = activeKeys.toSet();
+    for (final key in validTrendDashboardHabitKeys) {
+      if (active.contains(key)) result.add(key);
+    }
+    for (final key in activeKeys) {
+      if (!result.contains(key)) result.add(key);
+      if (result.length == 4) break;
+    }
+    return result.take(4).toList();
+  }
 
   /// 所有可管理习惯的 key：5 个内置 + 所有已注册自定义习惯。
   /// 今日页用 activeKeys，设置页用此列表确保归档习惯不丢失。
@@ -340,6 +373,7 @@ class HabitSettings {
       durationDailyTargetMap: newDurationDailyTargets,
       durationLifetimeTargetMap: newDurationLifetimeTargets,
       waterQuickAmounts: waterQuickAmounts,
+      trendDashboardHabitKeys: trendDashboardHabitKeys,
       extraHabits: extraHabits,
       customHabitAliases: customHabitAliases,
     );
@@ -400,6 +434,7 @@ class HabitSettings {
       waterQuickAmounts: key == 'water'
           ? defaultWaterQuickAmounts
           : waterQuickAmounts,
+      trendDashboardHabitKeys: trendDashboardHabitKeys,
       extraHabits: extraHabits,
       customHabitAliases: customHabitAliases,
     );
@@ -419,6 +454,7 @@ class HabitSettings {
     Map<String, int>? durationDailyTargetMap,
     Map<String, int>? durationLifetimeTargetMap,
     List<int>? waterQuickAmounts,
+    List<String>? trendDashboardHabitKeys,
     Map<String, String>? extraHabits,
     Map<String, List<String>>? customHabitAliases,
   }) {
@@ -434,6 +470,8 @@ class HabitSettings {
       durationLifetimeTargetMap:
           durationLifetimeTargetMap ?? this.durationLifetimeTargetMap,
       waterQuickAmounts: waterQuickAmounts ?? this.waterQuickAmounts,
+      trendDashboardHabitKeys:
+          trendDashboardHabitKeys ?? this.trendDashboardHabitKeys,
       extraHabits: extraHabits ?? this.extraHabits,
       customHabitAliases: customHabitAliases ?? this.customHabitAliases,
     );
@@ -463,6 +501,7 @@ class HabitSettings {
     'durationDailyTargetMap': _validTargetMap(durationDailyTargetMap),
     'durationLifetimeTargetMap': _validTargetMap(durationLifetimeTargetMap),
     'waterQuickAmounts': waterQuickAmounts,
+    'trendDashboardHabitKeys': validTrendDashboardHabitKeys,
     'extraHabits': extraHabits,
     'customHabitAliases': customHabitAliases,
   };
@@ -548,10 +587,17 @@ class HabitSettings {
     final durationLifetimeTargetMap = _parseDurationTargetMap(
       json['durationLifetimeTargetMap'],
     );
-    return v6Settings.copyWith(
+    final v7Settings = v6Settings.copyWith(
       trackingTypeMap: trackingTypeMap,
       durationDailyTargetMap: durationDailyTargetMap,
       durationLifetimeTargetMap: durationLifetimeTargetMap,
+    );
+    if (version < 8) return v7Settings;
+
+    return v7Settings.copyWith(
+      trendDashboardHabitKeys: _parseTrendDashboardHabitKeys(
+        json['trendDashboardHabitKeys'],
+      ),
     );
   }
 
@@ -626,6 +672,18 @@ class HabitSettings {
     }
     values.sort();
     return values;
+  }
+
+  static List<String> _parseTrendDashboardHabitKeys(Object? raw) {
+    if (raw is! List) return const [];
+    final result = <String>[];
+    for (final value in raw) {
+      if (value is! String) continue;
+      final key = value.trim();
+      if (key.isEmpty || result.contains(key)) continue;
+      result.add(key);
+    }
+    return result;
   }
 
   static HabitSettings _parseV2(

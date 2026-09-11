@@ -1289,6 +1289,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             onHabitUpdate: _handleHabitUpdate,
                             onEntryDelete: _handleEntryDelete,
                             onEntryEdit: _handleEntryEdit,
+                            onEntryPolish: _handlePolish,
                             tagConfig: _tagConfig,
                             tagSettings: _tagSettings,
                             apiClient: widget.apiClient,

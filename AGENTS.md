@@ -111,6 +111,8 @@ Flutter 端已建立的领域组件：
 - 服务端 CORS 可通过 `allowedOrigins` 白名单收紧；空白名单表示保持本地调试和真机访问兼容。
 - 真机覆盖安装优先使用 `adb install -r` 安装已构建 APK，保留本地服务器地址和 Token；不要用可能卸载重装的流程做日常覆盖安装。
 - 若服务端健康检查正常但真机 App 无法连接，优先检查手机端 VPN/代理白名单、fake-ip DNS 和浏览器同域名访问结果，再判断 App 代码问题。
+- 习惯趋势页使用只读接口 `/api/v1/stats/habit?from=YYYY-MM-DD&to=YYYY-MM-DD` 获取最多 366 天的每日快照；服务端只解析 Markdown，周期聚合、连续达标和时长展示均由 Flutter 趋势领域服务完成。
+- 习惯趋势缓存必须按 `ApiClient.cacheNamespace` 隔离；远程 API 地址生效并替换 `ApiClient` 后，趋势页必须同步重建服务与缓存仓储，不能继续读取旧服务端数据。
 
 ## Flora 图标规则
 
@@ -224,7 +226,7 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前状态：406 项 Flutter 测试全部通过，analyze 零问题；服务端 34 项测试全部通过。当前工作区的专注计时和首页习惯紧凑布局均已实现但尚未递增发布版本，真机安装与验收由用户自行执行。
+当前状态：`1.7.1+27` 已完成 Flutter 测试、analyze 和 Release 构建；服务端代码和接口未改动，真机安装与视觉验收由用户自行执行。
 
 ## 数据完整性规则
 
@@ -232,7 +234,7 @@ flutter test
 
 - **rawLine 不可反推**：编辑/删除时必须使用 Parser 解析的原始 rawLine，不能用 content + tags 重新组装 target 或 line。
 - **时间轴写入即排序**：新增或编辑带 `**HH:mm**` 的时间条目后，服务端必须仅在当前 section 内按时间升序重排；排序直接写入 Markdown，完整保留 `-` / `>` 前缀、正文和标签，不能只在 Flutter UI 排序。
-- **tags 前缀差异**：`TimelineContent.tags` 存储带 `#` 前缀（如 `['#育儿']`），TagPicker 和 `_selectedTags` 存储不带 `#`（如 `['育儿']`）。EntryEditSheet 初始化时须 strip `#`。
+- **tags 前缀差异**：`TimelineContent.tags` 存储带 `#` 前缀（如 `['#育儿']`），TagPicker 和 `_selectedTags` 存储不带 `#`（如 `['育儿']`）。`QuickCaptureScreen` 编辑态初始化时须 strip `#`。
 - **### 独立 section**：`###` 标题中觉察/人生教练/荔枝喵说/明日寄语/影像 应作为独立 DiarySection，不能作为 SubSectionContent 嵌套在父 section 中。
 - **跨日自动创建**：`_loadDiary()` 中如果 `getDiary(date)` 返回 null，须调用 `ensureDiary(date)` 后再重新读取。提交记录时首次失败须 ensureDiary 并重试。
 - **历史补录延迟创建**：选择或打开无日记的历史日期不能创建空文件；只有文字或相片真正保存时才允许 `ensureDiary(date)`，并且所有写入必须使用用户选择的目标日期。
@@ -244,6 +246,8 @@ flutter test
 - **习惯时长写入**：阅读/亲子阅读、学语言和自定义习惯才允许使用 duration；计时结果由服务端写入可读的 `N 分钟` Markdown 行，更新优先匹配 Parser 提供的 `rawLine`，并使用 `operationId` 防止重试重复累加。
 - **计时会话归属**：客户端只保留一个活动计时会话，持久化开始/暂停时间戳以支持后台、锁屏和重启恢复；保存按开始日期归属，按完整分钟落盘，少于 1 分钟不写入。
 - **旧习惯兼容**：没有分钟信息的旧 checkbox 记录继续保留完成和连续记录语义，但 duration 统计中的累计与平均值保持未知，不根据 checkbox 时长猜测。
+- **习惯趋势统计**：饮水与运动按每日目标计算连续达标天数；时长习惯只累加已知分钟，旧 checkbox 不换算为分钟但已完成日期仍显示完成色；自定义习惯按当前名称和 `customHabitAliases` 映射服务端快照，不把内部 `customKey` 写入 Markdown。
+- **习惯名称识别**：内置习惯必须按已知完整 label 和行结构识别，不能用“包含饮水/运动/语言”等关键词判断；带这些词的自定义习惯仍须作为自定义记录解析和统计。
 - **不泄露 API Key**：不在 toString、error、log、SnackBar、test failure message 中出现。
 
 ## 项目文档

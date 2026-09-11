@@ -57,7 +57,6 @@ import 'package:litchi_journal_flutter/screens/remote_api_page.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
-import 'package:litchi_journal_flutter/widgets/entry_edit_sheet.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/gallery_image_tile.dart';
@@ -611,6 +610,55 @@ class _HabitTestHttpClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final url = request.url.toString();
+
+    if (request.url.path == '/api/v1/stats/habit') {
+      final uri = request.url;
+      final from = DateTime.tryParse(uri.queryParameters['from'] ?? '');
+      final to = DateTime.tryParse(uri.queryParameters['to'] ?? '');
+      if (from == null || to == null || to.isBefore(from)) {
+        return http.StreamedResponse(
+          Stream.value(utf8.encode('{"error":"invalid range"}')),
+          400,
+        );
+      }
+
+      final rows = <Map<String, dynamic>>[];
+      for (
+        var date = DateTime(from.year, from.month, from.day);
+        !date.isAfter(to);
+        date = date.add(const Duration(days: 1))
+      ) {
+        final dataKey = _dataKeyForDate(date.year, date.month, date.day);
+        final hasData =
+            waterByDay.containsKey(dataKey) ||
+            stepsByDay.containsKey(dataKey) ||
+            readingByDay.containsKey(dataKey) ||
+            languageByDay.containsKey(dataKey) ||
+            supplementByDay.containsKey(dataKey) ||
+            customCheckboxLabel != null;
+        rows.add({
+          'date': ApiClient.formatDate(date),
+          'hasDiary': hasData,
+          'water': waterByDay[dataKey] ?? 0,
+          'steps': stepsByDay[dataKey] ?? 0,
+          'reading': readingByDay[dataKey] ?? false,
+          'language': languageByDay[dataKey] ?? false,
+          'supplements': supplementByDay[dataKey] ?? false,
+          'readingMinutes': readingByDay[dataKey] == true ? 30 : null,
+          'languageMinutes': languageByDay[dataKey] == true ? 10 : null,
+          'customCheckboxes': customCheckboxLabel == null
+              ? <String, bool>{}
+              : <String, bool>{'📝 $customCheckboxLabel': true},
+          'customDurations': <String, int>{},
+        });
+      }
+
+      return http.StreamedResponse(
+        Stream.value(utf8.encode(jsonEncode(rows))),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
 
     if (url.contains('/api/v1/history/')) {
       historyRequestCount++;
@@ -2460,6 +2508,40 @@ void main() {
       expect(find.text('工作'), findsWidgets);
     });
 
+    testWidgets('save and tags stay disabled while AI polish is pending', (
+      tester,
+    ) async {
+      final polishResult = Completer<PolishResult>();
+      await tester.pumpWidget(
+        buildCapture(
+          tagConfig: _testTagConfig(),
+          onPolish: (_, _) => polishResult.future,
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '等待润色');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'AI 润色'));
+      await tester.pump();
+
+      expect(
+        tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
+        isNull,
+      );
+      expect(
+        tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+        isNull,
+      );
+
+      polishResult.complete(const PolishResult(content: '润色完成', tags: ['工作']));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
+        isNotNull,
+      );
+    });
+
     testWidgets('save failure keeps content and tags', (tester) async {
       await tester.pumpWidget(
         buildCapture(
@@ -2498,6 +2580,70 @@ void main() {
       await tester.tap(find.text('继续编辑'));
       await tester.pumpAndSettle();
       expect(find.byType(QuickCaptureScreen), findsOneWidget);
+    });
+
+    testWidgets('system back asks before discarding edit changes', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: QuickCaptureScreen(
+            entryType: EntryType.quickNote,
+            openedAt: DateTime(2026, 9, 11, 21, 18),
+            initialContent: '已有内容',
+            initialTime: '09:30',
+            onSave: (_, _, _) async {},
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '修改后的内容');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('放弃记录？'), findsOneWidget);
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
+    });
+
+    testWidgets('edit mode ignores and preserves the add-entry draft', (
+      tester,
+    ) async {
+      final date = DateTime(2026, 9, 11);
+      final repository = DraftRepository(storage: _TestStorage());
+      await repository.saveQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+        content: '新增记录草稿',
+        tags: const ['工作'],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: QuickCaptureScreen(
+            entryType: EntryType.quickNote,
+            openedAt: DateTime(2026, 9, 11, 21, 18),
+            recordDate: date,
+            initialContent: '已有记录',
+            initialTime: '09:30',
+            draftRepository: repository,
+            onSave: (_, _, _) async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('已有记录'), findsOneWidget);
+      expect(find.text('新增记录草稿'), findsNothing);
+
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      final draft = await repository.loadQuickDraft(
+        date: date,
+        entryType: EntryType.quickNote,
+      );
+      expect(draft?.content, '新增记录草稿');
+      expect(draft?.tags, const ['工作']);
     });
   });
 
@@ -7964,7 +8110,7 @@ tags:
       expect(tester.getSize(find.byType(BottomSheet)).height, lessThan(200));
     });
 
-    testWidgets('edit opens EntryEditSheet with pre-filled content', (
+    testWidgets('edit reuses QuickCaptureScreen with pre-filled content', (
       tester,
     ) async {
       final section = QuickNoteSection(
@@ -8001,15 +8147,17 @@ tags:
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
 
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
       expect(find.text('编辑记录'), findsOneWidget);
       expect(
         tester.widget<TextField>(find.byType(TextField)).controller?.text,
         '原始内容',
       );
-      expect(find.text('09:30'), findsNWidgets(2));
+      expect(find.text('今天 09:30'), findsOneWidget);
+      expect(find.text('AI 润色'), findsOneWidget);
     });
 
-    testWidgets('EntryEditSheet strips # prefix from tags for TagPicker', (
+    testWidgets('edit mode strips # prefix from tags for TagPicker', (
       tester,
     ) async {
       final tagConfig = _polishTagConfig();
@@ -8017,45 +8165,157 @@ tags:
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) {
-                return ElevatedButton(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (_) => EntryEditSheet(
-                        initialContent: 'test',
-                        initialTime: '09:30',
-                        initialTags: const ['#亲子', '#亲子沟通'],
-                        tagConfig: tagConfig,
-                        onSave: (_, tags, _) async {
-                          savedTags = tags;
-                        },
-                      ),
-                    );
-                  },
-                  child: const Text('打开'),
-                );
-              },
-            ),
+          home: QuickCaptureScreen(
+            entryType: EntryType.quickNote,
+            openedAt: DateTime(2026, 9, 11, 21, 18),
+            initialContent: 'test',
+            initialTime: '09:30',
+            initialTags: const ['#亲子', '#亲子沟通'],
+            tagConfig: tagConfig,
+            onSave: (_, tags, _) async {
+              savedTags = tags;
+            },
           ),
         ),
       );
 
-      // Open the sheet
-      await tester.tap(find.text('打开'));
-      await tester.pumpAndSettle();
-
-      // Tags should be properly prefixed (without #)
-      // Save to verify the tags are stripped
       await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
 
       expect(savedTags, isNotNull);
       expect(savedTags, isNot(contains('#亲子')));
       expect(savedTags, contains('亲子'));
+    });
+
+    testWidgets('edit mode removes a hidden tag only after explicit deletion', (
+      tester,
+    ) async {
+      final tagConfig = _polishTagConfig();
+      final tagSettings = TagSettings.fromTagConfig(tagConfig);
+      tagSettings.domainSettings.first.topics.first.enabled = false;
+      List<String>? savedTags;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: QuickCaptureScreen(
+            entryType: EntryType.quickNote,
+            openedAt: DateTime(2026, 9, 11, 21, 18),
+            initialContent: 'test',
+            initialTime: '09:30',
+            initialTags: const ['#亲子', '#陪伴互动'],
+            tagConfig: tagConfig,
+            tagSettings: tagSettings,
+            onSave: (_, tags, _) async => savedTags = tags,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('标签'));
+      await tester.pumpAndSettle();
+      expect(find.text('陪伴互动 (已隐藏)'), findsWidgets);
+
+      await tester.ensureVisible(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      expect(find.text('陪伴互动 (已隐藏)'), findsNothing);
+
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+      expect(savedTags, isNot(contains('陪伴互动')));
+    });
+
+    testWidgets('AI polish preserves hidden tags in edit mode', (tester) async {
+      final tagConfig = _polishTagConfig();
+      final tagSettings = TagSettings.fromTagConfig(tagConfig);
+      tagSettings.domainSettings.first.topics.first.enabled = false;
+      List<String>? savedTags;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: QuickCaptureScreen(
+            entryType: EntryType.quickNote,
+            openedAt: DateTime(2026, 9, 11, 21, 18),
+            initialContent: '原始内容',
+            initialTime: '09:30',
+            initialTags: const ['#亲子', '#陪伴互动'],
+            tagConfig: tagConfig,
+            tagSettings: tagSettings,
+            onPolish: (_, _) async =>
+                const PolishResult(content: '润色内容', tags: ['工作', '任务执行']),
+            onSave: (_, tags, _) async => savedTags = tags,
+          ),
+        ),
+      );
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'AI 润色'));
+      await tester.pumpAndSettle();
+      expect(find.text('陪伴互动 (已隐藏)'), findsOneWidget);
+
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+      expect(savedTags, containsAll(['工作', '任务执行', '陪伴互动']));
+    });
+
+    testWidgets('reflection edit reuses capture page and preserves rawLine', (
+      tester,
+    ) async {
+      const rawLine = '- **10:15** 先停下来观察 #反思';
+      String? savedRawLine;
+      String? savedContent;
+      List<String>? savedTags;
+      String? savedTime;
+      final section = ReviewSection(
+        title: '觉察',
+        contents: const [
+          TimelineContent(
+            time: '10:15',
+            text: '先停下来观察',
+            tags: ['#反思'],
+            rawLine: rawLine,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ReviewCard(
+              section: section,
+              onTimelineEdit: (rawLine, content, tags, time) async {
+                savedRawLine = rawLine;
+                savedContent = content;
+                savedTags = tags;
+                savedTime = time;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) => widget is FloraIcon && widget.name == FloraIcons.more,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
+      expect(find.text('编辑记录'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).decoration?.hintText,
+        '觉察到了什么？',
+      );
+
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(savedRawLine, rawLine);
+      expect(savedContent, '先停下来观察');
+      expect(savedTags, const ['反思']);
+      expect(savedTime, '10:15');
     });
 
     test('rebuildTimelineLine preserves original time for edit', () {
@@ -9362,7 +9622,7 @@ tags:
     HabitStatsCacheRepository testCacheRepo() =>
         HabitStatsCacheRepository(storage: _MemoryStorage());
 
-    testWidgets('shows title and subtitle', (tester) async {
+    testWidgets('shows trend title and period selector', (tester) async {
       final now = DateTime.now();
       final client = ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'test'),
@@ -9388,11 +9648,13 @@ tags:
       );
       await tester.pump();
 
-      expect(find.text('习惯统计'), findsOneWidget);
-      expect(find.text('看看最近的生活节奏'), findsOneWidget);
+      expect(find.text('习惯趋势'), findsOneWidget);
+      expect(find.text('月'), findsOneWidget);
     });
 
-    testWidgets('shows empty state when no data', (tester) async {
+    testWidgets('shows active habit metrics when no diary data', (
+      tester,
+    ) async {
       final now = DateTime.now();
       final client = ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'test'),
@@ -9418,8 +9680,8 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('还没有习惯'), findsOneWidget);
-      expect(find.text('从最小的一步开始'), findsOneWidget);
+      expect(find.text('饮水'), findsWidgets);
+      expect(find.text('0 天'), findsWidgets);
     });
 
     testWidgets('no edit/delete/patch buttons present', (tester) async {
@@ -9511,10 +9773,11 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('看看这 30 天的小痕迹'), findsOneWidget);
+      expect(find.text('习惯趋势'), findsOneWidget);
+      expect(find.text('月'), findsOneWidget);
     });
 
-    testWidgets('heatmap shows completion rate and longest streak', (
+    testWidgets('trend page keeps metric descriptions out of visible cards', (
       tester,
     ) async {
       final now = DateTime.now();
@@ -9542,8 +9805,9 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('完成率'), findsWidgets);
-      expect(find.textContaining('最长连续'), findsWidgets);
+      expect(find.textContaining('完成率'), findsNothing);
+      expect(find.textContaining('最长连续'), findsNothing);
+      expect(find.textContaining('本月累计'), findsNothing);
     });
 
     testWidgets('header shown immediately before data loads', (tester) async {
@@ -9571,8 +9835,8 @@ tags:
         ),
       );
       // 单帧后 header 已显示
-      expect(find.text('习惯统计'), findsOneWidget);
-      expect(find.text('看看最近的生活节奏'), findsOneWidget);
+      expect(find.text('习惯趋势'), findsOneWidget);
+      expect(find.text('月'), findsOneWidget);
     });
 
     testWidgets('shows loading skeleton while 7-day data loads', (
@@ -9606,7 +9870,7 @@ tags:
       );
 
       // 还没 settle，应显示 loading
-      expect(find.text('正在看看最近的生活节奏…'), findsOneWidget);
+      expect(find.text('加载习惯趋势'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
@@ -9641,13 +9905,11 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      // 7 天节奏谱已显示
-      expect(find.text('最近 7 天'), findsOneWidget);
-      // 30 天热力图也已显示（因为 HTTP client 即时响应）
-      expect(find.text('看看这 30 天的小痕迹'), findsOneWidget);
+      expect(find.text('习惯趋势'), findsOneWidget);
+      expect(find.text('月'), findsOneWidget);
     });
 
-    testWidgets('switching habit tab does not show page loading', (
+    testWidgets('switching trend period does not show page loading', (
       tester,
     ) async {
       final now = DateTime.now();
@@ -9678,13 +9940,12 @@ tags:
 
       expect(find.byType(DropdownButton<HabitItemStats>), findsNothing);
 
-      final stepsTab = find.byTooltip('运动');
-      expect(stepsTab, findsOneWidget);
-      await tester.tap(stepsTab);
+      final yearSegment = find.text('年');
+      expect(yearSegment, findsOneWidget);
+      await tester.tap(yearSegment);
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('平均每天运动'), findsOneWidget);
-      // 没有全页 CircularProgressIndicator
+      expect(find.text('习惯趋势'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
@@ -9833,7 +10094,7 @@ tags:
       await tester.pumpAndSettle();
 
       // header 仍然可见，不白屏
-      expect(find.text('习惯统计'), findsOneWidget);
+      expect(find.text('习惯趋势'), findsOneWidget);
       // 页面显示内容（空状态或错误），不是空白
       expect(find.byType(Scaffold), findsOneWidget);
     });

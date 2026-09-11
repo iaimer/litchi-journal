@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'flora_icon.dart';
 
 import '../models/diary_document.dart';
+import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
-import 'entry_edit_sheet.dart';
+import '../screens/quick_capture_screen.dart';
+import 'entry_type.dart';
 import 'section_card.dart';
 import 'tag_color_helper.dart';
 import 'timeline_action_sheet.dart';
@@ -23,6 +25,9 @@ class QuickNoteTimeline extends StatelessWidget {
   onEdit;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
+  final DateTime? recordDate;
+  final Future<PolishResult> Function(String content, EntryType entryType)?
+  onPolish;
 
   const QuickNoteTimeline({
     super.key,
@@ -32,6 +37,8 @@ class QuickNoteTimeline extends StatelessWidget {
     this.onEdit,
     this.tagConfig,
     this.tagSettings,
+    this.recordDate,
+    this.onPolish,
   });
 
   @override
@@ -50,6 +57,8 @@ class QuickNoteTimeline extends StatelessWidget {
               tagConfig: tagConfig,
               tagSettings: tagSettings,
               accentColor: accentColor,
+              recordDate: recordDate,
+              onPolish: onPolish,
             ),
           )
           .toList(growable: false),
@@ -70,6 +79,9 @@ class _QuickNoteRow extends StatefulWidget {
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
   final Color? accentColor;
+  final DateTime? recordDate;
+  final Future<PolishResult> Function(String content, EntryType entryType)?
+  onPolish;
 
   const _QuickNoteRow({
     required this.note,
@@ -78,6 +90,8 @@ class _QuickNoteRow extends StatefulWidget {
     this.tagConfig,
     this.tagSettings,
     this.accentColor,
+    this.recordDate,
+    this.onPolish,
   });
 
   @override
@@ -127,18 +141,21 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
 
   void _openEdit() {
     if (widget.onEdit == null) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => EntryEditSheet(
-        initialContent: widget.note.content,
-        initialTime: widget.note.time,
-        initialTags: widget.note.tags,
-        tagConfig: widget.tagConfig,
-        tagSettings: widget.tagSettings,
-        onSave: (content, tags, time) async {
-          await widget.onEdit!(widget.note, content, tags, time);
-        },
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => QuickCaptureScreen(
+          entryType: EntryType.quickNote,
+          openedAt: DateTime.now(),
+          recordDate: widget.recordDate,
+          initialContent: widget.note.content,
+          initialTime: widget.note.time,
+          initialTags: widget.note.tags,
+          tagConfig: widget.tagConfig,
+          tagSettings: widget.tagSettings,
+          onPolish: widget.onPolish,
+          onSave: (content, tags, time) =>
+              widget.onEdit!(widget.note, content, tags, time),
+        ),
       ),
     );
   }

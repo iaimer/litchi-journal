@@ -5,8 +5,11 @@ import '../models/tag_settings.dart';
 class PolishResultParser {
   const PolishResultParser();
 
-  PolishResult parse(String rawText, TagConfig tagConfig,
-      {TagSettings? tagSettings}) {
+  PolishResult parse(
+    String rawText,
+    TagConfig tagConfig, {
+    TagSettings? tagSettings,
+  }) {
     final knownTags = _getAllKnownTags(tagConfig, tagSettings: tagSettings);
     // disabledTags = 已隐藏标签，需要从正文中清除但不提取为 tag
     final disabledTags = tagSettings != null
@@ -30,9 +33,7 @@ class PolishResultParser {
     });
 
     final content = withoutTags
-        .replaceAll(
-            RegExp(r'^\s*(内容|润色后|润色结果)\s*[:：]\s*', multiLine: true),
-            '')
+        .replaceAll(RegExp(r'^\s*(内容|润色后|润色结果)\s*[:：]\s*', multiLine: true), '')
         .replaceAll(RegExp(r'[ \t]+'), ' ')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
@@ -46,7 +47,7 @@ class PolishResultParser {
   static Set<String> _getDisabledTagNames(TagSettings tagSettings) {
     final names = <String>{};
     for (final ds in tagSettings.domainSettings) {
-      if (!ds.enabled) {
+      if (!ds.enabled || ds.deleted) {
         names.add(ds.displayName);
         if (ds.displayName != ds.defaultName) {
           names.add(ds.defaultName);
@@ -59,7 +60,7 @@ class PolishResultParser {
         }
       } else {
         for (final ts in ds.topics) {
-          if (!ts.enabled) {
+          if (!ts.enabled || ts.deleted) {
             names.add(ts.displayName);
             if (ts.displayName != ts.defaultName) {
               names.add(ts.defaultName);
@@ -69,7 +70,7 @@ class PolishResultParser {
       }
     }
     for (final ms in tagSettings.methodSettings) {
-      if (!ms.enabled) {
+      if (!ms.enabled || ms.deleted) {
         names.add(ms.displayName);
         if (ms.displayName != ms.defaultName) {
           names.add(ms.defaultName);
@@ -79,19 +80,21 @@ class PolishResultParser {
     return names;
   }
 
-  static Set<String> _getAllKnownTags(TagConfig config,
-      {TagSettings? tagSettings}) {
+  static Set<String> _getAllKnownTags(
+    TagConfig config, {
+    TagSettings? tagSettings,
+  }) {
     if (tagSettings != null) {
-      // 使用 TagSettings：只包含 enabled 标签的 displayName + defaultName
+      // 使用 TagSettings：只包含当前可用标签的 displayName + defaultName
       final names = <String>{};
       for (final ds in tagSettings.domainSettings) {
-        if (!ds.enabled) continue;
+        if (!ds.enabled || ds.deleted) continue;
         names.add(ds.displayName);
         if (ds.displayName != ds.defaultName) {
           names.add(ds.defaultName);
         }
         for (final ts in ds.topics) {
-          if (!ts.enabled) continue;
+          if (!ts.enabled || ts.deleted) continue;
           names.add(ts.displayName);
           if (ts.displayName != ts.defaultName) {
             names.add(ts.defaultName);
@@ -99,7 +102,7 @@ class PolishResultParser {
         }
       }
       for (final ms in tagSettings.methodSettings) {
-        if (!ms.enabled) continue;
+        if (!ms.enabled || ms.deleted) continue;
         names.add(ms.displayName);
         if (ms.displayName != ms.defaultName) {
           names.add(ms.defaultName);
@@ -122,8 +125,11 @@ class PolishResultParser {
     return names;
   }
 
-  static List<String> _validateTags(List<String> validTags, TagConfig config,
-      {TagSettings? tagSettings}) {
+  static List<String> _validateTags(
+    List<String> validTags,
+    TagConfig config, {
+    TagSettings? tagSettings,
+  }) {
     // 构建有效名称集合（enabled 且匹配一条就算）
     Set<String> enabledNames;
     Map<String, String> nameToDisplayName;
@@ -133,7 +139,7 @@ class PolishResultParser {
       nameToDisplayName = {};
 
       for (final ds in tagSettings.domainSettings) {
-        if (!ds.enabled) continue;
+        if (!ds.enabled || ds.deleted) continue;
         enabledNames.add(ds.displayName);
         nameToDisplayName[ds.displayName] = ds.displayName;
         if (ds.displayName != ds.defaultName) {
@@ -141,7 +147,7 @@ class PolishResultParser {
           nameToDisplayName[ds.defaultName] = ds.displayName;
         }
         for (final ts in ds.topics) {
-          if (!ts.enabled) continue;
+          if (!ts.enabled || ts.deleted) continue;
           enabledNames.add(ts.displayName);
           nameToDisplayName[ts.displayName] = ts.displayName;
           if (ts.displayName != ts.defaultName) {
@@ -151,7 +157,7 @@ class PolishResultParser {
         }
       }
       for (final ms in tagSettings.methodSettings) {
-        if (!ms.enabled) continue;
+        if (!ms.enabled || ms.deleted) continue;
         enabledNames.add(ms.displayName);
         nameToDisplayName[ms.displayName] = ms.displayName;
         if (ms.displayName != ms.defaultName) {
@@ -184,17 +190,20 @@ class PolishResultParser {
     }).toList();
 
     final domainNames = config.domains.map((d) => d.name).toSet();
-    // 在 TagSettings 模式下，domain 可能改了 displayName，也需要匹配
+    // 在 TagSettings 模式下，domain 可能改了 displayName；AI 偶尔仍会返回
+    // defaultName，因此旧名称也必须参与结构校验。
     if (tagSettings != null) {
       for (final ds in tagSettings.domainSettings) {
-        if (ds.enabled) domainNames.add(ds.displayName);
+        if (!ds.enabled || ds.deleted) continue;
+        domainNames.add(ds.displayName);
+        domainNames.add(ds.defaultName);
       }
     }
 
     final domain = enabledTags.cast<String?>().firstWhere(
-          (t) => domainNames.contains(t),
-          orElse: () => null,
-        );
+      (t) => domainNames.contains(t),
+      orElse: () => null,
+    );
     if (domain == null) return [];
 
     // 用 displayName 查找 domain 的主题
@@ -208,8 +217,12 @@ class PolishResultParser {
     // 如果 domain 被重命名了，用原始 id 查找
     if (matchedDomain == null && tagSettings != null) {
       for (final ds in tagSettings.domainSettings) {
-        if (ds.displayName == domain) {
-          matchedDomain = config.domains.where((d) => d.id == ds.key).firstOrNull;
+        if ((ds.displayName == domain || ds.defaultName == domain) &&
+            ds.enabled &&
+            !ds.deleted) {
+          matchedDomain = config.domains
+              .where((d) => d.id == ds.key)
+              .firstOrNull;
           break;
         }
       }
@@ -217,12 +230,14 @@ class PolishResultParser {
     if (matchedDomain == null) return [];
 
     final domainTopics = matchedDomain.topics.map((t) => t.name).toSet();
-    // 加上 TopicSetting 的 displayName
+    // 加上 TopicSetting 的 displayName 和旧 defaultName。
     if (tagSettings != null) {
       for (final ds in tagSettings.domainSettings) {
         if (ds.key == matchedDomain.id) {
           for (final ts in ds.topics) {
-            if (ts.enabled) domainTopics.add(ts.displayName);
+            if (!ts.enabled || ts.deleted) continue;
+            domainTopics.add(ts.displayName);
+            domainTopics.add(ts.defaultName);
           }
           break;
         }
@@ -230,21 +245,23 @@ class PolishResultParser {
     }
 
     final topic = enabledTags.cast<String?>().firstWhere(
-          (t) => domainTopics.contains(t),
-          orElse: () => null,
-        );
+      (t) => domainTopics.contains(t),
+      orElse: () => null,
+    );
     if (topic == null) return [];
 
     final methodNames = config.methods.map((m) => m.name).toSet();
     if (tagSettings != null) {
       for (final ms in tagSettings.methodSettings) {
-        if (ms.enabled) methodNames.add(ms.displayName);
+        if (!ms.enabled || ms.deleted) continue;
+        methodNames.add(ms.displayName);
+        methodNames.add(ms.defaultName);
       }
     }
     final method = enabledTags.cast<String?>().firstWhere(
-          (t) => methodNames.contains(t),
-          orElse: () => null,
-        );
+      (t) => methodNames.contains(t),
+      orElse: () => null,
+    );
 
     // 输出 displayName
     final result = [

@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/flora_icon.dart';
-import '../widgets/flora_page_scaffold.dart';
-import '../widgets/flora_switch.dart';
-
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
-import '../widgets/flora_empty.dart';
+import '../theme/app_theme.dart';
+import '../widgets/flora_icon.dart';
+import '../widgets/flora_page_scaffold.dart';
 
 /// 标签管理页面。
 ///
-/// 顶部 Tab：领域 / 方法。
-/// 领域 Tab 中按 Web 端风格：领域为一级卡片，主题为二级列表。
-/// 每个区域提供添加入口。
+/// 顶部 Tab：领域 / 方法。领域下的主题保持层级展示，标签名称负责打开
+/// 底部操作菜单，箭头只负责展开和收起。
 class TagSettingsPage extends StatefulWidget {
   final TagSettings initialSettings;
   final TagConfig tagConfig;
@@ -28,6 +25,8 @@ class TagSettingsPage extends StatefulWidget {
   @override
   State<TagSettingsPage> createState() => _TagSettingsPageState();
 }
+
+enum _TagEntryAction { toggle, edit, restore, delete }
 
 class _TagSettingsPageState extends State<TagSettingsPage>
     with SingleTickerProviderStateMixin {
@@ -43,316 +42,607 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     super.initState();
     _settings = widget.initialSettings;
     _repo = TagSettingsRepository();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this)
+      ..addListener(_handleTabChanged);
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController
+      ..removeListener(_handleTabChanged)
+      ..dispose();
     super.dispose();
   }
 
-  int get _domainCount => _settings.domainSettings.length;
-  int get _topicCount =>
-      _settings.domainSettings.fold(0, (s, d) => s + d.topics.length);
-  int get _methodCount => _settings.methodSettings.length;
-
-  Future<void> _save() async {
-    await _repo.saveTagSettings(_settings);
+  void _handleTabChanged() {
+    if (mounted) setState(() {});
   }
 
-  // ── Key 生成 ──
+  List<DomainSetting> get _visibleDomains =>
+      _settings.domainSettings.where((domain) => !domain.deleted).toList();
+
+  List<MethodSetting> get _visibleMethods =>
+      _settings.methodSettings.where((method) => !method.deleted).toList();
+
+  int get _domainCount => _visibleDomains.length;
+
+  int get _topicCount => _visibleDomains.fold(
+    0,
+    (count, domain) =>
+        count + domain.topics.where((topic) => !topic.deleted).length,
+  );
+
+  int get _methodCount => _visibleMethods.length;
+
+  Future<void> _save() async {
+    try {
+      await _repo.saveTagSettings(_settings);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('标签设置保存失败，请重试')));
+    }
+  }
 
   String _newKey(String prefix) =>
       '${prefix}_${DateTime.now().millisecondsSinceEpoch}';
 
-  // ── 编辑弹窗 ──
+  Iterable<String> _existingNames({String? exceptKey}) sync* {
+    for (final domain in _settings.domainSettings) {
+      if (!domain.deleted && domain.key != exceptKey) {
+        yield domain.displayName;
+      }
+      for (final topic in domain.topics) {
+        if (!topic.deleted && topic.key != exceptKey) {
+          yield topic.displayName;
+        }
+      }
+    }
+    for (final method in _settings.methodSettings) {
+      if (!method.deleted && method.key != exceptKey) {
+        yield method.displayName;
+      }
+    }
+  }
 
-  void _editDialog({
+  // ── 底部编辑面板 ──
+
+  Future<String?> _showEditSheet({
     required String title,
     required String initialName,
-    String? initialDescription,
-    required void Function(String name, String? description) onSave,
-  }) {
-    final nameController = TextEditingController(text: initialName);
-    final descController = TextEditingController(
-      text: initialDescription ?? '',
-    );
-    String? error;
-
-    showDialog(
+    required String? editingKey,
+  }) async {
+    return showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(title),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      labelText: '标签名称',
-                      errorText: error,
-                      border: const OutlineInputBorder(),
-                    ),
-                    onChanged: (_) => setDialogState(() => error = null),
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(FloraRadius.lg),
+        ),
+      ),
+      builder: (_) => _TagNameSheet(
+        title: title,
+        initialName: initialName,
+        validate: (name) {
+          return TagSettingsHelper.validateDisplayName(name) ??
+              TagSettingsHelper.validateUniqueDisplayName(
+                name,
+                _existingNames(exceptKey: editingKey),
+              );
+        },
+      ),
+    );
+  }
+
+  Future<void> _editDomain(DomainSetting domain) async {
+    final name = await _showEditSheet(
+      title: '编辑领域',
+      initialName: domain.displayName,
+      editingKey: domain.key,
+    );
+    if (!mounted || name == null) return;
+    setState(() => domain.displayName = name);
+    await _save();
+  }
+
+  Future<void> _editTopic(TopicSetting topic) async {
+    final name = await _showEditSheet(
+      title: '编辑主题',
+      initialName: topic.displayName,
+      editingKey: topic.key,
+    );
+    if (!mounted || name == null) return;
+    setState(() => topic.displayName = name);
+    await _save();
+  }
+
+  Future<void> _editMethod(MethodSetting method) async {
+    final name = await _showEditSheet(
+      title: '编辑方法',
+      initialName: method.displayName,
+      editingKey: method.key,
+    );
+    if (!mounted || name == null) return;
+    setState(() => method.displayName = name);
+    await _save();
+  }
+
+  // ── 新增 ──
+
+  Future<void> _addDomain() async {
+    final name = await _showEditSheet(
+      title: '新增领域',
+      initialName: '',
+      editingKey: null,
+    );
+    if (!mounted || name == null) return;
+    final key = _newKey('domain');
+    setState(() {
+      _settings.domainSettings.add(
+        DomainSetting(
+          key: key,
+          defaultName: name,
+          displayName: name,
+          topics: [],
+        ),
+      );
+      _expandedDomains.add(key);
+    });
+    await _save();
+  }
+
+  Future<void> _addTopic(DomainSetting domain) async {
+    final name = await _showEditSheet(
+      title: '新增主题',
+      initialName: '',
+      editingKey: null,
+    );
+    if (!mounted || name == null) return;
+    setState(() {
+      domain.topics.add(
+        TopicSetting(
+          key: _newKey('topic'),
+          defaultName: name,
+          displayName: name,
+        ),
+      );
+    });
+    await _save();
+  }
+
+  Future<void> _addMethod() async {
+    final name = await _showEditSheet(
+      title: '新增方法',
+      initialName: '',
+      editingKey: null,
+    );
+    if (!mounted || name == null) return;
+    setState(() {
+      _settings.methodSettings.add(
+        MethodSetting(
+          key: _newKey('method'),
+          defaultName: name,
+          displayName: name,
+        ),
+      );
+    });
+    await _save();
+  }
+
+  // ── 标签操作菜单 ──
+
+  Future<_TagEntryAction?> _showActionsSheet({
+    required String name,
+    required bool enabled,
+    required bool canRestore,
+  }) {
+    final theme = Theme.of(context);
+    final actions =
+        <({String label, _TagEntryAction action, bool destructive})>[
+          (
+            label: enabled ? '停用' : '启用',
+            action: _TagEntryAction.toggle,
+            destructive: false,
+          ),
+          (label: '编辑', action: _TagEntryAction.edit, destructive: false),
+          if (canRestore)
+            (
+              label: '恢复默认',
+              action: _TagEntryAction.restore,
+              destructive: false,
+            ),
+          (label: '永久删除', action: _TagEntryAction.delete, destructive: true),
+        ];
+
+    return showModalBottomSheet<_TagEntryAction>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(FloraRadius.lg),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FloraSpacing.lg,
+              FloraSpacing.xs,
+              FloraSpacing.lg,
+              FloraSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: FloraSpacing.sm),
+                  child: Text(
+                    '#$name',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge,
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: '可选说明',
-                      hintText: '这个标签的用途说明',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withAlpha(
+                      80,
+                    ),
+                    borderRadius: BorderRadius.circular(FloraRadius.md),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var index = 0; index < actions.length; index++) ...[
+                        if (index > 0)
+                          Divider(
+                            height: 1,
+                            color: theme.dividerColor.withAlpha(120),
+                          ),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: TextButton(
+                            onPressed: () => Navigator.of(
+                              sheetContext,
+                            ).pop(actions[index].action),
+                            style: TextButton.styleFrom(
+                              foregroundColor: actions[index].destructive
+                                  ? theme.colorScheme.error
+                                  : theme.colorScheme.onSurface,
+                              shape: const RoundedRectangleBorder(),
+                            ),
+                            child: Text(actions[index].label),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: FloraSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.error,
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest
+                          .withAlpha(80),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(FloraRadius.md),
                       ),
                     ),
+                    child: const Text('取消'),
                   ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('取消'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    final name = nameController.text.trim();
-                    final err = TagSettingsHelper.validateDisplayName(name);
-                    if (err != null) {
-                      setDialogState(() => error = err);
-                      return;
-                    }
-                    final desc = descController.text.trim();
-                    Navigator.pop(ctx);
-                    onSave(name, desc.isNotEmpty ? desc : null);
-                  },
-                  child: const Text('保存'),
                 ),
               ],
-            );
-          },
+            ),
+          ),
         );
       },
     );
   }
 
-  // ── 编辑领域/主题/方法 ──
-
-  void _editDomain(DomainSetting d) {
-    _editDialog(
-      title: '编辑领域',
-      initialName: d.displayName,
-      initialDescription: d.description,
-      onSave: (name, desc) {
-        setState(() {
-          d.displayName = name;
-          d.description = desc;
-        });
-        _save();
-      },
+  Future<bool> _confirmDelete({
+    required String name,
+    required bool isDomain,
+    required int topicCount,
+  }) async {
+    final theme = Theme.of(context);
+    final detail = isDomain && topicCount > 0
+        ? '它下面的 $topicCount 个主题也会从本机标签中移除。'
+        : '已有日记中的标签不会被修改。';
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(FloraRadius.lg),
+        ),
+      ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            FloraSpacing.lg,
+            FloraSpacing.xs,
+            FloraSpacing.lg,
+            FloraSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('永久删除「#$name」？', style: theme.textTheme.titleLarge),
+              const SizedBox(height: FloraSpacing.sm),
+              Text(
+                detail,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: FloraSpacing.lg),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(sheetContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.colorScheme.error,
+                    foregroundColor: theme.colorScheme.onError,
+                  ),
+                  child: const Text('永久删除'),
+                ),
+              ),
+              const SizedBox(height: FloraSpacing.sm),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: TextButton(
+                  onPressed: () => Navigator.of(sheetContext).pop(false),
+                  child: const Text('取消'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+    return result == true;
   }
 
-  void _editTopic(TopicSetting t) {
-    _editDialog(
-      title: '编辑主题',
-      initialName: t.displayName,
-      initialDescription: t.description,
-      onSave: (name, desc) {
-        setState(() {
-          t.displayName = name;
-          t.description = desc;
-        });
-        _save();
-      },
+  Future<void> _handleDomainAction(DomainSetting domain) async {
+    final action = await _showActionsSheet(
+      name: domain.displayName,
+      enabled: domain.enabled,
+      canRestore: domain.displayName != domain.defaultName,
     );
-  }
+    if (!mounted || action == null) return;
 
-  void _editMethod(MethodSetting m) {
-    _editDialog(
-      title: '编辑方法',
-      initialName: m.displayName,
-      initialDescription: m.description,
-      onSave: (name, desc) {
+    switch (action) {
+      case _TagEntryAction.toggle:
+        setState(() => domain.enabled = !domain.enabled);
+        await _save();
+      case _TagEntryAction.edit:
+        await _editDomain(domain);
+      case _TagEntryAction.restore:
         setState(() {
-          m.displayName = name;
-          m.description = desc;
+          domain.displayName = domain.defaultName;
+          domain.enabled = true;
         });
-        _save();
-      },
-    );
-  }
-
-  // ── 恢复 ──
-
-  void _restoreDomain(DomainSetting d) {
-    setState(() {
-      d.displayName = d.defaultName;
-      d.enabled = true;
-    });
-    _save();
-  }
-
-  void _restoreTopic(TopicSetting t) {
-    setState(() {
-      t.displayName = t.defaultName;
-      t.enabled = true;
-    });
-    _save();
-  }
-
-  void _restoreMethod(MethodSetting m) {
-    setState(() {
-      m.displayName = m.defaultName;
-      m.enabled = true;
-    });
-    _save();
-  }
-
-  // ── 新增领域/主题/方法 ──
-
-  void _addDomain() {
-    _editDialog(
-      title: '新增领域',
-      initialName: '',
-      initialDescription: '',
-      onSave: (name, desc) {
-        final key = _newKey('domain');
+        await _save();
+      case _TagEntryAction.delete:
+        final confirmed = await _confirmDelete(
+          name: domain.displayName,
+          isDomain: true,
+          topicCount: domain.topics.where((topic) => !topic.deleted).length,
+        );
+        if (!mounted || !confirmed) return;
         setState(() {
-          _settings.domainSettings.add(
-            DomainSetting(
-              key: key,
-              defaultName: name,
-              displayName: name,
-              enabled: true,
-              description: desc,
-              topics: [],
-            ),
-          );
+          domain.deleted = true;
+          domain.enabled = false;
+          for (final topic in domain.topics) {
+            topic.deleted = true;
+            topic.enabled = false;
+          }
+          _expandedDomains.remove(domain.key);
         });
-        _save();
-      },
-    );
+        await _save();
+    }
   }
 
-  void _addTopic(DomainSetting domain) {
-    _editDialog(
-      title: '新增主题',
-      initialName: '',
-      initialDescription: '',
-      onSave: (name, desc) {
-        final key = _newKey('topic');
-        setState(() {
-          domain.topics.add(
-            TopicSetting(
-              key: key,
-              defaultName: name,
-              displayName: name,
-              enabled: true,
-              description: desc,
-            ),
-          );
-        });
-        _save();
-      },
+  Future<void> _handleTopicAction(TopicSetting topic) async {
+    final action = await _showActionsSheet(
+      name: topic.displayName,
+      enabled: topic.enabled,
+      canRestore: topic.displayName != topic.defaultName,
     );
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case _TagEntryAction.toggle:
+        setState(() => topic.enabled = !topic.enabled);
+        await _save();
+      case _TagEntryAction.edit:
+        await _editTopic(topic);
+      case _TagEntryAction.restore:
+        setState(() {
+          topic.displayName = topic.defaultName;
+          topic.enabled = true;
+        });
+        await _save();
+      case _TagEntryAction.delete:
+        final confirmed = await _confirmDelete(
+          name: topic.displayName,
+          isDomain: false,
+          topicCount: 0,
+        );
+        if (!mounted || !confirmed) return;
+        setState(() {
+          topic.deleted = true;
+          topic.enabled = false;
+        });
+        await _save();
+    }
   }
 
-  void _addMethod() {
-    _editDialog(
-      title: '新增方法',
-      initialName: '',
-      initialDescription: '',
-      onSave: (name, desc) {
-        final key = _newKey('method');
-        setState(() {
-          _settings.methodSettings.add(
-            MethodSetting(
-              key: key,
-              defaultName: name,
-              displayName: name,
-              enabled: true,
-              description: desc,
-            ),
-          );
-        });
-        _save();
-      },
+  Future<void> _handleMethodAction(MethodSetting method) async {
+    final action = await _showActionsSheet(
+      name: method.displayName,
+      enabled: method.enabled,
+      canRestore: method.displayName != method.defaultName,
     );
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case _TagEntryAction.toggle:
+        setState(() => method.enabled = !method.enabled);
+        await _save();
+      case _TagEntryAction.edit:
+        await _editMethod(method);
+      case _TagEntryAction.restore:
+        setState(() {
+          method.displayName = method.defaultName;
+          method.enabled = true;
+        });
+        await _save();
+      case _TagEntryAction.delete:
+        final confirmed = await _confirmDelete(
+          name: method.displayName,
+          isDomain: false,
+          topicCount: 0,
+        );
+        if (!mounted || !confirmed) return;
+        setState(() {
+          method.deleted = true;
+          method.enabled = false;
+        });
+        await _save();
+    }
   }
 
   Future<void> _restoreAll() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('恢复全部默认'),
-        content: const Text('所有标签将恢复为默认名称并启用。\n已有日记中的标签不受影响。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('恢复'),
-          ),
-        ],
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(FloraRadius.lg),
+        ),
       ),
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FloraSpacing.lg,
+              FloraSpacing.xs,
+              FloraSpacing.lg,
+              FloraSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('恢复全部默认？', style: theme.textTheme.titleLarge),
+                const SizedBox(height: FloraSpacing.sm),
+                Text(
+                  '内置标签将恢复默认名称并启用，本机新增标签将被移除。已有日记不受影响。',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: FloraSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(true),
+                    child: const Text('恢复默认'),
+                  ),
+                ),
+                const SizedBox(height: FloraSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(false),
+                    child: const Text('取消'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
-    if (confirmed != true) return;
+    if (!mounted || confirmed != true) return;
     setState(() {
       _settings = TagSettings.fromTagConfig(widget.tagConfig);
+      _expandedDomains.clear();
     });
-    _save();
+    await _save();
   }
 
   // ── 分段控件 ──
 
   Widget _buildTabBar(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        FloraSpacing.lg,
+        FloraSpacing.md,
+        FloraSpacing.lg,
+        FloraSpacing.sm,
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest.withAlpha(80),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(FloraRadius.md),
         ),
         padding: const EdgeInsets.all(3),
         child: Row(
-          children: List.generate(2, (i) {
-            final selected = _tabController.index == i;
-            final labels = const ['领域', '方法'];
+          children: List.generate(2, (index) {
+            final selected = _tabController.index == index;
+            final label = index == 0 ? '领域' : '方法';
             return Expanded(
-              child: GestureDetector(
-                onTap: () => _tabController.animateTo(i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? theme.colorScheme.surface
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    labels[i],
-                    textAlign: TextAlign.center,
-                    style:
-                        (selected
-                                ? theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  )
-                                : theme.textTheme.bodySmall)
-                            ?.copyWith(
-                              color: selected
-                                  ? theme.colorScheme.onSurface
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
+              child: Semantics(
+                button: true,
+                selected: selected,
+                label: label,
+                child: GestureDetector(
+                  onTap: () => _tabController.animateTo(index),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? theme.colorScheme.surface
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(FloraRadius.sm),
+                    ),
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style:
+                          (selected
+                                  ? theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    )
+                                  : theme.textTheme.bodySmall)
+                              ?.copyWith(
+                                color: selected
+                                    ? theme.colorScheme.onSurface
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                    ),
                   ),
                 ),
               ),
@@ -366,25 +656,19 @@ class _TagSettingsPageState extends State<TagSettingsPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return FloraPageScaffold(
       title: '标签管理',
-      body: _domainCount == 0 && _methodCount == 0
-          ? Center(child: const FloraEmpty(name: FloraIcons.emptyTags))
-          : Column(
-              children: [
-                _buildTabBar(theme),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildDomainsTab(theme),
-                      _buildMethodsTab(theme),
-                    ],
-                  ),
-                ),
-              ],
+      body: Column(
+        children: [
+          _buildTabBar(theme),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [_buildDomainsTab(theme), _buildMethodsTab(theme)],
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -392,183 +676,141 @@ class _TagSettingsPageState extends State<TagSettingsPage>
 
   Widget _buildDomainsTab(ThemeData theme) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: FloraSpacing.lg),
       children: [
-        const SizedBox(height: 4),
-        // 统计摘要
-        Text(
-          '共 $_domainCount 个领域 / $_topicCount 个主题 / $_methodCount 个方法',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        // 添加领域
+        const SizedBox(height: FloraSpacing.xs),
+        _buildSummary(theme),
+        const SizedBox(height: FloraSpacing.md),
         _buildAddButton(theme: theme, label: '＋ 添加领域', onTap: _addDomain),
-        const SizedBox(height: 12),
-        // 领域列表
-        ..._settings.domainSettings.map((d) => _buildDomainCard(theme, d)),
-        // 恢复默认
-        const SizedBox(height: 20),
-        Center(
-          child: TextButton.icon(
-            onPressed: _restoreAll,
-            icon: const FloraIcon(FloraIcons.restore, size: 18),
-            label: const Text('恢复全部默认'),
-            style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.error,
-            ),
-          ),
-        ),
-        const SizedBox(height: 32),
+        const SizedBox(height: FloraSpacing.md),
+        ..._visibleDomains.map((domain) => _buildDomainCard(theme, domain)),
+        const SizedBox(height: FloraSpacing.md),
+        _buildRestoreButton(theme),
+        const SizedBox(height: FloraSpacing.xxl),
       ],
     );
   }
 
-  /// 单个领域卡片：名称 + 说明 + 展开箭头 + 操作按钮。主题默认折叠。
+  Widget _buildSummary(ThemeData theme) {
+    return Text(
+      '共 $_domainCount 个领域 / $_topicCount 个主题 / $_methodCount 个方法',
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
   Widget _buildDomainCard(ThemeData theme, DomainSetting domain) {
     final expanded = _expandedDomains.contains(domain.key);
+    final topics = domain.topics.where((topic) => !topic.deleted).toList();
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: FloraSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 可点击的头部区域
-          InkWell(
-            onTap: () {
-              setState(() {
-                if (expanded) {
-                  _expandedDomains.remove(domain.key);
-                } else {
-                  _expandedDomains.add(domain.key);
-                }
-              });
-            },
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(12),
-              topRight: const Radius.circular(12),
-              bottomLeft: Radius.circular(expanded ? 0 : 12),
-              bottomRight: Radius.circular(expanded ? 0 : 12),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FloraSpacing.sm,
+              FloraSpacing.xs,
+              FloraSpacing.md,
+              FloraSpacing.xs,
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── 领域头部：名称 + 说明 + 操作按钮 ──
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  expanded
-                                      ? Icons.expand_less
-                                      : Icons.expand_more,
-                                  size: 20,
+            child: Row(
+              children: [
+                Semantics(
+                  button: true,
+                  label: expanded
+                      ? '收起 ${domain.displayName}'
+                      : '展开 ${domain.displayName}',
+                  child: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        if (expanded) {
+                          _expandedDomains.remove(domain.key);
+                        } else {
+                          _expandedDomains.add(domain.key);
+                        }
+                      });
+                    },
+                    icon: Icon(
+                      expanded ? Icons.expand_less : Icons.expand_more,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    tooltip: expanded ? '收起' : '展开',
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _handleDomainAction(domain),
+                    borderRadius: BorderRadius.circular(FloraRadius.sm),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: FloraSpacing.sm,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '#${domain.displayName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: domain.enabled
+                                    ? theme.colorScheme.onSurface
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          if (!domain.enabled)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: FloraSpacing.sm,
+                              ),
+                              child: Text(
+                                '已停用',
+                                style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '#${domain.displayName}',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                if (!domain.enabled)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 6),
-                                    child: Text(
-                                      '已禁用',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                          ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            if (domain.description != null &&
-                                domain.description!.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  domain.description!,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
-                      // 编辑
-                      IconButton(
-                        icon: const FloraIcon(FloraIcons.edit, size: 16),
-                        onPressed: () => _editDomain(domain),
-                        tooltip: '编辑',
-                        visualDensity: VisualDensity.compact,
-                        style: IconButton.styleFrom(
-                          foregroundColor: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      // 恢复默认
-                      if (domain.displayName != domain.defaultName)
-                        IconButton(
-                          icon: const FloraIcon(FloraIcons.restore, size: 16),
-                          onPressed: () => _restoreDomain(domain),
-                          tooltip: '恢复默认',
-                          visualDensity: VisualDensity.compact,
-                          style: IconButton.styleFrom(
-                            foregroundColor: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      // 启用/禁用
-                      FloraSwitch(
-                        value: domain.enabled,
-                        onChanged: (v) {
-                          setState(() => domain.enabled = v);
-                          _save();
-                        },
-                      ),
-                    ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          // ── 展开后的主题区域 ──
           if (expanded) ...[
             Divider(
               height: 1,
-              indent: 12,
-              endIndent: 12,
+              indent: FloraSpacing.lg,
+              endIndent: FloraSpacing.lg,
               color: theme.dividerColor,
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 12, 12),
+              padding: const EdgeInsets.fromLTRB(
+                FloraSpacing.lg,
+                FloraSpacing.sm,
+                FloraSpacing.md,
+                FloraSpacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (domain.topics.isNotEmpty)
-                    ...domain.topics.map((t) => _buildTopicRow(theme, t))
-                  else
+                  if (topics.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: FloraSpacing.sm),
                       child: Text(
                         '暂无主题标签',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    ),
+                    )
+                  else
+                    ...topics.map((topic) => _buildTopicRow(theme, topic)),
                   _buildAddButton(
                     theme: theme,
                     label: '＋ 添加主题',
@@ -584,91 +826,47 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     );
   }
 
-  /// 主题行：名称 + 说明 + 操作。
   Widget _buildTopicRow(ThemeData theme, TopicSetting topic) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 小圆点
-          Container(
-            width: 5,
-            height: 5,
-            margin: const EdgeInsets.only(top: 7, right: 8),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: theme.colorScheme.onSurfaceVariant.withAlpha(100),
-            ),
-          ),
-          // 名称 + 说明
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        topic.displayName,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: topic.enabled
-                              ? theme.colorScheme.onSurface
-                              : theme.colorScheme.onSurfaceVariant.withAlpha(
-                                  120,
-                                ),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (topic.description != null &&
-                        topic.description!.isNotEmpty)
-                      Flexible(
-                        child: Text(
-                          ' — ${topic.description}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
+      padding: const EdgeInsets.only(bottom: FloraSpacing.xs),
+      child: InkWell(
+        onTap: () => _handleTopicAction(topic),
+        borderRadius: BorderRadius.circular(FloraRadius.sm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: FloraSpacing.sm),
+          child: Row(
+            children: [
+              Container(
+                width: 5,
+                height: 5,
+                margin: const EdgeInsets.only(right: FloraSpacing.sm),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.onSurfaceVariant.withAlpha(100),
                 ),
-              ],
-            ),
-          ),
-          // 编辑
-          IconButton(
-            icon: const FloraIcon(FloraIcons.edit, size: 14),
-            onPressed: () => _editTopic(topic),
-            tooltip: '编辑',
-            visualDensity: VisualDensity.compact,
-            style: IconButton.styleFrom(
-              foregroundColor: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          // 恢复
-          if (topic.displayName != topic.defaultName)
-            IconButton(
-              icon: const FloraIcon(FloraIcons.restore, size: 14),
-              onPressed: () => _restoreTopic(topic),
-              tooltip: '恢复默认',
-              visualDensity: VisualDensity.compact,
-              style: IconButton.styleFrom(
-                foregroundColor: theme.colorScheme.onSurfaceVariant,
               ),
-            ),
-          // 启用/禁用
-          FloraSwitch(
-            value: topic.enabled,
-            onChanged: (v) {
-              setState(() => topic.enabled = v);
-              _save();
-            },
+              Expanded(
+                child: Text(
+                  topic.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: topic.enabled
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              if (!topic.enabled)
+                Text(
+                  '已停用',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -677,23 +875,16 @@ class _TagSettingsPageState extends State<TagSettingsPage>
 
   Widget _buildMethodsTab(ThemeData theme) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: FloraSpacing.lg),
       children: [
-        const SizedBox(height: 4),
-        Text(
-          '共 $_domainCount 个领域 / $_topicCount 个主题 / $_methodCount 个方法',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        // 添加方法
+        const SizedBox(height: FloraSpacing.xs),
+        _buildSummary(theme),
+        const SizedBox(height: FloraSpacing.md),
         _buildAddButton(theme: theme, label: '＋ 添加方法', onTap: _addMethod),
-        const SizedBox(height: 12),
-        // 方法列表
-        if (_settings.methodSettings.isEmpty)
+        const SizedBox(height: FloraSpacing.md),
+        if (_visibleMethods.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+            padding: const EdgeInsets.symmetric(vertical: FloraSpacing.xl),
             child: Center(
               child: Text(
                 '暂无方法标签，点击上方按钮添加。',
@@ -704,92 +895,63 @@ class _TagSettingsPageState extends State<TagSettingsPage>
             ),
           )
         else
-          ..._settings.methodSettings.map((m) => _buildMethodCard(theme, m)),
-        // 恢复默认
-        const SizedBox(height: 20),
-        Center(
-          child: TextButton.icon(
-            onPressed: _restoreAll,
-            icon: const FloraIcon(FloraIcons.restore, size: 18),
-            label: const Text('恢复全部默认'),
-            style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.error,
-            ),
-          ),
-        ),
-        const SizedBox(height: 32),
+          ..._visibleMethods.map((method) => _buildMethodCard(theme, method)),
+        const SizedBox(height: FloraSpacing.md),
+        _buildRestoreButton(theme),
+        const SizedBox(height: FloraSpacing.xxl),
       ],
     );
   }
 
   Widget _buildMethodCard(ThemeData theme, MethodSetting method) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '#${method.displayName}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: method.enabled
-                          ? theme.colorScheme.onSurface
-                          : theme.colorScheme.onSurfaceVariant.withAlpha(120),
-                    ),
+      margin: const EdgeInsets.only(bottom: FloraSpacing.sm),
+      child: InkWell(
+        onTap: () => _handleMethodAction(method),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: FloraSpacing.md,
+            vertical: FloraSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '#${method.displayName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: method.enabled
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
-                  if (method.description != null &&
-                      method.description!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        method.description!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: const FloraIcon(FloraIcons.edit, size: 16),
-              onPressed: () => _editMethod(method),
-              tooltip: '编辑',
-              visualDensity: VisualDensity.compact,
-              style: IconButton.styleFrom(
-                foregroundColor: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            if (method.displayName != method.defaultName)
-              IconButton(
-                icon: const FloraIcon(FloraIcons.restore, size: 16),
-                onPressed: () => _restoreMethod(method),
-                tooltip: '恢复默认',
-                visualDensity: VisualDensity.compact,
-                style: IconButton.styleFrom(
-                  foregroundColor: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            FloraSwitch(
-              value: method.enabled,
-              onChanged: (v) {
-                setState(() => method.enabled = v);
-                _save();
-              },
-            ),
-          ],
+              if (!method.enabled)
+                Text(
+                  '已停用',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ── 轻量添加按钮 ──
+  Widget _buildRestoreButton(ThemeData theme) {
+    return Center(
+      child: TextButton.icon(
+        onPressed: _restoreAll,
+        icon: const FloraIcon(FloraIcons.restore, size: 18),
+        label: const Text('恢复全部默认'),
+        style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+      ),
+    );
+  }
 
   Widget _buildAddButton({
     required ThemeData theme,
@@ -803,11 +965,11 @@ class _TagSettingsPageState extends State<TagSettingsPage>
         onPressed: onTap,
         style: TextButton.styleFrom(
           padding: compact
-              ? const EdgeInsets.symmetric(horizontal: 0, vertical: 4)
-              : const EdgeInsets.symmetric(vertical: 6),
+              ? const EdgeInsets.symmetric(vertical: FloraSpacing.xs)
+              : const EdgeInsets.symmetric(vertical: FloraSpacing.sm),
           foregroundColor: theme.colorScheme.primary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(FloraRadius.md),
             side: BorderSide(
               color: theme.colorScheme.primary.withAlpha(60),
               width: 1,
@@ -817,10 +979,93 @@ class _TagSettingsPageState extends State<TagSettingsPage>
         ),
         child: Text(
           label,
-          style: theme.textTheme.bodySmall?.copyWith(
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w500,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _TagNameSheet extends StatefulWidget {
+  final String title;
+  final String initialName;
+  final String? Function(String name) validate;
+
+  const _TagNameSheet({
+    required this.title,
+    required this.initialName,
+    required this.validate,
+  });
+
+  @override
+  State<_TagNameSheet> createState() => _TagNameSheetState();
+}
+
+class _TagNameSheetState extends State<_TagNameSheet> {
+  late final TextEditingController _controller;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final name = _controller.text.trim();
+    final error = widget.validate(name);
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+    Navigator.of(context).pop(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        FloraSpacing.lg,
+        FloraSpacing.xs,
+        FloraSpacing.lg,
+        FloraSpacing.lg + bottomInset,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.title, style: theme.textTheme.headlineSmall),
+          const SizedBox(height: FloraSpacing.lg),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            maxLength: 24,
+            decoration: InputDecoration(
+              labelText: '标签名称',
+              errorText: _error,
+              counterText: '',
+            ),
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+          ),
+          const SizedBox(height: FloraSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(onPressed: _submit, child: const Text('确定')),
+          ),
+        ],
       ),
     );
   }

@@ -5,7 +5,7 @@ import '../models/tag_settings.dart';
 class TagSettingsHelper {
   TagSettingsHelper._();
 
-  /// 生成只含 enabled 标签的 TagConfig，name 替换为 displayName。
+  /// 生成当前设备可用的 TagConfig，name 替换为 displayName。
   static TagConfig effectiveTagConfig(TagConfig source, TagSettings settings) {
     return settings.toEffectiveTagConfig(source);
   }
@@ -20,7 +20,7 @@ class TagSettingsHelper {
 
     final disabledNames = <String>{};
     for (final ds in settings.domainSettings) {
-      if (!ds.enabled) {
+      if (!ds.enabled || ds.deleted) {
         disabledNames.add(ds.displayName);
         if (ds.displayName != ds.defaultName) {
           disabledNames.add(ds.defaultName);
@@ -34,7 +34,7 @@ class TagSettingsHelper {
         }
       } else {
         for (final ts in ds.topics) {
-          if (!ts.enabled) {
+          if (!ts.enabled || ts.deleted) {
             disabledNames.add(ts.displayName);
             if (ts.displayName != ts.defaultName) {
               disabledNames.add(ts.defaultName);
@@ -44,13 +44,35 @@ class TagSettingsHelper {
       }
     }
     for (final ms in settings.methodSettings) {
-      if (!ms.enabled) {
+      if (!ms.enabled || ms.deleted) {
         disabledNames.add(ms.displayName);
         if (ms.displayName != ms.defaultName) {
           disabledNames.add(ms.defaultName);
         }
       }
     }
+
+    // 用户重新创建同名标签后，以当前可用标签为准，不把它误判为历史隐藏标签。
+    final activeNames = <String>{};
+    for (final ds in settings.domainSettings) {
+      if (ds.enabled && !ds.deleted) {
+        activeNames.add(ds.displayName);
+        activeNames.add(ds.defaultName);
+        for (final ts in ds.topics) {
+          if (ts.enabled && !ts.deleted) {
+            activeNames.add(ts.displayName);
+            activeNames.add(ts.defaultName);
+          }
+        }
+      }
+    }
+    for (final ms in settings.methodSettings) {
+      if (ms.enabled && !ms.deleted) {
+        activeNames.add(ms.displayName);
+        activeNames.add(ms.defaultName);
+      }
+    }
+    disabledNames.removeWhere(activeNames.contains);
 
     return initialTags.where((t) => disabledNames.contains(t)).toList();
   }
@@ -69,19 +91,29 @@ class TagSettingsHelper {
     return null;
   }
 
-  /// 计算已启用标签总数（所有 enabled 的 domain + topic + method）。
+  /// 校验名称是否与当前其它可用标签重复。
+  static String? validateUniqueDisplayName(
+    String name,
+    Iterable<String> existingNames,
+  ) {
+    final normalized = name.trim();
+    if (existingNames.contains(normalized)) return '标签名已存在';
+    return null;
+  }
+
+  /// 计算当前设备中启用且未删除的 domain、topic、method 总数。
   static int countEnabled(TagSettings settings) {
     int count = 0;
     for (final ds in settings.domainSettings) {
-      if (ds.enabled) {
+      if (ds.enabled && !ds.deleted) {
         count++; // count the domain
         for (final ts in ds.topics) {
-          if (ts.enabled) count++;
+          if (ts.enabled && !ts.deleted) count++;
         }
       }
     }
     for (final ms in settings.methodSettings) {
-      if (ms.enabled) count++;
+      if (ms.enabled && !ms.deleted) count++;
     }
     return count;
   }

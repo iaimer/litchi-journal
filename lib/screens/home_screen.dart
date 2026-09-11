@@ -157,9 +157,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, bool> _customCheckboxStates = {};
   Map<String, int> _customDurationStates = {};
 
-  /// 只含 enabled 标签、name 替换为 displayName 的 TagConfig。
+  /// 当前设备可用标签、name 替换为 displayName 的 TagConfig。
   /// 用于快速记录入口（新建记录不需要隐藏标签）。
-  TagConfig? get _effectiveTagConfig {
+  TagConfig get _effectiveTagConfig {
     final tagConfig = _tagConfig ?? DefaultTagConfig.value;
     if (_tagSettings == null) return tagConfig;
     return TagSettingsHelper.effectiveTagConfig(tagConfig, _tagSettings!);
@@ -603,8 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
       throw Exception('AI 润色未启用，请在初始设置中配置');
     }
 
-    final tagConfig = _tagConfig;
-    if (tagConfig == null) {
+    if (_tagConfig == null) {
       throw Exception('标签配置暂不可用');
     }
 
@@ -613,7 +612,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final result = await service.polish(
         content: content,
         entryType: entryType,
-        tagConfig: tagConfig,
+        tagConfig: _effectiveTagConfig,
         config: aiConfig,
         tagSettings: _tagSettings,
       );

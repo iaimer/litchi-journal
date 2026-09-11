@@ -51,6 +51,7 @@ import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_edit_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_page.dart';
+import 'package:litchi_journal_flutter/screens/tag_settings_page.dart';
 import 'package:litchi_journal_flutter/screens/about_page.dart';
 import 'package:litchi_journal_flutter/screens/image_compress_page.dart';
 import 'package:litchi_journal_flutter/screens/remote_api_page.dart';
@@ -69,6 +70,7 @@ import 'package:litchi_journal_flutter/widgets/review_card.dart';
 import 'package:litchi_journal_flutter/widgets/section_card.dart';
 import 'package:litchi_journal_flutter/widgets/tag_color_helper.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
+import 'package:litchi_journal_flutter/widgets/flora_switch.dart';
 
 import 'package:litchi_journal_flutter/models/tag_settings.dart';
 import 'package:litchi_journal_flutter/services/tag_settings_helper.dart';
@@ -10621,6 +10623,147 @@ tags:
     });
   });
 
+  group('TagSettingsPage', () {
+    final config = TagConfig(
+      domains: [
+        TagDomain(
+          id: 'parenting',
+          name: '亲子',
+          description: '领域说明不应直接显示',
+          order: 0,
+          topics: [
+            TagTopic(
+              id: 'p-bonding',
+              name: '陪伴互动',
+              description: '主题说明不应直接显示',
+              order: 0,
+            ),
+          ],
+        ),
+      ],
+      methods: [
+        TagMethod(
+          id: 'reflect',
+          name: '反思',
+          description: '方法说明不应直接显示',
+          order: 0,
+        ),
+      ],
+    );
+
+    Widget buildPage() {
+      return MaterialApp(
+        theme: AppTheme.light,
+        home: TagSettingsPage(
+          initialSettings: TagSettings.fromTagConfig(config),
+          tagConfig: config,
+        ),
+      );
+    }
+
+    testWidgets('shows names without descriptions, switches, or edit icons', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildPage());
+
+      expect(find.text('#亲子'), findsOneWidget);
+      expect(find.text('领域说明不应直接显示'), findsNothing);
+      expect(find.text('主题说明不应直接显示'), findsNothing);
+      expect(find.text('方法说明不应直接显示'), findsNothing);
+      expect(find.byType(FloraSwitch), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is FloraIcon && widget.name == FloraIcons.edit,
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('domain arrow expands independently from name action menu', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildPage());
+      expect(find.text('陪伴互动'), findsNothing);
+
+      await tester.tap(find.byTooltip('展开'));
+      await tester.pumpAndSettle();
+      expect(find.text('陪伴互动'), findsOneWidget);
+
+      await tester.tap(find.text('#亲子'));
+      await tester.pumpAndSettle();
+      expect(find.text('停用'), findsOneWidget);
+      expect(find.text('编辑'), findsOneWidget);
+      expect(find.text('永久删除'), findsOneWidget);
+    });
+
+    testWidgets('edit action opens a bottom sheet with only the name field', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildPage());
+      await tester.tap(find.text('#亲子'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('编辑领域'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('可选说明'), findsNothing);
+      expect(find.text('确定'), findsOneWidget);
+    });
+
+    testWidgets('add and permanently delete a local domain', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      await tester.pumpWidget(buildPage());
+
+      await tester.tap(find.text('＋ 添加领域'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '旅行');
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(find.text('#旅行'), findsOneWidget);
+
+      await tester.tap(find.text('#旅行'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('永久删除'));
+      await tester.pumpAndSettle();
+      expect(find.text('已有日记中的标签不会被修改。'), findsOneWidget);
+      await tester.tap(find.text('永久删除'));
+      await tester.pumpAndSettle();
+      expect(find.text('#旅行'), findsNothing);
+    });
+
+    testWidgets('keeps add and restore controls when all labels are deleted', (
+      tester,
+    ) async {
+      final settings = TagSettings.fromTagConfig(config);
+      for (final domain in settings.domainSettings) {
+        domain.deleted = true;
+        domain.enabled = false;
+        for (final topic in domain.topics) {
+          topic.deleted = true;
+          topic.enabled = false;
+        }
+      }
+      for (final method in settings.methodSettings) {
+        method.deleted = true;
+        method.enabled = false;
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: TagSettingsPage(initialSettings: settings, tagConfig: config),
+        ),
+      );
+
+      expect(find.text('＋ 添加领域'), findsOneWidget);
+      expect(find.text('恢复全部默认'), findsOneWidget);
+      await tester.tap(find.text('方法'));
+      await tester.pumpAndSettle();
+      expect(find.text('＋ 添加方法'), findsOneWidget);
+    });
+  });
+
   group('AboutPage changelog parsing', () {
     test('parses current version without v prefix', () {
       const raw = '''
@@ -10877,14 +11020,123 @@ tags:
       final settings = TagSettings.fromTagConfig(config);
       settings.domainSettings[0].displayName = '育儿';
       settings.domainSettings[0].enabled = false;
+      settings.domainSettings[0].deleted = true;
       final json = settings.toJson();
       final restored = TagSettings.fromJson(json);
       expect(restored.schemaVersion, 1);
       expect(restored.domainSettings[0].displayName, '育儿');
       expect(restored.domainSettings[0].enabled, false);
+      expect(restored.domainSettings[0].deleted, true);
       expect(restored.domainSettings[0].defaultName, '亲子');
       expect(restored.domainSettings[0].topics.length, 2);
       expect(restored.methodSettings.length, 2);
+    });
+
+    test(
+      'toEffectiveTagConfig includes local additions and excludes tombstones',
+      () {
+        final config = fullTagConfig();
+        final settings = TagSettings.fromTagConfig(config);
+        settings.domainSettings[0].topics[0].deleted = true;
+        settings.domainSettings.add(
+          DomainSetting(
+            key: 'local-domain',
+            defaultName: '生活',
+            displayName: '生活',
+            topics: [
+              TopicSetting(
+                key: 'local-topic',
+                defaultName: '日常',
+                displayName: '日常',
+              ),
+            ],
+          ),
+        );
+        settings.domainSettings.add(
+          DomainSetting(
+            key: 'empty-domain',
+            defaultName: '待整理',
+            displayName: '待整理',
+            topics: [],
+          ),
+        );
+        settings.methodSettings.add(
+          MethodSetting(
+            key: 'local-method',
+            defaultName: '记录',
+            displayName: '记录',
+          ),
+        );
+        settings.domainSettings[1].deleted = true;
+
+        final effective = settings.toEffectiveTagConfig(config);
+
+        expect(effective.domains.map((domain) => domain.id), [
+          'parenting',
+          'local-domain',
+          'empty-domain',
+        ]);
+        expect(effective.domains.first.topics.map((topic) => topic.name), [
+          '亲子沟通',
+        ]);
+        expect(effective.domains[1].topics.map((topic) => topic.name), ['日常']);
+        expect(effective.domains[2].topics, isEmpty);
+        expect(effective.methods.map((method) => method.name), [
+          '反思',
+          '方法论',
+          '记录',
+        ]);
+      },
+    );
+
+    test('local additions are available to the AI tag parser', () {
+      final config = fullTagConfig();
+      final settings = TagSettings.fromTagConfig(config);
+      settings.domainSettings.add(
+        DomainSetting(
+          key: 'local-domain',
+          defaultName: '生活',
+          displayName: '生活',
+          topics: [
+            TopicSetting(
+              key: 'local-topic',
+              defaultName: '日常',
+              displayName: '日常',
+            ),
+          ],
+        ),
+      );
+      settings.methodSettings.add(
+        MethodSetting(
+          key: 'local-method',
+          defaultName: '记录',
+          displayName: '记录',
+        ),
+      );
+
+      final result = const PolishResultParser().parse(
+        '今天整理生活。 #生活 #日常 #记录',
+        settings.toEffectiveTagConfig(config),
+        tagSettings: settings,
+      );
+
+      expect(result.tags, ['生活', '日常', '记录']);
+    });
+
+    test('AI parser maps renamed labels returned with default names', () {
+      final config = fullTagConfig();
+      final settings = TagSettings.fromTagConfig(config);
+      settings.domainSettings[0].displayName = '育儿';
+      settings.domainSettings[0].topics[0].displayName = '陪伴';
+      settings.methodSettings[0].displayName = '复盘';
+
+      final result = const PolishResultParser().parse(
+        '今天的记录。 #亲子 #陪伴互动 #反思',
+        settings.toEffectiveTagConfig(config),
+        tagSettings: settings,
+      );
+
+      expect(result.tags, ['育儿', '陪伴', '复盘']);
     });
 
     test('broken JSON falls back with fromJson defaults', () async {
@@ -10950,6 +11202,38 @@ tags:
       ], settings);
       expect(hidden, contains('亲子'));
     });
+
+    test(
+      'hiddenInitialTags preserves deleted tags but ignores recreated names',
+      () {
+        final settings = TagSettings.fromTagConfig(fullTagConfig());
+        settings.domainSettings[0].deleted = true;
+        final hidden = TagSettingsHelper.hiddenInitialTags([
+          '亲子',
+          '陪伴互动',
+        ], settings);
+        expect(hidden, containsAll(['亲子', '陪伴互动']));
+
+        settings.domainSettings.add(
+          DomainSetting(
+            key: 'new-parenting',
+            defaultName: '亲子',
+            displayName: '亲子',
+            topics: [
+              TopicSetting(
+                key: 'new-bonding',
+                defaultName: '陪伴互动',
+                displayName: '陪伴互动',
+              ),
+            ],
+          ),
+        );
+        expect(
+          TagSettingsHelper.hiddenInitialTags(['亲子', '陪伴互动'], settings),
+          isEmpty,
+        );
+      },
+    );
 
     test('validateDisplayName rejects invalid names', () async {
       expect(TagSettingsHelper.validateDisplayName(''), isNotNull);

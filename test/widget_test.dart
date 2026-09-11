@@ -4767,9 +4767,10 @@ tags:
       expect(called!.water, 0);
     });
 
-    testWidgets('water sheet uses two aligned rows and custom amount inline', (
+    testWidgets('water sheet uses two aligned rows and manual input inline', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       final section = HabitSection(
         title: '习惯打卡',
         contents: [],
@@ -4805,6 +4806,16 @@ tags:
 
       await tester.tap(find.byKey(const ValueKey('habit_progress_water')));
       await tester.pumpAndSettle();
+      expect(find.text('手动输入'), findsOneWidget);
+      expect(find.text('自定义预设'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is FloraIcon && widget.name == FloraIcons.settings,
+        ),
+        findsNothing,
+      );
+      expect(find.bySemanticsLabel('自定义饮水预设'), findsOneWidget);
+      semantics.dispose();
       final firstRowWidths = [250, 475, 500]
           .map(
             (amount) => tester
@@ -4823,12 +4834,13 @@ tags:
         expect(width, closeTo(firstRowWidths.first, 0.01));
       }
 
-      await tester.tap(find.text('自定义'));
+      await tester.tap(find.text('手动输入'));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('habit_water_sheet_custom')),
         findsOneWidget,
       );
+      expect(find.text('手动输入饮水量'), findsOneWidget);
       await tester.enterText(
         find.byKey(const ValueKey('habit_water_custom_input')),
         '300',
@@ -4876,6 +4888,7 @@ tags:
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('habit_water_settings')));
       await tester.pumpAndSettle();
+      expect(find.text('自定义饮水预设'), findsOneWidget);
       await tester.enterText(
         find.byKey(const ValueKey('habit_water_setting_1')),
         '600',
@@ -5004,9 +5017,11 @@ tags:
       await tester.pumpAndSettle();
     });
 
-    testWidgets('steps edit shows dialog and calls onUpdate with new value', (
+    testWidgets('steps edit uses a bottom sheet and calls onUpdate', (
       tester,
     ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final section = HabitSection(
         title: '习惯打卡',
         contents: [],
@@ -5049,13 +5064,23 @@ tags:
       await tester.tap(find.byKey(const ValueKey('habit_progress_steps')));
       await tester.pumpAndSettle();
 
-      // Dialog appears
-      expect(find.text('输入今日步数'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byKey(const ValueKey('habit_steps_sheet')), findsOneWidget);
+      final stepsInput = find.byKey(const ValueKey('habit_steps_input'));
+      final input = tester.widget<TextField>(stepsInput);
+      expect(input.controller?.text, '8000');
+      expect(input.controller?.selection.start, 0);
+      expect(input.controller?.selection.end, 4);
+      expect(tester.takeException(), isNull);
 
-      // Enter new value
-      final field = find.byType(TextField);
-      await tester.enterText(field, '6000');
-      await tester.tap(find.text('保存'));
+      await tester.tap(find.byKey(const ValueKey('habit_steps_cancel')));
+      await tester.pumpAndSettle();
+      expect(called, isNull);
+
+      await tester.tap(find.byKey(const ValueKey('habit_progress_steps')));
+      await tester.pumpAndSettle();
+      await tester.enterText(stepsInput, '6000');
+      await tester.tap(find.byKey(const ValueKey('habit_steps_save')));
       await tester.pumpAndSettle();
 
       expect(called, isNotNull);
@@ -5065,13 +5090,67 @@ tags:
 
       await tester.tap(find.byKey(const ValueKey('habit_progress_steps')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '9000');
-      await tester.tap(find.text('保存'));
+      await tester.enterText(stepsInput, '9000');
+      await tester.tap(find.byKey(const ValueKey('habit_steps_save')));
       await tester.pumpAndSettle();
 
       expect(find.text('9000/6000 步'), findsOneWidget);
       expect(called!.steps, 9000);
       expect(feedbackCount, 1);
+    });
+
+    testWidgets('steps sheet validates before closing', (tester) async {
+      final section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          const HabitItem(
+            kind: HabitKind.counter,
+            label: '运动/拉伸/快走',
+            checked: false,
+            checkable: false,
+            rawLine: '- 运动/拉伸/快走 3552 步',
+            value: 3552,
+            unit: '步',
+          ),
+        ],
+      );
+      HabitStatus? called;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(
+              section: section,
+              onUpdate: (status) async {
+                called = status;
+                return true;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('habit_progress_steps')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('habit_steps_input')),
+        '500001',
+      );
+      await tester.tap(find.byKey(const ValueKey('habit_steps_save')));
+      await tester.pump();
+
+      expect(find.text('请输入 0–500000 的整数'), findsOneWidget);
+      expect(find.byKey(const ValueKey('habit_steps_sheet')), findsOneWidget);
+      expect(called, isNull);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('habit_steps_input')),
+        '0',
+      );
+      await tester.tap(find.byKey(const ValueKey('habit_steps_save')));
+      await tester.pumpAndSettle();
+
+      expect(called?.steps, 0);
     });
 
     testWidgets('quantitative habits show progress bars with current targets', (
@@ -5203,8 +5282,9 @@ tags:
         expect(find.text('+250'), findsOneWidget);
         expect(find.text('+475'), findsOneWidget);
         expect(find.text('+500'), findsOneWidget);
-        expect(find.text('自定义'), findsOneWidget);
+        expect(find.text('手动输入'), findsOneWidget);
         expect(find.text('清零'), findsOneWidget);
+        expect(find.text('自定义预设'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('habit_water_settings')),
           findsOneWidget,

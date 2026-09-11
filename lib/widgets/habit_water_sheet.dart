@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../models/habit_settings.dart';
 import '../theme/app_theme.dart';
-import 'flora_icon.dart';
 
 enum HabitWaterActionType { add, clear }
 
@@ -230,7 +229,7 @@ class _HabitWaterSheetState extends State<_HabitWaterSheet> {
             Expanded(
               child: _ActionTile(
                 key: const ValueKey('habit_water_custom'),
-                label: '自定义',
+                label: '手动输入',
                 onTap: _showCustom,
               ),
             ),
@@ -246,17 +245,13 @@ class _HabitWaterSheetState extends State<_HabitWaterSheet> {
             ),
             const SizedBox(width: FloraSpacing.sm),
             Expanded(
-              child: Tooltip(
-                message: '设置快捷水量',
-                child: _ActionTile(
-                  key: const ValueKey('habit_water_settings'),
-                  label: '设置快捷水量',
-                  icon: const FloraIcon(FloraIcons.settings, size: 24),
-                  semanticsLabel: '设置快捷水量',
-                  onTap: widget.onQuickAmountsChanged == null
-                      ? null
-                      : _showSettings,
-                ),
+              child: _ActionTile(
+                key: const ValueKey('habit_water_settings'),
+                label: '自定义预设',
+                semanticsLabel: '自定义饮水预设',
+                onTap: widget.onQuickAmountsChanged == null
+                    ? null
+                    : _showSettings,
               ),
             ),
           ],
@@ -271,7 +266,7 @@ class _HabitWaterSheetState extends State<_HabitWaterSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('自定义饮水量', style: Theme.of(context).textTheme.titleMedium),
+        Text('手动输入饮水量', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: FloraSpacing.md),
         TextField(
           key: const ValueKey('habit_water_custom_input'),
@@ -315,7 +310,7 @@ class _HabitWaterSheetState extends State<_HabitWaterSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('设置快捷水量', style: Theme.of(context).textTheme.titleMedium),
+        Text('自定义饮水预设', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: FloraSpacing.md),
         for (var index = 0; index < _settingControllers.length; index++) ...[
           TextField(
@@ -383,7 +378,6 @@ class _HabitWaterSheetState extends State<_HabitWaterSheet> {
 
 class _ActionTile extends StatelessWidget {
   final String label;
-  final Widget? icon;
   final String? semanticsLabel;
   final Color? color;
   final bool destructive;
@@ -392,7 +386,6 @@ class _ActionTile extends StatelessWidget {
   const _ActionTile({
     super.key,
     required this.label,
-    this.icon,
     this.semanticsLabel,
     this.color,
     this.destructive = false,
@@ -410,7 +403,9 @@ class _ActionTile extends StatelessWidget {
         : color ?? theme.colorScheme.onSurface;
     return Semantics(
       button: true,
+      enabled: onTap != null,
       label: semanticsLabel ?? label,
+      excludeSemantics: true,
       child: Material(
         color: tileColor,
         borderRadius: BorderRadius.circular(FloraRadius.lg),
@@ -420,20 +415,18 @@ class _ActionTile extends StatelessWidget {
           child: SizedBox(
             height: 56,
             child: Center(
-              child:
-                  icon ??
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: contentColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: contentColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+              ),
             ),
           ),
         ),

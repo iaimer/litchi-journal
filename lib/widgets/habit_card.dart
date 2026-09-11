@@ -6,6 +6,7 @@ import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 import '../theme/app_theme.dart';
 import 'habit_icon.dart';
+import 'habit_steps_sheet.dart';
 import 'habit_water_sheet.dart';
 import 'section_card.dart';
 
@@ -185,37 +186,13 @@ class _HabitCardState extends State<HabitCard> {
   }
 
   Future<void> _handleStepsEdit() async {
+    if (_updatingField != null) return;
     final currentStatus = _status;
-    final controller = TextEditingController();
-    final result = await showDialog<int>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('输入今日步数'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '输入步数',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = int.tryParse(controller.text.trim());
-              Navigator.pop(ctx, value);
-            },
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+    final result = await showHabitStepsSheet(
+      context,
+      current: currentStatus.steps,
     );
-    if (result != null && result >= 0 && result != currentStatus.steps) {
+    if (result != null && result != currentStatus.steps) {
       final next = _status.copyWith(steps: result);
       _update(next, 'steps');
     }

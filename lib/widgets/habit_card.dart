@@ -911,8 +911,9 @@ class _CompactHabitRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 300;
-        final nameWidth = isNarrow ? 64.0 : 80.0;
+        final nameWidth = isNarrow ? 60.0 : 72.0;
         final valueWidth = isNarrow ? 82.0 : 96.0;
+        const columnGap = 6.0;
         final theme = Theme.of(context);
         final hasMetric = valueText != null || progress != null;
 
@@ -924,7 +925,7 @@ class _CompactHabitRow extends StatelessWidget {
               checked: checked,
               color: checkedColor,
             ),
-            SizedBox(width: isNarrow ? 6 : 8),
+            SizedBox(width: columnGap),
             if (icon != null) ...[
               SizedBox(
                 width: 18,
@@ -937,7 +938,7 @@ class _CompactHabitRow extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(width: isNarrow ? 6 : 8),
+              SizedBox(width: columnGap),
             ],
             SizedBox(
               width: nameWidth,
@@ -949,7 +950,7 @@ class _CompactHabitRow extends StatelessWidget {
               ),
             ),
             if (hasMetric) ...[
-              SizedBox(width: isNarrow ? 6 : 8),
+              SizedBox(width: columnGap),
               Expanded(
                 child: _HabitProgressBar(
                   key: progressKey,
@@ -1331,28 +1332,7 @@ class _HabitProgressBar extends StatelessWidget {
     final progressRow = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        SizedBox(
-          width: valueWidth,
-          child: valueText == null
-              ? const SizedBox.shrink()
-              : FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    valueText!,
-                    maxLines: 1,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color:
-                          theme.textTheme.bodySmall?.color ??
-                          theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                    ),
-                  ),
-                ),
-        ),
-        if (ratio != null) ...[
-          const SizedBox(width: 6),
+        if (ratio != null)
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -1383,8 +1363,30 @@ class _HabitProgressBar extends StatelessWidget {
                 );
               },
             ),
-          ),
-        ],
+          )
+        else
+          const Spacer(),
+        const SizedBox(width: 6),
+        SizedBox(
+          width: valueWidth,
+          child: valueText == null
+              ? const SizedBox.shrink()
+              : FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    valueText!,
+                    maxLines: 1,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          theme.textTheme.bodySmall?.color ??
+                          theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+        ),
       ],
     );
     final hasTapTarget = onTap != null && ratio != null;

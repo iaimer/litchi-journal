@@ -5232,9 +5232,9 @@ tags:
       expect(called?.steps, 0);
     });
 
-    testWidgets('quantitative habits show progress bars with current targets', (
-      tester,
-    ) async {
+    testWidgets('quantitative habit tracks align', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(393, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final semantics = tester.ensureSemantics();
       final section = HabitSection(
         title: '习惯打卡',
@@ -5309,8 +5309,16 @@ tags:
       final waterTrackRect = tester.getRect(
         find.byKey(const ValueKey('habit_progress_track_饮水')),
       );
+      final stepsTrackRect = tester.getRect(
+        find.byKey(const ValueKey('habit_progress_track_运动')),
+      );
       final waterValueRect = tester.getRect(find.text('3000/1500 mL'));
-      expect(waterTrackRect.left - waterValueRect.right, closeTo(6, 1));
+      final stepsValueRect = tester.getRect(find.text('3000/6000 步'));
+      expect(waterTrackRect.left, closeTo(stepsTrackRect.left, 1));
+      expect(waterTrackRect.right, closeTo(stepsTrackRect.right, 1));
+      expect(waterTrackRect.width, greaterThan(120));
+      expect(waterValueRect.left - waterTrackRect.right, closeTo(6, 1));
+      expect(stepsValueRect.left - stepsTrackRect.right, closeTo(6, 1));
       semantics.dispose();
     });
 

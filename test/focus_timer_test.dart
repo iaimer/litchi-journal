@@ -802,6 +802,78 @@ void main() {
         greaterThan(30),
       );
     });
+
+    testWidgets(
+      'five default habits use compact rows with a left status mark',
+      (tester) async {
+        final settings = HabitSettings.defaults.copyWith(
+          durationDailyTargetMap: {'reading': 30},
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HabitCard(
+                section: HabitSection.empty(),
+                habitSettings: settings,
+                onUpdate: (_) async => true,
+                onStartDuration: (_) async => true,
+                onDurationUpdate: (_, _, _) async => true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(Divider), findsNothing);
+        expect(
+          find.byKey(const ValueKey('habit_progress_water')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('habit_progress_steps')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('habit_progress_track_reading')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('habit_progress_track_language')),
+          findsNothing,
+        );
+        expect(find.text('0 分钟'), findsNothing);
+
+        final names = [
+          find.text('饮水'),
+          find.text('运动'),
+          find.text('亲子共读'),
+          find.text('学语言'),
+          find.text('补充剂'),
+        ];
+        for (final name in names) {
+          expect(name, findsOneWidget);
+        }
+        for (var index = 1; index < names.length; index++) {
+          expect(
+            tester.getCenter(names[index]).dy -
+                tester.getCenter(names[index - 1]).dy,
+            closeTo(30, 1),
+          );
+        }
+
+        final firstStatus = tester.getRect(
+          find.byKey(const ValueKey('habit_status_water')),
+        );
+        final waterValue = tester.getRect(find.text('0/1500 mL'));
+        final lastStatus = tester.getRect(
+          find.byKey(const ValueKey('habit_status_supplements')),
+        );
+        expect(firstStatus.left, lessThan(waterValue.left));
+        expect(lastStatus.bottom - firstStatus.top, lessThanOrEqualTo(150));
+      },
+    );
   });
 
   testWidgets('focus timer saves whole minutes and clears the session', (

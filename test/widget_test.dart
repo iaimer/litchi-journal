@@ -5310,7 +5310,7 @@ tags:
         find.byKey(const ValueKey('habit_progress_track_饮水')),
       );
       final waterValueRect = tester.getRect(find.text('3000/1500 mL'));
-      expect(waterValueRect.left - waterTrackRect.right, closeTo(8, 1));
+      expect(waterTrackRect.left - waterValueRect.right, closeTo(6, 1));
       semantics.dispose();
     });
 

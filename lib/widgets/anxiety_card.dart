@@ -26,8 +26,7 @@ class AnxietyCard extends StatelessWidget {
     if (visibleItems.isNotEmpty) {
       children.add(
         Padding(
-          // 为右下角快速记录入口预留阅读安全区，避免大字号时回答被覆盖。
-          padding: const EdgeInsets.only(right: 72),
+          padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
           child: _AnxietyOpenGroup(
             accentColor: effectiveAccentColor,
             items: visibleItems,

@@ -4,6 +4,13 @@ import '../models/tag_config.dart';
 import '../theme/app_theme.dart';
 import 'tag_color_helper.dart';
 
+double journalFabSafetyInset(BuildContext context) {
+  final mediaQuery = MediaQuery.of(context);
+  final bodyTextScale = mediaQuery.textScaler.scale(16) / 16;
+  final compactLargeText = mediaQuery.size.width <= 360 && bodyTextScale > 1.15;
+  return compactLargeText ? 72 : 0;
+}
+
 class JournalSection extends StatelessWidget {
   final String title;
   final Color accentColor;
@@ -92,8 +99,12 @@ class JournalTimelineRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      // 为右下角快速记录入口保留稳定的阅读安全区，避免大字号时正文被覆盖。
-      padding: const EdgeInsets.only(left: 4, top: 4, right: 72, bottom: 4),
+      padding: EdgeInsets.only(
+        left: 4,
+        top: 4,
+        right: journalFabSafetyInset(context),
+        bottom: 4,
+      ),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,

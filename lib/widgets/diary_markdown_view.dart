@@ -389,36 +389,31 @@ class DiaryMarkdownView extends StatelessWidget {
       title: displayTitle,
       accentColor: accentColor,
       trailing: showButton
-          ? Padding(
-              // 避开右下角快速记录入口，保持章节操作始终可见。
-              padding: const EdgeInsets.only(right: 72),
-              child: TextButton.icon(
-                onPressed: generatingCoach ? null : onGenerateCoach,
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                ),
-                icon: generatingCoach
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const FloraIcon(FloraIcons.coach, size: 14),
-                label: Text(
-                  generatingCoach ? '生成中...' : (hasContent ? '更新回顾' : '生成回顾'),
-                  style: const TextStyle(fontSize: 13),
-                ),
+          ? TextButton.icon(
+              onPressed: generatingCoach ? null : onGenerateCoach,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+              ),
+              icon: generatingCoach
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                    )
+                  : const FloraIcon(FloraIcons.coach, size: 14),
+              label: Text(
+                generatingCoach ? '生成中...' : (hasContent ? '更新回顾' : '生成回顾'),
+                style: const TextStyle(fontSize: 13),
               ),
             )
           : null,
       children: [
         if (children.isNotEmpty)
           Padding(
-            // 与时间线保持一致，为右下角快速记录入口预留阅读安全区。
-            padding: const EdgeInsets.only(right: 72),
+            padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: children,
@@ -426,7 +421,7 @@ class DiaryMarkdownView extends StatelessWidget {
           ),
         if (!hasContent && !showButton)
           Padding(
-            padding: const EdgeInsets.only(right: 72),
+            padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
             child: Text(
               '还没有今日回顾',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -615,8 +610,7 @@ class DiaryMarkdownView extends StatelessWidget {
       accentColor: _accentColorFor(section),
       children: [
         Padding(
-          // 为右下角快速记录入口预留阅读安全区，避免大字号时正文被覆盖。
-          padding: const EdgeInsets.only(right: 72),
+          padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

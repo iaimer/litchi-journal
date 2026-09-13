@@ -65,6 +65,7 @@ import 'package:litchi_journal_flutter/widgets/habit_card.dart';
 import 'package:litchi_journal_flutter/widgets/history_calendar.dart';
 import 'package:litchi_journal_flutter/widgets/image_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/image_upload_strip.dart';
+import 'package:litchi_journal_flutter/widgets/journal_section.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
 import 'package:litchi_journal_flutter/widgets/review_card.dart';
 import 'package:litchi_journal_flutter/widgets/section_card.dart';
@@ -1020,8 +1021,8 @@ void main() {
     ) async {
       final now = DateTime.now();
       const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-      final today =
-          '${now.year}年${now.month}月${now.day}日 星期${weekdays[now.weekday - 1]}';
+      final monthDay = '${now.month}月${now.day}日';
+      final weekday = '星期${weekdays[now.weekday - 1]}';
       final client = clientWithBody(
         jsonEncode({
           'date': ApiClient.formatDate(now),
@@ -1042,10 +1043,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('荔枝日记'), findsNothing);
-      expect(find.text(today), findsOneWidget);
-      final title = tester.widget<Text>(find.text(today));
+      expect(find.text(monthDay), findsOneWidget);
+      expect(find.text(weekday), findsOneWidget);
+      final title = tester.widget<Text>(find.text(monthDay));
       expect(title.maxLines, 1);
-      expect(title.overflow, TextOverflow.ellipsis);
+      expect(title.overflow, TextOverflow.fade);
       expect(find.text('已连接服务器'), findsNothing);
       expect(
         find.byWidgetPredicate(
@@ -1549,6 +1551,11 @@ void main() {
       expect(find.textContaining('已成功 1 张，第 2 张失败'), findsOneWidget);
       expect(find.text('上传失败\n点击重试'), findsOneWidget);
 
+      tester
+          .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
+          .hideCurrentSnackBar();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('上传失败\n点击重试'));
       await tester.tap(find.text('上传失败\n点击重试'));
       await tester.pumpAndSettle();
 
@@ -2933,9 +2940,11 @@ tags:
       ),
     );
 
-    expect(find.text('🌙 明日寄语'), findsOneWidget);
+    expect(find.text('明日寄语'), findsOneWidget);
+    expect(find.text('🌙 明日寄语'), findsNothing);
     expect(find.textContaining('明天当焦虑升起时'), findsOneWidget);
     expect(find.textContaining('- 明天当焦虑升起时'), findsNothing);
+    expect(find.byType(SectionCard), findsNothing);
   });
 
   group('TagConfig', () {
@@ -4150,6 +4159,17 @@ tags:
     );
 
     expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((widget) {
+        if (widget is! DecoratedBox || widget.key is! ValueKey<String>) {
+          return false;
+        }
+        return (widget.key! as ValueKey<String>).value.startsWith(
+          'anxiety_question_marker_',
+        );
+      }),
+      findsNWidgets(4),
+    );
   });
 
   testWidgets('AnxietyCard hides template when real answers exist', (
@@ -4191,43 +4211,99 @@ tags:
     expect(find.text('担心项目延期'), findsOneWidget);
 
     // Template questions should be hidden (both from template and from skipped Q&A)
-    // Verify the card has content by checking SectionCard is rendered
     expect(find.byType(AnxietyCard), findsOneWidget);
+    expect(find.byType(JournalSection), findsOneWidget);
+    expect(find.byType(SectionCard), findsNothing);
+    expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
+    expect(find.text('当时我在担心什么？（具体到一句话）'), findsOneWidget);
+    expect(find.text('我做了什么？'), findsNothing);
   });
 
-  testWidgets(
-    'AnxietyCard keeps saved answer blockquote readable in dark mode',
-    (WidgetTester tester) async {
-      final section = AnxietySection(
-        title: '😰 焦虑时刻',
-        contents: [
-          MarkdownContent(
-            '- 今天什么时候我感到焦虑/紧张？\n'
-            '> 今天送小宝去幼儿园时，她迟到了。',
-          ),
-        ],
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark,
-          home: Scaffold(body: AnxietyCard(section: section)),
+  testWidgets('AnxietyCard keeps saved answers open in dark mode', (
+    WidgetTester tester,
+  ) async {
+    final section = AnxietySection(
+      title: '😰 焦虑时刻',
+      contents: [
+        MarkdownContent(
+          '- 今天什么时候我感到焦虑/紧张？\n'
+          '> 今天送小宝去幼儿园时，她迟到了。',
         ),
-      );
+      ],
+    );
 
-      final markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
-      final blockquoteDecoration =
-          markdown.styleSheet?.blockquoteDecoration as BoxDecoration?;
-      const anxietyAccentColor = Color(0xFFFFD43B);
-      final readableTextColor = HSLColor.fromColor(
-        anxietyAccentColor,
-      ).withLightness(0.72).toColor();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(body: AnxietyCard(section: section)),
+      ),
+    );
 
-      expect(markdown.styleSheet?.blockquote?.color, readableTextColor);
-      expect(blockquoteDecoration?.color, anxietyAccentColor.withAlpha(26));
-      expect(blockquoteDecoration?.color, isNot(Colors.blue.shade50));
-    },
-  );
+    const anxietyAccentColor = Color(0xFFFFD43B);
+    final answerFinder = find.ancestor(
+      of: find.text('今天送小宝去幼儿园时，她迟到了。'),
+      matching: find.byType(DecoratedBox),
+    );
+    expect(answerFinder, findsNothing);
+    final marker = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('anxiety_question_marker_0')),
+    );
+    final markerDecoration = marker.decoration as BoxDecoration;
+    expect(markerDecoration.color, anxietyAccentColor);
+    expect(markerDecoration.shape, BoxShape.circle);
+    expect(find.byType(MarkdownBody), findsNothing);
+  });
+
+  testWidgets('AnxietyCard renders one open group for all answers', (
+    tester,
+  ) async {
+    final section = AnxietySection(
+      title: '😰 焦虑时刻',
+      contents: [
+        MarkdownContent(
+          '- 什么时候感到焦虑？\n'
+          '> 下午开会\n'
+          '- 当时在担心什么？\n'
+          '> 担心准备不充分',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: AnxietyCard(section: section)),
+      ),
+    );
+
+    expect(find.byType(JournalSection), findsOneWidget);
+    expect(find.byType(SectionCard), findsNothing);
+    expect(find.text('😰 焦虑时刻'), findsNothing);
+    expect(find.text('焦虑时刻'), findsOneWidget);
+    expect(find.text('什么时候感到焦虑？'), findsOneWidget);
+    expect(find.text('下午开会'), findsOneWidget);
+    expect(find.text('当时在担心什么？'), findsOneWidget);
+    expect(find.text('担心准备不充分'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('什么时候感到焦虑？')).dy,
+      lessThan(tester.getTopLeft(find.text('下午开会')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('下午开会')).dy,
+      lessThan(tester.getTopLeft(find.text('当时在担心什么？')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('当时在担心什么？')).dy,
+      lessThan(tester.getTopLeft(find.text('担心准备不充分')).dy),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('anxiety_question_marker_0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('anxiety_question_marker_1')),
+      findsOneWidget,
+    );
+  });
 
   group('HabitCard', () {
     test('HabitStatus.fromHabitSection maps 5 fields', () {
@@ -7003,15 +7079,79 @@ tags:
       await tester.pumpAndSettle();
 
       // Coach section should show
-      expect(find.text('🧠 人生教练'), findsOneWidget);
-      expect(find.text('📌 模式识别'), findsOneWidget);
-      expect(find.text('⚠️ 矛盾指出'), findsOneWidget);
-      expect(find.text('💬 暖心鼓励'), findsOneWidget);
+      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('模式识别'), findsOneWidget);
+      expect(find.text('矛盾指出'), findsOneWidget);
+      expect(find.text('暖心鼓励'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.pin,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.warning,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.chatFeedback,
+        ),
+        findsOneWidget,
+      );
 
       // Tomorrow section should show
-      expect(find.text('🌙 明日寄语'), findsOneWidget);
+      expect(find.text('明日寄语'), findsOneWidget);
+      expect(find.text('🌙 明日寄语'), findsNothing);
       expect(find.text('明天完成重要任务'), findsOneWidget);
     });
+
+    testWidgets(
+      'coach content uses an open layout without a surface container',
+      (tester) async {
+        const markdown = '''
+# 今天
+
+### 🧠 人生教练
+📌 模式识别
+你今天表现很好
+⚠️ 矛盾指出
+有一点焦虑
+''';
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: DiaryMarkdownView(
+                markdown: markdown,
+                onGenerateCoach: () {},
+                readOnly: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final decoratedAncestors = find.ancestor(
+          of: find.text('你今天表现很好'),
+          matching: find.byWidgetPredicate((widget) {
+            if (widget is DecoratedBox) return true;
+            if (widget is Container) {
+              return widget.color != null ||
+                  widget.decoration != null ||
+                  widget.foregroundDecoration != null;
+            }
+            return false;
+          }),
+        );
+        expect(decoratedAncestors, findsNothing);
+        expect(find.text('模式识别'), findsOneWidget);
+        expect(find.text('矛盾指出'), findsOneWidget);
+        expect(find.byType(FloraIcon), findsNWidgets(2));
+      },
+    );
 
     testWidgets('restore default rendering after changes', (tester) async {
       const markdown = '''
@@ -7044,8 +7184,8 @@ tags:
       await tester.pumpAndSettle();
 
       // Both sections exist independently
-      expect(find.text('🧠 人生教练'), findsOneWidget);
-      expect(find.text('🌙 明日寄语'), findsOneWidget);
+      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('明日寄语'), findsOneWidget);
     });
 
     testWidgets('readOnly=false shows regenerate button', (tester) async {
@@ -7100,7 +7240,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('人生教练'), findsOneWidget);
       expect(find.text('生成今日反馈'), findsOneWidget);
 
       await tester.tap(find.text('生成今日反馈'));
@@ -7135,9 +7275,9 @@ tags:
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('🧠 人生教练'), findsOneWidget);
+        expect(find.text('人生教练'), findsOneWidget);
         expect(find.text('生成今日反馈'), findsOneWidget);
-        expect(find.text('🌙 明日寄语'), findsOneWidget);
+        expect(find.text('明日寄语'), findsOneWidget);
         expect(find.text('🏃 习惯打卡'), findsOneWidget);
       },
     );
@@ -7165,8 +7305,8 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('🧠 人生教练'), findsOneWidget);
-      expect(find.text('🧠 荔枝喵说'), findsNothing);
+      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('荔枝喵说'), findsNothing);
       expect(find.text('生成今日反馈'), findsOneWidget);
     });
 
@@ -7193,8 +7333,8 @@ tags:
       await tester.pumpAndSettle();
 
       // Coach content should show
-      expect(find.text('🧠 人生教练'), findsOneWidget);
-      expect(find.text('📌 模式识别'), findsOneWidget);
+      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('模式识别'), findsOneWidget);
       // Regenerate button should NOT show
       expect(find.text('重新生成'), findsNothing);
       expect(find.text('生成今日反馈'), findsNothing);
@@ -7219,8 +7359,8 @@ tags:
       await tester.pumpAndSettle();
 
       // Should show as 人生教练, not 荔枝喵说
-      expect(find.text('🧠 人生教练'), findsOneWidget);
-      expect(find.text('🧠 荔枝喵说'), findsNothing);
+      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('荔枝喵说'), findsNothing);
     });
 
     testWidgets('old format **模式识别** renders as module title', (tester) async {
@@ -7244,10 +7384,10 @@ tags:
       await tester.pumpAndSettle();
 
       // Old format patterns should be normalized to display titles
-      expect(find.text('📌 模式识别'), findsOneWidget);
-      expect(find.text('⚠️ 矛盾指出'), findsOneWidget);
-      expect(find.text('❓ 批判性问题'), findsOneWidget);
-      expect(find.text('🍰 甜点'), findsOneWidget);
+      expect(find.text('模式识别'), findsOneWidget);
+      expect(find.text('矛盾指出'), findsOneWidget);
+      expect(find.text('批判性问题'), findsOneWidget);
+      expect(find.text('甜点'), findsOneWidget);
 
       // Raw ** markers should NOT appear
       expect(find.text('**模式识别**'), findsNothing);
@@ -7284,7 +7424,7 @@ tags:
       // Verify no raw ** markers remain
       expect(find.text('**甜点**'), findsNothing);
       // Verify 人生教练 title still shows
-      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('人生教练'), findsOneWidget);
     });
 
     testWidgets(
@@ -7317,8 +7457,8 @@ tags:
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('🧠 人生教练'), findsOneWidget);
-        expect(find.text('📌 模式识别'), findsOneWidget);
+        expect(find.text('人生教练'), findsOneWidget);
+        expect(find.text('模式识别'), findsOneWidget);
         expect(find.text('🌙 明日寄语'), findsNothing);
         expect(find.text('🏃 习惯打卡'), findsNothing);
         expect(find.text('📖 阅读/亲子共读'), findsNothing);
@@ -7352,7 +7492,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('人生教练'), findsOneWidget);
       expect(find.text('📌 习惯追踪'), findsNothing);
       expect(find.text('📖 阅读/亲子共读'), findsNothing);
     });
@@ -7385,7 +7525,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('🧠 人生教练'), findsOneWidget);
+      expect(find.text('人生教练'), findsOneWidget);
       expect(find.text('🌙 明日寄语'), findsNothing);
       expect(find.text('🏃 习惯打卡'), findsNothing);
       expect(find.text('📖 阅读/亲子共读'), findsNothing);
@@ -7421,9 +7561,9 @@ tags:
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('🧠 人生教练'), findsOneWidget);
+        expect(find.text('人生教练'), findsOneWidget);
         expect(find.text('重新生成'), findsOneWidget);
-        expect(find.text('🌙 明日寄语'), findsOneWidget);
+        expect(find.text('明日寄语'), findsOneWidget);
         expect(find.text('明天完成重要任务'), findsOneWidget);
         expect(find.text('🏃 习惯打卡'), findsOneWidget);
         expect(find.text('亲子共读'), findsOneWidget);
@@ -7757,6 +7897,7 @@ tags:
         ),
         findsOneWidget,
       );
+      expect(find.byType(JournalSection), findsOneWidget);
     });
 
     testWidgets('QuickNoteTimeline delete button shows confirm dialog', (
@@ -8071,6 +8212,7 @@ tags:
         ),
         findsOneWidget,
       );
+      expect(find.byType(JournalSection), findsOneWidget);
     });
 
     testWidgets('ReviewCard delete passes rawLine with section reflection', (
@@ -8844,6 +8986,10 @@ tags:
       );
 
       expect(find.text('暂无影像记录'), findsOneWidget);
+      expect(find.text('影像记录'), findsOneWidget);
+      expect(find.text('## 📸 影像记录'), findsNothing);
+      expect(find.byType(JournalSection), findsOneWidget);
+      expect(find.byType(SectionCard), findsNothing);
     });
 
     ApiClient imageTestApiClient() {
@@ -8862,6 +9008,43 @@ tags:
         contents: [MarkdownContent(links)],
       );
     }
+
+    testWidgets('uses a two-column square image grid', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ImageSectionCard(
+                section: imageSection([
+                  'img-001.jpg',
+                  'img-002.jpg',
+                  'img-003.jpg',
+                ]),
+                apiClient: imageTestApiClient(),
+                date: DateTime(2026, 6, 8),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final images = find.byType(Image);
+      expect(images, findsNWidgets(3));
+      final first = tester.getSize(images.at(0));
+      final second = tester.getSize(images.at(1));
+      final third = tester.getSize(images.at(2));
+      expect(first.width, closeTo(second.width, 0.01));
+      expect(first.height, closeTo(first.width, 0.01));
+      expect(third.width, closeTo(first.width, 0.01));
+      expect(third.height, closeTo(first.height, 0.01));
+      expect(
+        tester.getTopLeft(images.at(1)).dx,
+        greaterThan(tester.getTopLeft(images.at(0)).dx),
+      );
+      expect(find.byType(JournalSection), findsOneWidget);
+      expect(find.byType(SectionCard), findsNothing);
+    });
 
     testWidgets('thumbnail shows delete menu', (tester) async {
       String? deleted;
@@ -9121,15 +9304,17 @@ tags:
       );
       await tester.pump();
 
-      expect(find.text('📸 影像记录'), findsOneWidget);
+      expect(find.text('影像记录'), findsOneWidget);
+      expect(find.text('📸 影像记录'), findsNothing);
       expect(find.byType(ImageUploadStrip), findsOneWidget);
       expect(
         find.ancestor(
           of: find.byType(ImageUploadStrip),
-          matching: find.byType(SectionCard),
+          matching: find.byType(JournalSection),
         ),
         findsOneWidget,
       );
+      expect(find.byType(SectionCard), findsNothing);
     });
 
     testWidgets('preview distinguishes preparing, real progress, and failure', (

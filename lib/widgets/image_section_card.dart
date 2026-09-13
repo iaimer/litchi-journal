@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'flora_icon.dart';
-import 'section_card.dart';
+import 'journal_section.dart';
 
 import '../models/diary_document.dart';
 import '../models/image_upload_item.dart';
@@ -44,8 +44,8 @@ class ImageSectionCard extends StatelessWidget {
     final filenames = parseWikiLinks(section);
 
     if (filenames.isEmpty && imageUploads.isEmpty) {
-      return SectionCard(
-        title: section.title,
+      return JournalSection(
+        title: '影像记录',
         accentColor: accentColor ?? theme.colorScheme.primary,
         children: [
           Text(
@@ -61,19 +61,27 @@ class ImageSectionCard extends StatelessWidget {
     final children = <Widget>[];
     if (filenames.isNotEmpty) {
       children.add(
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: filenames.map((name) {
-            return _ImageThumbnail(
-              filename: name,
-              apiClient: apiClient,
-              date: date,
-              onDelete: onDeleteImage != null
-                  ? () => onDeleteImage!('![[$name]]')
-                  : null,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cellWidth = constraints.maxWidth > FloraSpacing.sm
+                ? (constraints.maxWidth - FloraSpacing.sm) / 2
+                : constraints.maxWidth;
+            return Wrap(
+              spacing: FloraSpacing.sm,
+              runSpacing: FloraSpacing.sm,
+              children: filenames.map((name) {
+                return _ImageThumbnail(
+                  size: cellWidth,
+                  filename: name,
+                  apiClient: apiClient,
+                  date: date,
+                  onDelete: onDeleteImage != null
+                      ? () => onDeleteImage!('![[$name]]')
+                      : null,
+                );
+              }).toList(),
             );
-          }).toList(),
+          },
         ),
       );
     }
@@ -93,8 +101,8 @@ class ImageSectionCard extends StatelessWidget {
       );
     }
 
-    return SectionCard(
-      title: section.title,
+    return JournalSection(
+      title: '影像记录',
       accentColor: accentColor ?? theme.colorScheme.primary,
       children: children,
     );
@@ -102,8 +110,10 @@ class ImageSectionCard extends StatelessWidget {
 
   static List<String> parseWikiLinks(MediaSection section) {
     final filenames = <String>[];
-    final wikiLinkPattern = RegExp(r'!\[\[([^\]\\]+\.(?:jpg|jpeg|png|gif|webp|heic|heif))\]\]',
-        caseSensitive: false);
+    final wikiLinkPattern = RegExp(
+      r'!\[\[([^\]\\]+\.(?:jpg|jpeg|png|gif|webp|heic|heif))\]\]',
+      caseSensitive: false,
+    );
 
     for (final content in section.contents) {
       if (content is MarkdownContent) {
@@ -119,12 +129,14 @@ class ImageSectionCard extends StatelessWidget {
 }
 
 class _ImageThumbnail extends StatefulWidget {
+  final double size;
   final String filename;
   final ApiClient apiClient;
   final DateTime date;
   final VoidCallback? onDelete;
 
   const _ImageThumbnail({
+    required this.size,
     required this.filename,
     required this.apiClient,
     required this.date,
@@ -157,8 +169,9 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
       if (dataUrl == null) throw Exception('图片数据为空');
 
       final commaIndex = dataUrl.indexOf(',');
-      final base64 =
-          commaIndex >= 0 ? dataUrl.substring(commaIndex + 1) : dataUrl;
+      final base64 = commaIndex >= 0
+          ? dataUrl.substring(commaIndex + 1)
+          : dataUrl;
       final bytes = base64Decode(base64);
 
       if (!mounted) return;
@@ -188,10 +201,7 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
               _bytes!,
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) => const Center(
-                child: Text(
-                  '图片加载失败',
-                  style: TextStyle(color: Colors.white70),
-                ),
+                child: Text('图片加载失败', style: TextStyle(color: Colors.white70)),
               ),
             ),
           ),
@@ -239,20 +249,26 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
     final theme = Theme.of(context);
 
     if (_loading) {
-      return const SizedBox(
-        width: 120,
-        height: 120,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      return SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(FloraRadius.sm),
+          ),
+          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
       );
     }
 
     if (_error != null || _bytes == null) {
       return Container(
-        width: 120,
-        height: 120,
+        width: widget.size,
+        height: widget.size,
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(FloraRadius.sm),
         ),
         child: Center(
           child: Text(
@@ -274,15 +290,15 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
             borderRadius: BorderRadius.circular(8),
             child: Image.memory(
               _bytes!,
-              width: 120,
-              height: 120,
+              width: widget.size,
+              height: widget.size,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => Container(
-                width: 120,
-                height: 120,
+                width: widget.size,
+                height: widget.size,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(FloraRadius.sm),
                 ),
                 child: Center(
                   child: Text(

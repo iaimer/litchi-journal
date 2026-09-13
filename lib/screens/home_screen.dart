@@ -39,6 +39,7 @@ import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
 import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
+import '../widgets/diary_date_title.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/habit_icon.dart';
@@ -908,12 +909,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String _todayString() {
-    final now = _activeDate;
-    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-    return '${now.year}年${now.month}月${now.day}日 星期${weekdays[now.weekday - 1]}';
-  }
-
   DateTime get _activeDate => _diaryDate ?? DateTime.now();
 
   Widget _buildQuickRecordFab(ThemeData theme) {
@@ -1211,19 +1206,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 72,
+        toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
         centerTitle: false,
         backgroundColor: theme.scaffoldBackgroundColor,
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(
-          _todayString(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleLarge,
-        ),
+        title: DiaryDateTitle(date: _activeDate),
         actions: [
           IconButton(
             icon: const FloraIcon(FloraIcons.settings, size: 24),

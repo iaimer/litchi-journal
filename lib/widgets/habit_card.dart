@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import 'habit_icon.dart';
 import 'habit_steps_sheet.dart';
 import 'habit_water_sheet.dart';
+import 'diary_section_title.dart';
 import 'section_card.dart';
 
 class HabitCard extends StatefulWidget {
@@ -340,7 +341,7 @@ class _HabitCardState extends State<HabitCard> {
     }
 
     return SectionCard(
-      title: widget.section.title,
+      title: diarySectionDisplayTitle(widget.section),
       accentColor: _accentColor,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: children,

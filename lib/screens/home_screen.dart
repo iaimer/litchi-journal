@@ -601,7 +601,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final aiConfig = await aiRepo.loadAIConfig();
 
     if (!aiConfig.isUsable) {
-      throw Exception('AI 润色未启用，请在初始设置中配置');
+      throw Exception('润色功能尚未配置，请前往设置');
     }
 
     if (_tagConfig == null) {
@@ -628,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final aiConfig = await aiRepo.loadAIConfig();
 
     if (!aiConfig.isUsable) {
-      throw Exception('请先在设置中启用并配置 AI 润色');
+      throw Exception('润色功能尚未配置，请前往设置');
     }
 
     final service = PolisherService();
@@ -855,7 +855,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final aiRepo = AIConfigRepository();
       final config = await aiRepo.loadAIConfig();
-      if (!config.isUsable) throw Exception('请先在设置中启用AI并配置API');
+      if (!config.isUsable) throw Exception('今日回顾尚未配置，请前往设置');
 
       final diaryContext = buildCoachDiaryContext(_diary!.raw);
 
@@ -877,7 +877,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _activeDate,
           lizhiContent,
         );
-        if (!ok) throw Exception('保存人生教练失败');
+        if (!ok) throw Exception('保存今日回顾失败');
 
         if (actionContent.isNotEmpty) {
           final tomorrowOk = await widget.apiClient.replaceTomorrowSection(
@@ -893,16 +893,12 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('教练反馈已生成')));
+      ).showSnackBar(const SnackBar(content: Text('今日回顾已保存')));
       _loadDiarySilently();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '生成失败: ${e.toString().replaceFirst('Exception: ', '')}',
-          ),
-        ),
+        SnackBar(content: Text(PolisherService.readableCoachError(e))),
       );
     } finally {
       if (mounted) setState(() => _generatingCoach = false);

@@ -344,7 +344,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
                             child: CircularProgressIndicator(strokeWidth: 1.5),
                           )
                         : const FloraIcon(FloraIcons.coach, size: 14),
-                    label: const Text('AI 润色'),
+                    label: const Text('润色'),
                   ),
                   const Spacer(),
                   _buildTagToggleButton(theme),

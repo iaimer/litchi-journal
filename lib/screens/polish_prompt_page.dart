@@ -64,15 +64,15 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
       );
       await repo.saveAIConfig(updated);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已保存')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已保存')));
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('保存失败')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('保存失败')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -106,10 +106,7 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            '润色提示词',
-            style: theme.textTheme.titleSmall,
-          ),
+          Text('润色提示词', style: theme.textTheme.titleSmall),
           const SizedBox(height: 4),
           Text(
             '默认使用系统推荐提示词。你可以直接修改；修改后将使用你的版本。',
@@ -122,8 +119,10 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
             minLines: 3,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
             ),
             style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
           ),
@@ -136,15 +135,9 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            '人生教练提示词',
-            style: theme.textTheme.titleSmall,
-          ),
+          Text('今日回顾提示词', style: theme.textTheme.titleSmall),
           const SizedBox(height: 4),
-          Text(
-            '用于生成「人生教练」模块的每日总结和建议。',
-            style: theme.textTheme.bodySmall,
-          ),
+          Text('用于生成「今日回顾」模块的每日总结和建议。', style: theme.textTheme.bodySmall),
           const SizedBox(height: 8),
           TextField(
             controller: _coachPromptController,
@@ -152,8 +145,10 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
             minLines: 4,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
             ),
             style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
           ),
@@ -162,7 +157,7 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: _resetCoachPrompt,
-              child: const Text('恢复默认人生教练提示词'),
+              child: const Text('恢复默认今日回顾提示词'),
             ),
           ),
           const SizedBox(height: 24),
@@ -173,7 +168,9 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
                     height: 20,
                     width: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: theme.colorScheme.onPrimary),
+                      strokeWidth: 2,
+                      color: theme.colorScheme.onPrimary,
+                    ),
                   )
                 : const Text('保存'),
           ),

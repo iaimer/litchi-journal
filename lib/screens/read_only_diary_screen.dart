@@ -165,7 +165,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   Future<PolishResult> _polish(String content, EntryType entryType) async {
     final aiConfig = await AIConfigRepository().loadAIConfig();
     if (!aiConfig.isUsable) {
-      throw Exception('AI 润色未启用，请先在设置中配置');
+      throw Exception('润色功能尚未配置，请前往设置');
     }
     final service = PolisherService();
     try {

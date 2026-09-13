@@ -10,6 +10,7 @@ import '../models/tag_settings.dart';
 import '../screens/quick_capture_screen.dart';
 import '../theme/app_theme.dart';
 import 'entry_type.dart';
+import 'diary_section_title.dart';
 import 'journal_section.dart';
 import 'section_card.dart';
 import 'tag_color_helper.dart';
@@ -85,15 +86,16 @@ class GenericSectionCard extends StatelessWidget {
 
     final effectiveAccent =
         accentColor ?? Theme.of(context).colorScheme.primary;
+    final displayTitle = diarySectionDisplayTitle(section);
     if (journalLayout) {
       return JournalSection(
-        title: '觉察',
+        title: displayTitle,
         accentColor: effectiveAccent,
         children: children,
       );
     }
     return SectionCard(
-      title: section.title.isEmpty ? null : section.title,
+      title: displayTitle.isEmpty ? null : displayTitle,
       accentColor: effectiveAccent,
       children: children,
     );

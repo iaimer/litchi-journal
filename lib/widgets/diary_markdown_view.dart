@@ -12,6 +12,7 @@ import '../models/tag_settings.dart';
 import '../services/api_client.dart';
 import '../services/markdown_parser.dart';
 import 'anxiety_card.dart';
+import 'diary_section_title.dart';
 import 'entry_type.dart';
 import 'generic_section_card.dart';
 import 'habit_card.dart';
@@ -161,7 +162,7 @@ class DiaryMarkdownView extends StatelessWidget {
     if (canGenerateCoach && !hasCoachSection) {
       widgets.add(
         _buildCoachCard(
-          const CoachSection(title: '🧠 人生教练', contents: []),
+          const CoachSection(title: '今日回顾', contents: []),
           context,
         ),
       );
@@ -173,7 +174,7 @@ class DiaryMarkdownView extends StatelessWidget {
         date != null) {
       widgets.add(
         _buildMediaSection(
-          const MediaSection(title: '📸 影像记录', contents: []),
+          const MediaSection(title: '影像记录', contents: []),
           context,
         ),
       );
@@ -369,8 +370,7 @@ class DiaryMarkdownView extends StatelessWidget {
       (c) => c is MarkdownContent && c.text.trim().isNotEmpty,
     );
 
-    // 归一化标题：历史旧格式「荔枝喵说」统一显示为「人生教练」
-    final displayTitle = _normalizeCoachSectionTitle(section.title);
+    final displayTitle = diarySectionDisplayTitle(section);
     final showButton = !readOnly && onGenerateCoach != null;
 
     final children = <Widget>[];
@@ -408,7 +408,7 @@ class DiaryMarkdownView extends StatelessWidget {
                       )
                     : const FloraIcon(FloraIcons.coach, size: 14),
                 label: Text(
-                  generatingCoach ? '生成中...' : (hasContent ? '重新生成' : '生成今日反馈'),
+                  generatingCoach ? '生成中...' : (hasContent ? '更新回顾' : '生成回顾'),
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
@@ -428,7 +428,7 @@ class DiaryMarkdownView extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 72),
             child: Text(
-              '暂无教练反馈',
+              '还没有今日回顾',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -436,12 +436,6 @@ class DiaryMarkdownView extends StatelessWidget {
           ),
       ],
     );
-  }
-
-  /// 归一化人生教练 section 标题。
-  /// 历史旧标题「荔枝喵说」统一显示为「人生教练」。
-  static String _normalizeCoachSectionTitle(String title) {
-    return title.contains('荔枝喵说') || title.contains('人生教练') ? '人生教练' : title;
   }
 
   List<Widget> _buildCoachContentWidgets(

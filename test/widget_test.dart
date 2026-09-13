@@ -51,6 +51,7 @@ import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_edit_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_page.dart';
+import 'package:litchi_journal_flutter/screens/polish_prompt_page.dart';
 import 'package:litchi_journal_flutter/screens/tag_settings_page.dart';
 import 'package:litchi_journal_flutter/screens/about_page.dart';
 import 'package:litchi_journal_flutter/screens/image_compress_page.dart';
@@ -58,6 +59,7 @@ import 'package:litchi_journal_flutter/screens/remote_api_page.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
+import 'package:litchi_journal_flutter/widgets/diary_section_title.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/gallery_image_tile.dart';
@@ -2417,7 +2419,8 @@ void main() {
       expect(find.text('随手记'), findsOneWidget);
       expect(find.text('记录时间'), findsOneWidget);
       expect(find.text('今天 21:35'), findsOneWidget);
-      expect(find.text('AI 润色'), findsOneWidget);
+      expect(find.text('润色'), findsOneWidget);
+      expect(find.text('AI 润色'), findsNothing);
       expect(find.widgetWithText(ElevatedButton, '保存'), findsOneWidget);
     });
 
@@ -2496,7 +2499,7 @@ void main() {
       expect(savedTags, contains('工作'));
     });
 
-    testWidgets('AI polish updates content and tags', (tester) async {
+    testWidgets('polish updates content and tags', (tester) async {
       await tester.pumpWidget(
         buildCapture(
           tagConfig: _testTagConfig(),
@@ -2509,7 +2512,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), '原始内容');
       await tester.pump();
-      await tester.tap(find.widgetWithText(OutlinedButton, 'AI 润色'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
       await tester.pumpAndSettle();
 
       final field = tester.widget<TextField>(find.byType(TextField));
@@ -2517,7 +2520,7 @@ void main() {
       expect(find.text('工作'), findsWidgets);
     });
 
-    testWidgets('save and tags stay disabled while AI polish is pending', (
+    testWidgets('save and tags stay disabled while polish is pending', (
       tester,
     ) async {
       final polishResult = Completer<PolishResult>();
@@ -2530,7 +2533,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), '等待润色');
       await tester.pump();
-      await tester.tap(find.widgetWithText(OutlinedButton, 'AI 润色'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
       await tester.pump();
 
       expect(
@@ -3841,7 +3844,7 @@ tags:
         tester.widget<TextField>(find.byType(TextField)).controller?.text,
         '原始回答',
       );
-      expect(find.text('润色失败，请重试'), findsOneWidget);
+      expect(find.text('润色服务暂不可用，请稍后重试'), findsOneWidget);
     });
 
     testWidgets('polish does not affect other answers in AnxietyComposer', (
@@ -6515,9 +6518,56 @@ tags:
       }
 
       expect(capturedError, isNotNull);
+      expect(PolisherService.readableError(capturedError!), '暂时无法润色，请检查网络后重试');
+    });
+
+    test('recording errors use feature copy without technical details', () {
       expect(
-        PolisherService.readableError(capturedError!),
-        'AI 请求失败：OpenCode Go 上游中断了连接，请稍后重试',
+        PolisherService.readableError(Exception('AI 润色未启用或配置不完整')),
+        '润色功能尚未配置，请前往设置',
+      );
+      expect(
+        PolisherService.readableError(Exception('润色功能尚未配置，请前往设置')),
+        '润色功能尚未配置，请前往设置',
+      );
+      expect(
+        PolisherService.readableError(const AIRequestException(401)),
+        '润色服务暂不可用，请前往设置检查配置',
+      );
+      expect(
+        PolisherService.readableError(const AIRequestException(429)),
+        '润色请求较多，请稍后重试',
+      );
+      expect(
+        PolisherService.readableError(Exception('AI 请求超时，请稍后重试')),
+        '润色超时，请稍后重试',
+      );
+      expect(
+        PolisherService.readableError(Exception('无法连接到 AI 服务，请检查网络或服务地址')),
+        '暂时无法润色，请检查网络后重试',
+      );
+      expect(
+        PolisherService.readableError(const AIProviderException('上游内部信息')),
+        '润色服务暂不可用，请稍后重试',
+      );
+    });
+
+    test('coach errors use feature copy without technical details', () {
+      expect(
+        PolisherService.readableCoachError(Exception('请先在设置中启用AI并配置API')),
+        '今日回顾尚未配置，请前往设置',
+      );
+      expect(
+        PolisherService.readableCoachError(const AIRequestException(401)),
+        '今日回顾尚未配置，请前往设置',
+      );
+      expect(
+        PolisherService.readableCoachError(Exception('保存今日回顾失败')),
+        '今日回顾保存失败，请重试',
+      );
+      expect(
+        PolisherService.readableCoachError(const AIProviderException('内部信息')),
+        '暂时无法生成回顾，请稍后重试',
       );
     });
 
@@ -6786,7 +6836,7 @@ tags:
             (messages[1] as Map<String, dynamic>)['content'] as String;
 
         expect(result, contains('📌 模式识别'));
-        expect(systemContent, contains('你是一个理性的人生教练'));
+        expect(systemContent, contains('你是一位理性、克制的日记回顾者'));
         expect(systemContent, contains('📌 模式识别'));
         expect(systemContent, contains('🎯 行动建议'));
         expect(systemContent, contains('💬 暖心鼓励'));
@@ -6796,6 +6846,31 @@ tags:
         expect(body, isNot(contains('sk-secret')));
       },
     );
+
+    test('generateCoach keeps a saved custom prompt unchanged', () async {
+      final client = _CapturingHttpClient(
+        body: '{"choices":[{"message":{"content":"回顾内容"}}]}',
+      );
+      final service = PolisherService(httpClient: client);
+
+      await service.generateCoach(
+        diaryContext: '【随手记】\n今天完成了一件小事',
+        config: const AIConfig(
+          enabled: true,
+          baseUrl: 'https://api.test.com',
+          apiKey: 'sk-test',
+          model: 'gpt-4',
+          coachPrompt: '用户自定义的回顾规则',
+        ),
+      );
+
+      final body = jsonDecode(client.lastRequestBody!) as Map<String, dynamic>;
+      final messages = body['messages'] as List;
+      final systemContent =
+          (messages[0] as Map<String, dynamic>)['content'] as String;
+      expect(systemContent, contains('用户自定义的回顾规则'));
+      expect(systemContent, isNot(contains('你是一位理性、克制的日记回顾者')));
+    });
 
     test(
       'coach diary context ignores empty anxiety and generated tomorrow',
@@ -7079,7 +7154,8 @@ tags:
       await tester.pumpAndSettle();
 
       // Coach section should show
-      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('今日回顾'), findsOneWidget);
+      expect(find.text('人生教练'), findsNothing);
       expect(find.text('模式识别'), findsOneWidget);
       expect(find.text('矛盾指出'), findsOneWidget);
       expect(find.text('暖心鼓励'), findsOneWidget);
@@ -7184,7 +7260,8 @@ tags:
       await tester.pumpAndSettle();
 
       // Both sections exist independently
-      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('今日回顾'), findsOneWidget);
+      expect(find.text('人生教练'), findsNothing);
       expect(find.text('明日寄语'), findsOneWidget);
     });
 
@@ -7212,8 +7289,8 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      // regenerate button should show
-      expect(find.text('重新生成'), findsOneWidget);
+      // update button should show
+      expect(find.text('更新回顾'), findsOneWidget);
     });
 
     testWidgets('readOnly=false shows generate button for empty coach', (
@@ -7240,10 +7317,10 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('人生教练'), findsOneWidget);
-      expect(find.text('生成今日反馈'), findsOneWidget);
+      expect(find.text('今日回顾'), findsOneWidget);
+      expect(find.text('生成回顾'), findsOneWidget);
 
-      await tester.tap(find.text('生成今日反馈'));
+      await tester.tap(find.text('生成回顾'));
       await tester.pump();
 
       expect(tapped, isTrue);
@@ -7275,10 +7352,11 @@ tags:
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('人生教练'), findsOneWidget);
-        expect(find.text('生成今日反馈'), findsOneWidget);
+        expect(find.text('今日回顾'), findsOneWidget);
+        expect(find.text('生成回顾'), findsOneWidget);
         expect(find.text('明日寄语'), findsOneWidget);
-        expect(find.text('🏃 习惯打卡'), findsOneWidget);
+        expect(find.text('习惯打卡'), findsOneWidget);
+        expect(find.text('🏃 习惯打卡'), findsNothing);
       },
     );
 
@@ -7305,9 +7383,10 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('今日回顾'), findsOneWidget);
+      expect(find.text('人生教练'), findsNothing);
       expect(find.text('荔枝喵说'), findsNothing);
-      expect(find.text('生成今日反馈'), findsOneWidget);
+      expect(find.text('生成回顾'), findsOneWidget);
     });
 
     testWidgets('readOnly=true hides regenerate button', (tester) async {
@@ -7333,14 +7412,15 @@ tags:
       await tester.pumpAndSettle();
 
       // Coach content should show
-      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('今日回顾'), findsOneWidget);
+      expect(find.text('人生教练'), findsNothing);
       expect(find.text('模式识别'), findsOneWidget);
       // Regenerate button should NOT show
-      expect(find.text('重新生成'), findsNothing);
-      expect(find.text('生成今日反馈'), findsNothing);
+      expect(find.text('更新回顾'), findsNothing);
+      expect(find.text('生成回顾'), findsNothing);
     });
 
-    testWidgets('荔枝喵说 title displays as 人生教练', (tester) async {
+    testWidgets('荔枝喵说 title displays as 今日回顾', (tester) async {
       const markdown = '''
 # 今天
 
@@ -7358,8 +7438,9 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      // Should show as 人生教练, not 荔枝喵说
-      expect(find.text('人生教练'), findsOneWidget);
+      // Should show as 今日回顾, not 荔枝喵说
+      expect(find.text('今日回顾'), findsOneWidget);
+      expect(find.text('人生教练'), findsNothing);
       expect(find.text('荔枝喵说'), findsNothing);
     });
 
@@ -7423,8 +7504,8 @@ tags:
       expect(find.text('4岁半能在陌生游乐场自得其乐。'), findsOneWidget);
       // Verify no raw ** markers remain
       expect(find.text('**甜点**'), findsNothing);
-      // Verify 人生教练 title still shows
-      expect(find.text('人生教练'), findsOneWidget);
+      // Verify 今日回顾 title still shows
+      expect(find.text('今日回顾'), findsOneWidget);
     });
 
     testWidgets(
@@ -7457,7 +7538,7 @@ tags:
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('人生教练'), findsOneWidget);
+        expect(find.text('今日回顾'), findsOneWidget);
         expect(find.text('模式识别'), findsOneWidget);
         expect(find.text('🌙 明日寄语'), findsNothing);
         expect(find.text('🏃 习惯打卡'), findsNothing);
@@ -7492,7 +7573,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('今日回顾'), findsOneWidget);
       expect(find.text('📌 习惯追踪'), findsNothing);
       expect(find.text('📖 阅读/亲子共读'), findsNothing);
     });
@@ -7525,7 +7606,7 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('人生教练'), findsOneWidget);
+      expect(find.text('今日回顾'), findsOneWidget);
       expect(find.text('🌙 明日寄语'), findsNothing);
       expect(find.text('🏃 习惯打卡'), findsNothing);
       expect(find.text('📖 阅读/亲子共读'), findsNothing);
@@ -7561,11 +7642,12 @@ tags:
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('人生教练'), findsOneWidget);
-        expect(find.text('重新生成'), findsOneWidget);
+        expect(find.text('今日回顾'), findsOneWidget);
+        expect(find.text('更新回顾'), findsOneWidget);
         expect(find.text('明日寄语'), findsOneWidget);
         expect(find.text('明天完成重要任务'), findsOneWidget);
-        expect(find.text('🏃 习惯打卡'), findsOneWidget);
+        expect(find.text('习惯打卡'), findsOneWidget);
+        expect(find.text('🏃 习惯打卡'), findsNothing);
         expect(find.text('亲子共读'), findsOneWidget);
       },
     );
@@ -7586,10 +7668,65 @@ tags:
         await tester.pumpAndSettle();
 
         expect(find.byKey(const ValueKey('habit_card')), findsOneWidget);
-        expect(find.text('🏃 习惯打卡'), findsOneWidget);
+        expect(find.text('习惯打卡'), findsOneWidget);
+        expect(find.text('🏃 习惯打卡'), findsNothing);
         expect(find.text('亲子共读'), findsOneWidget);
       },
     );
+  });
+
+  group('Diary section display titles', () {
+    test(
+      'known system sections lose storage emoji but custom titles stay intact',
+      () {
+        const sections = <DiarySection>[
+          HabitSection(title: '🏃 习惯打卡', contents: [], habits: []),
+          QuickNoteSection(title: '✍️ 随手记', contents: [], notes: []),
+          HappinessSection(title: '✨ 小确幸', contents: []),
+          AnxietySection(title: '😰 焦虑时刻', contents: []),
+          ReviewSection(title: '🔍 觉察', contents: []),
+          CoachSection(title: '🧠 人生教练', contents: []),
+          TomorrowSection(title: '🌙 明日寄语', contents: []),
+          MediaSection(title: '📸 影像记录', contents: []),
+          GenericDiarySection(title: '🧩 我的栏目', contents: []),
+        ];
+
+        expect(sections.map(diarySectionDisplayTitle).toList(), const [
+          '习惯打卡',
+          '随手记',
+          '小确幸',
+          '焦虑时刻',
+          '觉察',
+          '今日回顾',
+          '明日寄语',
+          '影像记录',
+          '🧩 我的栏目',
+        ]);
+      },
+    );
+  });
+
+  group('PolishPromptPage', () {
+    testWidgets('uses 今日回顾 copy and default journal reviewer prompt', (
+      tester,
+    ) async {
+      FlutterSecureStorage.setMockInitialValues({});
+
+      await tester.pumpWidget(const MaterialApp(home: PolishPromptPage()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('今日回顾提示词'), findsOneWidget);
+      expect(find.text('用于生成「今日回顾」模块的每日总结和建议。'), findsOneWidget);
+      expect(find.text('恢复默认今日回顾提示词'), findsOneWidget);
+      expect(find.text('人生教练提示词'), findsNothing);
+      expect(find.text('恢复默认人生教练提示词'), findsNothing);
+
+      final fields = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .toList();
+      expect(fields[1].controller?.text, contains('日记回顾者'));
+      expect(fields[1].controller?.text, isNot(contains('人生教练')));
+    });
   });
 
   group('SettingsScreen', () {
@@ -8378,7 +8515,8 @@ tags:
         '原始内容',
       );
       expect(find.text('今天 09:30'), findsOneWidget);
-      expect(find.text('AI 润色'), findsOneWidget);
+      expect(find.text('润色'), findsOneWidget);
+      expect(find.text('AI 润色'), findsNothing);
     });
 
     testWidgets('edit mode strips # prefix from tags for TagPicker', (
@@ -8472,7 +8610,7 @@ tags:
         ),
       );
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'AI 润色'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
       await tester.pumpAndSettle();
       expect(find.text('陪伴互动 (已隐藏)'), findsOneWidget);
 

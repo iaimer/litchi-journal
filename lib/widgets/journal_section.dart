@@ -161,6 +161,85 @@ class JournalTimelineRow extends StatelessWidget {
   }
 }
 
+class JournalListEntryRow extends StatelessWidget {
+  final String content;
+  final List<String> tags;
+  final Color accentColor;
+  final TagConfig? tagConfig;
+  final bool showBullet;
+  final Widget? trailing;
+
+  const JournalListEntryRow({
+    super.key,
+    required this.content,
+    required this.tags,
+    required this.accentColor,
+    required this.tagConfig,
+    this.showBullet = false,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 4,
+        top: 4,
+        right: journalFabSafetyInset(context),
+        bottom: 8,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showBullet)
+            SizedBox(
+              width: 20,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Text(
+                  '•',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: accentColor,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(content, style: theme.textTheme.bodyMedium),
+                if (tags.isNotEmpty || trailing != null)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (tags.isNotEmpty)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: TagChipList(
+                              tags: tags,
+                              tagConfig: tagConfig,
+                              moduleAccentColor: accentColor,
+                            ),
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      ?trailing,
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _JournalTimelineRail extends StatelessWidget {
   final Color color;
   final bool isFirst;

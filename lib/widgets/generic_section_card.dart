@@ -58,7 +58,6 @@ class GenericSectionCard extends StatelessWidget {
 
     final journalLayout = section is ReviewSection;
     final timelineCount = section.contents.whereType<TimelineContent>().length;
-    var timelineIndex = 0;
     final children = <Widget>[];
     if (_hasCollapsibleCallout(section)) {
       children.add(_buildCollapsedCallout(context, section));
@@ -76,10 +75,8 @@ class GenericSectionCard extends StatelessWidget {
             content,
             children,
             journalLayout: journalLayout,
-            timelineIndex: timelineIndex,
             timelineCount: timelineCount,
           );
-          if (content is TimelineContent) timelineIndex++;
         }
       }
     }
@@ -131,7 +128,6 @@ class GenericSectionCard extends StatelessWidget {
     DiaryContent content,
     List<Widget> widgets, {
     required bool journalLayout,
-    required int timelineIndex,
     required int timelineCount,
   }) {
     switch (content) {
@@ -141,7 +137,7 @@ class GenericSectionCard extends StatelessWidget {
         widgets.add(_buildCheckbox(context, content));
       case TimelineContent():
         widgets.add(
-          _TimelineDeleteRow(
+          _EditableEntryRow(
             content: content,
             onDelete: onTimelineDelete,
             onEdit: onTimelineEdit,
@@ -152,8 +148,7 @@ class GenericSectionCard extends StatelessWidget {
             entryType: _entryTypeForSection(section),
             onPolish: onPolish,
             journalLayout: journalLayout,
-            isFirst: timelineIndex == 0,
-            isLast: timelineIndex == timelineCount - 1,
+            showBullet: journalLayout && timelineCount > 1,
           ),
         );
       case MarkdownContent():
@@ -501,7 +496,7 @@ class GenericSectionCard extends StatelessWidget {
   }
 }
 
-class _TimelineDeleteRow extends StatefulWidget {
+class _EditableEntryRow extends StatefulWidget {
   final TimelineContent content;
   final Future<void> Function(String rawLine)? onDelete;
   final Future<void> Function(
@@ -519,10 +514,9 @@ class _TimelineDeleteRow extends StatefulWidget {
   final Future<PolishResult> Function(String content, EntryType entryType)?
   onPolish;
   final bool journalLayout;
-  final bool isFirst;
-  final bool isLast;
+  final bool showBullet;
 
-  const _TimelineDeleteRow({
+  const _EditableEntryRow({
     required this.content,
     this.onDelete,
     this.onEdit,
@@ -533,15 +527,14 @@ class _TimelineDeleteRow extends StatefulWidget {
     this.entryType,
     this.onPolish,
     this.journalLayout = false,
-    this.isFirst = false,
-    this.isLast = false,
+    this.showBullet = false,
   });
 
   @override
-  State<_TimelineDeleteRow> createState() => _TimelineDeleteRowState();
+  State<_EditableEntryRow> createState() => _EditableEntryRowState();
 }
 
-class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
+class _EditableEntryRowState extends State<_EditableEntryRow> {
   bool _busy = false;
 
   bool get _showActions =>
@@ -628,14 +621,12 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
     final accentColor = widget.accentColor ?? theme.colorScheme.primary;
 
     if (widget.journalLayout) {
-      return JournalTimelineRow(
-        time: widget.content.time,
+      return JournalListEntryRow(
         content: widget.content.text,
         tags: widget.content.tags,
         accentColor: accentColor,
         tagConfig: widget.tagConfig,
-        isFirst: widget.isFirst,
-        isLast: widget.isLast,
+        showBullet: widget.showBullet,
         trailing: _buildJournalTrailing(),
       );
     }

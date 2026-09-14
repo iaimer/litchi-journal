@@ -8300,6 +8300,124 @@ tags:
       },
     );
 
+    testWidgets('GenericSectionCard single reflection hides its timeline', (
+      tester,
+    ) async {
+      final section = ReviewSection(
+        title: '觉察',
+        contents: [
+          TimelineContent(
+            time: '10:00',
+            text: '先停下来观察',
+            tags: ['#反思'],
+            rawLine: '- **10:00** 先停下来观察 #反思',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GenericSectionCard(
+              section: section,
+              onTimelineDelete: (_) async {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('先停下来观察'), findsOneWidget);
+      expect(find.text('10:00'), findsNothing);
+      expect(find.text('•'), findsNothing);
+      expect(find.byType(JournalTimelineRow), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('GenericSectionCard multiple reflections use bullets', (
+      tester,
+    ) async {
+      final section = ReviewSection(
+        title: '觉察',
+        contents: [
+          TimelineContent(
+            time: '10:00',
+            text: '先停下来观察',
+            tags: [],
+            rawLine: '- **10:00** 先停下来观察',
+          ),
+          TimelineContent(
+            time: '21:30',
+            text: '把感受说清楚',
+            tags: [],
+            rawLine: '- **21:30** 把感受说清楚',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: GenericSectionCard(section: section)),
+        ),
+      );
+
+      expect(find.text('先停下来观察'), findsOneWidget);
+      expect(find.text('把感受说清楚'), findsOneWidget);
+      expect(find.text('10:00'), findsNothing);
+      expect(find.text('21:30'), findsNothing);
+      expect(find.text('•'), findsNWidgets(2));
+      expect(find.byType(JournalTimelineRow), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is FloraIcon && w.name == FloraIcons.more,
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('GenericSectionCard reflection list supports dark large text', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final section = ReviewSection(
+        title: '觉察',
+        contents: [
+          TimelineContent(
+            time: '10:00',
+            text: '先停下来观察自己的感受',
+            tags: ['#反思'],
+            rawLine: '- **10:00** 先停下来观察自己的感受 #反思',
+          ),
+          TimelineContent(
+            time: '21:30',
+            text: '把感受说清楚再行动',
+            tags: [],
+            rawLine: '- **21:30** 把感受说清楚再行动',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: Scaffold(body: GenericSectionCard(section: section)),
+          ),
+        ),
+      );
+
+      expect(find.text('先停下来观察自己的感受'), findsOneWidget);
+      expect(find.text('把感受说清楚再行动'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('no delete button when onDelete is null', (tester) async {
       final section = QuickNoteSection(
         title: '随手记',
@@ -8674,6 +8792,8 @@ tags:
 
       expect(find.byType(QuickCaptureScreen), findsOneWidget);
       expect(find.text('编辑记录'), findsOneWidget);
+      expect(find.text('今天 10:15'), findsOneWidget);
+      expect(find.text('10:15'), findsNothing);
       expect(
         tester.widget<TextField>(find.byType(TextField)).decoration?.hintText,
         '觉察到了什么？',

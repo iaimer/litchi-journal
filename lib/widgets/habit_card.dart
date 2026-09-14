@@ -342,7 +342,7 @@ class _HabitCardState extends State<HabitCard> {
 
     return SectionCard(
       accentColor: _accentColor,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
       children: [
         Text(
           diarySectionDisplayTitle(widget.section),
@@ -911,9 +911,14 @@ class _CompactHabitRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 300;
-        final nameWidth = isNarrow ? 60.0 : 72.0;
-        final valueWidth = isNarrow ? 82.0 : 96.0;
-        const columnGap = 6.0;
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final nameWidth = (56.0 * textScale.clamp(1.0, 1.3))
+            .clamp(56.0, 72.0)
+            .toDouble();
+        final valueWidth = isNarrow ? 82.0 : 88.0;
+        const statusIconGap = 6.0;
+        const iconNameGap = 4.0;
+        const nameMetricGap = 6.0;
         final theme = Theme.of(context);
         final hasMetric = valueText != null || progress != null;
 
@@ -925,7 +930,7 @@ class _CompactHabitRow extends StatelessWidget {
               checked: checked,
               color: checkedColor,
             ),
-            SizedBox(width: columnGap),
+            const SizedBox(width: statusIconGap),
             if (icon != null) ...[
               SizedBox(
                 width: 18,
@@ -938,7 +943,7 @@ class _CompactHabitRow extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(width: columnGap),
+              const SizedBox(width: iconNameGap),
             ],
             SizedBox(
               width: nameWidth,
@@ -950,7 +955,7 @@ class _CompactHabitRow extends StatelessWidget {
               ),
             ),
             if (hasMetric) ...[
-              SizedBox(width: columnGap),
+              const SizedBox(width: nameMetricGap),
               Expanded(
                 child: _HabitProgressBar(
                   key: progressKey,
@@ -976,7 +981,9 @@ class _CompactHabitRow extends StatelessWidget {
           onLongPress: enabled ? onLongPress : null,
           borderRadius: BorderRadius.circular(FloraRadius.sm),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: hasMetric
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(vertical: 4),
             child: row,
           ),
         );
@@ -1389,23 +1396,32 @@ class _HabitProgressBar extends StatelessWidget {
         ),
       ],
     );
-    final hasTapTarget = onTap != null && ratio != null;
+    final hasTapTarget = enabled && onTap != null && ratio != null;
+    final progressContent = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 30),
+      child: Center(child: progressRow),
+    );
     final content = !hasTapTarget
-        ? progressRow
+        ? progressContent
         : InkWell(
-            onTap: enabled ? onTap : null,
+            onTap: onTap,
             excludeFromSemantics: true,
             borderRadius: BorderRadius.circular(FloraRadius.sm),
-            child: progressRow,
+            child: progressContent,
           );
+    final semanticLabel = ratio == null
+        ? label
+        : label.endsWith('进度')
+        ? label
+        : '$label进度';
 
     return Semantics(
-      label: label.endsWith('进度') ? label : '$label进度',
+      label: semanticLabel,
       value: valueText,
-      hint: enabled && hasTapTarget ? tapHint : null,
-      button: hasTapTarget,
-      enabled: enabled,
-      onTap: enabled && hasTapTarget ? onTap : null,
+      hint: hasTapTarget ? tapHint : null,
+      button: hasTapTarget ? true : null,
+      enabled: hasTapTarget ? true : null,
+      onTap: hasTapTarget ? onTap : null,
       excludeSemantics: true,
       child: content,
     );

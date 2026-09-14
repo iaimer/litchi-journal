@@ -5272,7 +5272,10 @@ tags:
         MaterialApp(
           theme: AppTheme.light,
           home: Scaffold(
-            body: HabitCard(section: section, onUpdate: (_) async => true),
+            body: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: HabitCard(section: section, onUpdate: (_) async => true),
+            ),
           ),
         ),
       );
@@ -5316,7 +5319,7 @@ tags:
       final stepsValueRect = tester.getRect(find.text('3000/6000 步'));
       expect(waterTrackRect.left, closeTo(stepsTrackRect.left, 1));
       expect(waterTrackRect.right, closeTo(stepsTrackRect.right, 1));
-      expect(waterTrackRect.width, greaterThan(120));
+      expect(waterTrackRect.width, greaterThan(130));
       expect(waterValueRect.left - waterTrackRect.right, closeTo(6, 1));
       expect(stepsValueRect.left - stepsTrackRect.right, closeTo(6, 1));
       semantics.dispose();
@@ -5348,13 +5351,19 @@ tags:
         );
 
         await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light,
-            home: Scaffold(
-              body: HabitCard(
-                section: section,
-                habitSettings: settings,
-                onUpdate: (_) async => true,
+          MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: HabitCard(
+                    section: section,
+                    habitSettings: settings,
+                    onUpdate: (_) async => true,
+                  ),
+                ),
               ),
             ),
           ),
@@ -5375,6 +5384,12 @@ tags:
         expect(
           find.byKey(const ValueKey('habit_water_settings')),
           findsOneWidget,
+        );
+        expect(
+          tester
+              .getSize(find.byKey(const ValueKey('habit_progress_track_饮水')))
+              .width,
+          greaterThan(48),
         );
         expect(tester.takeException(), isNull);
       },
@@ -8377,6 +8392,55 @@ tags:
         ),
         findsNothing,
       );
+    });
+
+    testWidgets('multiple reflections keep actions tied to each rawLine', (
+      tester,
+    ) async {
+      String? deletedRawLine;
+      final section = ReviewSection(
+        title: '觉察',
+        contents: [
+          TimelineContent(
+            time: '10:00',
+            text: '先停下来观察',
+            tags: [],
+            rawLine: '- **10:00** 先停下来观察',
+          ),
+          TimelineContent(
+            time: '21:30',
+            text: '把感受说清楚',
+            tags: [],
+            rawLine: '- **21:30** 把感受说清楚',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GenericSectionCard(
+              section: section,
+              onTimelineDelete: (rawLine) async {
+                deletedRawLine = rawLine;
+              },
+            ),
+          ),
+        ),
+      );
+
+      final actionIcons = find.byWidgetPredicate(
+        (widget) => widget is FloraIcon && widget.name == FloraIcons.more,
+      );
+      expect(actionIcons, findsNWidgets(2));
+      await tester.tap(actionIcons.at(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(deletedRawLine, '- **21:30** 把感受说清楚');
     });
 
     testWidgets('GenericSectionCard reflection list supports dark large text', (

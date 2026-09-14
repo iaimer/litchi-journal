@@ -874,6 +874,165 @@ void main() {
         expect(lastStatus.bottom - firstStatus.top, lessThanOrEqualTo(150));
       },
     );
+
+    testWidgets('quantitative progress keeps a full compact tap surface', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(393, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const section = HabitSection(
+        title: '习惯打卡',
+        contents: [],
+        habits: [
+          HabitItem(
+            kind: HabitKind.counter,
+            label: '饮水',
+            checked: false,
+            checkable: false,
+            rawLine: '- 饮水 250 mL',
+            value: 250,
+            unit: 'mL',
+          ),
+          HabitItem(
+            kind: HabitKind.counter,
+            label: '运动',
+            checked: false,
+            checkable: false,
+            rawLine: '- 运动 1200 步',
+            value: 1200,
+            unit: '步',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HabitCard(section: section, onUpdate: (_) async => true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final water = find.byKey(const ValueKey('habit_progress_water'));
+      final steps = find.byKey(const ValueKey('habit_progress_steps'));
+      expect(tester.getSize(water).height, greaterThanOrEqualTo(30));
+      expect(tester.getSize(steps).height, greaterThanOrEqualTo(30));
+
+      Future<void> openMetricAt(
+        Finder progress,
+        String sheetKey,
+        double dy,
+      ) async {
+        final rect = tester.getRect(progress);
+        await tester.tapAt(Offset(rect.center.dx, dy));
+        await tester.pumpAndSettle();
+        expect(find.byKey(ValueKey(sheetKey)), findsOneWidget);
+        Navigator.of(
+          tester.element(find.byKey(ValueKey(sheetKey))),
+        ).pop();
+        await tester.pumpAndSettle();
+      }
+
+      for (final dy in [
+        tester.getRect(water).top + 1,
+        tester.getRect(water).center.dy,
+        tester.getRect(water).bottom - 1,
+      ]) {
+        await openMetricAt(water, 'habit_water_sheet_actions', dy);
+      }
+      for (final dy in [
+        tester.getRect(steps).top + 1,
+        tester.getRect(steps).center.dy,
+        tester.getRect(steps).bottom - 1,
+      ]) {
+        await openMetricAt(steps, 'habit_steps_sheet', dy);
+      }
+    });
+
+    testWidgets('duration without a target is not announced as progress', (
+      tester,
+    ) async {
+      final semanticsHandle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HabitCard(
+                section: sectionWithMinutes(),
+                readOnly: true,
+                habitSettings: HabitSettings.defaults,
+                onUpdate: (_) async => true,
+                onStartDuration: (_) async => true,
+                onDurationUpdate: (_, _, _) async => true,
+              ),
+            ),
+          ),
+        );
+
+        expect(
+          find.bySemanticsLabel('亲子共读，已记录 20 分钟'),
+          findsOneWidget,
+        );
+        expect(find.bySemanticsLabel('亲子共读进度'), findsNothing);
+      } finally {
+        semanticsHandle.dispose();
+      }
+    });
+
+    testWidgets('read-only quantitative progress is not announced as a button', (
+      tester,
+    ) async {
+      final semanticsHandle = tester.ensureSemantics();
+      try {
+        const section = HabitSection(
+          title: '习惯打卡',
+          contents: [],
+          habits: [
+            HabitItem(
+              kind: HabitKind.counter,
+              label: '饮水',
+              checked: false,
+              checkable: false,
+              rawLine: '- 饮水 250 mL',
+              value: 250,
+              unit: 'mL',
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HabitCard(
+                section: section,
+                readOnly: true,
+                habitSettings: HabitSettings.defaults,
+                onUpdate: (_) async => true,
+              ),
+            ),
+          ),
+        );
+
+        final waterSemantics = find.bySemanticsLabel('饮水');
+        expect(waterSemantics, findsWidgets);
+        expect(
+          tester.getSemantics(waterSemantics.first),
+          matchesSemantics(
+            label: '饮水',
+            hasCheckedState: true,
+            isChecked: false,
+            isButton: false,
+            hasEnabledState: false,
+            hasTapAction: false,
+          ),
+        );
+        expect(find.bySemanticsLabel('饮水进度'), findsNothing);
+      } finally {
+        semanticsHandle.dispose();
+      }
+    });
   });
 
   testWidgets('focus timer saves whole minutes and clears the session', (

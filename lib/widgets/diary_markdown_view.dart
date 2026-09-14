@@ -12,13 +12,14 @@ import '../models/tag_settings.dart';
 import '../services/api_client.dart';
 import '../services/markdown_parser.dart';
 import 'anxiety_card.dart';
+import 'diary_section_title.dart';
 import 'entry_type.dart';
 import 'generic_section_card.dart';
 import 'habit_card.dart';
 import 'image_section_card.dart';
+import 'journal_section.dart';
 import 'quick_note_timeline.dart';
 import 'review_card.dart';
-import 'section_card.dart';
 import 'tag_color_helper.dart';
 
 class DiaryMarkdownView extends StatelessWidget {
@@ -161,7 +162,7 @@ class DiaryMarkdownView extends StatelessWidget {
     if (canGenerateCoach && !hasCoachSection) {
       widgets.add(
         _buildCoachCard(
-          const CoachSection(title: '🧠 人生教练', contents: []),
+          const CoachSection(title: '今日回顾', contents: []),
           context,
         ),
       );
@@ -173,7 +174,7 @@ class DiaryMarkdownView extends StatelessWidget {
         date != null) {
       widgets.add(
         _buildMediaSection(
-          const MediaSection(title: '📸 影像记录', contents: []),
+          const MediaSection(title: '影像记录', contents: []),
           context,
         ),
       );
@@ -369,8 +370,7 @@ class DiaryMarkdownView extends StatelessWidget {
       (c) => c is MarkdownContent && c.text.trim().isNotEmpty,
     );
 
-    // 归一化标题：历史旧格式「荔枝喵说」统一显示为「人生教练」
-    final displayTitle = _normalizeCoachSectionTitle(section.title);
+    final displayTitle = diarySectionDisplayTitle(section);
     final showButton = !readOnly && onGenerateCoach != null;
 
     final children = <Widget>[];
@@ -383,9 +383,11 @@ class DiaryMarkdownView extends StatelessWidget {
       }
     }
 
-    return SectionCard(
+    final accentColor = _accentColorFor(section);
+
+    return JournalSection(
       title: displayTitle,
-      accentColor: _accentColorFor(section),
+      accentColor: accentColor,
       trailing: showButton
           ? TextButton.icon(
               onPressed: generatingCoach ? null : onGenerateCoach,
@@ -403,33 +405,32 @@ class DiaryMarkdownView extends StatelessWidget {
                     )
                   : const FloraIcon(FloraIcons.coach, size: 14),
               label: Text(
-                generatingCoach ? '生成中...' : (hasContent ? '重新生成' : '生成今日反馈'),
+                generatingCoach ? '生成中...' : (hasContent ? '更新回顾' : '生成回顾'),
                 style: const TextStyle(fontSize: 13),
               ),
             )
           : null,
-      children: hasContent
-          ? children
-          : (showButton
-                ? [const SizedBox.shrink()]
-                : [
-                    Text(
-                      '暂无教练反馈',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ]),
+      children: [
+        if (children.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
+          ),
+        if (!hasContent && !showButton)
+          Padding(
+            padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
+            child: Text(
+              '还没有今日回顾',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
     );
-  }
-
-  /// 归一化人生教练 section 标题。
-  /// 历史旧标题「荔枝喵说」统一显示为「人生教练」。
-  static String _normalizeCoachSectionTitle(String title) {
-    if (title.contains('荔枝喵说')) {
-      return '🧠 人生教练';
-    }
-    return title;
   }
 
   List<Widget> _buildCoachContentWidgets(
@@ -440,23 +441,35 @@ class DiaryMarkdownView extends StatelessWidget {
     final widgets = <Widget>[];
     // 先做展示层归一化，兼容新旧格式
     final normalizedLines = _normalizeCoachDisplayLines(rawText);
+    var hasRenderedLine = false;
 
     for (final line in normalizedLines) {
       if (line.isEmpty) continue;
 
       if (_isCoachModuleTitle(line)) {
+        final icon = _coachIconForTitle(line);
         widgets.add(
           Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 4),
-            child: Text(
-              line,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: accentColor,
-              ),
+            padding: EdgeInsets.only(top: hasRenderedLine ? 16 : 0, bottom: 6),
+            child: Row(
+              children: [
+                FloraIcon(icon!, size: 16, color: accentColor),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    line,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: accentColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
+        hasRenderedLine = true;
       } else {
         widgets.add(
           Padding(
@@ -467,6 +480,7 @@ class DiaryMarkdownView extends StatelessWidget {
             ),
           ),
         );
+        hasRenderedLine = true;
       }
     }
 
@@ -474,9 +488,20 @@ class DiaryMarkdownView extends StatelessWidget {
   }
 
   /// 判断一行是否为人生教练模块标题。
-  /// 支持新格式（📌 模式识别）和旧格式（**模式识别**）。
+  /// 展示层使用 Flora 图标，不把存储格式中的 emoji 直接显示出来。
   static bool _isCoachModuleTitle(String line) {
-    return RegExp(r'^[📌⚠️💬❓🍰]\s').hasMatch(line);
+    return _coachIconForTitle(line) != null;
+  }
+
+  static String? _coachIconForTitle(String line) {
+    return switch (line.trim()) {
+      '模式识别' => FloraIcons.pin,
+      '矛盾指出' => FloraIcons.warning,
+      '批判性问题' => FloraIcons.question,
+      '甜点' => FloraIcons.reward,
+      '暖心鼓励' => FloraIcons.chatFeedback,
+      _ => null,
+    };
   }
 
   /// 人生教练展示层归一化。
@@ -496,12 +521,12 @@ class DiaryMarkdownView extends StatelessWidget {
     final lines = rawText.split('\n');
     final result = <String>[];
 
-    // 旧格式模式 → 展示用模块标题
     const oldTitlePatterns = <String, String>{
-      '模式识别': '📌 模式识别',
-      '矛盾指出': '⚠️ 矛盾指出',
-      '批判性问题': '❓ 批判性问题',
-      '甜点': '🍰 甜点',
+      '模式识别': '模式识别',
+      '矛盾指出': '矛盾指出',
+      '批判性问题': '批判性问题',
+      '甜点': '甜点',
+      '暖心鼓励': '暖心鼓励',
     };
 
     for (var line in lines) {
@@ -512,6 +537,11 @@ class DiaryMarkdownView extends StatelessWidget {
       final titleText = _stripLeadingCoachEmoji(stripped);
 
       if (_matchOldCoachTitle(titleText, oldTitlePatterns, result)) continue;
+
+      if (_coachIconForTitle(titleText) != null) {
+        result.add(titleText);
+        continue;
+      }
 
       result.add(stripped);
     }
@@ -575,20 +605,23 @@ class DiaryMarkdownView extends StatelessWidget {
     }
     if (contentTexts.isEmpty) return const SizedBox.shrink();
 
-    return SectionCard(
-      title: section.title,
+    return JournalSection(
+      title: '明日寄语',
       accentColor: _accentColorFor(section),
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: contentTexts.map((text) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(text, style: theme.textTheme.bodyMedium),
-              );
-            }).toList(),
+            children: [
+              for (var index = 0; index < contentTexts.length; index++) ...[
+                Text(
+                  contentTexts[index],
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+                ),
+                if (index < contentTexts.length - 1) const SizedBox(height: 8),
+              ],
+            ],
           ),
         ),
       ],

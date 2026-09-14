@@ -26,7 +26,7 @@ class PolisherService {
 6. 输出润色后的正文即可。''';
 
   static const defaultCoachPrompt = '''
-你是一个理性的人生教练。基于当天日记内容，输出 250-300 字的分析。用第三人称"你"视角。
+你是一位理性、克制的日记回顾者。基于当天日记内容，输出 250-300 字的分析。使用第二人称“你”。
 
 按以下结构输出，模块间空行分隔：
 
@@ -49,7 +49,7 @@ class PolisherService {
 - 不要因为某个模块没填，就围绕这个缺失模块提出分析、提醒或行动建议
 - 如果焦虑时刻没有真实回答，不要提焦虑记录、焦虑处理或补填焦虑
 - 必须输出 🎯 行动建议，内容用于保存为「明日寄语」，不能省略
-- 教练口吻，客观直接，不说教''';
+- 回顾口吻，客观直接，不说教''';
 
   static const _coachGuardrails = '''
 【生成边界】
@@ -136,38 +136,66 @@ class PolisherService {
 
   static String readableError(Object error) {
     if (error is AIProviderException) {
-      return 'AI 请求失败：${error.message}';
+      return _isNetworkMessage(error.message)
+          ? '暂时无法润色，请检查网络后重试'
+          : '润色服务暂不可用，请稍后重试';
     }
     if (error is AIRequestException) {
       return switch (error.statusCode) {
-        401 || 403 => 'AI 请求失败：API Key 无效或没有服务权限',
-        404 => 'AI 请求失败：接口地址或 Model 不存在',
-        429 => 'AI 请求失败：已达到限流或使用额度上限',
-        >= 500 => 'AI 请求失败：服务暂时不可用',
-        _ => 'AI 请求失败：服务返回错误 (${error.statusCode})',
+        401 || 403 || 404 => '润色服务暂不可用，请前往设置检查配置',
+        429 => '润色请求较多，请稍后重试',
+        _ => '润色服务暂不可用，请稍后重试',
       };
     }
 
     final message = error.toString().replaceFirst('Exception: ', '');
-    const safeMessages = [
-      'AI 润色未启用或配置不完整',
-      'AI 润色未启用，请在初始设置中配置',
-      '请先在设置中启用并配置 AI 润色',
-      '内容为空',
-      'AI 未返回结果',
-      'AI 结果为空',
-    ];
-    if (safeMessages.any(message.contains)) return message;
-    if (message.contains('AI 请求超时')) {
-      return 'AI 请求失败：请求超时，请检查网络或服务状态';
+    if (message.contains('内容为空')) return '请先写下内容';
+    if (message.contains('润色未启用') ||
+        message.contains('尚未配置') ||
+        message.contains('未配置') ||
+        message.contains('配置不完整') ||
+        message.contains('启用并配置')) {
+      return '润色功能尚未配置，请前往设置';
     }
-    if (message.contains('无法连接到 AI 服务')) {
-      return 'AI 请求失败：无法访问服务地址，请检查网络';
+    if (message.contains('请求超时')) {
+      return '润色超时，请稍后重试';
     }
-    if (message.contains('AI 网络请求失败')) {
-      return 'AI 请求失败：网络连接被服务中断，请稍后重试';
+    if (_isNetworkMessage(message)) {
+      return '暂时无法润色，请检查网络后重试';
     }
-    return '润色失败，请重试';
+    return '润色服务暂不可用，请稍后重试';
+  }
+
+  static String readableCoachError(Object error) {
+    if (error is AIRequestException &&
+        (error.statusCode == 401 ||
+            error.statusCode == 403 ||
+            error.statusCode == 404)) {
+      return '今日回顾尚未配置，请前往设置';
+    }
+
+    if (error is AIProviderException || error is AIRequestException) {
+      return '暂时无法生成回顾，请稍后重试';
+    }
+
+    final message = error.toString().replaceFirst('Exception: ', '');
+    if (message.contains('尚未配置') ||
+        message.contains('未启用') ||
+        message.contains('配置')) {
+      return '今日回顾尚未配置，请前往设置';
+    }
+    if (message.contains('保存人生教练') ||
+        message.contains('保存今日回顾') ||
+        message.contains('保存明日寄语')) {
+      return '今日回顾保存失败，请重试';
+    }
+    return '暂时无法生成回顾，请稍后重试';
+  }
+
+  static bool _isNetworkMessage(String message) {
+    return message.contains('无法连接') ||
+        message.contains('网络请求失败') ||
+        message.contains('中断了连接');
   }
 
   Future<PolishResult> polish({
@@ -323,7 +351,7 @@ class PolisherService {
     required AIConfig config,
   }) async {
     if (!config.isUsable) {
-      throw Exception('AI 教练未启用或配置不完整');
+      throw Exception('今日回顾尚未配置，请前往设置');
     }
 
     final trimmed = config.coachPrompt?.trim();

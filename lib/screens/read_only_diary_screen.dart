@@ -20,6 +20,7 @@ import '../services/tag_repository.dart';
 import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
 import '../widgets/diary_markdown_view.dart';
+import '../widgets/diary_date_title.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/historical_quick_record_fab.dart';
 import 'quick_capture_screen.dart';
@@ -122,12 +123,6 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
     });
   }
 
-  String _dateLabel() {
-    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-    final d = widget.date;
-    return '${d.year}年${d.month}月${d.day}日 星期${weekdays[d.weekday - 1]}';
-  }
-
   Future<bool> _appendEntry(
     EntryType type,
     String content,
@@ -170,7 +165,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   Future<PolishResult> _polish(String content, EntryType entryType) async {
     final aiConfig = await AIConfigRepository().loadAIConfig();
     if (!aiConfig.isUsable) {
-      throw Exception('AI 润色未启用，请先在设置中配置');
+      throw Exception('润色功能尚未配置，请前往设置');
     }
     final service = PolisherService();
     try {
@@ -458,12 +453,13 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
         backgroundColor: theme.scaffoldBackgroundColor,
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(_dateLabel()),
+        title: DiaryDateTitle(date: widget.date, showYear: true),
       ),
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Theme(

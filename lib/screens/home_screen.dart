@@ -39,6 +39,7 @@ import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
 import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
+import '../widgets/diary_date_title.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/habit_icon.dart';
@@ -600,7 +601,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final aiConfig = await aiRepo.loadAIConfig();
 
     if (!aiConfig.isUsable) {
-      throw Exception('AI 润色未启用，请在初始设置中配置');
+      throw Exception('润色功能尚未配置，请前往设置');
     }
 
     if (_tagConfig == null) {
@@ -627,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final aiConfig = await aiRepo.loadAIConfig();
 
     if (!aiConfig.isUsable) {
-      throw Exception('请先在设置中启用并配置 AI 润色');
+      throw Exception('润色功能尚未配置，请前往设置');
     }
 
     final service = PolisherService();
@@ -854,7 +855,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final aiRepo = AIConfigRepository();
       final config = await aiRepo.loadAIConfig();
-      if (!config.isUsable) throw Exception('请先在设置中启用AI并配置API');
+      if (!config.isUsable) throw Exception('今日回顾尚未配置，请前往设置');
 
       final diaryContext = buildCoachDiaryContext(_diary!.raw);
 
@@ -876,7 +877,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _activeDate,
           lizhiContent,
         );
-        if (!ok) throw Exception('保存人生教练失败');
+        if (!ok) throw Exception('保存今日回顾失败');
 
         if (actionContent.isNotEmpty) {
           final tomorrowOk = await widget.apiClient.replaceTomorrowSection(
@@ -892,26 +893,16 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('教练反馈已生成')));
+      ).showSnackBar(const SnackBar(content: Text('今日回顾已保存')));
       _loadDiarySilently();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '生成失败: ${e.toString().replaceFirst('Exception: ', '')}',
-          ),
-        ),
+        SnackBar(content: Text(PolisherService.readableCoachError(e))),
       );
     } finally {
       if (mounted) setState(() => _generatingCoach = false);
     }
-  }
-
-  String _todayString() {
-    final now = _activeDate;
-    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-    return '${now.year}年${now.month}月${now.day}日 星期${weekdays[now.weekday - 1]}';
   }
 
   DateTime get _activeDate => _diaryDate ?? DateTime.now();
@@ -1211,19 +1202,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 72,
+        toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
         centerTitle: false,
         backgroundColor: theme.scaffoldBackgroundColor,
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(
-          _todayString(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleLarge,
-        ),
+        title: DiaryDateTitle(date: _activeDate),
         actions: [
           IconButton(
             icon: const FloraIcon(FloraIcons.settings, size: 24),

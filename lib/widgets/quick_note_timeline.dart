@@ -8,8 +8,7 @@ import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../screens/quick_capture_screen.dart';
 import 'entry_type.dart';
-import 'section_card.dart';
-import 'tag_color_helper.dart';
+import 'journal_section.dart';
 import 'timeline_action_sheet.dart';
 
 class QuickNoteTimeline extends StatelessWidget {
@@ -45,29 +44,32 @@ class QuickNoteTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     if (section.notes.isEmpty) return const SizedBox.shrink();
 
-    return SectionCard(
-      title: section.title,
+    return JournalSection(
+      title: '随手记',
       accentColor: accentColor ?? Theme.of(context).colorScheme.primary,
-      children: section.notes
-          .map(
-            (note) => _QuickNoteRow(
-              note: note,
-              onDelete: onDelete,
-              onEdit: onEdit,
-              tagConfig: tagConfig,
-              tagSettings: tagSettings,
-              accentColor: accentColor,
-              recordDate: recordDate,
-              onPolish: onPolish,
-            ),
-          )
-          .toList(growable: false),
+      children: [
+        for (var index = 0; index < section.notes.length; index++)
+          _QuickNoteRow(
+            note: section.notes[index],
+            isFirst: index == 0,
+            isLast: index == section.notes.length - 1,
+            onDelete: onDelete,
+            onEdit: onEdit,
+            tagConfig: tagConfig,
+            tagSettings: tagSettings,
+            accentColor: accentColor,
+            recordDate: recordDate,
+            onPolish: onPolish,
+          ),
+      ],
     );
   }
 }
 
 class _QuickNoteRow extends StatefulWidget {
   final QuickNoteItem note;
+  final bool isFirst;
+  final bool isLast;
   final Future<void> Function(QuickNoteItem note)? onDelete;
   final Future<void> Function(
     QuickNoteItem note,
@@ -85,6 +87,8 @@ class _QuickNoteRow extends StatefulWidget {
 
   const _QuickNoteRow({
     required this.note,
+    required this.isFirst,
+    required this.isLast,
     this.onDelete,
     this.onEdit,
     this.tagConfig,
@@ -183,115 +187,43 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
     final theme = Theme.of(context);
     final accentColor = widget.accentColor ?? theme.colorScheme.primary;
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
+    return JournalTimelineRow(
+      time: widget.note.time,
+      content: widget.note.content,
+      tags: widget.note.tags,
+      accentColor: accentColor,
+      tagConfig: widget.tagConfig,
+      isFirst: widget.isFirst,
+      isLast: widget.isLast,
+      trailing: _showActions
+          ? SizedBox(
               width: 48,
-              child: Text(
-                widget.note.time,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: accentColor,
-                  fontWeight: FontWeight.w600,
+              height: 48,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 48,
+                  height: 48,
+                ),
+                iconSize: 16,
+                tooltip: '更多操作',
+                icon: const FloraIcon(FloraIcons.more, size: 16),
+                onPressed: _openActions,
+              ),
+            )
+          : _busy
+          ? const SizedBox(
+              width: 48,
+              height: 48,
+              child: Center(
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
                 ),
               ),
-            ),
-            _TimelineMarker(color: accentColor),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(widget.note.content, style: theme.textTheme.bodyMedium),
-                  if (widget.note.tags.isNotEmpty || _showActions || _busy)
-                    Row(
-                      children: [
-                        if (widget.note.tags.isNotEmpty)
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: TagChipList(
-                                tags: widget.note.tags,
-                                tagConfig: widget.tagConfig,
-                              ),
-                            ),
-                          ),
-                        if (_showActions)
-                          SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 28,
-                                height: 28,
-                              ),
-                              iconSize: 16,
-                              tooltip: '更多操作',
-                              icon: const FloraIcon(FloraIcons.more, size: 16),
-                              onPressed: () {
-                                _openActions();
-                              },
-                            ),
-                          ),
-                        if (_busy)
-                          const Padding(
-                            padding: EdgeInsets.only(left: 4),
-                            child: SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TimelineMarker extends StatelessWidget {
-  final Color color;
-
-  const _TimelineMarker({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 2,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            top: 4,
-            bottom: 4,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: color.withAlpha(88),
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 3,
-            left: -3,
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              child: const SizedBox(width: 8, height: 8),
-            ),
-          ),
-        ],
-      ),
+            )
+          : null,
     );
   }
 }

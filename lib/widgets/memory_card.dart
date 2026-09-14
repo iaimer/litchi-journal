@@ -103,7 +103,7 @@ class _MemoryCardState extends State<MemoryCard> {
             // 第二层：成长的痕迹（觉察或随手记）
             if (widget.entry.growthText != null) _buildGrowthLayer(theme),
 
-            // 第三层：当天总结（只有前两层都为空时才显示人生教练）
+            // 第三层：当天总结（只有前两层都为空时才显示今日回顾）
             if (_showCoachFallback) _buildCoachLayer(theme),
 
             // 底部内边距

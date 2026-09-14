@@ -10,6 +10,8 @@ import '../models/tag_settings.dart';
 import '../screens/quick_capture_screen.dart';
 import '../theme/app_theme.dart';
 import 'entry_type.dart';
+import 'diary_section_title.dart';
+import 'journal_section.dart';
 import 'section_card.dart';
 import 'tag_color_helper.dart';
 import 'timeline_action_sheet.dart';
@@ -54,6 +56,8 @@ class GenericSectionCard extends StatelessWidget {
       return _buildHappinessSection(context, section);
     }
 
+    final journalLayout = section is ReviewSection;
+    final timelineCount = section.contents.whereType<TimelineContent>().length;
     final children = <Widget>[];
     if (_hasCollapsibleCallout(section)) {
       children.add(_buildCollapsedCallout(context, section));
@@ -66,14 +70,30 @@ class GenericSectionCard extends StatelessWidget {
           }
         } else {
           if (_isHappinessSlogan(section, content)) continue;
-          _buildContent(context, content, children);
+          _buildContent(
+            context,
+            content,
+            children,
+            journalLayout: journalLayout,
+            timelineCount: timelineCount,
+          );
         }
       }
     }
 
+    final effectiveAccent =
+        accentColor ?? Theme.of(context).colorScheme.primary;
+    final displayTitle = diarySectionDisplayTitle(section);
+    if (journalLayout) {
+      return JournalSection(
+        title: displayTitle,
+        accentColor: effectiveAccent,
+        children: children,
+      );
+    }
     return SectionCard(
-      title: section.title.isEmpty ? null : section.title,
-      accentColor: accentColor ?? Theme.of(context).colorScheme.primary,
+      title: displayTitle.isEmpty ? null : displayTitle,
+      accentColor: effectiveAccent,
       children: children,
     );
   }
@@ -106,8 +126,10 @@ class GenericSectionCard extends StatelessWidget {
   void _buildContent(
     BuildContext context,
     DiaryContent content,
-    List<Widget> widgets,
-  ) {
+    List<Widget> widgets, {
+    required bool journalLayout,
+    required int timelineCount,
+  }) {
     switch (content) {
       case CalloutContent():
         widgets.add(_buildCallout(context, content));
@@ -115,7 +137,7 @@ class GenericSectionCard extends StatelessWidget {
         widgets.add(_buildCheckbox(context, content));
       case TimelineContent():
         widgets.add(
-          _TimelineDeleteRow(
+          _EditableEntryRow(
             content: content,
             onDelete: onTimelineDelete,
             onEdit: onTimelineEdit,
@@ -125,6 +147,8 @@ class GenericSectionCard extends StatelessWidget {
             recordDate: recordDate,
             entryType: _entryTypeForSection(section),
             onPolish: onPolish,
+            journalLayout: journalLayout,
+            showBullet: journalLayout && timelineCount > 1,
           ),
         );
       case MarkdownContent():
@@ -275,8 +299,8 @@ class GenericSectionCard extends StatelessWidget {
     if (entries.length == 1) {
       // 单条：纯文本段落
       final content = entries.first;
-      return SectionCard(
-        title: section.title.isEmpty ? null : section.title,
+      return JournalSection(
+        title: '小确幸',
         accentColor: accentColor ?? theme.colorScheme.primary,
         children: [
           Text(
@@ -297,8 +321,8 @@ class GenericSectionCard extends StatelessWidget {
     }
 
     // 多条：bullet list
-    return SectionCard(
-      title: section.title.isEmpty ? null : section.title,
+    return JournalSection(
+      title: '小确幸',
       accentColor: accentColor ?? theme.colorScheme.primary,
       children: entries.map((entry) {
         return Padding(
@@ -472,7 +496,7 @@ class GenericSectionCard extends StatelessWidget {
   }
 }
 
-class _TimelineDeleteRow extends StatefulWidget {
+class _EditableEntryRow extends StatefulWidget {
   final TimelineContent content;
   final Future<void> Function(String rawLine)? onDelete;
   final Future<void> Function(
@@ -489,8 +513,10 @@ class _TimelineDeleteRow extends StatefulWidget {
   final EntryType? entryType;
   final Future<PolishResult> Function(String content, EntryType entryType)?
   onPolish;
+  final bool journalLayout;
+  final bool showBullet;
 
-  const _TimelineDeleteRow({
+  const _EditableEntryRow({
     required this.content,
     this.onDelete,
     this.onEdit,
@@ -500,13 +526,15 @@ class _TimelineDeleteRow extends StatefulWidget {
     this.recordDate,
     this.entryType,
     this.onPolish,
+    this.journalLayout = false,
+    this.showBullet = false,
   });
 
   @override
-  State<_TimelineDeleteRow> createState() => _TimelineDeleteRowState();
+  State<_EditableEntryRow> createState() => _EditableEntryRowState();
 }
 
-class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
+class _EditableEntryRowState extends State<_EditableEntryRow> {
   bool _busy = false;
 
   bool get _showActions =>
@@ -591,6 +619,18 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accentColor = widget.accentColor ?? theme.colorScheme.primary;
+
+    if (widget.journalLayout) {
+      return JournalListEntryRow(
+        content: widget.content.text,
+        tags: widget.content.tags,
+        accentColor: accentColor,
+        tagConfig: widget.tagConfig,
+        showBullet: widget.showBullet,
+        trailing: _buildJournalTrailing(),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
       child: IntrinsicHeight(
@@ -666,6 +706,37 @@ class _TimelineDeleteRowState extends State<_TimelineDeleteRow> {
         ),
       ),
     );
+  }
+
+  Widget? _buildJournalTrailing() {
+    if (_showActions) {
+      return SizedBox(
+        width: 48,
+        height: 48,
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+          iconSize: 16,
+          tooltip: '更多操作',
+          icon: const FloraIcon(FloraIcons.more, size: 16),
+          onPressed: _openActions,
+        ),
+      );
+    }
+    if (_busy) {
+      return const SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 1.5),
+          ),
+        ),
+      );
+    }
+    return null;
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/tag_config.dart';
 import '../theme/app_theme.dart';
+import 'flora_icon.dart';
 import 'tag_color_helper.dart';
 
 double journalFabSafetyInset(BuildContext context) {
@@ -73,6 +74,59 @@ class JournalSection extends StatelessWidget {
   }
 }
 
+class JournalEntryActionSlot extends StatelessWidget {
+  final bool alignToTags;
+  final bool busy;
+  final VoidCallback? onPressed;
+
+  const JournalEntryActionSlot({
+    super.key,
+    required this.alignToTags,
+    required this.busy,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!busy && onPressed == null) return const SizedBox.shrink();
+
+    final alignment = alignToTags ? Alignment.topCenter : Alignment.center;
+    if (busy) {
+      return SizedBox(
+        width: 48,
+        height: 48,
+        child: Align(
+          alignment: alignment,
+          child: Padding(
+            padding: alignToTags
+                ? const EdgeInsets.only(top: 5)
+                : EdgeInsets.zero,
+            child: const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: IconButton(
+        alignment: alignment,
+        padding: alignToTags ? const EdgeInsets.only(top: 4) : EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+        iconSize: 16,
+        tooltip: '更多操作',
+        icon: const FloraIcon(FloraIcons.more, size: 16),
+        onPressed: onPressed,
+      ),
+    );
+  }
+}
+
 class JournalTimelineRow extends StatelessWidget {
   final String time;
   final String content;
@@ -80,6 +134,8 @@ class JournalTimelineRow extends StatelessWidget {
   final Color accentColor;
   final TagConfig? tagConfig;
   final bool isFirst;
+
+  /// Retained for source compatibility; the rail now always reaches row end.
   final bool isLast;
   final Widget? trailing;
 
@@ -99,59 +155,56 @@ class JournalTimelineRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.only(
-        left: 4,
-        top: 4,
-        right: journalFabSafetyInset(context),
-        bottom: 4,
-      ),
+      padding: EdgeInsets.only(left: 4, right: journalFabSafetyInset(context)),
       child: IntrinsicHeight(
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(
               width: 48,
-              child: Text(
-                time,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: accentColor,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  time,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: accentColor,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
                 ),
               ),
             ),
-            _JournalTimelineRail(
-              color: accentColor,
-              isFirst: isFirst,
-              isLast: isLast,
-            ),
+            _JournalTimelineRail(color: accentColor, isFirst: isFirst),
             const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(content, style: theme.textTheme.bodyMedium),
-                  if (tags.isNotEmpty || trailing != null)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (tags.isNotEmpty)
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: TagChipList(
-                                tags: tags,
-                                tagConfig: tagConfig,
-                                moduleAccentColor: accentColor,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(content, style: theme.textTheme.bodyMedium),
+                    if (tags.isNotEmpty || trailing != null)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (tags.isNotEmpty)
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: TagChipList(
+                                  tags: tags,
+                                  tagConfig: tagConfig,
+                                  moduleAccentColor: accentColor,
+                                ),
                               ),
-                            ),
-                          )
-                        else
-                          const Spacer(),
-                        ?trailing,
-                      ],
-                    ),
-                ],
+                            )
+                          else
+                            const Spacer(),
+                          ?trailing,
+                        ],
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -243,13 +296,8 @@ class JournalListEntryRow extends StatelessWidget {
 class _JournalTimelineRail extends StatelessWidget {
   final Color color;
   final bool isFirst;
-  final bool isLast;
 
-  const _JournalTimelineRail({
-    required this.color,
-    required this.isFirst,
-    required this.isLast,
-  });
+  const _JournalTimelineRail({required this.color, required this.isFirst});
 
   @override
   Widget build(BuildContext context) {
@@ -258,24 +306,15 @@ class _JournalTimelineRail extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          if (!isFirst)
-            Positioned(
-              top: 0,
-              left: 3,
-              width: 1,
-              height: 7,
-              child: ColoredBox(color: color.withAlpha(88)),
-            ),
-          if (!isLast)
-            Positioned(
-              top: 7,
-              left: 3,
-              width: 1,
-              bottom: 0,
-              child: ColoredBox(color: color.withAlpha(88)),
-            ),
           Positioned(
-            top: 3,
+            top: isFirst ? 11 : 0,
+            left: 3,
+            width: 1,
+            bottom: 0,
+            child: ColoredBox(color: color.withAlpha(88)),
+          ),
+          Positioned(
+            top: 7,
             left: 0,
             child: DecoratedBox(
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),

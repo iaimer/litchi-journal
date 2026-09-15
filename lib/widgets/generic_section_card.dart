@@ -289,80 +289,33 @@ class GenericSectionCard extends StatelessWidget {
     );
   }
 
-  /// 小确幸专用渲染：单条纯文本，多条 bullet list，不用 Timeline。
+  /// 小确幸专用渲染：单条无圆点，多条使用 bullet，并复用可编辑条目行。
   Widget _buildHappinessSection(BuildContext context, DiarySection section) {
     final theme = Theme.of(context);
     final entries = section.contents.whereType<TimelineContent>().toList();
 
     if (entries.isEmpty) return const SizedBox.shrink();
 
-    if (entries.length == 1) {
-      // 单条：纯文本段落
-      final content = entries.first;
-      return JournalSection(
-        title: '小确幸',
-        accentColor: accentColor ?? theme.colorScheme.primary,
-        children: [
-          Text(
-            content.text,
-            style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
-          ),
-          if (content.tags.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: TagChipList(
-                tags: content.tags,
-                tagConfig: tagConfig,
-                moduleAccentColor: accentColor,
-              ),
-            ),
-        ],
-      );
-    }
-
-    // 多条：bullet list
+    final effectiveAccent = accentColor ?? theme.colorScheme.primary;
     return JournalSection(
       title: '小确幸',
-      accentColor: accentColor ?? theme.colorScheme.primary,
-      children: entries.map((entry) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2, right: 8),
-                child: Text(
-                  '•',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: accentColor ?? AppColors.primary,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.text,
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
-                    ),
-                    if (entry.tags.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: TagChipList(
-                          tags: entry.tags,
-                          tagConfig: tagConfig,
-                          moduleAccentColor: accentColor,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+      accentColor: effectiveAccent,
+      children: [
+        for (final entry in entries)
+          _EditableEntryRow(
+            content: entry,
+            onDelete: onTimelineDelete,
+            onEdit: onTimelineEdit,
+            tagConfig: tagConfig,
+            tagSettings: tagSettings,
+            accentColor: effectiveAccent,
+            recordDate: recordDate,
+            entryType: EntryType.happiness,
+            onPolish: onPolish,
+            journalLayout: true,
+            showBullet: entries.length > 1,
           ),
-        );
-      }).toList(),
+      ],
     );
   }
 
@@ -709,34 +662,12 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
   }
 
   Widget? _buildJournalTrailing() {
-    if (_showActions) {
-      return SizedBox(
-        width: 48,
-        height: 48,
-        child: IconButton(
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-          iconSize: 16,
-          tooltip: '更多操作',
-          icon: const FloraIcon(FloraIcons.more, size: 16),
-          onPressed: _openActions,
-        ),
-      );
-    }
-    if (_busy) {
-      return const SizedBox(
-        width: 48,
-        height: 48,
-        child: Center(
-          child: SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(strokeWidth: 1.5),
-          ),
-        ),
-      );
-    }
-    return null;
+    if (!_showActions && !_busy) return null;
+    return JournalEntryActionSlot(
+      alignToTags: widget.content.tags.isNotEmpty,
+      busy: _busy,
+      onPressed: _showActions ? _openActions : null,
+    );
   }
 }
 

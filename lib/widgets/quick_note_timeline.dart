@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'flora_icon.dart';
-
 import '../models/diary_document.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
@@ -195,33 +193,11 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
       tagConfig: widget.tagConfig,
       isFirst: widget.isFirst,
       isLast: widget.isLast,
-      trailing: _showActions
-          ? SizedBox(
-              width: 48,
-              height: 48,
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: 48,
-                  height: 48,
-                ),
-                iconSize: 16,
-                tooltip: '更多操作',
-                icon: const FloraIcon(FloraIcons.more, size: 16),
-                onPressed: _openActions,
-              ),
-            )
-          : _busy
-          ? const SizedBox(
-              width: 48,
-              height: 48,
-              child: Center(
-                child: SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 1.5),
-                ),
-              ),
+      trailing: (_showActions || _busy)
+          ? JournalEntryActionSlot(
+              alignToTags: widget.note.tags.isNotEmpty,
+              busy: _busy,
+              onPressed: _showActions ? _openActions : null,
             )
           : null,
     );

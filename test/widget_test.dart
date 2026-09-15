@@ -8267,6 +8267,154 @@ tags:
       expect(find.text('22:00'), findsNothing);
     });
 
+    testWidgets('GenericSectionCard happiness shows actions per entry', (
+      tester,
+    ) async {
+      final section = HappinessSection(
+        title: '小确幸',
+        contents: [
+          const TimelineContent(
+            time: '14:00',
+            text: '下班看到晚霞',
+            tags: ['#生活'],
+            rawLine: '> **14:00** 下班看到晚霞 #生活',
+          ),
+          const TimelineContent(
+            time: '15:00',
+            text: '女儿收拾玩具',
+            tags: [],
+            rawLine: '> **15:00** 女儿收拾玩具',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GenericSectionCard(
+              section: section,
+              onTimelineDelete: (_) async {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('•'), findsNWidgets(2));
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is FloraIcon && widget.name == FloraIcons.more,
+        ),
+        findsNWidgets(2),
+      );
+    });
+
+    testWidgets('happiness edit reuses capture page and preserves rawLine', (
+      tester,
+    ) async {
+      const rawLine = '> **14:00** 旧小确幸 #生活';
+      String? savedRawLine;
+      String? savedContent;
+      List<String>? savedTags;
+      String? savedTime;
+      final section = HappinessSection(
+        title: '小确幸',
+        contents: const [
+          TimelineContent(
+            time: '14:00',
+            text: '旧小确幸',
+            tags: ['#生活'],
+            rawLine: rawLine,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GenericSectionCard(
+              section: section,
+              onTimelineEdit: (rawLine, content, tags, time) async {
+                savedRawLine = rawLine;
+                savedContent = content;
+                savedTags = tags;
+                savedTime = time;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) => widget is FloraIcon && widget.name == FloraIcons.more,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('编辑'), findsOneWidget);
+      expect(find.text('删除'), findsNothing);
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
+      expect(find.text('编辑记录'), findsOneWidget);
+      expect(find.text('今天 14:00'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).decoration?.hintText,
+        '今天有什么小确幸？',
+      );
+
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(savedRawLine, rawLine);
+      expect(savedContent, '旧小确幸');
+      expect(savedTags, const ['生活']);
+      expect(savedTime, '14:00');
+    });
+
+    testWidgets('happiness delete uses the original rawLine', (tester) async {
+      const rawLine = '> **15:00** 原始小确幸 #生活';
+      String? deletedRawLine;
+      final section = HappinessSection(
+        title: '小确幸',
+        contents: const [
+          TimelineContent(
+            time: '15:00',
+            text: '原始小确幸',
+            tags: ['#生活'],
+            rawLine: rawLine,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GenericSectionCard(
+              section: section,
+              onTimelineDelete: (rawLine) async {
+                deletedRawLine = rawLine;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) => widget is FloraIcon && widget.name == FloraIcons.more,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('编辑'), findsNothing);
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(deletedRawLine, rawLine);
+    });
+
     testWidgets(
       'GenericSectionCard reflection delete calls onDelete with rawLine',
       (tester) async {

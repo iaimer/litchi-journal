@@ -169,15 +169,6 @@ TagChipColors _chipColors({
   required TagColorRole role,
 }) {
   final isDark = theme.brightness == Brightness.dark;
-  final textColor = _readableColor(baseColor, isDark);
-  if (selected) {
-    return TagChipColors(
-      backgroundColor: baseColor.withAlpha(isDark ? 92 : 46),
-      borderColor: baseColor.withAlpha(isDark ? 190 : 150),
-      textColor: textColor,
-    );
-  }
-
   final backgroundAlpha = switch (role) {
     TagColorRole.module => isDark ? 38 : 22,
     TagColorRole.domain => isDark ? 44 : 24,
@@ -192,20 +183,67 @@ TagChipColors _chipColors({
     TagColorRole.method => isDark ? 120 : 80,
     TagColorRole.unknown => isDark ? 88 : 56,
   };
+  final effectiveBackgroundAlpha = selected
+      ? (isDark ? 92 : 46)
+      : backgroundAlpha;
+  final effectiveBorderAlpha = selected ? (isDark ? 190 : 150) : borderAlpha;
+  final backgroundColor = baseColor.withAlpha(effectiveBackgroundAlpha);
+  final textColor = _readableColor(baseColor, [
+    Color.alphaBlend(backgroundColor, theme.colorScheme.surface),
+    Color.alphaBlend(backgroundColor, theme.scaffoldBackgroundColor),
+  ], isDark);
 
   return TagChipColors(
-    backgroundColor: baseColor.withAlpha(backgroundAlpha),
-    borderColor: baseColor.withAlpha(borderAlpha),
+    backgroundColor: backgroundColor,
+    borderColor: baseColor.withAlpha(effectiveBorderAlpha),
     textColor: textColor,
   );
 }
 
-Color _readableColor(Color color, bool isDark) {
+Color _readableColor(Color color, List<Color> backgrounds, bool isDark) {
   final hsl = HSLColor.fromColor(color);
-  final lightness = isDark
+  final preferredLightness = isDark
       ? hsl.lightness.clamp(0.66, 0.82).toDouble()
       : hsl.lightness.clamp(0.30, 0.42).toDouble();
-  return hsl.withLightness(lightness).toColor();
+  final direction = isDark ? 1 : -1;
+  var best = hsl.withLightness(preferredLightness).toColor();
+  var bestRatio = _worstContrastRatio(best, backgrounds);
+
+  for (var step = 0; step <= 70; step++) {
+    final lightness = (preferredLightness + direction * step * 0.01)
+        .clamp(0.04, 0.96)
+        .toDouble();
+    final candidate = hsl.withLightness(lightness).toColor();
+    final ratio = _worstContrastRatio(candidate, backgrounds);
+    if (ratio > bestRatio) {
+      best = candidate;
+      bestRatio = ratio;
+    }
+    if (ratio >= 4.5) return candidate;
+  }
+
+  return best;
+}
+
+double _worstContrastRatio(Color foreground, List<Color> backgrounds) {
+  var worst = double.infinity;
+  for (final background in backgrounds) {
+    final ratio = _contrastRatio(foreground, background);
+    if (ratio < worst) worst = ratio;
+  }
+  return worst;
+}
+
+double _contrastRatio(Color foreground, Color background) {
+  final foregroundLuminance = foreground.computeLuminance();
+  final backgroundLuminance = background.computeLuminance();
+  final lighter = foregroundLuminance > backgroundLuminance
+      ? foregroundLuminance
+      : backgroundLuminance;
+  final darker = foregroundLuminance > backgroundLuminance
+      ? backgroundLuminance
+      : foregroundLuminance;
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 String _normalizeTagLabel(String label) {

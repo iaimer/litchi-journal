@@ -13,8 +13,9 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  final _urlController =
-      TextEditingController(text: 'https://obsidian.femkits.org');
+  final _urlController = TextEditingController(
+    text: 'https://obsidian.femkits.org',
+  );
   final _tokenController = TextEditingController();
   bool _loading = false;
   String? _error;
@@ -86,9 +87,11 @@ class _SetupScreenState extends State<SetupScreen> {
               decoration: InputDecoration(
                 labelText: 'Token',
                 suffixIcon: IconButton(
-                  icon: Icon(_obscureToken
-                      ? Icons.visibility
-                      : Icons.visibility_off),
+                  icon: Icon(
+                    _obscureToken
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                  ),
                   onPressed: () =>
                       setState(() => _obscureToken = !_obscureToken),
                 ),
@@ -99,8 +102,7 @@ class _SetupScreenState extends State<SetupScreen> {
             if (_error != null) ...[
               Text(
                 _error!,
-                style:
-                    TextStyle(color: Theme.of(context).colorScheme.error),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               const SizedBox(height: 16),
             ],

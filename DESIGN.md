@@ -6,19 +6,24 @@ colors:
   paper-surface: "#FFF7ED"
   paper-soft: "#F8EBD8"
   ink-primary: "#5A4A36"
-  ink-secondary: "#8D6E63"
-  ink-muted: "#A48B7E"
-  litchi-primary: "#A26B59"
-  paper-border: "#E8DCC9"
+  ink-secondary: "#806458"
+  ink-muted: "#8D766A"
+  litchi-primary: "#955F50"
+  paper-border: "#D8C9B8"
+  paper-outline: "#9B8174"
+  paper-outline-variant: "#D8C9B8"
+  paper-surface-highest: "#EFE2D2"
   growth-green: "#7BA67A"
-  error-red: "#E06A6A"
+  error-red: "#B54A4A"
   night-background: "#1F1B18"
   night-surface: "#2B241E"
   night-elevated: "#3A3027"
   night-ink: "#F1E6D7"
   night-secondary: "#C8AA9A"
   night-primary: "#CA9A84"
-  night-border: "#4B3D2D"
+  night-muted: "#A68C7D"
+  night-outline: "#8E7465"
+  night-border: "#5B493B"
   rainbow-note: "#FF6B6B"
   rainbow-happiness: "#FF9F43"
   rainbow-anxiety: "#FFD43B"
@@ -124,13 +129,13 @@ components:
 
 ### Primary
 
-- **荔枝陶红** (`#A26B59`): 主要按钮、焦点边框、选中状态和关键操作。
+- **荔枝陶红** (`#955F50`): 主要按钮、焦点边框、选中状态和关键操作。
 - **夜间荔枝陶红** (`#CA9A84`): 深色模式中的主要操作色，避免高饱和刺眼。
 
 ### Secondary
 
 - **成长叶绿** (`#7BA67A`): 成功、完成和成长反馈。
-- **提醒莓红** (`#E06A6A`): 错误与破坏性操作，不作为普通装饰色。
+- **提醒莓红** (`#B54A4A`): 错误与破坏性操作，不作为普通装饰色。
 
 ### Tertiary
 
@@ -142,9 +147,11 @@ components:
 - **柔光纸面** (`#FFF7ED`): 卡片、输入区和主要内容表面。
 - **纸页浅层** (`#F8EBD8`): 选中背景与次级分区。
 - **主墨棕** (`#5A4A36`): 标题和正文。
-- **次墨棕** (`#8D6E63`): 辅助说明和次要标签。
-- **淡墨棕** (`#A48B7E`): 占位与弱提示。
-- **纸页边线** (`#E8DCC9`): 0.5–1px 分隔与边框。
+- **次墨棕** (`#806458`): 日期、说明、未选中导航和次级文字。
+- **淡墨棕** (`#8D766A`): 仅用于禁用态与非关键信息。
+- **纸页功能边界** (`#9B8174`): 输入框、聚焦和需要辨认的可操作边界。
+- **纸页装饰边线** (`#D8C9B8`): 普通分隔与非关键容器边界。
+- **纸页高层表面** (`#EFE2D2`): Callout 等需要轻微抬升的内容表面。
 - **夜间纸背** (`#1F1B18`): 深色页面背景。
 - **夜间纸面** (`#2B241E`): 深色卡片和输入区。
 - **夜间墨色** (`#F1E6D7`): 深色主文字。
@@ -152,6 +159,31 @@ components:
 **The Rainbow Restraint Rule.** Today Rainbow 只表达模块语义，不写入 Markdown，也不扩散到无模块上下文的普通控件。
 
 **The Readability Rule.** 柔和不等于低对比度；正文、日期、标签和操作提示必须优先保证清晰。
+
+### Semantic Roles
+
+Flutter 主题显式提供 `onSurfaceVariant`、`outline`、`outlineVariant`、
+`surfaceContainerHighest` 和 `surfaceTint`。正文和标题使用 `onSurface`；时间、
+说明和未选中导航使用 `onSurfaceVariant`；输入框等可操作边界使用 `outline`；
+普通分隔线和装饰边界使用 `outlineVariant`；禁用内容才使用 muted。
+
+浅色普通文字和错误文字与实际纸面保持至少 `4.5:1` 对比度，功能边界保持至少
+`3:1`。标签文字按最终透明背景混合结果计算，不只根据原始模块色判断。
+
+## Icon Language
+
+Flora 与 Material 有明确分工：日记、习惯、回顾、快速记录、设置分类、空状态和
+AI 内容标记使用 Flora 语义图标；返回、关闭、添加、删除、刷新、显隐、方向、
+展开收起、播放暂停和单选等通用操作使用 Material 圆角图标。这样品牌图标保留
+产品性格，系统动作仍符合用户熟悉的操作预期。
+
+需要统一描边的 Flora SVG 使用 `24×24` 画板、`2px` 描边、`fill="none"`、
+`stroke="currentColor"`、圆形端点和圆形转角。习惯配置中的旧逻辑名称与旧 emoji
+继续兼容，不迁移用户数据。
+
+本轮规范化资源取自 [Tabler Icons v3.46.0](https://github.com/tabler/tabler-icons)，
+以静态 SVG 形式随项目发布，不增加运行时依赖。Tabler Icons 按 MIT License 发布，
+许可文本和来源记录见 `docs/THIRD_PARTY_NOTICES.md`。
 
 ## Typography
 

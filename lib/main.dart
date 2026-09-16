@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'services/api_config.dart';
 import 'services/api_client.dart';
@@ -30,6 +31,28 @@ class LitchiJournalApp extends StatelessWidget {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: AppearanceController.instance.themeMode,
+          builder: (context, child) {
+            final theme = Theme.of(context);
+            final isDark = theme.brightness == Brightness.dark;
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: SystemUiOverlayStyle(
+                statusBarColor: theme.scaffoldBackgroundColor,
+                statusBarIconBrightness: isDark
+                    ? Brightness.light
+                    : Brightness.dark,
+                statusBarBrightness: isDark
+                    ? Brightness.dark
+                    : Brightness.light,
+                systemNavigationBarColor: theme.scaffoldBackgroundColor,
+                systemNavigationBarDividerColor: theme.scaffoldBackgroundColor,
+                systemNavigationBarIconBrightness: isDark
+                    ? Brightness.light
+                    : Brightness.dark,
+                systemNavigationBarContrastEnforced: false,
+              ),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: const AppEntry(),
         );
       },

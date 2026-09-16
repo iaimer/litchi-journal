@@ -6,12 +6,14 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../models/backup_settings.dart';
 import '../models/diary_entry.dart';
 import '../models/gallery_result.dart';
 import '../models/history_month_result.dart';
 import '../models/habit_stats.dart';
 import '../models/tag_config.dart';
 import 'api_config.dart';
+import 'backup_download_service.dart';
 
 typedef UploadProgressCallback = void Function(int sentBytes, int totalBytes);
 typedef UploadBodyEncoder =
@@ -24,6 +26,7 @@ class ApiClient {
   final ApiConfig _config;
   late final UploadBodyEncoder? _uploadBodyEncoder;
   late final http.Client _http;
+  late final BackupDownloadService _backupDownloadService;
   late final String _baseUrl;
   late final Map<String, String> _headers;
 
@@ -39,9 +42,11 @@ class ApiClient {
     this._config, {
     http.Client? httpClient,
     UploadBodyEncoder? uploadBodyEncoder,
+    BackupDownloadService? backupDownloadService,
   }) {
     _uploadBodyEncoder = uploadBodyEncoder;
     _http = httpClient ?? http.Client();
+    _backupDownloadService = backupDownloadService ?? BackupDownloadService();
     _baseUrl = _normalizeUrl(_config.baseUrl);
     _headers = {
       'Authorization': 'Token ${_config.token}',
@@ -331,6 +336,101 @@ class ApiClient {
     return TagConfig.fromJson(json);
   }
 
+  Future<BackupSettingsSnapshot> fetchBackupSettings() async {
+    final response = await _get('/api/v1/settings/backup');
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _responseMessage('获取备份设置失败', response),
+        statusCode: response.statusCode,
+      );
+    }
+    final json = jsonDecode(response.body);
+    if (json is! Map) throw const FormatException('备份设置响应无效');
+    return BackupSettingsSnapshot.fromJson(Map<String, dynamic>.from(json));
+  }
+
+  Future<BackupSettingsSnapshot> updateBackupSettings(
+    BackupSettingsSnapshot settings, {
+    String? password,
+    bool clearPassword = false,
+  }) async {
+    final response = await _send(
+      () => _http.put(
+        Uri.parse('$_baseUrl/api/v1/settings/backup'),
+        headers: _headers,
+        body: jsonEncode(
+          settings.toUpdateJson(
+            password: password,
+            clearPassword: clearPassword,
+          ),
+        ),
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _responseMessage('保存备份设置失败', response),
+        statusCode: response.statusCode,
+      );
+    }
+    final json = jsonDecode(response.body);
+    if (json is! Map) throw const FormatException('备份设置响应无效');
+    return BackupSettingsSnapshot.fromJson(Map<String, dynamic>.from(json));
+  }
+
+  Future<void> testBackupConnection({
+    required String webdavUrl,
+    required String username,
+    required String password,
+    required String remotePath,
+  }) async {
+    final body = <String, dynamic>{
+      'webdavUrl': webdavUrl,
+      'username': username,
+      'remotePath': remotePath,
+      if (password.isNotEmpty) 'password': password,
+    };
+    final response = await _post('/api/v1/settings/backup/test', body: body);
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _responseMessage('WebDAV 连接测试失败', response),
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<void> startWebDavBackup() async {
+    final response = await _post('/api/v1/backups/webdav', body: const {});
+    if (response.statusCode == 409) {
+      throw const ApiException('备份任务正在运行，请稍候', statusCode: 409);
+    }
+    if (response.statusCode != 202) {
+      throw ApiException(
+        _responseMessage('启动 WebDAV 备份失败', response),
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<int?> enqueueBackupDownload() {
+    return _backupDownloadService.enqueue(
+      url: '$_baseUrl/api/v1/backups/export',
+      authorization: _headers['Authorization'] ?? '',
+      fileName: BackupDownloadService.fileName(DateTime.now()),
+    );
+  }
+
+  Future<BackupDownloadStatus?> queryBackupDownload(int downloadId) {
+    return _backupDownloadService.query(downloadId);
+  }
+
+  Future<BackupDownloadStatus?> queryLatestBackupDownload() {
+    return _backupDownloadService.queryLatest();
+  }
+
+  Future<void> clearLatestBackupDownload() {
+    return _backupDownloadService.clearLatest();
+  }
+
   Future<HistoryMonthResult> fetchHistoryMonth(int year, int month) async {
     final response = await _get('/api/v1/history/$year/$month');
 
@@ -532,6 +632,19 @@ class ApiClient {
       return '$prefix：服务器错误 ($statusCode)';
     }
     return '$prefix ($statusCode)';
+  }
+
+  String _responseMessage(String prefix, http.Response response) {
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded['error'] is String) {
+        final message = (decoded['error'] as String).trim();
+        if (message.isNotEmpty) return '$prefix：$message';
+      }
+    } catch (_) {
+      // 非 JSON 错误继续使用状态码兜底文案。
+    }
+    return _statusMessage(prefix, response.statusCode);
   }
 
   void dispose() {

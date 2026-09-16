@@ -120,34 +120,34 @@ class FloraIcons {
     restore: 'arrow-counter-clockwise-svgrepo-com',
     reset: 'arrow-cycle-svgrepo-com',
     more: 'more-horizontal-svgrepo-com',
-    shuffle: 'people-group-svgrepo-com',
+    shuffle: 'flora-arrows-shuffle',
     // ── P2 Diary marks ──
     back: 'arrow-left-svgrepo-com',
-    close: 'plus-svgrepo-com',
+    close: 'flora-close',
     imagePlaceholder: 'camera-svgrepo-com',
     check: 'check-svgrepo-com',
     deviceSystem: 'devices-svgrepo-com',
     theme: 'monitor-sun-svgrepo-com',
     // ── P2 Default habits ──
     habitWater: 'mug-sauser-svgrepo-com',
-    habitWalk: 'footsteps-silhouette-variant-svgrepo-com',
+    habitWalk: 'flora-walk',
     habitRead: 'book-svgrepo-com',
-    habitLanguage: 'naver-dictionary-svgrepo-com',
+    habitLanguage: 'flora-language',
     habitPill: 'capsule-svgrepo-com',
     // ── P2 Habit candidates ──
-    candidateRun: 'running-svgrepo-com',
+    candidateRun: 'flora-run',
     candidateSprout: 'plant-svgrepo-com',
     candidateStar: 'writing-notepad-svgrepo-com',
-    candidateSun: 'sunrise-svgrepo-com',
+    candidateSun: 'flora-sunrise',
     candidateMoon: 'bed-svgrepo-com',
-    candidateMeditate: 'meditation-svgrepo-com',
-    candidateLift: 'weight-1-svgrepo-com',
-    candidateApple: 'fruit-food-apple-svgrepo-com',
-    candidateBooks: 'books-svgrepo-com',
+    candidateMeditate: 'flora-yoga',
+    candidateLift: 'flora-barbell',
+    candidateApple: 'flora-apple',
+    candidateBooks: 'flora-books',
     // ── P2 AI content markers ──
-    pin: 'pin-list-svgrepo-com',
+    pin: 'flora-pin',
     warning: 'alert-triangle-svgrepo-com',
-    chatFeedback: 'chat-dots-svgrepo-com_2',
+    chatFeedback: 'flora-message-heart',
     question: 'chat-question-svgrepo-com',
     reward: 'thumbs-up-svgrepo-com',
     target: 'target-04-svgrepo-com',
@@ -167,6 +167,9 @@ class FloraIcons {
   static const String _svgPrefix = 'assets/svg/';
   static const String _svgSuffix = '.svg';
   static const String _pngPrefix = 'assets/icon/';
+
+  // These normalized product icons are static Tabler v3.46.0 assets. Keep the
+  // logical names stable so saved habit configurations remain compatible.
 
   /// Returns the asset path for a named icon.
   ///

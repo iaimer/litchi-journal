@@ -69,7 +69,10 @@ class HistoricalQuickRecordFab extends StatelessWidget {
             foregroundColor: theme.colorScheme.onPrimary,
             shape: const CircleBorder(),
             onPressed: onToggle,
-            child: Icon(expanded ? Icons.close : Icons.add, size: 24),
+            child: Icon(
+              expanded ? Icons.close_rounded : Icons.add_rounded,
+              size: 24,
+            ),
           ),
         ],
       ),

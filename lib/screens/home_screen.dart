@@ -975,8 +975,8 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() => _quickRecordExpanded = !_quickRecordExpanded);
             },
             child: _quickRecordExpanded
-                ? const Icon(Icons.close, size: 24)
-                : const Icon(Icons.add, size: 24),
+                ? const Icon(Icons.close_rounded, size: 24)
+                : const Icon(Icons.add_rounded, size: 24),
           ),
         ],
       ),
@@ -1183,7 +1183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(width: 4),
                       Icon(
-                        Icons.chevron_right,
+                        Icons.chevron_right_rounded,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ],

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
-import 'flora_icon.dart';
-
 import '../models/diary_document.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
@@ -365,7 +363,9 @@ class GenericSectionCard extends StatelessWidget {
 
   Widget _buildCheckRow(BuildContext context, bool checked, String text) {
     final theme = Theme.of(context);
-    final icon = checked ? Icons.check_box : Icons.check_box_outline_blank;
+    final icon = checked
+        ? Icons.check_box_rounded
+        : Icons.check_box_outline_blank_rounded;
     final color = checked ? AppColors.success : theme.disabledColor;
 
     return Padding(
@@ -388,62 +388,63 @@ class GenericSectionCard extends StatelessWidget {
 
   (IconData, Color, Color) _calloutStyle(ThemeData theme, String type) {
     final isDark = theme.brightness == Brightness.dark;
+    Color softBackground(Color color) {
+      return Color.alphaBlend(
+        color.withAlpha(isDark ? 42 : 24),
+        theme.colorScheme.surfaceContainerHighest,
+      );
+    }
+
+    final calloutColors =
+        theme.extension<AppCalloutColors>() ??
+        (isDark ? AppCalloutColors.dark : AppCalloutColors.light);
+
     switch (type) {
       case 'quote':
-        return (
-          Icons.format_quote,
-          isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-          isDark ? Colors.grey.shade800.withAlpha(100) : Colors.grey.shade50,
-        );
+        final color = theme.colorScheme.onSurfaceVariant;
+        return (Icons.format_quote, color, softBackground(color));
       case 'tip':
-        return (
-          Icons.lightbulb_outline,
-          isDark ? Colors.teal.shade200 : Colors.teal.shade700,
-          isDark ? Colors.teal.shade800.withAlpha(100) : Colors.teal.shade50,
-        );
+        final color = theme.colorScheme.primary;
+        return (Icons.lightbulb_outline, color, softBackground(color));
       case 'note':
       case 'info':
         return (
           Icons.info_outline,
-          isDark ? Colors.blue.shade200 : Colors.blue.shade700,
-          isDark ? Colors.blue.shade800.withAlpha(100) : Colors.blue.shade50,
+          calloutColors.info,
+          softBackground(calloutColors.info),
         );
       case 'warning':
       case 'caution':
         return (
           Icons.warning_amber_rounded,
-          isDark ? Colors.orange.shade200 : Colors.orange.shade700,
-          isDark
-              ? Colors.orange.shade800.withAlpha(100)
-              : Colors.orange.shade50,
+          calloutColors.warning,
+          softBackground(calloutColors.warning),
         );
       case 'danger':
       case 'error':
         return (
           Icons.error_outline,
-          isDark ? Colors.red.shade200 : Colors.red.shade700,
-          isDark ? Colors.red.shade800.withAlpha(100) : Colors.red.shade50,
+          theme.colorScheme.error,
+          softBackground(theme.colorScheme.error),
         );
       case 'success':
       case 'done':
         return (
           Icons.check_circle_outline,
-          isDark ? Colors.green.shade200 : Colors.green.shade700,
-          isDark ? Colors.green.shade800.withAlpha(100) : Colors.green.shade50,
+          calloutColors.success,
+          softBackground(calloutColors.success),
         );
       case 'example':
         return (
           Icons.code,
-          isDark ? Colors.purple.shade200 : Colors.purple.shade700,
-          isDark
-              ? Colors.purple.shade800.withAlpha(100)
-              : Colors.purple.shade50,
+          calloutColors.example,
+          softBackground(calloutColors.example),
         );
       default:
         return (
           Icons.info_outline,
-          isDark ? Colors.blue.shade200 : Colors.blue.shade700,
-          isDark ? Colors.blue.shade800.withAlpha(100) : Colors.blue.shade50,
+          calloutColors.info,
+          softBackground(calloutColors.info),
         );
     }
   }
@@ -584,6 +585,7 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
       );
     }
 
+    final trailing = _buildJournalTrailing();
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
       child: IntrinsicHeight(
@@ -607,7 +609,7 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(widget.content.text, style: theme.textTheme.bodyMedium),
-                  if (widget.content.tags.isNotEmpty || _showActions || _busy)
+                  if (widget.content.tags.isNotEmpty || trailing != null)
                     Row(
                       children: [
                         if (widget.content.tags.isNotEmpty)
@@ -621,35 +623,7 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
                               ),
                             ),
                           ),
-                        if (_showActions)
-                          SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 28,
-                                height: 28,
-                              ),
-                              iconSize: 16,
-                              tooltip: '更多操作',
-                              icon: const FloraIcon(FloraIcons.more, size: 16),
-                              onPressed: () {
-                                _openActions();
-                              },
-                            ),
-                          ),
-                        if (_busy)
-                          const Padding(
-                            padding: EdgeInsets.only(left: 4),
-                            child: SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                              ),
-                            ),
-                          ),
+                        ?trailing,
                       ],
                     ),
                 ],

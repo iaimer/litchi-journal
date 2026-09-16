@@ -5,7 +5,6 @@ import '../models/tag_settings.dart';
 import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
 import '../theme/app_theme.dart';
-import '../widgets/flora_icon.dart';
 import '../widgets/flora_page_scaffold.dart';
 
 /// 标签管理页面。
@@ -734,7 +733,9 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                       });
                     },
                     icon: Icon(
-                      expanded ? Icons.expand_less : Icons.expand_more,
+                      expanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     tooltip: expanded ? '收起' : '展开',
@@ -946,7 +947,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     return Center(
       child: TextButton.icon(
         onPressed: _restoreAll,
-        icon: const FloraIcon(FloraIcons.restore, size: 18),
+        icon: const Icon(Icons.restore_rounded, size: 20),
         label: const Text('恢复全部默认'),
         style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
       ),

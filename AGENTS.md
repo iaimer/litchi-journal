@@ -113,6 +113,8 @@ Flutter 端已建立的领域组件：
 - 若服务端健康检查正常但真机 App 无法连接，优先检查手机端 VPN/代理白名单、fake-ip DNS 和浏览器同域名访问结果，再判断 App 代码问题。
 - 习惯趋势页使用只读接口 `/api/v1/stats/habit?from=YYYY-MM-DD&to=YYYY-MM-DD` 获取最多 366 天的每日快照；服务端只解析 Markdown，周期聚合、连续达标和时长展示均由 Flutter 趋势领域服务完成。
 - 习惯趋势缓存必须按 `ApiClient.cacheNamespace` 隔离；远程 API 地址生效并替换 `ApiClient` 后，趋势页必须同步重建服务与缓存仓储，不能继续读取旧服务端数据。
+- 日记备份由服务端统一读取 Vault 的 `01.日记/` 并生成 ZIP；Flutter 只负责配置、触发、状态展示和 Android DownloadManager 导出。归档须经过文件清单、大小、修改时间、manifest SHA-256 与 ZIP CRC 校验，自动、手动和手机导出共用单任务锁。
+- WebDAV 仅接受 HTTPS 与用户名/应用密码；上传先使用 `.partial` 临时名并校验远端大小，再 MOVE 为正式文件。留存清理只处理应用命名的备份，密码和运行状态分别原子写入 `server/data/` 的 Git 忽略文件，任何 GET、日志和异常都不得返回密码或 Token。
 
 ## Flora 图标规则
 

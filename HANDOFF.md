@@ -8,6 +8,8 @@
 
 当前工作区已完成本轮发布收尾，Release APK 位于 `build/app/outputs/flutter-apk/app-release.apk`。真机安装仍由用户按发布流程自行执行。
 
+本轮 H5 日记 ZIP 与 WebDAV 自动备份已在功能分支 `codex/backup-webdav-20260916` 完成并提交（主分支未合并、远端未推送）。
+
 ## 已完成工作
 
 - 首页习惯支持乐观打卡、静默保存、失败回滚和成功完成音效。
@@ -24,6 +26,7 @@
 - 时长习惯的顶部数值仅显示所选周期累计时长，统一使用中文小时，非零极短记录显示 `<0.1 小时`；饮水、运动和 checkbox 习惯显示最长连续达标天数并使用中文 `天`。年视图热力图固定为最近六个月的 26 列 × 7 行，周/月/年均补齐灰色日期槽位并显示一至日标签。
 - 新增只读 `/api/v1/stats/habit?from=YYYY-MM-DD&to=YYYY-MM-DD` 区间快照；服务端读取 Markdown，Flutter 负责周期聚合、自定义习惯名称/别名映射和缓存。
 - 审查修复已覆盖 API 地址切换后的趋势服务重绑定与缓存隔离、aliases 变化导致的缓存失效、旧 checkbox 时长记录完成色、自定义名称关键词误判，以及小时数值格式边界。
+- H5 备份已完成：服务端归档 `01.日记/` 并校验 manifest、SHA-256 与 CRC，提供 WebDAV 测试/原子上传/留存清理、每周 Asia/Shanghai 调度与失败补试；Flutter 提供数据与备份总览、独立 WebDAV 全屏配置和 Android DownloadManager 导出。备份凭据、状态和临时归档均按安全边界处理。
 
 ## 关键决策与原因
 
@@ -38,10 +41,12 @@
 - 代码侧趋势、UI 去 AI 化阶段 1-3、时间轴与记录操作布局修正及习惯卡点击/语义修复均已通过 Flutter `analyze` 和全量测试 477 项；`git diff --check` 已通过；服务端代码和接口未改动。
 - 用户侧验收：由用户自行安装 APK，验证标签管理本机闭环，以及步数输入的预填/全选、范围提示和清零；验证饮水「手动输入 / 清零 / 自定义预设」面板，再继续验收 H3/H4 的计时、趋势页、浅色/深色模式及窄屏布局。
 - APK 产物路径为 `build/app/outputs/flutter-apk/app-release.apk`；按当前约定不安装到 PLG110，由用户自行安装验收。后续若发现问题，先按 `AGENTS.md` 的数据完整性和 UI 规则定位，再更新本文件中的当前状态。
+- H5 用户侧验收：在 Android 16 真机和测试 WebDAV 上验证连接测试、中文路径归档、原子改名、留存计算、下载通知、失败反馈及服务重启补跑。
 
 ## 已知问题与阻塞
 
-- 当前没有已知阻塞。
+- 当前环境没有可用的 PLG110 真机；`adb install -r` 已成功覆盖安装 Release APK，但随后 ADB 守护进程因 `Operation not permitted` 无法启动，因此未完成真机启动/DownloadManager 验收。
+- 尚未连接真实测试 WebDAV；服务端模拟 WebDAV 测试已覆盖 MKCOL、PUT、PROPFIND、MOVE、DELETE、认证失败、原子上传、留存和未知文件保护。
 
 ## 建议技能
 

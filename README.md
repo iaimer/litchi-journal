@@ -49,6 +49,7 @@ Flutter 客户端 + 本仓库 API 服务端版
 - Android release 版远程服务端连接
 - 远程 API 配置编辑：支持在设置页修改服务器地址，并复用当前 Token 测试连接后保存
 - 远程 API 地址保存后即时生效，不再需要重启 App
+- 数据与备份：服务端将 `01.日记/` 流式打包为带 manifest、SHA-256 与 CRC 校验的 ZIP；支持每周 WebDAV 自动备份、手动 WebDAV 备份和 Android 公共下载目录导出，默认留存近 8 周与过去 12 个月每月最新备份
 - 启动配置读取、今日日记加载和标签配置加载的超时/兜底保护
 - API / AI 请求超时保护与可操作错误提示，图片上传失败会显示具体原因
 - DeepSeek 官方 V4 按目标 Host 使用 non-thinking 请求；AI 服务不可用时显示明确错误
@@ -177,3 +178,12 @@ curl http://localhost:4001/health
 画廊使用 `GET /api/v1/history/gallery?cursor=YYYY-MM&limit=3` 按月份分页；服务端只索引 Vault 中实际存在的安全图片文件，避免 Markdown 与附件尚未同步时产生必然 404。图片预览使用鉴权的 `GET /api/v1/diary/image/render/:year/:imageName?month=MM&maxWidth=...`，服务端按需返回经过方向纠正和缩放的二进制图片，不在 Vault 写缩略图缓存。
 
 习惯趋势页使用只读的 `GET /api/v1/stats/habit?from=YYYY-MM-DD&to=YYYY-MM-DD` 获取最多 366 天的每日快照；服务端只解析已有 Markdown，不会因为浏览统计创建日记或修改文件。
+
+### 日记备份与 WebDAV
+
+设置页的「数据与备份」由服务端负责读取 Vault 并生成 ZIP，归档只包含顶层 `01.日记/`（Markdown、图片和其他附件），不包含 Vault 中的其他笔记。备份完成后服务端删除临时归档，不在 Mac mini 长期保留副本。
+
+- 自动备份默认每周日 03:00（Asia/Shanghai），可在 App 中修改星期和时间；自动任务与手动任务共用单任务锁。
+- WebDAV 配置使用 HTTPS、用户名和应用密码。上传先写入 `.partial` 文件，完成大小校验后再原子 MOVE；清理只删除应用命名的备份，保留近 8 周和过去 12 个月每月最新一份。
+- 手机导出由 Android `DownloadManager` 加入系统下载队列，保存到「下载/荔枝日记备份」，不申请宽泛存储权限；本期不提供 App 内恢复或 ZIP 加密。
+- 服务端新增 `GET/PUT /api/v1/settings/backup`、`POST /api/v1/settings/backup/test`、`POST /api/v1/backups/webdav` 和 `GET /api/v1/backups/export`。WebDAV 密码、运行状态和临时归档均不进入 Git，运行时文件位于 `server/data/`。

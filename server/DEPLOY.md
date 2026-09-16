@@ -180,6 +180,15 @@ cp config.example.json config.json
 
 **注意**：Mac mini 的 vaultPath 可能与 MacBook 不同，需要修改。
 
+## 日记 ZIP 与 WebDAV 备份
+
+服务启动后会自动加载 `server/data/` 下的备份设置和运行状态；该目录已被 Git 忽略，部署用户需要保证服务进程对它具有读写权限。首次使用时在 App 的「设置 → 数据与安全 → 数据与备份」中配置 WebDAV 并完成连接测试。
+
+- 归档范围固定为 Vault 内的 `01.日记/`，包含 Markdown、图片和附件，不包含其他笔记。
+- 默认每周日 03:00（Asia/Shanghai）执行，可在 App 中修改星期和时间；留存规则固定为近 8 周与过去 12 个月每月最新一份。
+- App 支持手动 WebDAV 备份，也支持将校验后的 ZIP 加入 Android 公共下载目录；服务端只保留打包和上传期间的临时文件。
+- WebDAV 必须使用 HTTPS、标准用户名和应用密码。设置页不会回显密码，修改连接字段后必须重新测试；服务端不会在日志或 API 响应中输出密码和 Token。
+
 ## 图片命名前缀
 
 `POST /api/v1/diary/image/upload` 支持可选字段 `imagePrefix`。

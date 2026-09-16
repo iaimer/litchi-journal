@@ -10,6 +10,7 @@ import '../services/tag_settings_repository.dart';
 import 'about_page.dart';
 import 'appearance_settings_page.dart';
 import 'ai_settings_screen.dart';
+import 'backup_settings_page.dart';
 import 'habit_settings_screen.dart';
 import 'tag_settings_page.dart';
 import 'image_compress_page.dart';
@@ -85,6 +86,15 @@ class SettingsPage extends StatelessWidget {
               icon: const FloraIcon(FloraIcons.settingTags, size: 22),
               title: '标签设置',
               onTap: () => _openTagSettings(context),
+            ),
+          ]),
+          _buildSectionHeader(theme, '数据与安全'),
+          _buildMenuGroup(context, [
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingCloud, size: 22),
+              title: '数据与备份',
+              onTap: () =>
+                  _push(context, BackupSettingsPage(apiClient: _apiClient)),
             ),
           ]),
           _buildSectionHeader(theme, '连接与智能'),

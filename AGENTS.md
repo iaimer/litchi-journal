@@ -115,6 +115,8 @@ Flutter 端已建立的领域组件：
 - 习惯趋势缓存必须按 `ApiClient.cacheNamespace` 隔离；远程 API 地址生效并替换 `ApiClient` 后，趋势页必须同步重建服务与缓存仓储，不能继续读取旧服务端数据。
 - 日记备份由服务端统一读取 Vault 的 `01.日记/` 并生成 ZIP；Flutter 只负责配置、触发、状态展示和 Android DownloadManager 导出。归档须经过文件清单、大小、修改时间、manifest SHA-256 与 ZIP CRC 校验，自动、手动和手机导出共用单任务锁。
 - WebDAV 仅接受 HTTPS 与用户名/应用密码；上传先使用 `.partial` 临时名并校验远端大小，再 MOVE 为正式文件。留存清理只处理应用命名的备份，密码和运行状态分别原子写入 `server/data/` 的 Git 忽略文件，任何 GET、日志和异常都不得返回密码或 Token。
+- `01.日记/` 缺失、不是目录或越过 Vault 边界时必须停止备份，不能生成空 ZIP 或执行远端留存清理；临时 ZIP 使用私有目录与 `0600` 权限，并在服务启动时清理崩溃残留。
+- WebDAV 最近 8 周留存按 Asia/Shanghai 连续周分桶，不得按文件数量截取；调度补跑只认 WebDAV 成功时间，手机导出不能抑制自动任务，定时或重试撞锁后必须排队补跑。
 
 ## Flora 图标规则
 

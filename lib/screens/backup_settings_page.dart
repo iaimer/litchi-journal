@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../models/backup_settings.dart';
 import '../services/api_client.dart';
+import '../services/backup_download_service.dart';
+import '../services/safe_error_message.dart';
 import '../widgets/flora_page_scaffold.dart';
 import 'webdav_settings_page.dart';
 
@@ -22,6 +24,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
   bool _loading = true;
   bool _saving = false;
   bool _runningAction = false;
+  bool _pollingDownload = false;
   String? _error;
 
   @override
@@ -34,7 +37,6 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final status = _settings.status;
-
     return FloraPageScaffold(
       title: '数据与备份',
       leading: IconButton(
@@ -50,98 +52,9 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
           if (status.state == BackupState.success &&
               status.lastSuccessAt != null)
             _buildSuccessBanner(theme, status),
-          _buildSectionHeader(theme, '备份状态'),
-          _buildGroup([
-            _BackupRow(
-              label: '最近备份',
-              value: _formatDateTime(status.lastSuccessAt) ?? '尚未备份',
-              icon: Icons.history_rounded,
-            ),
-            _BackupRow(
-              label: '状态',
-              value: _statusLabel(status),
-              icon: Icons.cloud_done_rounded,
-              trailing: _statusPill(theme, status),
-            ),
-            _BackupRow(
-              label: '下次备份',
-              value: _settings.enabled
-                  ? (_formatDateTime(status.nextRunAt) ?? '计算中')
-                  : '自动备份已关闭',
-              icon: Icons.schedule_rounded,
-            ),
-          ]),
-          _buildSectionHeader(theme, '自动备份'),
-          _buildGroup([
-            _BackupRow(
-              label: '自动备份',
-              value: _settings.enabled ? '已开启' : '已关闭',
-              icon: Icons.autorenew_rounded,
-              trailing: Switch(
-                key: const ValueKey('backup_auto_switch'),
-                value: _settings.enabled,
-                onChanged: _saving ? null : _toggleEnabled,
-              ),
-            ),
-            _BackupRow(label: '备份频率', value: '每周', icon: Icons.repeat_rounded),
-            _BackupRow(
-              label: '备份时间',
-              value:
-                  '${backupWeekdayNames[_settings.weekday]} ${_settings.time}',
-              icon: Icons.access_time_rounded,
-              onTap: _saving ? null : _pickSchedule,
-            ),
-            _BackupRow(
-              label: '留存规则',
-              value:
-                  '近 ${_settings.recentWeeks} 周 + ${_settings.monthlyMonths} 个月',
-              icon: Icons.layers_rounded,
-            ),
-          ]),
-          _buildSectionHeader(theme, '备份方式'),
-          _buildGroup([
-            _BackupRow(
-              key: const ValueKey('backup_webdav_settings'),
-              label: 'WebDAV 设置',
-              value: _settings.passwordConfigured ? '已配置' : '未配置',
-              icon: Icons.cloud_upload_rounded,
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: _saving
-                  ? null
-                  : () async {
-                      final saved = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => WebDavSettingsPage(
-                            apiClient: widget.apiClient,
-                            initialSettings: _settings,
-                          ),
-                        ),
-                      );
-                      if (saved == true && mounted) await _load();
-                    },
-            ),
-            _BackupRow(
-              label: '立即备份到 WebDAV',
-              value: _runningAction ? '备份进行中' : '手动执行',
-              icon: Icons.upload_rounded,
-              trailing: _runningAction
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.chevron_right_rounded),
-              onTap: _runningAction ? null : _startManualBackup,
-            ),
-            _BackupRow(
-              key: const ValueKey('backup_export_phone'),
-              label: '导出到手机',
-              value: '保存 ZIP 到下载目录',
-              icon: Icons.download_rounded,
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: _runningAction ? null : _exportToPhone,
-            ),
-          ]),
+          ..._buildStatusSection(theme, status),
+          ..._buildAutomaticSection(theme),
+          ..._buildMethodsSection(theme),
           if (status.state == BackupState.failed &&
               status.lastError != null) ...[
             const SizedBox(height: 12),
@@ -157,6 +70,111 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     );
   }
 
+  List<Widget> _buildStatusSection(ThemeData theme, BackupStatus status) => [
+    _buildSectionHeader(theme, '备份状态'),
+    _buildGroup([
+      _BackupRow(
+        label: '最近备份',
+        value: _formatDateTime(status.lastSuccessAt) ?? '尚未备份',
+        icon: Icons.history_rounded,
+      ),
+      _BackupRow(
+        label: '状态',
+        value: _statusLabel(status),
+        icon: Icons.cloud_done_rounded,
+        trailing: _statusPill(theme, status),
+      ),
+      _BackupRow(
+        label: '下次备份',
+        value: _settings.enabled
+            ? (_formatDateTime(status.nextRunAt) ?? '计算中')
+            : '自动备份已关闭',
+        icon: Icons.schedule_rounded,
+      ),
+    ]),
+  ];
+
+  List<Widget> _buildAutomaticSection(ThemeData theme) => [
+    _buildSectionHeader(theme, '自动备份'),
+    _buildGroup([
+      _BackupRow(
+        label: '自动备份',
+        value: _settings.enabled ? '已开启' : '已关闭',
+        icon: Icons.autorenew_rounded,
+        trailing: Switch(
+          key: const ValueKey('backup_auto_switch'),
+          value: _settings.enabled,
+          onChanged: _saving ? null : _toggleEnabled,
+        ),
+      ),
+      const _BackupRow(label: '备份频率', value: '每周', icon: Icons.repeat_rounded),
+      _BackupRow(
+        label: '备份时间',
+        value: '${backupWeekdayNames[_settings.weekday]} ${_settings.time}',
+        icon: Icons.access_time_rounded,
+        onTap: _saving ? null : _pickSchedule,
+      ),
+      _BackupRow(
+        label: '留存规则',
+        value: '近 ${_settings.recentWeeks} 周 + ${_settings.monthlyMonths} 个月',
+        icon: Icons.layers_rounded,
+      ),
+    ]),
+  ];
+
+  List<Widget> _buildMethodsSection(ThemeData theme) => [
+    _buildSectionHeader(theme, '备份方式'),
+    _buildGroup([
+      _BackupRow(
+        key: const ValueKey('backup_webdav_settings'),
+        label: 'WebDAV 设置',
+        value: _settings.passwordConfigured ? '已配置' : '未配置',
+        icon: Icons.cloud_upload_rounded,
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: _saving ? null : _openWebDavSettings,
+      ),
+      _BackupRow(
+        label: '立即备份到 WebDAV',
+        value: _runningAction ? '备份进行中' : '手动执行',
+        icon: Icons.upload_rounded,
+        trailing: _runningAction
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.chevron_right_rounded),
+        onTap: _runningAction ? null : _startManualBackup,
+      ),
+      _BackupRow(
+        key: const ValueKey('backup_export_phone'),
+        label: '导出到手机',
+        value: _pollingDownload ? '正在下载' : '保存 ZIP 到下载目录',
+        icon: Icons.download_rounded,
+        trailing: _pollingDownload
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.chevron_right_rounded),
+        onTap: _runningAction || _pollingDownload ? null : _exportToPhone,
+      ),
+    ]),
+  ];
+
+  Future<void> _openWebDavSettings() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => WebDavSettingsPage(
+          apiClient: widget.apiClient,
+          initialSettings: _settings,
+        ),
+      ),
+    );
+    if (saved == true && mounted) await _load();
+  }
+
   Future<void> _load() async {
     try {
       final settings = await widget.apiClient.fetchBackupSettings();
@@ -166,11 +184,12 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
         _loading = false;
         _error = null;
       });
+      unawaited(_checkLatestDownload());
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = _safeError(error, '备份设置暂时不可用');
+        _error = safeErrorMessage(error, '备份设置暂时不可用');
       });
     }
   }
@@ -198,7 +217,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
         _settings = previous;
         _saving = false;
       });
-      _showMessage(_safeError(error, '保存自动备份设置失败'));
+      _showMessage(safeErrorMessage(error, '保存自动备份设置失败'));
     }
   }
 
@@ -254,7 +273,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
         _settings = previous;
         _saving = false;
       });
-      _showMessage(_safeError(error, '保存备份设置失败'));
+      _showMessage(safeErrorMessage(error, '保存备份设置失败'));
     }
   }
 
@@ -275,7 +294,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       }
       await _pollBackupStatus();
     } catch (error) {
-      if (mounted) _showMessage(_safeError(error, '启动备份失败'));
+      if (mounted) _showMessage(safeErrorMessage(error, '启动备份失败'));
     } finally {
       if (mounted) setState(() => _runningAction = false);
     }
@@ -307,13 +326,70 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
   Future<void> _exportToPhone() async {
     setState(() => _runningAction = true);
     try {
-      await widget.apiClient.enqueueBackupDownload();
-      if (mounted) _showMessage('已加入下载队列，可在系统通知中查看进度');
+      final downloadId = await widget.apiClient.enqueueBackupDownload();
+      if (downloadId == null) throw StateError('下载任务未创建');
+      if (mounted) {
+        _showMessage('已加入下载队列，可在系统通知中查看进度');
+        unawaited(_pollPhoneDownload(downloadId));
+      }
     } catch (error) {
-      if (mounted) _showMessage(_safeError(error, '无法导出备份'));
+      if (mounted) _showMessage(safeErrorMessage(error, '无法导出备份'));
     } finally {
       if (mounted) setState(() => _runningAction = false);
     }
+  }
+
+  Future<void> _checkLatestDownload() async {
+    if (_pollingDownload) return;
+    try {
+      final status = await widget.apiClient.queryLatestBackupDownload();
+      if (!mounted || status == null) return;
+      if (status.isTerminal) {
+        await _handleDownloadResult(status);
+      } else {
+        unawaited(_pollPhoneDownload(status.downloadId));
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = safeErrorMessage(error, '无法读取手机备份下载状态'));
+      }
+    }
+  }
+
+  Future<void> _pollPhoneDownload(int downloadId) async {
+    if (_pollingDownload) return;
+    setState(() => _pollingDownload = true);
+    try {
+      for (var attempt = 0; attempt < 120; attempt++) {
+        await Future<void>.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
+        final status = await widget.apiClient.queryBackupDownload(downloadId);
+        if (status == null) throw StateError('下载任务不存在');
+        if (!status.isTerminal) continue;
+        await _handleDownloadResult(status);
+        return;
+      }
+      _showMessage('备份仍在系统后台下载，可稍后返回查看结果');
+    } catch (error) {
+      if (mounted) _showMessage(safeErrorMessage(error, '无法确认手机备份结果'));
+    } finally {
+      if (mounted) setState(() => _pollingDownload = false);
+    }
+  }
+
+  Future<void> _handleDownloadResult(BackupDownloadStatus status) async {
+    final completeSize =
+        status.downloadedBytes > 0 &&
+        status.totalBytes > 0 &&
+        status.downloadedBytes == status.totalBytes;
+    if (status.state == BackupDownloadState.success && completeSize) {
+      _showMessage('备份已保存到“下载/荔枝日记备份”');
+    } else {
+      final message = status.error ?? '备份文件未完整保存，请重试';
+      if (mounted) setState(() => _error = message);
+      _showMessage(message);
+    }
+    await widget.apiClient.clearLatestBackupDownload();
   }
 
   Widget _buildSectionHeader(ThemeData theme, String title) {
@@ -422,14 +498,6 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     if (value == null) return null;
     final local = value.toLocal();
     return '${local.month}月${local.day}日 ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _safeError(Object error, String fallback) {
-    if (error is ApiException && error.message.trim().isNotEmpty) {
-      return error.message;
-    }
-    if (error is UnsupportedError) return error.message ?? fallback;
-    return fallback;
   }
 
   void _showMessage(String message) {

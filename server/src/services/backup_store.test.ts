@@ -1,8 +1,21 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BackupStore, DEFAULT_BACKUP_SETTINGS } from './backup_store.js';
+import {
+  BackupStore,
+  BackupStoreCorruptionError,
+  DEFAULT_BACKUP_SETTINGS,
+} from './backup_store.js';
 
 vi.mock('../config/index.js', () => ({
   default: { serverDataDir: '/private/tmp/litchi-backup-test-data' },
@@ -47,7 +60,7 @@ describe('BackupStore', () => {
     );
   });
 
-  it('falls back to safe defaults after a damaged settings file', () => {
+  it('quarantines a damaged settings file and reports the failure once', () => {
     const directory = mkdtempSync(join(tmpdir(), 'litchi-backup-store-corrupt-'));
     temporaryDirectories.push(directory);
     const dataDirectory = join(directory, 'data');
@@ -55,6 +68,11 @@ describe('BackupStore', () => {
     const settingsPath = join(dataDirectory, 'backup-settings.json');
     writeFileSync(settingsPath, '{broken');
     chmodSync(settingsPath, 0o600);
-    expect(new BackupStore(dataDirectory).loadSettings()).toEqual(DEFAULT_BACKUP_SETTINGS);
+    const store = new BackupStore(dataDirectory);
+    expect(() => store.loadSettings()).toThrow(BackupStoreCorruptionError);
+    expect(store.loadSettings()).toEqual(DEFAULT_BACKUP_SETTINGS);
+    expect(
+      readdirSync(dataDirectory).some(name => name.startsWith('backup-settings.json.corrupt-')),
+    ).toBe(true);
   });
 });

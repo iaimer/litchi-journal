@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/backup_settings.dart';
 import '../services/api_client.dart';
+import '../services/safe_error_message.dart';
 import '../widgets/flora_page_scaffold.dart';
 
 /// WebDAV 独立全屏配置页。
@@ -72,125 +73,143 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
       ),
       body: Column(
         children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              children: [
-                if (_loading) const LinearProgressIndicator(minHeight: 2),
-                if (_error != null) _buildError(theme, _error!),
-                _buildSectionTitle(theme, '连接信息'),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _urlController,
-                          keyboardType: TextInputType.url,
-                          decoration: const InputDecoration(
-                            labelText: '服务器地址',
-                            hintText: 'https://dav.example.com/dav',
-                            prefixIcon: Icon(Icons.link_rounded),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _usernameController,
-                          textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                            labelText: '用户名',
-                            prefixIcon: Icon(Icons.person_outline_rounded),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          textInputAction: TextInputAction.next,
-                          decoration: InputDecoration(
-                            labelText: '应用密码',
-                            hintText: _settings.passwordConfigured
-                                ? '已保存，留空表示保持不变'
-                                : '请输入 WebDAV 应用密码',
-                            prefixIcon: const Icon(Icons.key_rounded),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _remotePathController,
-                          decoration: const InputDecoration(
-                            labelText: '远程目录',
-                            hintText: '/荔枝日记备份',
-                            prefixIcon: Icon(Icons.folder_outlined),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _testing || _saving
-                                ? null
-                                : _testConnection,
-                            icon: _testing
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.network_check_rounded),
-                            label: Text(_testing ? '测试中…' : '连接测试'),
-                          ),
-                        ),
-                        if (_testPassed) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.check_circle_rounded,
-                                size: 18,
-                                color: theme.colorScheme.tertiary,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '连接测试通过，可以保存',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.tertiary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                _buildSectionTitle(theme, '安全提示'),
-                Text(
-                  '仅支持 HTTPS 和 WebDAV 应用密码。密码不会回显，也不会写入日志。修改任一连接字段后，需要重新测试。',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
+          Expanded(child: _buildContent(theme)),
+          _buildSaveButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(ThemeData theme) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      children: [
+        if (_loading) const LinearProgressIndicator(minHeight: 2),
+        if (_error != null) _buildError(theme, _error!),
+        _buildSectionTitle(theme, '连接信息'),
+        _buildFormCard(theme),
+        _buildSectionTitle(theme, '安全提示'),
+        Text(
+          '仅支持 HTTPS 和 WebDAV 应用密码。密码不会回显，也不会写入日志。修改任一连接字段后，需要重新测试。',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            height: 1.5,
           ),
-          SafeArea(
-            top: false,
-            minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton(
-                onPressed: _testing || _saving ? null : _save,
-                child: Text(_saving ? '保存中…' : '保存'),
-              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCard(ThemeData theme) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            ..._buildConnectionFields(),
+            const SizedBox(height: 16),
+            _buildTestButton(),
+            if (_testPassed) _buildTestSuccess(theme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildConnectionFields() => [
+    TextField(
+      controller: _urlController,
+      keyboardType: TextInputType.url,
+      decoration: const InputDecoration(
+        labelText: '服务器地址',
+        hintText: 'https://dav.example.com/dav',
+        prefixIcon: Icon(Icons.link_rounded),
+      ),
+    ),
+    const SizedBox(height: 12),
+    TextField(
+      controller: _usernameController,
+      textInputAction: TextInputAction.next,
+      decoration: const InputDecoration(
+        labelText: '用户名',
+        prefixIcon: Icon(Icons.person_outline_rounded),
+      ),
+    ),
+    const SizedBox(height: 12),
+    TextField(
+      controller: _passwordController,
+      obscureText: true,
+      textInputAction: TextInputAction.next,
+      decoration: InputDecoration(
+        labelText: '应用密码',
+        hintText: _settings.passwordConfigured
+            ? '已保存，留空表示保持不变'
+            : '请输入 WebDAV 应用密码',
+        prefixIcon: const Icon(Icons.key_rounded),
+      ),
+    ),
+    const SizedBox(height: 12),
+    TextField(
+      controller: _remotePathController,
+      decoration: const InputDecoration(
+        labelText: '远程目录',
+        hintText: '/荔枝日记备份',
+        prefixIcon: Icon(Icons.folder_outlined),
+      ),
+    ),
+  ];
+
+  Widget _buildTestButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _testing || _saving ? null : _testConnection,
+        icon: _testing
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.network_check_rounded),
+        label: Text(_testing ? '测试中…' : '连接测试'),
+      ),
+    );
+  }
+
+  Widget _buildTestSuccess(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          Icon(
+            Icons.check_circle_rounded,
+            size: 18,
+            color: theme.colorScheme.tertiary,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '连接测试通过，可以保存',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.tertiary,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: FilledButton(
+          onPressed: _testing || _saving ? null : _save,
+          child: Text(_saving ? '保存中…' : '保存'),
+        ),
       ),
     );
   }
@@ -212,7 +231,7 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = _safeError(error, '无法读取 WebDAV 设置');
+        _error = safeErrorMessage(error, '无法读取 WebDAV 设置');
       });
     }
   }
@@ -246,7 +265,7 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
       setState(() {
         _testing = false;
         _testPassed = false;
-        _error = _safeError(error, 'WebDAV 连接测试失败');
+        _error = safeErrorMessage(error, 'WebDAV 连接测试失败');
       });
     }
   }
@@ -283,7 +302,7 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = _safeError(error, '保存 WebDAV 设置失败');
+        _error = safeErrorMessage(error, '保存 WebDAV 设置失败');
       });
     }
   }
@@ -351,13 +370,5 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
         ),
       ),
     );
-  }
-
-  String _safeError(Object error, String fallback) {
-    if (error is ApiException && error.message.trim().isNotEmpty) {
-      return error.message;
-    }
-    if (error is UnsupportedError) return error.message ?? fallback;
-    return fallback;
   }
 }

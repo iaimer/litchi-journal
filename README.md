@@ -186,7 +186,7 @@ curl http://localhost:4001/health
 
 设置页的「数据与备份」由服务端负责读取 Vault 并生成 ZIP，归档只包含顶层 `01.日记/`（Markdown、图片和其他附件），不包含 Vault 中的其他笔记。备份完成后服务端删除临时归档，不在 Mac mini 长期保留副本。
 
-- 自动备份默认每周日 03:00（Asia/Shanghai），可在 App 中修改星期和时间；自动任务与手动任务共用单任务锁。
-- WebDAV 配置使用 HTTPS、用户名和应用密码。上传先写入 `.partial` 文件，完成大小校验后再原子 MOVE；清理只删除应用命名的备份，保留近 8 周和过去 12 个月每月最新一份。
-- 手机导出由 Android `DownloadManager` 加入系统下载队列，保存到「下载/荔枝日记备份」，不申请宽泛存储权限；本期不提供 App 内恢复或 ZIP 加密。
-- 服务端新增 `GET/PUT /api/v1/settings/backup`、`POST /api/v1/settings/backup/test`、`POST /api/v1/backups/webdav` 和 `GET /api/v1/backups/export`。WebDAV 密码、运行状态和临时归档均不进入 Git，运行时文件位于 `server/data/`。
+- 自动备份默认每周日 03:00（Asia/Shanghai），可在 App 中修改星期和时间；自动、手动与手机导出共用单任务锁，定时或重试任务遇到占用时会在锁释放后补跑。
+- WebDAV 配置使用 HTTPS、用户名和应用密码。上传先写入 `.partial` 文件，完成大小校验后再原子 MOVE；清理只删除应用命名的备份，并按上海时区为最近 8 个连续周各保留最新一份，同时保留过去 12 个月每月最新一份。
+- 手机导出由 Android `DownloadManager` 加入系统下载队列，保存到「下载/荔枝日记备份」，不申请宽泛存储权限；App 会持久化任务编号并在返回设置页后确认最终下载结果。本期不提供 App 内恢复或 ZIP 加密。
+- 服务端新增 `GET/PUT /api/v1/settings/backup`、`POST /api/v1/settings/backup/test`、`POST /api/v1/backups/webdav` 和 `GET /api/v1/backups/export`。WebDAV 密码与运行状态位于 Git 忽略的 `server/data/`；ZIP 位于权限为 `0700` 的系统私有临时目录，文件权限为 `0600`，任务结束和服务启动时都会清理。

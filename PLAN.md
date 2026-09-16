@@ -149,10 +149,11 @@
 - 错误信息不含磁盘路径；不记录、不输出 Token、API Key 或敏感配置。
 
 ### 日记备份与 WebDAV
-- 服务端只归档 Vault 的 `01.日记/`，使用流式 ZIP、manifest、SHA-256 与 CRC 校验；打包前后比较文件清单、大小和修改时间，临时文件在导出或上传结束后清理。
-- 自动备份默认每周日 03:00（Asia/Shanghai），服务启动会补跑错过的任务；失败按 15 分钟、1 小时、6 小时和每日补试。自动、手动和手机导出共用单任务锁。
+- 服务端只归档 Vault 的 `01.日记/`，目录缺失时必须失败；使用流式 ZIP、归档内 manifest、SHA-256 与 CRC 校验，打包前后比较文件清单、大小和修改时间。临时目录/文件使用 `0700/0600`，任务结束和服务启动时清理。
+- 自动备份默认每周日 03:00（Asia/Shanghai），服务启动会按最近一次 WebDAV 成功时间补跑错过的任务；失败按 15 分钟、1 小时、6 小时和每日补试。自动、手动和手机导出共用单任务锁，定时/重试撞锁后排队补跑。
 - WebDAV 只接受 HTTPS 与用户名/应用密码；连接测试覆盖 MKCOL、PUT、PROPFIND、MOVE、DELETE。上传使用 `.partial` 后原子 MOVE，留存清理仅处理应用命名的备份。
-- `server/data/backup-credentials.json` 与 `server/data/backup-state.json` 原子写入且不进 Git；GET 接口只返回密码是否已配置，不返回密码。
+- 最近 8 周按上海时区周分桶，每周只保留最新一份；另保留过去 12 个月每月最新一份。Android 持久化 DownloadManager 任务编号，并在 App 返回后反馈最终成功或失败。
+- `server/data/backup-credentials.json` 与 `server/data/backup-state.json` 使用唯一临时文件、fsync 和原子改名且不进 Git；损坏文件会隔离并显式报错，GET 接口只返回密码是否已配置。
 
 ### 品牌与视觉
 - `docs/design-reference/` 是品牌视觉权威源图；启动页、App 图标、关于页品牌图必须从源图派生，不重新绘制近似图。
@@ -163,7 +164,7 @@
 ## 6. 测试决策
 
 - **原则**：只测外部行为，不测实现细节；写入类改动先复现再修复。
-- **质量基线**：`flutter analyze` 零问题；`flutter test` 全绿（当前 423 项）；`server npm run build` 通过；`server npm test` 全绿（当前 37 项，测试脚本限定 `src`，避免收集 `dist` 产物）。
+- **质量基线**：`flutter analyze` 零问题；`flutter test` 全绿（当前 489 项）；`server npm run build` 通过；`server npm test` 全绿（当前 53 项，测试脚本限定 `src`，避免收集 `dist` 产物）。
 - **重点模块**：服务端 Markdown 解析与 section 内时间排序、习惯时长写入与 `operationId` 去重、YAML frontmatter 列表解析、编辑/删除 rawLine 匹配、焦虑 replace 严格校验、图片格式校验、auth 恒定时间比较；客户端 widget 测试覆盖今日页/快速记录/焦虑/习惯计时/标签/过往/补录/远程 API 核心链路。
 - **真机验收**：涉及视觉体验用真机（PLG110，Android 16，无线 ADB）截图验收；覆盖安装固定 `adb install -r`。
 - **环境限制**：沙箱内 `flutter test` 偶发无法创建本地 socket、`adb` smartsocket "Operation not permitted" 属环境限制，不视为代码缺陷。

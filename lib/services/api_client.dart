@@ -419,6 +419,18 @@ class ApiClient {
     );
   }
 
+  Future<BackupDownloadStatus?> queryBackupDownload(int downloadId) {
+    return _backupDownloadService.query(downloadId);
+  }
+
+  Future<BackupDownloadStatus?> queryLatestBackupDownload() {
+    return _backupDownloadService.queryLatest();
+  }
+
+  Future<void> clearLatestBackupDownload() {
+    return _backupDownloadService.clearLatest();
+  }
+
   Future<HistoryMonthResult> fetchHistoryMonth(int year, int month) async {
     final response = await _get('/api/v1/history/$year/$month');
 

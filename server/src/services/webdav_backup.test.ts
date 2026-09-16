@@ -72,7 +72,7 @@ describe('WebDAV backup client', () => {
     expect(testClient.deleteFile.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('uses partial upload and protects unknown remote files during retention cleanup', async () => {
+  it('uses partial upload and retains one latest backup for each of eight weeks', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'litchi-webdav-upload-'));
     directories.push(directory);
     const archivePath = join(directory, 'source.zip');
@@ -92,10 +92,25 @@ describe('WebDAV backup client', () => {
       return true;
     });
     testClient.moveFile.mockResolvedValue(true);
+    const weeklyNames = [
+      'litchi-journal-diary-20260916-220000.zip',
+      'litchi-journal-diary-20260907-030000.zip',
+      'litchi-journal-diary-20260831-030000.zip',
+      'litchi-journal-diary-20260824-030000.zip',
+      'litchi-journal-diary-20260817-030000.zip',
+      'litchi-journal-diary-20260810-030000.zip',
+      'litchi-journal-diary-20260803-030000.zip',
+      'litchi-journal-diary-20260727-030000.zip',
+    ];
+    const duplicateNames = [
+      'litchi-journal-diary-20260916-210000.zip',
+      'litchi-journal-diary-20260915-030000.zip',
+      'litchi-journal-diary-20260914-030000.zip',
+    ];
     testClient.getDirectoryContents.mockResolvedValue([
-      ...Array.from({ length: 9 }, (_, index) => ({
+      ...[...weeklyNames, ...duplicateNames].map(basename => ({
         type: 'file',
-        basename: `litchi-journal-diary-202609${String(16 - index).padStart(2, '0')}-030000.zip`,
+        basename,
         size: 10,
       })),
       { type: 'file', basename: '用户自己的文件.zip', size: 10 },
@@ -127,16 +142,40 @@ describe('WebDAV backup client', () => {
       '/荔枝日记备份/litchi-journal-diary-20260916-220000.zip',
       { overwrite: false },
     );
-    expect(testClient.deleteFile).toHaveBeenCalledOnce();
-    expect(testClient.deleteFile.mock.calls[0][0]).toMatch(
-      /^\/荔枝日记备份\/litchi-journal-diary-/,
+    const deleted = testClient.deleteFile.mock.calls.map(call => call[0]);
+    expect(deleted).toHaveLength(duplicateNames.length);
+    expect(deleted).toEqual(
+      expect.arrayContaining(
+        duplicateNames.map(name => `/荔枝日记备份/${name}`),
+      ),
     );
+    for (const name of weeklyNames) {
+      expect(deleted).not.toContain(`/荔枝日记备份/${name}`);
+    }
+    expect(deleted).not.toContain('/荔枝日记备份/用户自己的文件.zip');
   });
 
   it('maps authentication failures to a redacted category', async () => {
     testClient.stat.mockRejectedValue({ status: 401 });
     await expect(createWebDavBackupClient(settings()).testConnection()).rejects.toEqual(
       new WebDavBackupError('auth', 'WebDAV 认证失败，请检查用户名和应用密码'),
+    );
+  });
+
+  it('fails connection testing when probe cleanup cannot be completed', async () => {
+    testClient.stat.mockImplementation(async (path: string) => {
+      if (path === '/荔枝日记备份') return { type: 'directory', size: 0 };
+      return { type: 'file', size: 23 };
+    });
+    testClient.getDAVCompliance.mockResolvedValue({ compliance: ['1', '2'], server: 'test' });
+    testClient.putFileContents.mockResolvedValue(true);
+    testClient.moveFile.mockResolvedValue(true);
+    testClient.deleteFile
+      .mockResolvedValueOnce(true)
+      .mockRejectedValue({ status: 503 });
+
+    await expect(createWebDavBackupClient(settings()).testConnection()).rejects.toEqual(
+      new WebDavBackupError('capability', 'WebDAV 测试文件清理失败'),
     );
   });
 

@@ -1,17 +1,22 @@
 import { ZipArchive } from 'archiver';
 import { once } from 'events';
 import {
+  chmodSync,
+  constants,
   createReadStream,
   createWriteStream,
   existsSync,
   lstatSync,
   mkdirSync,
   readdirSync,
+  realpathSync,
   unlinkSync,
 } from 'fs';
+import { open } from 'fs/promises';
 import { createHash, randomUUID } from 'crypto';
 import { join, relative, sep } from 'path';
 import { tmpdir } from 'os';
+import { Readable } from 'stream';
 import * as unzipper from 'unzipper';
 
 export interface BackupManifestFile {
@@ -42,8 +47,16 @@ export class BackupSourceChangedError extends Error {
   }
 }
 
+export class BackupSourceUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BackupSourceUnavailableError';
+  }
+}
+
 interface SourceFile {
   fullPath: string;
+  sourceRoot: string;
   archivePath: string;
   sizeBytes: number;
   mtimeMs: number;
@@ -59,9 +72,9 @@ interface SourceSignature {
 export async function createBackupArchive(
   vaultPath: string,
   now = new Date(),
-  tempDirectory = tmpdir(),
+  tempRoot = tmpdir(),
 ): Promise<CreatedBackupArchive> {
-  mkdirSync(tempDirectory, { recursive: true });
+  const tempDirectory = ensurePrivateTempDirectory(tempRoot);
   const fileName = `litchi-journal-diary-${formatShanghaiTimestamp(now)}.zip`;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -92,7 +105,25 @@ export async function createBackupArchive(
 }
 
 export function removeBackupArchive(path: string): void {
-  removeFile(path);
+  try {
+    unlinkSync(path);
+  } catch (error) {
+    if (isMissingFileError(error)) return;
+    throw new Error('备份临时文件清理失败');
+  }
+}
+
+export function cleanupStaleBackupArchives(tempRoot = tmpdir()): number {
+  const tempDirectory = ensurePrivateTempDirectory(tempRoot);
+  let removed = 0;
+  for (const entry of readdirSync(tempDirectory, { withFileTypes: true })) {
+    if (!entry.isFile() || !/^\.litchi-journal-[\w-]+\.zip\.partial$/.test(entry.name)) {
+      continue;
+    }
+    removeBackupArchive(join(tempDirectory, entry.name));
+    removed += 1;
+  }
+  return removed;
 }
 
 async function buildArchiveAttempt(
@@ -118,11 +149,13 @@ async function buildArchiveAttempt(
   if (!sameSignatures(files, currentSignatures)) {
     throw new BackupSourceChangedError();
   }
-  await validateZip(tempPath, manifest);
+  await validateBackupArchive(tempPath, manifest);
   return manifest;
 }
 
 async function collectSourceFiles(diaryRoot: string): Promise<SourceFile[]> {
+  assertDiaryRoot(diaryRoot);
+  const sourceRoot = realpathSync(diaryRoot);
   const signatures = collectSourceSignatures(diaryRoot);
   const files: SourceFile[] = [];
   for (const signature of signatures) {
@@ -130,10 +163,11 @@ async function collectSourceFiles(diaryRoot: string): Promise<SourceFile[]> {
     const fullPath = join(diaryRoot, ...relativePath.split('/'));
     files.push({
       fullPath,
+      sourceRoot,
       archivePath: signature.archivePath,
       sizeBytes: signature.sizeBytes,
       mtimeMs: signature.mtimeMs,
-      sha256: await hashFile(fullPath),
+      sha256: await hashSourceFile(fullPath, sourceRoot),
     });
   }
   return files;
@@ -141,10 +175,9 @@ async function collectSourceFiles(diaryRoot: string): Promise<SourceFile[]> {
 
 function collectSourceSignatures(diaryRoot: string): SourceSignature[] {
   const files: SourceSignature[] = [];
-  if (existsSync(diaryRoot) && lstatSync(diaryRoot).isSymbolicLink()) {
-    throw new Error('日记目录不能是符号链接');
-  }
-  walkDirectory(diaryRoot, filePath => {
+  assertDiaryRoot(diaryRoot);
+  const sourceRoot = realpathSync(diaryRoot);
+  walkDirectory(diaryRoot, sourceRoot, filePath => {
     const stats = lstatSync(filePath);
     const relativePath = relative(diaryRoot, filePath).split(sep).join('/');
     files.push({
@@ -157,17 +190,24 @@ function collectSourceSignatures(diaryRoot: string): SourceSignature[] {
   return files;
 }
 
-function walkDirectory(directory: string, onFile: (path: string) => void): void {
-  if (!existsSync(directory)) return;
+function walkDirectory(
+  directory: string,
+  sourceRoot: string,
+  onFile: (path: string) => void,
+): void {
+  if (!existsSync(directory)) throw new BackupSourceChangedError();
   const entries = readdirSync(directory, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.name === '.DS_Store' || entry.isSymbolicLink()) continue;
+    if (entry.name === '.DS_Store') continue;
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) {
-      walkDirectory(path, onFile);
+    const stats = lstatSync(path);
+    if (stats.isSymbolicLink()) continue;
+    assertPathInsideRoot(sourceRoot, path);
+    if (stats.isDirectory()) {
+      walkDirectory(path, sourceRoot, onFile);
       continue;
     }
-    if (entry.isFile()) onFile(path);
+    if (stats.isFile()) onFile(path);
   }
 }
 
@@ -195,7 +235,7 @@ async function writeZip(
     forceZip64: true,
     zlib: { level: 6 },
   });
-  const output = createWriteStream(tempPath, { flags: 'wx' });
+  const output = createWriteStream(tempPath, { flags: 'wx', mode: 0o600 });
   const error = new Promise<never>((_, reject) => {
     archive.once('error', reject);
     output.once('error', reject);
@@ -209,7 +249,7 @@ async function writeZip(
   // 即使当前没有日记文件，也保留明确的顶层目录，便于解压后直接得到原有结构。
   archive.append('', { name: '01.日记/' });
   for (const file of files) {
-    archive.file(file.fullPath, {
+    archive.append(Readable.from(readVerifiedSourceFile(file)), {
       name: file.archivePath,
       date: new Date(file.mtimeMs),
     });
@@ -219,7 +259,7 @@ async function writeZip(
   await Promise.race([Promise.all([finalized, outputClosed]), error]);
 }
 
-async function validateZip(
+export async function validateBackupArchive(
   path: string,
   expectedManifest: BackupManifest,
 ): Promise<void> {
@@ -228,14 +268,21 @@ async function validateZip(
   const manifestEntry = entries.find(file => file.path === 'backup-manifest.json');
   if (!manifestEntry) throw new Error('ZIP 缺少备份清单');
 
-  const parsed = JSON.parse((await manifestEntry.buffer()).toString('utf-8')) as BackupManifest;
-  if (parsed.schemaVersion !== expectedManifest.schemaVersion) {
-    throw new Error('ZIP 备份清单版本无效');
+  const manifestBuffer = await manifestEntry.buffer();
+  if (crc32(manifestBuffer) !== (manifestEntry.crc32 >>> 0)) {
+    throw new Error('ZIP 备份清单完整性校验失败');
+  }
+  const parsed = JSON.parse(manifestBuffer.toString('utf-8')) as BackupManifest;
+  if (!sameManifest(parsed, expectedManifest)) {
+    throw new Error('ZIP 备份清单内容无效');
   }
 
-  const expected = new Map(expectedManifest.files.map(file => [file.path, file]));
-  const actual = new Map(entries.filter(file => file.path !== 'backup-manifest.json').map(file => [file.path, file]));
-  if (expected.size !== actual.size) throw new Error('ZIP 文件清单不完整');
+  const expected = new Map(parsed.files.map(file => [file.path, file]));
+  const actualEntries = entries.filter(file => file.path !== 'backup-manifest.json');
+  const actual = new Map(actualEntries.map(file => [file.path, file]));
+  if (expected.size !== actual.size || actual.size !== actualEntries.length) {
+    throw new Error('ZIP 文件清单不完整');
+  }
 
   for (const [pathName, file] of expected) {
     const entry = actual.get(pathName);
@@ -278,6 +325,69 @@ function updateCrc32(current: number, buffer: Buffer): number {
   return value >>> 0;
 }
 
+function crc32(buffer: Buffer): number {
+  return (updateCrc32(0xffffffff, buffer) ^ 0xffffffff) >>> 0;
+}
+
+function sameManifest(actual: BackupManifest, expected: BackupManifest): boolean {
+  if (
+    actual.schemaVersion !== expected.schemaVersion ||
+    actual.createdAt !== expected.createdAt ||
+    actual.source !== expected.source ||
+    !Array.isArray(actual.files) ||
+    actual.files.length !== expected.files.length
+  ) {
+    return false;
+  }
+  return actual.files.every((file, index) => {
+    const expectedFile = expected.files[index];
+    return (
+      file?.path === expectedFile?.path &&
+      file.sizeBytes === expectedFile.sizeBytes &&
+      file.sha256 === expectedFile.sha256
+    );
+  });
+}
+
+async function* readVerifiedSourceFile(file: SourceFile): AsyncGenerator<Buffer> {
+  assertPathInsideRoot(file.sourceRoot, file.fullPath);
+  const handle = await open(
+    file.fullPath,
+    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+  );
+  try {
+    const stats = await handle.stat();
+    if (
+      !stats.isFile() ||
+      stats.size !== file.sizeBytes ||
+      stats.mtimeMs !== file.mtimeMs
+    ) {
+      throw new BackupSourceChangedError();
+    }
+    for await (const chunk of handle.createReadStream({ autoClose: false })) {
+      yield Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
+async function hashSourceFile(path: string, sourceRoot: string): Promise<string> {
+  assertPathInsideRoot(sourceRoot, path);
+  const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  const hash = createHash('sha256');
+  try {
+    const stats = await handle.stat();
+    if (!stats.isFile()) throw new BackupSourceChangedError();
+    for await (const chunk of handle.createReadStream({ autoClose: false })) {
+      hash.update(chunk as Buffer);
+    }
+  } finally {
+    await handle.close();
+  }
+  return hash.digest('hex');
+}
+
 async function hashFile(path: string): Promise<string> {
   const hash = createHash('sha256');
   const stream = createReadStream(path);
@@ -289,10 +399,45 @@ async function hashFile(path: string): Promise<string> {
 
 function removeFile(path: string): void {
   try {
-    if (existsSync(path)) unlinkSync(path);
-  } catch {
-    // 失败清理不会覆盖原始错误，也不会向用户暴露路径。
+    unlinkSync(path);
+  } catch (error) {
+    if (!isMissingFileError(error)) {
+      console.warn('备份临时文件清理失败');
+    }
   }
+}
+
+function ensurePrivateTempDirectory(tempRoot: string): string {
+  const directory = join(tempRoot, 'litchi-journal-backups');
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  chmodSync(directory, 0o700);
+  return directory;
+}
+
+function assertDiaryRoot(diaryRoot: string): void {
+  if (!existsSync(diaryRoot)) {
+    throw new BackupSourceUnavailableError('日记目录不存在，已停止备份');
+  }
+  const stats = lstatSync(diaryRoot);
+  if (stats.isSymbolicLink()) {
+    throw new BackupSourceUnavailableError('日记目录不能是符号链接');
+  }
+  if (!stats.isDirectory()) {
+    throw new BackupSourceUnavailableError('日记目录不是文件夹');
+  }
+}
+
+function assertPathInsideRoot(sourceRoot: string, path: string): void {
+  const resolved = realpathSync(path);
+  const relativePath = relative(sourceRoot, resolved);
+  if (relativePath === '' || (!relativePath.startsWith(`..${sep}`) && relativePath !== '..')) {
+    return;
+  }
+  throw new BackupSourceUnavailableError('日记文件越过 Vault 边界');
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
 function formatShanghaiTimestamp(date: Date): string {

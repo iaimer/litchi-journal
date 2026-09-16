@@ -4,6 +4,8 @@ import { createReadStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import {
   BackupSourceChangedError,
+  BackupSourceUnavailableError,
+  cleanupStaleBackupArchives,
   createBackupArchive,
   removeBackupArchive,
 } from './backup_archive.js';
@@ -13,6 +15,7 @@ import {
   BackupSettingsInput,
   BackupStatus,
   BackupStore,
+  BackupStoreCorruptionError,
   mergeSettings,
   validateSettings,
   validateWebDavConfiguration,
@@ -65,6 +68,7 @@ export class BackupService {
   private running = false;
   private started = false;
   private retryIndex = 0;
+  private pendingWebDavRun = false;
 
   constructor(options: BackupServiceOptions) {
     this.vaultPath = options.vaultPath;
@@ -77,8 +81,22 @@ export class BackupService {
   start(): void {
     if (this.started) return;
     this.started = true;
-    this.recoverAfterRestart();
-    this.scheduleNextRun(true);
+    try {
+      cleanupStaleBackupArchives();
+    } catch {
+      this.writeSafeFailure('服务器临时备份文件清理失败，请检查磁盘权限');
+    }
+    try {
+      this.recoverAfterRestart();
+      this.scheduleNextRun(true);
+    } catch (error) {
+      if (error instanceof BackupStoreCorruptionError) {
+        this.writeSafeFailure(error.message);
+        this.scheduleNextRun(false);
+        return;
+      }
+      throw error;
+    }
   }
 
   stop(): void {
@@ -102,6 +120,7 @@ export class BackupService {
     this.retryIndex = 0;
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.retryTimer = null;
+    if (!next.enabled) this.pendingWebDavRun = false;
     this.scheduleNextRun(false);
     return this.getDto();
   }
@@ -139,9 +158,21 @@ export class BackupService {
   }
 
   async finishExport(archive: ExportArchiveHandle, success: boolean): Promise<void> {
-    removeBackupArchive(archive.archivePath);
+    let cleanupFailed = false;
+    try {
+      removeBackupArchive(archive.archivePath);
+    } catch {
+      cleanupFailed = true;
+    }
     this.running = false;
-    if (!success) {
+    if (cleanupFailed) {
+      this.writeStatus({
+        ...this.store.loadStatus(),
+        state: 'failed',
+        phase: undefined,
+        lastError: '手机导出已结束，但服务器临时文件清理失败',
+      });
+    } else if (!success) {
       this.writeStatus({
         ...this.store.loadStatus(),
         state: 'failed',
@@ -160,7 +191,7 @@ export class BackupService {
         lastError: undefined,
       });
     }
-    this.scheduleNextRun(false);
+    this.drainPendingOrSchedule();
   }
 
   async streamExport(res: Response): Promise<void> {
@@ -169,6 +200,9 @@ export class BackupService {
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${archive.fileName}"`);
     res.setHeader('Content-Length', String(archive.sizeBytes));
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     try {
       await pipeline(createReadStream(archive.archivePath), res);
       await this.finishExport(archive, true);
@@ -179,7 +213,10 @@ export class BackupService {
   }
 
   private async executeWebDavBackup(): Promise<void> {
-    if (this.running) return;
+    if (this.running) {
+      this.pendingWebDavRun = true;
+      return;
+    }
     this.running = true;
     const attemptAt = this.now().toISOString();
     this.writeStatus({
@@ -209,6 +246,7 @@ export class BackupService {
         state: 'success',
         phase: undefined,
         lastSuccessAt: completedAt,
+        lastWebDavSuccessAt: completedAt,
         lastFileName: archive.fileName,
         lastSizeBytes: archive.sizeBytes,
         lastSha256: archive.sha256,
@@ -218,9 +256,24 @@ export class BackupService {
       this.writeFailure(error);
       this.scheduleRetry();
     } finally {
-      if (archivePath) removeBackupArchive(archivePath);
+      let cleanupFailed = false;
+      if (archivePath) {
+        try {
+          removeBackupArchive(archivePath);
+        } catch {
+          cleanupFailed = true;
+        }
+      }
       this.running = false;
-      this.scheduleNextRun(false);
+      if (cleanupFailed) {
+        this.writeStatus({
+          ...this.store.loadStatus(),
+          state: 'failed',
+          phase: undefined,
+          lastError: 'WebDAV 备份已上传，但服务器临时文件清理失败',
+        });
+      }
+      this.drainPendingOrSchedule();
     }
   }
 
@@ -231,7 +284,9 @@ export class BackupService {
         ? error.message
         : error instanceof BackupSourceChangedError
           ? 'ZIP 打包失败，日记文件在打包期间发生变化，请重试'
-          : 'ZIP 打包失败，请稍后重试';
+          : error instanceof BackupSourceUnavailableError
+            ? error.message
+            : 'ZIP 打包失败，请稍后重试';
     this.writeStatus({
       ...this.store.loadStatus(),
       state: 'failed',
@@ -274,15 +329,15 @@ export class BackupService {
 
     if (checkCatchup) {
       const previous = getPreviousScheduledRun(now, settings.weekday, settings.time);
-      const lastSuccess = this.store.loadStatus().lastSuccessAt;
+      const lastSuccess = this.store.loadStatus().lastWebDavSuccessAt;
       if (!lastSuccess || new Date(lastSuccess).getTime() < previous.getTime()) {
-        this.timer = setTimeout(() => void this.executeWebDavBackup(), 1000);
+        this.timer = setTimeout(() => this.requestWebDavBackup(), 1000);
         return;
       }
     }
 
     const delay = Math.max(1000, next.getTime() - now.getTime());
-    this.timer = setTimeout(() => void this.executeWebDavBackup(), delay);
+    this.timer = setTimeout(() => this.requestWebDavBackup(), delay);
   }
 
   private scheduleRetry(): void {
@@ -296,13 +351,41 @@ export class BackupService {
     this.retryIndex += 1;
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
-      void this.executeWebDavBackup();
+      this.requestWebDavBackup();
     }, delay);
   }
 
   private ensureAvailable(): void {
     if (this.running) throw new BackupBusyError();
     if (!existsSync(this.vaultPath)) throw new BackupConfigurationError('日记目录不可用');
+  }
+
+  private requestWebDavBackup(): void {
+    if (this.running) {
+      this.pendingWebDavRun = true;
+      return;
+    }
+    void this.executeWebDavBackup();
+  }
+
+  private drainPendingOrSchedule(): void {
+    if (this.pendingWebDavRun) {
+      this.pendingWebDavRun = false;
+      const settings = this.store.loadSettings();
+      if (settings.enabled && !validateSettings(settings)) {
+        setTimeout(() => this.requestWebDavBackup(), 0);
+        return;
+      }
+    }
+    this.scheduleNextRun(false);
+  }
+
+  private writeSafeFailure(message: string): void {
+    try {
+      this.store.saveStatus({ state: 'failed', lastError: message });
+    } catch {
+      console.warn('备份状态写入失败');
+    }
   }
 }
 

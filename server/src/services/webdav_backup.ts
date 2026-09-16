@@ -62,6 +62,8 @@ async function testConnection(
   let markerPath: string | null = null;
   let movedMarkerPath: string | null = null;
   let probeDirectoryPath: string | null = null;
+  let operationError: WebDavBackupError | null = null;
+  let cleanupFailed = false;
   try {
     await ensureRemoteDirectory(client, remotePath);
     const compliance = await client.getDAVCompliance(remotePath);
@@ -92,17 +94,22 @@ async function testConnection(
       throw new WebDavBackupError('capability', 'WebDAV 文件校验失败');
     }
   } catch (error) {
-    throw normalizeWebDavError(error);
+    operationError = normalizeWebDavError(error);
   } finally {
     for (const path of [movedMarkerPath, markerPath, probeDirectoryPath]) {
       if (!path) continue;
       try {
         await client.deleteFile(path);
       } catch {
-        // 测试清理失败不覆盖原始连接结果。
+        cleanupFailed = true;
       }
     }
   }
+  if (cleanupFailed) {
+    if (operationError) console.warn('WebDAV 连接测试清理失败');
+    else throw new WebDavBackupError('capability', 'WebDAV 测试文件清理失败');
+  }
+  if (operationError) throw operationError;
 }
 
 async function uploadArchive(
@@ -132,7 +139,7 @@ async function uploadArchive(
     try {
       await client.deleteFile(partialPath);
     } catch {
-      // 保留远端失败文件不会改变失败状态，正式清理只处理应用命名的 ZIP。
+      console.warn('WebDAV 临时上传文件清理失败');
     }
     throw normalizeWebDavError(error);
   }
@@ -174,10 +181,24 @@ async function pruneRemoteBackups(
     .filter((item): item is { entry: FileStat; timestamp: Date } => item.timestamp !== null)
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-  const keep = new Set<string>(
-    backups.slice(0, settings.recentWeeks).map(item => item.entry.basename),
-  );
+  const keep = new Set<string>();
   const nowParts = getShanghaiDateParts(now);
+  const currentLocalDay = Date.UTC(nowParts.year, nowParts.month - 1, nowParts.day);
+  const currentWeekday = new Date(currentLocalDay).getUTCDay();
+  const daysSinceMonday = (currentWeekday + 6) % 7;
+  const recentWeeksCutoff = new Date(
+    currentLocalDay -
+      (daysSinceMonday + (settings.recentWeeks - 1) * 7) * 24 * 60 * 60 * 1000 -
+      8 * 60 * 60 * 1000,
+  );
+  const weeks = new Set<string>();
+  for (const item of backups) {
+    if (item.timestamp < recentWeeksCutoff) continue;
+    const week = getShanghaiWeekKey(item.timestamp);
+    if (weeks.has(week)) continue;
+    weeks.add(week);
+    keep.add(item.entry.basename);
+  }
   const cutoffLocal = Date.UTC(
     nowParts.year,
     nowParts.month - settings.monthlyMonths,
@@ -215,16 +236,29 @@ function parseBackupTimestamp(name: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getShanghaiDateParts(date: Date): { year: number; month: number } {
+function getShanghaiDateParts(date: Date): { year: number; month: number; day: number } {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
+    day: '2-digit',
   });
   const parts = Object.fromEntries(
     formatter.formatToParts(date).map(part => [part.type, part.value]),
   );
-  return { year: Number(parts.year), month: Number(parts.month) };
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+  };
+}
+
+function getShanghaiWeekKey(date: Date): string {
+  const parts = getShanghaiDateParts(date);
+  const localDay = Date.UTC(parts.year, parts.month - 1, parts.day);
+  const weekday = new Date(localDay).getUTCDay();
+  const monday = new Date(localDay - ((weekday + 6) % 7) * 24 * 60 * 60 * 1000);
+  return monday.toISOString().slice(0, 10);
 }
 
 function joinRemote(directory: string, name: string): string {

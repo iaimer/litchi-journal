@@ -1,11 +1,16 @@
 import {
   chmodSync,
+  closeSync,
   existsSync,
+  fsyncSync,
   mkdirSync,
+  openSync,
   readFileSync,
   renameSync,
+  unlinkSync,
   writeFileSync,
 } from 'fs';
+import { randomUUID } from 'crypto';
 import { dirname, join } from 'path';
 import { serverDataDir } from '../config/index.js';
 
@@ -29,6 +34,7 @@ export interface BackupStatus {
   phase?: string;
   lastAttemptAt?: string;
   lastSuccessAt?: string;
+  lastWebDavSuccessAt?: string;
   nextRunAt?: string;
   lastFileName?: string;
   lastSizeBytes?: number;
@@ -78,6 +84,13 @@ export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
   monthlyMonths: 12,
 };
 
+export class BackupStoreCorruptionError extends Error {
+  constructor(readonly kind: 'settings' | 'credentials' | 'status') {
+    super('备份配置文件损坏，请重新检查并保存备份设置');
+    this.name = 'BackupStoreCorruptionError';
+  }
+}
+
 const DEFAULT_BACKUP_STATUS: BackupStatus = {
   state: 'idle',
 };
@@ -95,8 +108,8 @@ export class BackupStore {
   }
 
   loadSettings(): BackupSettings {
-    const raw = this.readJson(this.settingsPath);
-    const credentials = this.readJson(this.credentialsPath);
+    const raw = this.readJson(this.settingsPath, 'settings');
+    const credentials = this.readJson(this.credentialsPath, 'credentials');
     const password = credentials && typeof credentials === 'object'
       ? (credentials as Record<string, unknown>).password
       : undefined;
@@ -121,7 +134,7 @@ export class BackupStore {
   }
 
   loadStatus(): BackupStatus {
-    const raw = this.readJson(this.statusPath);
+    const raw = this.readJson(this.statusPath, 'status');
     if (!raw || typeof raw !== 'object') return { ...DEFAULT_BACKUP_STATUS };
     const value = raw as Partial<BackupStatus>;
     const state = value.state;
@@ -141,6 +154,9 @@ export class BackupStore {
         : {}),
       ...(typeof value.lastSuccessAt === 'string'
         ? { lastSuccessAt: value.lastSuccessAt }
+        : {}),
+      ...(typeof value.lastWebDavSuccessAt === 'string'
+        ? { lastWebDavSuccessAt: value.lastWebDavSuccessAt }
         : {}),
       ...(typeof value.nextRunAt === 'string'
         ? { nextRunAt: value.nextRunAt }
@@ -184,12 +200,16 @@ export class BackupStore {
     };
   }
 
-  private readJson(path: string): unknown {
+  private readJson(
+    path: string,
+    kind: BackupStoreCorruptionError['kind'],
+  ): unknown {
     if (!existsSync(path)) return null;
     try {
       return JSON.parse(readFileSync(path, 'utf-8')) as unknown;
     } catch {
-      return null;
+      this.quarantineCorruptFile(path);
+      throw new BackupStoreCorruptionError(kind);
     }
   }
 
@@ -197,14 +217,48 @@ export class BackupStore {
     const dir = dirname(path);
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     chmodSync(dir, 0o700);
-    const tempPath = `${path}.tmp`;
-    writeFileSync(tempPath, `${JSON.stringify(value, null, 2)}\n`, {
-      encoding: 'utf-8',
-      mode: 0o600,
-    });
-    chmodSync(tempPath, 0o600);
-    renameSync(tempPath, path);
-    chmodSync(path, 0o600);
+    const tempPath = `${path}.${randomUUID()}.tmp`;
+    try {
+      writeFileSync(tempPath, `${JSON.stringify(value, null, 2)}\n`, {
+        encoding: 'utf-8',
+        mode: 0o600,
+        flag: 'wx',
+      });
+      chmodSync(tempPath, 0o600);
+      const fileDescriptor = openSync(tempPath, 'r');
+      try {
+        fsyncSync(fileDescriptor);
+      } finally {
+        closeSync(fileDescriptor);
+      }
+      renameSync(tempPath, path);
+      chmodSync(path, 0o600);
+      const directoryDescriptor = openSync(dir, 'r');
+      try {
+        fsyncSync(directoryDescriptor);
+      } finally {
+        closeSync(directoryDescriptor);
+      }
+    } catch (error) {
+      try {
+        unlinkSync(tempPath);
+      } catch (cleanupError) {
+        if (!isMissingFileError(cleanupError)) {
+          console.warn('备份配置临时文件清理失败');
+        }
+      }
+      throw error;
+    }
+  }
+
+  private quarantineCorruptFile(path: string): void {
+    const quarantinePath = `${path}.corrupt-${Date.now()}-${randomUUID()}`;
+    try {
+      renameSync(path, quarantinePath);
+      chmodSync(quarantinePath, 0o600);
+    } catch {
+      console.warn('备份配置损坏且无法隔离');
+    }
   }
 }
 
@@ -317,4 +371,8 @@ function redactUrl(value: string): string {
 
 function getConfiguredDataDir(): string {
   return serverDataDir || join(process.cwd(), 'data');
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }

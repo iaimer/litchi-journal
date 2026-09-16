@@ -594,7 +594,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: _resetToDefault,
-                  icon: const FloraIcon(FloraIcons.reset, size: 18),
+                  icon: const Icon(Icons.restart_alt_rounded, size: 20),
                   label: const Text('恢复默认'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: theme.colorScheme.onSurfaceVariant,

@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
-import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/journal_section.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
@@ -15,9 +14,7 @@ void main() {
   const viewportWidth = 393.0;
 
   Finder moreIconFinder() {
-    return find.byWidgetPredicate(
-      (widget) => widget is FloraIcon && widget.name == FloraIcons.more,
-    );
+    return find.byIcon(Icons.more_horiz_rounded);
   }
 
   Future<void> expectTagAndMenuAligned(
@@ -631,14 +628,7 @@ void main() {
           viewportWidth - tester.getRect(find.text(content)).right;
       final moreRightGap =
           viewportWidth -
-          tester
-              .getRect(
-                find.byWidgetPredicate(
-                  (widget) =>
-                      widget is FloraIcon && widget.name == FloraIcons.more,
-                ),
-              )
-              .right;
+          tester.getRect(find.byIcon(Icons.more_horiz_rounded)).right;
 
       expect(contentRightGap, lessThanOrEqualTo(24));
       expect(moreRightGap, lessThanOrEqualTo(24));

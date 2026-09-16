@@ -94,7 +94,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: _addNewHabit,
-                      icon: const Icon(Icons.add, size: 18),
+                      icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('新增习惯'),
                     ),
                   ),
@@ -120,7 +120,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall,
         ),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(Icons.chevron_right_rounded),
         onTap: _openDashboardSettings,
       ),
     );
@@ -198,7 +198,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
               ),
               // 右箭头
               Icon(
-                Icons.chevron_right,
+                Icons.chevron_right_rounded,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ],

@@ -218,7 +218,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 labelText: 'API Key',
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscureApiKey ? Icons.visibility : Icons.visibility_off,
+                    _obscureApiKey
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
                   ),
                   onPressed: () =>
                       setState(() => _obscureApiKey = !_obscureApiKey),

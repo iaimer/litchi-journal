@@ -78,7 +78,7 @@ class HistoryCalendar extends StatelessWidget {
           key: const Key('history_calendar_previous_month'),
           tooltip: '上个月',
           onPressed: () => _changeMonth(-1),
-          icon: const Icon(Icons.chevron_left),
+          icon: const Icon(Icons.chevron_left_rounded),
         ),
         Expanded(
           child: Text(
@@ -91,7 +91,7 @@ class HistoryCalendar extends StatelessWidget {
           key: const Key('history_calendar_next_month'),
           tooltip: '下个月',
           onPressed: canGoNext ? () => _changeMonth(1) : null,
-          icon: const Icon(Icons.chevron_right),
+          icon: const Icon(Icons.chevron_right_rounded),
         ),
       ],
     );

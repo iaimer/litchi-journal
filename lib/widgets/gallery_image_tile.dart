@@ -154,7 +154,7 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
               Icon(
                 unavailable
                     ? Icons.image_not_supported_outlined
-                    : Icons.refresh,
+                    : Icons.refresh_rounded,
                 size: 22,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

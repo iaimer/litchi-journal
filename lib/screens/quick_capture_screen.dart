@@ -308,7 +308,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           leading: IconButton(
-            icon: const FloraIcon(FloraIcons.back, size: 24),
+            icon: const Icon(Icons.arrow_back_rounded),
             onPressed: _handleBack,
           ),
           title: Text(_isEditing ? '编辑记录' : widget.entryType.label),
@@ -430,7 +430,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         key: const Key('quick_capture_time_tile'),
         title: const Text('记录时间'),
         subtitle: Text('$dateText $_timeText'),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(Icons.chevron_right_rounded),
         onTap: _saving ? null : _pickTime,
       ),
     );

@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/gallery_result.dart';
 import '../services/api_client.dart';
@@ -51,71 +50,83 @@ class _GalleryImageViewerScreenState extends State<GalleryImageViewerScreen> {
     final theme = Theme.of(context);
     final dateLabel = _formatDate(widget.day.dateTime);
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(dateLabel),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.black,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarDividerColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+        systemNavigationBarContrastEnforced: false,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: widget.day.images.length,
-              onPageChanged: (index) => setState(() => _currentIndex = index),
-              itemBuilder: (context, index) {
-                return _ViewerImage(
-                  key: ValueKey(
-                    '${widget.day.date}-${widget.day.images[index]}',
-                  ),
-                  day: widget.day,
-                  imageName: widget.day.images[index],
-                  galleryService: widget.galleryService,
-                );
-              },
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    dateLabel,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.white70,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          systemOverlayStyle: SystemUiOverlayStyle.light,
+          title: Text(dateLabel),
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: widget.day.images.length,
+                onPageChanged: (index) => setState(() => _currentIndex = index),
+                itemBuilder: (context, index) {
+                  return _ViewerImage(
+                    key: ValueKey(
+                      '${widget.day.date}-${widget.day.images[index]}',
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${_currentIndex + 1} / ${widget.day.images.length}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _openDiary,
-                        icon: const Icon(Icons.menu_book_outlined),
-                        label: const Text('查看当天日记'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    day: widget.day,
+                    imageName: widget.day.images[index],
+                    galleryService: widget.galleryService,
+                  );
+                },
               ),
             ),
-          ),
-        ],
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${_currentIndex + 1} / ${widget.day.images.length}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _openDiary,
+                          icon: const Icon(Icons.menu_book_outlined),
+                          label: const Text('查看当天日记'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -226,7 +237,7 @@ class _ViewerImageState extends State<_ViewerImage> {
       onPressed: () => setState(() {
         _imageFuture = _loadImage(forceRefresh: true);
       }),
-      icon: const Icon(Icons.refresh),
+      icon: const Icon(Icons.refresh_rounded),
       label: const Text('图片无法显示，点击重试'),
       style: TextButton.styleFrom(foregroundColor: Colors.white),
     );

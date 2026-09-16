@@ -132,7 +132,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                               ? widget.controller.pause
                               : widget.controller.resume,
                           icon: Icon(
-                            session.isRunning ? Icons.pause : Icons.play_arrow,
+                            session.isRunning
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
                           ),
                           label: Text(session.isRunning ? '暂停' : '继续'),
                         ),

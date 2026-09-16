@@ -426,7 +426,7 @@ class _PastScreenState extends State<PastScreen> {
                 key: const Key('gallery_random_button'),
                 tooltip: canRandom ? '随机回顾' : '暂无照片可回顾',
                 onPressed: canRandom ? _openRandomDay : null,
-                icon: const FloraIcon(FloraIcons.shuffle),
+                icon: const Icon(Icons.shuffle_rounded),
               ),
               IconButton(
                 key: const Key('history_calendar_toggle'),
@@ -478,7 +478,7 @@ class _PastScreenState extends State<PastScreen> {
           key: const Key('gallery_previous_month'),
           tooltip: '上个月',
           onPressed: () => _changeGalleryMonth(-1),
-          icon: const Icon(Icons.chevron_left),
+          icon: const Icon(Icons.chevron_left_rounded),
         ),
         Expanded(
           child: InkWell(
@@ -506,7 +506,7 @@ class _PastScreenState extends State<PastScreen> {
           onPressed: _displayedMonth.isBefore(_currentMonth)
               ? () => _changeGalleryMonth(1)
               : null,
-          icon: const Icon(Icons.chevron_right),
+          icon: const Icon(Icons.chevron_right_rounded),
         ),
       ],
     );
@@ -670,7 +670,7 @@ class _PastScreenState extends State<PastScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.history),
+                  : const Icon(Icons.history_rounded),
               label: Text(_galleryError == null ? '加载更早的照片' : '更多回忆加载失败，重试'),
             ),
           ],
@@ -687,7 +687,7 @@ class _PastScreenState extends State<PastScreen> {
         const SizedBox(height: 8),
         TextButton.icon(
           onPressed: () => _loadGallery(reset: true),
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(Icons.refresh_rounded),
           label: const Text('重试'),
         ),
       ],
@@ -839,7 +839,7 @@ class _MemoryCapsuleState extends State<_MemoryCapsule> {
                 ),
               ),
               Icon(
-                Icons.chevron_right,
+                Icons.chevron_right_rounded,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ],

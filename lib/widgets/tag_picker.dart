@@ -307,7 +307,7 @@ class _TagPickerState extends State<TagPicker> {
                 ),
                 onDeleted: () => _removeHiddenTag(tag),
                 deleteIcon: Icon(
-                  Icons.close,
+                  Icons.close_rounded,
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

@@ -7,13 +7,16 @@ class AppColors {
   static const surfaceElevated = Color(0xFFFFF7ED);
   static const surfaceSoft = Color(0xFFF8EBD8);
   static const textPrimary = Color(0xFF5A4A36);
-  static const textSecondary = Color(0xFF8D6E63);
-  static const muted = Color(0xFFA48B7E);
-  static const primary = Color(0xFFA26B59);
-  static const accentSoft = Color(0x1FA26B59);
-  static const border = Color(0xFFE8DCC9);
+  static const textSecondary = Color(0xFF806458);
+  static const muted = Color(0xFF8D766A);
+  static const primary = Color(0xFF955F50);
+  static const accentSoft = Color(0x1F955F50);
+  static const border = Color(0xFFD8C9B8);
+  static const outline = Color(0xFF9B8174);
+  static const outlineVariant = Color(0xFFD8C9B8);
+  static const surfaceContainerHighest = Color(0xFFEFE2D2);
   static const success = Color(0xFF7BA67A);
-  static const red = Color(0xFFE06A6A);
+  static const red = Color(0xFFB54A4A);
   static const tagBlue = Color(0xFF7A9CC6);
   static const tagGreen = Color(0xFF7BA67A);
   static const tagAmber = Color(0xFFC9A96E);
@@ -24,15 +27,73 @@ class AppColors {
   static const darkSurfaceElevated = Color(0xFF3A3027);
   static const darkTextPrimary = Color(0xFFF1E6D7);
   static const darkTextSecondary = Color(0xFFC8AA9A);
-  static const darkMuted = Color(0xFF9A8274);
+  static const darkMuted = Color(0xFFA68C7D);
   static const darkPrimary = Color(0xFFCA9A84);
   static const darkAccentSoft = Color(0x26CA9A84);
-  static const darkBorder = Color(0xFF4B3D2D);
+  static const darkBorder = Color(0xFF5B493B);
+  static const darkOutline = Color(0xFF8E7465);
+  static const darkOutlineVariant = Color(0xFF5B493B);
+  static const darkSurfaceContainerHighest = Color(0xFF3A3027);
   static const darkSuccess = Color(0xFF8DB88A);
   static const darkRed = Color(0xFFE07A7A);
   static const darkTagBlue = Color(0xFF8AACD4);
   static const darkTagGreen = Color(0xFF8DC498);
   static const darkTagAmber = Color(0xFFD4B57A);
+}
+
+@immutable
+class AppCalloutColors extends ThemeExtension<AppCalloutColors> {
+  final Color info;
+  final Color warning;
+  final Color success;
+  final Color example;
+
+  const AppCalloutColors({
+    required this.info,
+    required this.warning,
+    required this.success,
+    required this.example,
+  });
+
+  static const light = AppCalloutColors(
+    info: Color(0xFF2D5F8C),
+    warning: Color(0xFF7A4D00),
+    success: Color(0xFF2F6844),
+    example: Color(0xFF65499A),
+  );
+
+  static const dark = AppCalloutColors(
+    info: Color(0xFF9CC7F0),
+    warning: Color(0xFFFFC266),
+    success: Color(0xFF9BCC9F),
+    example: Color(0xFFC7A8FF),
+  );
+
+  @override
+  AppCalloutColors copyWith({
+    Color? info,
+    Color? warning,
+    Color? success,
+    Color? example,
+  }) {
+    return AppCalloutColors(
+      info: info ?? this.info,
+      warning: warning ?? this.warning,
+      success: success ?? this.success,
+      example: example ?? this.example,
+    );
+  }
+
+  @override
+  AppCalloutColors lerp(covariant AppCalloutColors? other, double t) {
+    if (other == null) return this;
+    return AppCalloutColors(
+      info: Color.lerp(info, other.info, t)!,
+      warning: Color.lerp(warning, other.warning, t)!,
+      success: Color.lerp(success, other.success, t)!,
+      example: Color.lerp(example, other.example, t)!,
+    );
+  }
 }
 
 class FloraSpacing {
@@ -64,9 +125,15 @@ class AppTheme {
       onSecondary: AppColors.surface,
       surface: AppColors.surface,
       onSurface: AppColors.textPrimary,
+      onSurfaceVariant: AppColors.textSecondary,
+      outline: AppColors.outline,
+      outlineVariant: AppColors.outlineVariant,
+      surfaceContainerHighest: AppColors.surfaceContainerHighest,
+      surfaceTint: AppColors.primary,
       error: AppColors.red,
       onError: AppColors.surface,
     ),
+    extensions: const [AppCalloutColors.light],
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.background,
       foregroundColor: AppColors.textPrimary,
@@ -85,11 +152,11 @@ class AppTheme {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: const BorderSide(color: AppColors.outline),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: const BorderSide(color: AppColors.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -116,7 +183,7 @@ class AppTheme {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.border, width: 0.5),
+        side: const BorderSide(color: AppColors.outlineVariant, width: 0.5),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
@@ -137,7 +204,7 @@ class AppTheme {
         );
       }),
     ),
-    dividerColor: AppColors.border,
+    dividerColor: AppColors.outlineVariant,
     textTheme: const TextTheme(
       headlineLarge: TextStyle(
         fontSize: 24,
@@ -176,9 +243,15 @@ class AppTheme {
       onSecondary: AppColors.darkBackground,
       surface: AppColors.darkSurface,
       onSurface: AppColors.darkTextPrimary,
+      onSurfaceVariant: AppColors.darkTextSecondary,
+      outline: AppColors.darkOutline,
+      outlineVariant: AppColors.darkOutlineVariant,
+      surfaceContainerHighest: AppColors.darkSurfaceContainerHighest,
+      surfaceTint: AppColors.darkPrimary,
       error: AppColors.darkRed,
       onError: AppColors.darkBackground,
     ),
+    extensions: const [AppCalloutColors.dark],
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.darkBackground,
       foregroundColor: AppColors.darkTextPrimary,
@@ -197,11 +270,11 @@ class AppTheme {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.darkBorder),
+        borderSide: const BorderSide(color: AppColors.darkOutline),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.darkBorder),
+        borderSide: const BorderSide(color: AppColors.darkOutline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -228,7 +301,7 @@ class AppTheme {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.darkBorder, width: 0.5),
+        side: const BorderSide(color: AppColors.darkOutlineVariant, width: 0.5),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
@@ -253,7 +326,7 @@ class AppTheme {
         );
       }),
     ),
-    dividerColor: AppColors.darkBorder,
+    dividerColor: AppColors.darkOutlineVariant,
     textTheme: TextTheme(
       headlineLarge: TextStyle(
         fontSize: 24,

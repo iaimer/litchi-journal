@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import 'flora_icon.dart';
 import 'journal_section.dart';
 
 import '../models/diary_document.dart';
@@ -318,12 +317,17 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
             top: 0,
             right: 0,
             child: SizedBox(
-              width: 28,
-              height: 28,
+              width: 48,
+              height: 48,
               child: IconButton(
                 onPressed: _openActions,
+                tooltip: '更多操作',
                 padding: EdgeInsets.zero,
-                icon: const FloraIcon(FloraIcons.more, size: 16),
+                constraints: const BoxConstraints.tightFor(
+                  width: 48,
+                  height: 48,
+                ),
+                icon: const Icon(Icons.more_horiz_rounded, size: 18),
               ),
             ),
           ),

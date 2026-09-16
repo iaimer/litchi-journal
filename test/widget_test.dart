@@ -11062,6 +11062,13 @@ tags:
       expect(find.text('媒体与应用'), findsOneWidget);
     });
 
+    testWidgets('does not expose removed backup settings', (tester) async {
+      await tester.pumpWidget(buildPage());
+
+      expect(find.text('数据与安全'), findsNothing);
+      expect(find.text('数据与备份'), findsNothing);
+    });
+
     testWidgets('back button pops SettingsPage', (tester) async {
       await tester.pumpWidget(
         MaterialApp(

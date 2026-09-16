@@ -1,8 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
-import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
-export interface Config {
+interface Config {
   vaultPath: string;
   apiToken: string;
   port: number;
@@ -10,7 +9,6 @@ export interface Config {
 }
 
 const configPath = fileURLToPath(new URL('../../config.json', import.meta.url));
-export const serverDataDir = join(dirname(configPath), 'data');
 
 if (!existsSync(configPath)) {
   throw new Error('Missing server/config.json. Copy config.example.json and set local values.');

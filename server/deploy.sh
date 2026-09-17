@@ -38,14 +38,17 @@ fi
 # 6. 停止旧进程（如果存在）
 pm2 delete diary-api 2>/dev/null || true
 
-# 7. 启动服务
+# 7. 清理已撤回备份功能的本机遗留数据
+./scripts/cleanup-removed-backup-data.sh --apply
+
+# 8. 启动服务
 echo "启动 API Server..."
 pm2 start ecosystem.config.cjs
 
-# 8. 显示状态
+# 9. 显示状态
 pm2 status
 
-# 9. 保存 pm2 配置（用于开机自启）
+# 10. 保存 pm2 配置（用于开机自启）
 pm2 save
 
 echo ""

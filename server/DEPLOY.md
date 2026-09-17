@@ -102,12 +102,23 @@ pm2 save
 # 拉取最新代码
 git pull
 
-# 重新部署
+# 进入服务端目录并停止旧服务
 cd server
+npm run pm2:stop || true
+
+# 先预览待清理的备份遗留文件，再执行清理
+./scripts/cleanup-removed-backup-data.sh
+./scripts/cleanup-removed-backup-data.sh --apply
+
+# 重新部署
 npm install
 npm run build
 npm run pm2:restart
 ```
+
+备份清理脚本只处理 `server/data/` 下的 `backup-settings.json`、`backup-credentials.json`、`backup-state.json` 及其 `.corrupt-*` 隔离副本，并清理 Node 临时目录中的应用专用 `litchi-journal-backups` 目录。脚本会在旧服务仍运行、目标目录是符号链接或路径校验失败时拒绝执行。
+
+该流程不会扫描或删除 Obsidian Vault、云盘内容、WebDAV 上已有的 ZIP，或 Android 下载目录中的文件。首次部署也可直接运行 `./deploy.sh`，脚本会在停止旧进程后执行同一套幂等清理。
 
 ## 监控
 

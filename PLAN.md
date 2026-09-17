@@ -156,7 +156,7 @@
 ## 6. 测试决策
 
 - **原则**：只测外部行为，不测实现细节；写入类改动先复现再修复。
-- **质量基线**：`flutter analyze` 零问题；`flutter test` 全绿（当前 423 项）；`server npm run build` 通过；`server npm test` 全绿（当前 37 项，测试脚本限定 `src`，避免收集 `dist` 产物）。
+- **质量基线**：`flutter analyze` 零问题；`flutter test` 全绿（当前 486 项）；`server npm run build` 通过；`server npm test` 全绿（当前 37 项，测试脚本限定 `src`，避免收集 `dist` 产物）。
 - **重点模块**：服务端 Markdown 解析与 section 内时间排序、习惯时长写入与 `operationId` 去重、YAML frontmatter 列表解析、编辑/删除 rawLine 匹配、焦虑 replace 严格校验、图片格式校验、auth 恒定时间比较；客户端 widget 测试覆盖今日页/快速记录/焦虑/习惯计时/标签/过往/补录/远程 API 核心链路。
 - **真机验收**：涉及视觉体验用真机（PLG110，Android 16，无线 ADB）截图验收；覆盖安装固定 `adb install -r`。
 - **环境限制**：沙箱内 `flutter test` 偶发无法创建本地 socket、`adb` smartsocket "Operation not permitted" 属环境限制，不视为代码缺陷。

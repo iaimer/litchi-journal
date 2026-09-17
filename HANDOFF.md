@@ -10,6 +10,8 @@
 
 撤回分支已通过服务端 37 项测试、TypeScript 构建、Flutter `analyze`、486 项 Flutter 测试和 Release APK 构建。当前没有连接 Android 设备，真机安装与设置页视觉验收仍由用户按发布流程执行。
 
+Mac mini 已在 2026-09-17 拉取 `63fff12` 并完成停服清理：dry-run 仅发现 `backup-state.json` 和应用专用临时目录，随后已按白名单删除；服务端依赖同步移除了 90 个旧包，TypeScript 构建成功并重启 `diary-api`。健康接口返回 `200`，四个旧备份接口均在鉴权后返回 `404`；复核时 `server/data` 与应用专用临时目录均为空/不存在。Vault、云盘、远端 ZIP 和 Android 下载目录未纳入清理范围。
+
 ## 已完成工作
 
 - 首页习惯支持乐观打卡、静默保存、失败回滚和成功完成音效。

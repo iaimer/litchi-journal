@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../services/draft_repository.dart';
@@ -53,6 +55,7 @@ class QuickCaptureScreen extends StatefulWidget {
 
 class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   late final TextEditingController _controller;
+  final FocusNode _focusNode = FocusNode();
   late TimeOfDay _selectedTime;
   late final String _initialContent;
   late final String _initialTime;
@@ -70,6 +73,8 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   Future<void> _draftWriteChain = Future.value();
 
   bool get _isEditing => widget.initialContent != null;
+
+  bool get _shouldAutofocus => !_isEditing && widget.recordDate == null;
 
   bool get _hasUnsavedChanges {
     if (!_isEditing) {
@@ -141,6 +146,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   void dispose() {
     _controller.removeListener(_handleContentChanged);
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -196,6 +202,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       '${_selectedTime.minute.toString().padLeft(2, '0')}';
 
   Future<void> _pickTime() async {
+    FocusScope.of(context).unfocus();
     final picker = widget.timePicker;
     final picked = picker != null
         ? await picker(context, _selectedTime)
@@ -298,6 +305,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return PopScope<bool>(
       canPop: _allowPop,
@@ -306,6 +314,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       },
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
@@ -313,74 +322,79 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
           ),
           title: Text(_isEditing ? '编辑记录' : widget.entryType.label),
         ),
-        body: SafeArea(
-          top: false,
-          bottom: true,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            children: [
-              _buildTimeTile(theme),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _controller,
-                minLines: 8,
-                maxLines: 14,
-                enabled: !_saving && !_polishing,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  hintText: widget.entryType.placeholder,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: _canPolish ? _polish : null,
-                    icon: _polishing
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 1.5),
-                          )
-                        : const FloraIcon(FloraIcons.coach, size: 14),
-                    label: const Text('润色'),
-                  ),
-                  const Spacer(),
-                  _buildTagToggleButton(theme),
-                ],
-              ),
-              const SizedBox(height: 4),
-              IgnorePointer(
-                ignoring: _saving || _polishing,
-                child: Opacity(
-                  opacity: _saving || _polishing ? 0.55 : 1,
-                  child: _buildTagArea(theme),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
-              ],
-            ],
-          ),
+        body: _buildBody(theme),
+        bottomNavigationBar: _buildSaveBar(theme, keyboardInset),
+      ),
+    );
+  }
+
+  Widget _buildBody(ThemeData theme) {
+    return SafeArea(
+      top: false,
+      bottom: true,
+      child: LayoutBuilder(
+        builder: (context, constraints) =>
+            _buildBodyContent(theme, constraints),
+      ),
+    );
+  }
+
+  Widget _buildBodyContent(ThemeData theme, BoxConstraints constraints) {
+    final tagPanelMaxHeight = math.min(240.0, constraints.maxHeight * 0.4);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTimeMetadata(theme),
+          const SizedBox(height: 8),
+          Expanded(child: _buildEditor(theme)),
+          if (_selectedTags.isNotEmpty) ...[
+            TagSelectionSummary(
+              tagConfig: widget.tagConfig,
+              tags: _selectedTags,
+              hiddenTags: _retainedHiddenTags,
+            ),
+            const SizedBox(height: 8),
+          ],
+          _buildToolbar(theme),
+          _buildErrorMessage(theme),
+          _buildExpandedTagPanel(theme, tagPanelMaxHeight),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorMessage(ThemeData theme) {
+    final error = _error;
+    if (error == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        key: const Key('quick_capture_error'),
+        error,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.error,
         ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: ElevatedButton(
-              onPressed: _canSave ? _save : null,
-              child: _saving
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: theme.colorScheme.onPrimary,
-                      ),
-                    )
-                  : const Text('保存'),
+      ),
+    );
+  }
+
+  Widget _buildExpandedTagPanel(ThemeData theme, double maxHeight) {
+    if (!_tagPickerExpanded || widget.tagConfig == null) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      key: const Key('quick_capture_tag_panel'),
+      padding: const EdgeInsets.only(top: 4),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          child: IgnorePointer(
+            ignoring: _saving || _polishing,
+            child: Opacity(
+              opacity: _saving || _polishing ? 0.55 : 1,
+              child: _buildTagArea(theme),
             ),
           ),
         ),
@@ -388,50 +402,175 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     );
   }
 
-  Widget _buildTagToggleButton(ThemeData theme) {
-    return TextButton.icon(
-      onPressed: _saving || _polishing
-          ? null
-          : () => setState(() => _tagPickerExpanded = !_tagPickerExpanded),
-      icon: Icon(
-        _tagPickerExpanded
-            ? Icons.keyboard_arrow_up
-            : Icons.keyboard_arrow_down,
-        size: 16,
-      ),
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!_tagPickerExpanded) ...[
-            const FloraIcon(FloraIcons.settingTags, size: 16),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            _tagPickerExpanded ? '收起' : '标签',
-            style: const TextStyle(fontSize: 12),
+  Widget _buildSaveBar(ThemeData theme, double keyboardInset) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: ElevatedButton(
+            onPressed: _canSave ? _save : null,
+            child: _saving
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.colorScheme.onPrimary,
+                    ),
+                  )
+                : const Text('保存'),
           ),
-        ],
-      ),
-      style: TextButton.styleFrom(
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        foregroundColor: theme.colorScheme.onSurface.withAlpha(150),
+        ),
       ),
     );
   }
 
-  Widget _buildTimeTile(ThemeData theme) {
+  Widget _buildEditor(ThemeData theme) {
+    return TextField(
+      controller: _controller,
+      focusNode: _focusNode,
+      autofocus: _shouldAutofocus,
+      expands: true,
+      minLines: null,
+      maxLines: null,
+      enabled: !_saving && !_polishing,
+      keyboardType: TextInputType.multiline,
+      textInputAction: TextInputAction.newline,
+      textAlignVertical: TextAlignVertical.top,
+      style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
+      decoration: InputDecoration(
+        hintText: widget.entryType.placeholder,
+        hintStyle: theme.textTheme.bodyLarge?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          height: 1.6,
+        ),
+        filled: false,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        disabledBorder: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+      ),
+    );
+  }
+
+  Widget _buildToolbar(ThemeData theme) {
+    return SizedBox(
+      key: const Key('quick_capture_toolbar'),
+      height: 48,
+      child: Row(
+        children: [
+          TextButton(
+            key: const Key('quick_capture_polish'),
+            onPressed: _canPolish ? _polish : null,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              foregroundColor: theme.colorScheme.primary,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_polishing)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  )
+                else
+                  const FloraIcon(FloraIcons.coach, size: 14),
+                const SizedBox(width: 6),
+                const Text('润色'),
+              ],
+            ),
+          ),
+          const Spacer(),
+          if (widget.tagConfig != null) _buildTagToggleButton(theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTagToggleButton(ThemeData theme) {
+    return Semantics(
+      button: true,
+      toggled: _tagPickerExpanded,
+      label: _tagPickerExpanded ? '收起标签' : '展开标签',
+      child: TextButton(
+        key: const Key('quick_capture_tag_toggle'),
+        onPressed: _saving || _polishing ? null : _toggleTagPicker,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          foregroundColor: theme.colorScheme.onSurfaceVariant,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const FloraIcon(FloraIcons.settingTags, size: 16),
+            const SizedBox(width: 4),
+            Text(_tagPickerExpanded ? '收起标签' : '标签'),
+            const SizedBox(width: 2),
+            Icon(
+              _tagPickerExpanded
+                  ? Icons.expand_less_rounded
+                  : Icons.expand_more_rounded,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggleTagPicker() {
+    FocusScope.of(context).unfocus();
+    setState(() => _tagPickerExpanded = !_tagPickerExpanded);
+  }
+
+  Widget _buildTimeMetadata(ThemeData theme) {
     final date = widget.recordDate;
-    final dateText = date == null
-        ? '今天'
-        : '${date.year}年${date.month}月${date.day}日';
-    return Card(
-      child: ListTile(
-        key: const Key('quick_capture_time_tile'),
-        title: const Text('记录时间'),
-        subtitle: Text('$dateText $_timeText'),
-        trailing: const Icon(Icons.chevron_right_rounded),
+    final today = DateTime.now();
+    final isToday =
+        date == null ||
+        (date.year == today.year &&
+            date.month == today.month &&
+            date.day == today.day);
+    final dateText = isToday ? '今天' : '${date.year}年${date.month}月${date.day}日';
+    final value = '$dateText $_timeText';
+    return Semantics(
+      button: true,
+      label: '记录时间，$value，点击修改',
+      child: InkWell(
+        key: const Key('quick_capture_time_metadata'),
         onTap: _saving ? null : _pickTime,
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            children: [
+              Icon(
+                Icons.schedule_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  value,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -447,8 +586,9 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       return TagPicker(
         tagConfig: tagConfig,
         initialTags: _selectedTags,
+        showSummary: false,
         hiddenInitialTags: _retainedHiddenTags,
-        forceExpanded: _tagPickerExpanded,
+        forceExpanded: true,
         onChanged: (tags) {
           setState(() {
             _selectedTags = tags;

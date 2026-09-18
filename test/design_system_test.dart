@@ -48,6 +48,7 @@ void main() {
       FloraIcons.candidateBooks,
       FloraIcons.pin,
       FloraIcons.chatFeedback,
+      FloraIcons.fabInsight,
     ];
 
     test('通用动作与习惯图标使用固定的逻辑资源映射', () {
@@ -63,6 +64,14 @@ void main() {
       expect(
         FloraIcons.path(FloraIcons.habitLanguage),
         'assets/svg/flora-language.svg',
+      );
+      expect(
+        FloraIcons.path(FloraIcons.fabWrite),
+        'assets/svg/chat-edit-svgrepo-com.svg',
+      );
+      expect(
+        FloraIcons.path(FloraIcons.fabInsight),
+        'assets/svg/flora-eye.svg',
       );
     });
 

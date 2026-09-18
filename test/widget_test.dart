@@ -2243,9 +2243,12 @@ void main() {
 
       expect(find.byType(QuickCaptureScreen), findsOneWidget);
       expect(find.text('随手记'), findsOneWidget);
-      expect(find.text('记录时间'), findsOneWidget);
+      expect(
+        find.byKey(const Key('quick_capture_time_metadata')),
+        findsOneWidget,
+      );
       expect(find.text('标签暂不可用'), findsNothing);
-      expect(find.byType(TagPicker), findsOneWidget);
+      expect(find.byKey(const Key('quick_capture_tag_toggle')), findsOneWidget);
     });
 
     testWidgets('happiness entry opens QuickCaptureScreen', (tester) async {
@@ -2429,7 +2432,10 @@ void main() {
       await tester.pumpWidget(buildCapture());
 
       expect(find.text('随手记'), findsOneWidget);
-      expect(find.text('记录时间'), findsOneWidget);
+      expect(
+        find.byKey(const Key('quick_capture_time_metadata')),
+        findsOneWidget,
+      );
       expect(find.text('今天 21:35'), findsOneWidget);
       expect(find.text('润色'), findsOneWidget);
       expect(find.text('AI 润色'), findsNothing);
@@ -2478,7 +2484,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byKey(const Key('quick_capture_time_tile')));
+      await tester.tap(find.byKey(const Key('quick_capture_time_metadata')));
       await tester.pumpAndSettle();
       expect(find.text('今天 22:10'), findsOneWidget);
 
@@ -2524,7 +2530,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), '原始内容');
       await tester.pump();
-      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.tap(find.byKey(const Key('quick_capture_polish')));
       await tester.pumpAndSettle();
 
       final field = tester.widget<TextField>(find.byType(TextField));
@@ -2545,7 +2551,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), '等待润色');
       await tester.pump();
-      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.tap(find.byKey(const Key('quick_capture_polish')));
       await tester.pump();
 
       expect(
@@ -2553,7 +2559,11 @@ void main() {
         isNull,
       );
       expect(
-        tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+        tester
+            .widget<TextButton>(
+              find.byKey(const Key('quick_capture_tag_toggle')),
+            )
+            .onPressed,
         isNull,
       );
 
@@ -8877,7 +8887,7 @@ tags:
         ),
       );
 
-      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.tap(find.byKey(const Key('quick_capture_polish')));
       await tester.pumpAndSettle();
       expect(find.text('陪伴互动 (已隐藏)'), findsOneWidget);
 

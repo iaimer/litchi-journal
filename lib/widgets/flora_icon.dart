@@ -102,7 +102,7 @@ class FloraIcons {
     coach: 'light-bulb-svgrepo-com',
     // ── P0 FAB ──
     fabWrite: 'chat-edit-svgrepo-com',
-    fabInsight: 'chat-dots-svgrepo-com',
+    fabInsight: 'flora-eye',
     fabHappy: 'heart-svgrepo-com',
     fabAnxiety: 'face-neutral-svgrepo-com',
     fabPhoto: 'image-pen-svgrepo-com',

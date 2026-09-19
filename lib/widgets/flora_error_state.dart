@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'flora_icon.dart';
+
 /// 页面级错误状态，保持内容区域轻量并提供明确的重试入口。
 class FloraErrorState extends StatelessWidget {
   const FloraErrorState({
@@ -24,8 +26,8 @@ class FloraErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline_rounded,
+            FloraIcon(
+              FloraIcons.error,
               size: 32,
               color: theme.colorScheme.error,
             ),
@@ -38,7 +40,7 @@ class FloraErrorState extends StatelessWidget {
             const SizedBox(height: 10),
             TextButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const FloraIcon(FloraIcons.refresh),
               label: const Text('重试'),
             ),
           ],

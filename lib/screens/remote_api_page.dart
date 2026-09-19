@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/api_config.dart';
 import '../widgets/flora_page_scaffold.dart';
+import '../widgets/flora_success_snackbar.dart';
 
 /// 远程 API 信息页。
 class RemoteApiPage extends StatefulWidget {
@@ -155,9 +156,7 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
     final config = widget.apiClient!.configWithBaseUrl(newBaseUrl);
     widget.onConfigChanged?.call(config);
     setState(() => _baseUrl = newBaseUrl);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('服务器地址已保存并生效')));
+    showFloraSuccessSnackBar(context, '服务器地址已保存并生效');
   }
 
   Widget _buildInfoRow(ThemeData theme, String label, String value) {

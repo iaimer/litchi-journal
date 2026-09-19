@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-
+import 'flora_animated_icon.dart';
 import 'flora_icon.dart';
 
 /// Flora 品牌空状态组件。
@@ -38,23 +37,24 @@ class FloraEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final assetPath = FloraIcons.path(name);
+    final illustration = name == FloraIcons.emptyPast
+        ? FloraAnimatedIcon(
+            name: FloraAnimatedIconName.emptyBook,
+            size: size,
+            color: theme.colorScheme.onSurfaceVariant,
+          )
+        : FloraIcon(
+            name,
+            size: size,
+            color: theme.colorScheme.onSurfaceVariant,
+          );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (assetPath.isNotEmpty)
-            SvgPicture.asset(
-              assetPath,
-              width: size,
-              height: size,
-              colorFilter: ColorFilter.mode(
-                theme.colorScheme.onSurfaceVariant,
-                BlendMode.srcIn,
-              ),
-            ),
+          if (FloraIcons.hasAsset(name)) illustration,
           const SizedBox(height: 20),
           Text(
             title ?? _headline(name),

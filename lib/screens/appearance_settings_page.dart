@@ -72,10 +72,8 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
         leading: icon,
         title: Text(title),
         subtitle: Text(subtitle),
-        trailing: Icon(
-          selected
-              ? Icons.radio_button_checked_rounded
-              : Icons.radio_button_unchecked_rounded,
+        trailing: FloraIcon(
+          selected ? FloraIcons.radioSelected : FloraIcons.radioUnselected,
           color: selected ? Theme.of(context).colorScheme.primary : null,
         ),
         onTap: () => _select(mode),

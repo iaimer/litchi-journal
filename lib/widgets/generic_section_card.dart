@@ -9,6 +9,7 @@ import '../screens/quick_capture_screen.dart';
 import '../theme/app_theme.dart';
 import 'entry_type.dart';
 import 'diary_section_title.dart';
+import 'flora_icon.dart';
 import 'journal_section.dart';
 import 'section_card.dart';
 import 'tag_color_helper.dart';
@@ -253,7 +254,7 @@ class GenericSectionCard extends StatelessWidget {
           if (content.title.isNotEmpty)
             Row(
               children: [
-                Icon(icon, size: 16, color: color),
+                FloraIcon(icon, size: 16, color: color),
                 const SizedBox(width: 6),
                 Expanded(
                   child: MarkdownBody(
@@ -332,7 +333,7 @@ class GenericSectionCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: color),
+          FloraIcon(icon, size: 16, color: color),
           const SizedBox(width: 6),
           Expanded(
             child: MarkdownBody(
@@ -364,8 +365,8 @@ class GenericSectionCard extends StatelessWidget {
   Widget _buildCheckRow(BuildContext context, bool checked, String text) {
     final theme = Theme.of(context);
     final icon = checked
-        ? Icons.check_box_rounded
-        : Icons.check_box_outline_blank_rounded;
+        ? FloraIcons.checkboxChecked
+        : FloraIcons.checkboxUnchecked;
     final color = checked ? AppColors.success : theme.disabledColor;
 
     return Padding(
@@ -373,7 +374,7 @@ class GenericSectionCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, size: 20, color: color),
+          FloraIcon(icon, size: 20, color: color),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -386,7 +387,7 @@ class GenericSectionCard extends StatelessWidget {
     );
   }
 
-  (IconData, Color, Color) _calloutStyle(ThemeData theme, String type) {
+  (String, Color, Color) _calloutStyle(ThemeData theme, String type) {
     final isDark = theme.brightness == Brightness.dark;
     Color softBackground(Color color) {
       return Color.alphaBlend(
@@ -402,47 +403,47 @@ class GenericSectionCard extends StatelessWidget {
     switch (type) {
       case 'quote':
         final color = theme.colorScheme.onSurfaceVariant;
-        return (Icons.format_quote, color, softBackground(color));
+        return (FloraIcons.calloutQuote, color, softBackground(color));
       case 'tip':
         final color = theme.colorScheme.primary;
-        return (Icons.lightbulb_outline, color, softBackground(color));
+        return (FloraIcons.calloutTip, color, softBackground(color));
       case 'note':
       case 'info':
         return (
-          Icons.info_outline,
+          FloraIcons.calloutInfo,
           calloutColors.info,
           softBackground(calloutColors.info),
         );
       case 'warning':
       case 'caution':
         return (
-          Icons.warning_amber_rounded,
+          FloraIcons.calloutWarning,
           calloutColors.warning,
           softBackground(calloutColors.warning),
         );
       case 'danger':
       case 'error':
         return (
-          Icons.error_outline,
+          FloraIcons.calloutError,
           theme.colorScheme.error,
           softBackground(theme.colorScheme.error),
         );
       case 'success':
       case 'done':
         return (
-          Icons.check_circle_outline,
+          FloraIcons.calloutSuccess,
           calloutColors.success,
           softBackground(calloutColors.success),
         );
       case 'example':
         return (
-          Icons.code,
+          FloraIcons.calloutCode,
           calloutColors.example,
           softBackground(calloutColors.example),
         );
       default:
         return (
-          Icons.info_outline,
+          FloraIcons.calloutInfo,
           calloutColors.info,
           softBackground(calloutColors.info),
         );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/flora_icon.dart';
+
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/tag_settings_helper.dart';
@@ -732,10 +734,9 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                         }
                       });
                     },
-                    icon: Icon(
-                      expanded
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
+                    icon: FloraIcon(
+                      expanded ? FloraIcons.chevronUp : FloraIcons.chevronDown,
+                      size: 20,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     tooltip: expanded ? '收起' : '展开',
@@ -947,7 +948,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     return Center(
       child: TextButton.icon(
         onPressed: _restoreAll,
-        icon: const Icon(Icons.restore_rounded, size: 20),
+        icon: const FloraIcon(FloraIcons.restore, size: 20),
         label: const Text('恢复全部默认'),
         style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
       ),

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/gallery_result.dart';
 import '../services/api_client.dart';
 import '../services/gallery_service.dart';
+import '../widgets/flora_icon.dart';
 import 'read_only_diary_screen.dart';
 
 class GalleryImageViewerScreen extends StatefulWidget {
@@ -113,7 +114,7 @@ class _GalleryImageViewerScreenState extends State<GalleryImageViewerScreen> {
                         ),
                         TextButton.icon(
                           onPressed: _openDiary,
-                          icon: const Icon(Icons.menu_book_outlined),
+                          icon: const FloraIcon(FloraIcons.habitRead),
                           label: const Text('查看当天日记'),
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.white,
@@ -226,7 +227,7 @@ class _ViewerImageState extends State<_ViewerImage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.image_not_supported_outlined, color: Colors.white70),
+            FloraIcon(FloraIcons.imageOff, color: Colors.white70),
             SizedBox(height: 8),
             Text('图片不可用', style: TextStyle(color: Colors.white70)),
           ],
@@ -237,7 +238,7 @@ class _ViewerImageState extends State<_ViewerImage> {
       onPressed: () => setState(() {
         _imageFuture = _loadImage(forceRefresh: true);
       }),
-      icon: const Icon(Icons.refresh_rounded),
+      icon: const FloraIcon(FloraIcons.refresh),
       label: const Text('图片无法显示，点击重试'),
       style: TextButton.styleFrom(foregroundColor: Colors.white),
     );

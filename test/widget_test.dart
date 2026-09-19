@@ -87,6 +87,10 @@ import 'package:litchi_journal_flutter/services/appearance_settings_repository.d
 import 'package:litchi_journal_flutter/screens/appearance_settings_page.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
 
+Finder _floraIcon(String name) => find.byWidgetPredicate(
+  (widget) => widget is FloraIcon && widget.name == name,
+);
+
 Future<Uint8List> _encodeUploadBodyForTest(Map<String, dynamic> body) async {
   return Uint8List.fromList(utf8.encode(jsonEncode(body)));
 }
@@ -1331,7 +1335,7 @@ void main() {
         expect(
           find.descendant(
             of: find.byType(AppBar),
-            matching: find.byIcon(Icons.menu_book_outlined),
+            matching: _floraIcon(FloraIcons.habitRead),
           ),
           findsNothing,
         );
@@ -2598,7 +2602,7 @@ void main() {
       await tester.pumpWidget(buildCapture());
 
       await tester.enterText(find.byType(TextField), '未保存内容');
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.tap(_floraIcon(FloraIcons.back));
       await tester.pumpAndSettle();
 
       expect(find.text('放弃记录？'), findsOneWidget);
@@ -8044,7 +8048,7 @@ tags:
       final apiKeyField = find.widgetWithText(TextField, 'API Key');
       expect(tester.widget<TextField>(apiKeyField).obscureText, isTrue);
 
-      await tester.tap(find.byIcon(Icons.visibility_rounded).last);
+      await tester.tap(_floraIcon(FloraIcons.eye).last);
       await tester.pump();
       expect(tester.widget<TextField>(apiKeyField).obscureText, isFalse);
     });
@@ -9031,9 +9035,9 @@ tags:
       await tester.pumpAndSettle();
       expect(find.text('陪伴互动 (已隐藏)'), findsWidgets);
 
-      await tester.ensureVisible(find.byIcon(Icons.close_rounded));
+      await tester.ensureVisible(_floraIcon(FloraIcons.close));
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.tap(_floraIcon(FloraIcons.close));
       await tester.pumpAndSettle();
       expect(find.text('陪伴互动 (已隐藏)'), findsNothing);
 
@@ -11268,7 +11272,7 @@ tags:
       await tester.pumpWidget(buildPage());
 
       expect(find.text('设置'), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+      expect(_floraIcon(FloraIcons.back), findsOneWidget);
       expect(find.text('管理你的日记应用'), findsNothing);
       expect(find.text('常用'), findsOneWidget);
       expect(find.text('连接与智能'), findsOneWidget);
@@ -11315,7 +11319,7 @@ tags:
       await tester.pumpAndSettle();
       expect(find.text('设置'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.tap(_floraIcon(FloraIcons.back));
       await tester.pumpAndSettle();
 
       expect(find.text('打开设置'), findsOneWidget);
@@ -11659,6 +11663,11 @@ tags:
       expect(find.text('记录生活里的点滴，'), findsOneWidget);
       expect(find.text('看见自己的成长。'), findsOneWidget);
       expect(find.textContaining('版本 v1.1.0 (1)'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('更新内容'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('更新内容'), findsOneWidget);
       expect(find.textContaining('荔枝日记不是效率工具'), findsNothing);
       expect(find.textContaining('Flutter 客户端'), findsNothing);

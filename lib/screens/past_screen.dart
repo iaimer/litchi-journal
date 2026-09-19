@@ -433,16 +433,17 @@ class _PastScreenState extends State<PastScreen> {
                 key: const Key('gallery_random_button'),
                 tooltip: canRandom ? '随机回顾' : '暂无照片可回顾',
                 onPressed: canRandom ? _openRandomDay : null,
-                icon: const Icon(Icons.shuffle_rounded),
+                icon: const FloraIcon(FloraIcons.shuffle),
               ),
               IconButton(
                 key: const Key('history_calendar_toggle'),
                 tooltip: _calendarExpanded ? '收起日历' : '选择日期',
                 onPressed: _toggleCalendar,
-                icon: Icon(
+                icon: FloraIcon(
                   _calendarExpanded
-                      ? Icons.keyboard_arrow_up
-                      : Icons.calendar_month_outlined,
+                      ? FloraIcons.chevronUp
+                      : FloraIcons.calendar,
+                  size: 20,
                 ),
               ),
             ],
@@ -477,7 +478,7 @@ class _PastScreenState extends State<PastScreen> {
           key: const Key('gallery_previous_month'),
           tooltip: '上个月',
           onPressed: () => _changeGalleryMonth(-1),
-          icon: const Icon(Icons.chevron_left_rounded),
+          icon: const FloraIcon(FloraIcons.chevronLeft),
         ),
         Expanded(
           child: InkWell(
@@ -505,7 +506,7 @@ class _PastScreenState extends State<PastScreen> {
           onPressed: _displayedMonth.isBefore(_currentMonth)
               ? () => _changeGalleryMonth(1)
               : null,
-          icon: const Icon(Icons.chevron_right_rounded),
+          icon: const FloraIcon(FloraIcons.chevronRight),
         ),
       ],
     );
@@ -659,7 +660,7 @@ class _PastScreenState extends State<PastScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.history_rounded),
+                  : const FloraIcon(FloraIcons.historyAction),
               label: Text(_galleryError == null ? '加载更早的照片' : '更多回忆加载失败，重试'),
             )
           : null,
@@ -818,7 +819,7 @@ class _MemoryCapsuleState extends State<_MemoryCapsule> {
                       if (snapshot.hasError || snapshot.data == null) {
                         return ColoredBox(
                           color: theme.colorScheme.surfaceContainerHighest,
-                          child: const Icon(Icons.image_outlined),
+                          child: const FloraIcon(FloraIcons.imagePlaceholder),
                         );
                       }
                       return Image.memory(
@@ -853,8 +854,9 @@ class _MemoryCapsuleState extends State<_MemoryCapsule> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
+              FloraIcon(
+                FloraIcons.chevronRight,
+                size: 18,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ],

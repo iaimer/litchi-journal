@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_success_snackbar.dart';
 
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
@@ -219,9 +220,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
       HabitStatsService.clearDayCache();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已保存')));
+      showFloraSuccessSnackBar(context, '已保存');
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
@@ -425,12 +424,12 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                   ButtonSegment(
                     value: HabitTrackingType.checkbox,
                     label: Text('纯打卡'),
-                    icon: Icon(Icons.check_circle_outline),
+                    icon: FloraIcon(FloraIcons.success),
                   ),
                   ButtonSegment(
                     value: HabitTrackingType.duration,
                     label: Text('计时'),
-                    icon: Icon(Icons.timer_outlined),
+                    icon: FloraIcon(FloraIcons.timer),
                   ),
                 ],
                 selected: {_trackingType},
@@ -615,7 +614,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: _resetToDefault,
-                  icon: const Icon(Icons.restart_alt_rounded, size: 20),
+                  icon: const FloraIcon(FloraIcons.reset, size: 20),
                   label: const Text('恢复默认'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: theme.colorScheme.onSurfaceVariant,

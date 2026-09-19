@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'flora_icon.dart';
 
 enum TimelineAction { edit, delete }
 
@@ -15,13 +16,13 @@ Future<TimelineAction?> showTimelineActionSheet(
       const _TimelineSheetAction(
         action: TimelineAction.edit,
         label: '编辑',
-        icon: Icon(Icons.edit_rounded, size: 24),
+        icon: FloraIcon(FloraIcons.edit, size: 24),
       ),
     if (showDelete)
       const _TimelineSheetAction(
         action: TimelineAction.delete,
         label: '删除',
-        icon: Icon(Icons.delete_outline_rounded, size: 24),
+        icon: FloraIcon(FloraIcons.delete, size: 24),
       ),
   ];
 

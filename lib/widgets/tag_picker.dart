@@ -188,8 +188,8 @@ class _TagPickerState extends State<TagPicker> {
         if (widget.forceExpanded == null)
           TextButton.icon(
             onPressed: () => setState(() => _expanded = !_expanded),
-            icon: Icon(
-              _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+            icon: FloraIcon(
+              _expanded ? FloraIcons.chevronUp : FloraIcons.chevronDown,
               size: 16,
             ),
             label: Row(
@@ -283,11 +283,7 @@ class _TagPickerState extends State<TagPicker> {
                   ),
                 ),
                 onDeleted: () => _removeHiddenTag(tag),
-                deleteIcon: Icon(
-                  Icons.close_rounded,
-                  size: 14,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                deleteIcon: const FloraIcon(FloraIcons.close, size: 14),
                 materialTapTargetSize: MaterialTapTargetSize.padded,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 side: BorderSide.none,

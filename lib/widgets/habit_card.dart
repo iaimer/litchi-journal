@@ -1355,9 +1355,9 @@ class _HabitProgressBar extends StatelessWidget {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: AnimatedContainer(
-                            duration: MediaQuery.disableAnimationsOf(context)
-                                ? Duration.zero
-                                : const Duration(milliseconds: 200),
+                            duration: FloraMotion.fastFor(
+                              MediaQuery.of(context),
+                            ),
                             curve: Curves.easeOutCubic,
                             width: constraints.maxWidth * ratio!,
                             height: 6,

@@ -352,30 +352,32 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   }
 
   Widget _buildLoading() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              for (var index = 0; index < 4; index++) ...[
-                if (index > 0) const SizedBox(width: 8),
-                const Expanded(
-                  child: FloraSkeletonBox(height: 68, radius: FloraRadius.md),
-                ),
+    return FloraSkeletonRegion(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                for (var index = 0; index < 4; index++) ...[
+                  if (index > 0) const SizedBox(width: 8),
+                  const Expanded(
+                    child: FloraSkeletonBox(height: 68, radius: FloraRadius.md),
+                  ),
+                ],
               ],
-            ],
-          ),
-          const SizedBox(height: 16),
-          const FloraSkeletonBox(width: 130, height: 16),
-          const SizedBox(height: 12),
-          FloraSkeletonBox(
-            width: double.infinity,
-            height: MediaQuery.sizeOf(context).width * 0.42,
-            radius: FloraRadius.md,
-          ),
-        ],
+            ),
+            const SizedBox(height: 16),
+            const FloraSkeletonBox(width: 130, height: 16),
+            const SizedBox(height: 12),
+            FloraSkeletonBox(
+              width: double.infinity,
+              height: MediaQuery.sizeOf(context).width * 0.42,
+              radius: FloraRadius.md,
+            ),
+          ],
+        ),
       ),
     );
   }

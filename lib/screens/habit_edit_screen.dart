@@ -341,23 +341,25 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
     if (!_loaded) {
       return const FloraPageScaffold(
         title: '编辑习惯',
-        body: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FloraSkeletonBox(width: 120, height: 16),
-              SizedBox(height: 8),
-              FloraSkeletonBox(width: double.infinity, height: 48),
-              SizedBox(height: 20),
-              FloraSkeletonBox(width: 120, height: 16),
-              SizedBox(height: 8),
-              FloraSkeletonBox(
-                width: double.infinity,
-                height: 180,
-                radius: FloraRadius.md,
-              ),
-            ],
+        body: FloraSkeletonRegion(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FloraSkeletonBox(width: 120, height: 16),
+                SizedBox(height: 8),
+                FloraSkeletonBox(width: double.infinity, height: 48),
+                SizedBox(height: 20),
+                FloraSkeletonBox(width: 120, height: 16),
+                SizedBox(height: 8),
+                FloraSkeletonBox(
+                  width: double.infinity,
+                  height: 180,
+                  radius: FloraRadius.md,
+                ),
+              ],
+            ),
           ),
         ),
       );

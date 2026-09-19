@@ -101,20 +101,22 @@ class _HabitDashboardSettingsScreenState
     return FloraPageScaffold(
       title: '仪表盘显示',
       body: _loading
-          ? const Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
-              child: Column(
-                children: [
-                  FloraSkeletonBox(width: double.infinity, height: 18),
-                  SizedBox(height: 12),
-                  FloraSkeletonBox(width: 120, height: 16),
-                  SizedBox(height: 12),
-                  FloraSkeletonBox(
-                    width: double.infinity,
-                    height: 240,
-                    radius: FloraRadius.md,
-                  ),
-                ],
+          ? const FloraSkeletonRegion(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  children: [
+                    FloraSkeletonBox(width: double.infinity, height: 18),
+                    SizedBox(height: 12),
+                    FloraSkeletonBox(width: 120, height: 16),
+                    SizedBox(height: 12),
+                    FloraSkeletonBox(
+                      width: double.infinity,
+                      height: 240,
+                      radius: FloraRadius.md,
+                    ),
+                  ],
+                ),
               ),
             )
           : ListView(

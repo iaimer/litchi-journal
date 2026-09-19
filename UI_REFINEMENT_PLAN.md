@@ -229,6 +229,18 @@
 - 第一批页面已接入首页、过往、习惯趋势、历史详情、快速记录、焦虑和启动流程；第二批设置、外观、习惯/标签编辑、API/AI、备份、WebDAV、图片设置、关于、初始设置和专注计时完成圆角、占位与动效令牌清理。
 - `test_36` 已完成浅色、深色、1.3 倍字体、约 320dp 窄屏和关闭系统动画检查；冷启动背景与页面背景一致，未修改真实 Vault。
 
+### 全阶段复审修正
+
+**状态：已完成。**
+
+- 修复 `TagPicker` 外部标签和标签配置更新后的残留选择；润色缩减标签后再次选择不会带回旧主题或方法。
+- 恢复今日回顾、普通标签、隐藏标签删除入口和图片预览关闭入口的常规 `48dp` 触控热区，并保留紧凑视觉尺寸。
+- 为图片缩略图、全屏预览、骨架占位和错误状态补齐按钮、加载和 live region 语义；全屏预览支持明确的关闭按钮和背景关闭。
+- 统一 `headlineLarge` 行高、习惯进度与饮水/步数面板的 `FloraMotion`，并集中使用 `TodayRainbow` 展示层令牌。
+- 首页、过往画廊和历史详情刷新失败时保留已有内容；新增 `test/stage7_refresh_state_test.dart` 覆盖 pending、成功替换和失败保留。
+- `flutter test test/quick_capture_layout_test.dart`、`test/design_system_test.dart`、`test/stage7_ui_finish_test.dart`、`test/stage7_refresh_state_test.dart`、`test/open_layout_width_test.dart`、`test/widget_test.dart`、`flutter analyze` 和 `git diff --check` 均已通过。
+- `test_36` 已完成浅色、深色、1.3 倍字体和标签展开的 Debug 验收；首页、设置页、快速记录页无明显溢出或遮挡，验收数据未写入真实 Vault，模拟器设置已恢复。
+
 ## 5. 执行与验收流程
 
 每个阶段都遵循同一循环：

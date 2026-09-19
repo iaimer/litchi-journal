@@ -103,6 +103,9 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
 
     try {
       final diary = await widget.apiClient.getDiary(widget.date);
+      if (diary == null && hasVisibleContent) {
+        throw StateError('diary refresh failed');
+      }
       if (!mounted) return;
       setState(() {
         _diary = diary?.raw.isNotEmpty == true ? diary : null;
@@ -393,17 +396,19 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
 
   Widget _buildBody(ThemeData theme) {
     if (_loading) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 96),
-        children: const [
-          FloraSkeletonBox(width: 220, height: 18),
-          SizedBox(height: 20),
-          FloraSkeletonBox(width: double.infinity, height: 18),
-          SizedBox(height: 12),
-          FloraSkeletonBox(width: double.infinity, height: 18),
-          SizedBox(height: 12),
-          FloraSkeletonBox(width: 240, height: 18),
-        ],
+      return FloraSkeletonRegion(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16, 24, 16, 96),
+          children: [
+            FloraSkeletonBox(width: 220, height: 18),
+            SizedBox(height: 20),
+            FloraSkeletonBox(width: double.infinity, height: 18),
+            SizedBox(height: 12),
+            FloraSkeletonBox(width: double.infinity, height: 18),
+            SizedBox(height: 12),
+            FloraSkeletonBox(width: 240, height: 18),
+          ],
+        ),
       );
     }
     return RefreshIndicator(

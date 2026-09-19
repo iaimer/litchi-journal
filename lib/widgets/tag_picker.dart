@@ -56,7 +56,8 @@ class _TagPickerState extends State<TagPicker> {
   void didUpdateWidget(covariant TagPicker oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTags != widget.initialTags ||
-        oldWidget.hiddenInitialTags != widget.hiddenInitialTags) {
+        oldWidget.hiddenInitialTags != widget.hiddenInitialTags ||
+        oldWidget.tagConfig != widget.tagConfig) {
       _retainedHiddenTags = Set.from(widget.hiddenInitialTags);
       _restoreInitialTags();
     }
@@ -64,10 +65,11 @@ class _TagPickerState extends State<TagPicker> {
 
   void _restoreInitialTags() {
     final tags = widget.initialTags;
+    _selectedDomain = null;
+    _selectedTopic = null;
+    _selectedMethod = null;
+
     if (tags.isEmpty) {
-      _selectedDomain = null;
-      _selectedTopic = null;
-      _selectedMethod = null;
       _expanded = false;
       return;
     }
@@ -286,8 +288,7 @@ class _TagPickerState extends State<TagPicker> {
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.padded,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 side: BorderSide.none,
               );
@@ -353,8 +354,7 @@ class _TagPickerState extends State<TagPicker> {
                   ),
                   selected: selected,
                   onSelected: (_) => onSelected(item.id),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.padded,
                   selectedColor: colors.backgroundColor,
                   backgroundColor: colors.backgroundColor,
                   side: BorderSide(color: colors.borderColor),

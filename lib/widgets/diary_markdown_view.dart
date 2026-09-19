@@ -11,6 +11,7 @@ import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/api_client.dart';
 import '../services/markdown_parser.dart';
+import '../theme/app_theme.dart';
 import 'anxiety_card.dart';
 import 'diary_section_title.dart';
 import 'entry_type.dart';
@@ -329,21 +330,10 @@ class DiaryMarkdownView extends StatelessWidget {
 
   /// 根据 section type 返回模块 accentColor（UI 表现层色值，非模型数据）。
   static Color _accentColorFor(DiarySection section) {
+    final rainbowColor = TodayRainbow.forSectionType(section.sectionType);
+    if (rainbowColor != null) return rainbowColor;
+
     switch (section.sectionType) {
-      case 'quickNote':
-        return const Color(0xFFFF6B6B); // 红：随手记 / 灵感
-      case 'happiness':
-        return const Color(0xFFFF9F43); // 橙：每日小确幸
-      case 'review':
-        return const Color(0xFF51CF66); // 绿：觉察与迭代
-      case 'anxiety':
-        return const Color(0xFFFFD43B); // 黄：焦虑时刻 / 情绪处理
-      case 'coach':
-        return const Color(0xFF12B5CB); // 青：人生教练
-      case 'tomorrow':
-        return const Color(0xFF4DABF7); // 蓝：明日寄语
-      case 'media':
-        return const Color(0xFF9775FA); // 紫：影像记录
       case 'habit':
         return const Color(0xFF6BAED6); // 蓝色（HabitCard 自己覆盖 accentColor）
       default:
@@ -392,10 +382,9 @@ class DiaryMarkdownView extends StatelessWidget {
           ? TextButton.icon(
               onPressed: generatingCoach ? null : onGenerateCoach,
               style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.padded,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(48, 48),
               ),
               icon: generatingCoach
                   ? const SizedBox(

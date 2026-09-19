@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/habit_settings.dart';
 import '../services/habit_settings_repository.dart';
+import '../theme/app_theme.dart';
 import '../widgets/flora_page_scaffold.dart';
 import '../widgets/habit_icon.dart';
+import '../widgets/flora_skeleton.dart';
 
 /// 趋势页顶部仪表盘的习惯选择页。
 class HabitDashboardSettingsScreen extends StatefulWidget {
@@ -99,7 +101,24 @@ class _HabitDashboardSettingsScreenState
     return FloraPageScaffold(
       title: '仪表盘显示',
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const FloraSkeletonRegion(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  children: [
+                    FloraSkeletonBox(width: double.infinity, height: 18),
+                    SizedBox(height: 12),
+                    FloraSkeletonBox(width: 120, height: 16),
+                    SizedBox(height: 12),
+                    FloraSkeletonBox(
+                      width: double.infinity,
+                      height: 240,
+                      radius: FloraRadius.md,
+                    ),
+                  ],
+                ),
+              ),
+            )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [

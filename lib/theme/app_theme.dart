@@ -41,6 +41,50 @@ class AppColors {
   static const darkTagAmber = Color(0xFFD4B57A);
 }
 
+/// Today 页面七个日记模块的固定语义色。
+///
+/// 快速记录页的标签色板是另一套规则，不在这里复用。
+class TodayRainbow {
+  static const quickNote = Color(0xFFFF6B6B);
+  static const happiness = Color(0xFFFF9F43);
+  static const anxiety = Color(0xFFFFD43B);
+  static const review = Color(0xFF51CF66);
+  static const coach = Color(0xFF12B5CB);
+  static const tomorrow = Color(0xFF4DABF7);
+  static const media = Color(0xFF9775FA);
+
+  static const values = <Color>[
+    quickNote,
+    happiness,
+    anxiety,
+    review,
+    coach,
+    tomorrow,
+    media,
+  ];
+
+  static Color? forSectionType(String sectionType) {
+    switch (sectionType) {
+      case 'quickNote':
+        return quickNote;
+      case 'happiness':
+        return happiness;
+      case 'anxiety':
+        return anxiety;
+      case 'review':
+        return review;
+      case 'coach':
+        return coach;
+      case 'tomorrow':
+        return tomorrow;
+      case 'media':
+        return media;
+      default:
+        return null;
+    }
+  }
+}
+
 @immutable
 class AppCalloutColors extends ThemeExtension<AppCalloutColors> {
   final Color info;
@@ -112,6 +156,25 @@ class FloraRadius {
   static const pill = 9999.0;
 }
 
+/// 应用内自定义动效的统一时长。
+///
+/// 统一时长让页面状态变化保持在用户注意力可以跟上的范围内；
+/// 系统开启减少动态效果时，组件直接落到目标状态。
+class FloraMotion {
+  static const fast = Duration(milliseconds: 160);
+  static const standard = Duration(milliseconds: 220);
+  static const slow = Duration(milliseconds: 320);
+
+  static Duration fastFor(MediaQueryData mediaQuery) =>
+      mediaQuery.disableAnimations ? Duration.zero : fast;
+
+  static Duration standardFor(MediaQueryData mediaQuery) =>
+      mediaQuery.disableAnimations ? Duration.zero : standard;
+
+  static Duration slowFor(MediaQueryData mediaQuery) =>
+      mediaQuery.disableAnimations ? Duration.zero : slow;
+}
+
 class AppTheme {
   static ThemeData get light => ThemeData(
     brightness: Brightness.light,
@@ -151,15 +214,15 @@ class AppTheme {
       fillColor: AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.outline),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.outline),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.primary),
       ),
     ),
@@ -169,7 +232,9 @@ class AppTheme {
         foregroundColor: AppColors.surface,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FloraRadius.md),
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -182,7 +247,7 @@ class AppTheme {
       color: AppColors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         side: const BorderSide(color: AppColors.outlineVariant, width: 0.5),
       ),
     ),
@@ -209,6 +274,7 @@ class AppTheme {
       headlineLarge: TextStyle(
         fontSize: 24,
         fontWeight: FontWeight.bold,
+        height: 1.25,
         color: AppColors.textPrimary,
       ),
       titleLarge: TextStyle(
@@ -269,15 +335,15 @@ class AppTheme {
       fillColor: AppColors.darkSurface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.darkOutline),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.darkOutline),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.darkPrimary),
       ),
     ),
@@ -287,7 +353,9 @@ class AppTheme {
         foregroundColor: AppColors.darkBackground,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FloraRadius.md),
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -300,7 +368,7 @@ class AppTheme {
       color: AppColors.darkSurface,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         side: const BorderSide(color: AppColors.darkOutlineVariant, width: 0.5),
       ),
     ),
@@ -331,6 +399,7 @@ class AppTheme {
       headlineLarge: TextStyle(
         fontSize: 24,
         fontWeight: FontWeight.bold,
+        height: 1.25,
         color: AppColors.darkTextPrimary,
       ),
       titleLarge: TextStyle(

@@ -68,9 +68,12 @@ class ImageSectionCard extends StatelessWidget {
             return Wrap(
               spacing: FloraSpacing.sm,
               runSpacing: FloraSpacing.sm,
-              children: filenames.map((name) {
+              children: filenames.asMap().entries.map((entry) {
+                final index = entry.key;
+                final name = entry.value;
                 return _ImageThumbnail(
                   size: cellWidth,
+                  index: index,
                   filename: name,
                   apiClient: apiClient,
                   date: date,
@@ -129,6 +132,7 @@ class ImageSectionCard extends StatelessWidget {
 
 class _ImageThumbnail extends StatefulWidget {
   final double size;
+  final int index;
   final String filename;
   final ApiClient apiClient;
   final DateTime date;
@@ -136,6 +140,7 @@ class _ImageThumbnail extends StatefulWidget {
 
   const _ImageThumbnail({
     required this.size,
+    required this.index,
     required this.filename,
     required this.apiClient,
     required this.date,
@@ -192,18 +197,59 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
     showDialog(
       context: context,
       barrierColor: Colors.black87,
-      builder: (_) => GestureDetector(
-        onTap: () => Navigator.of(context).pop(),
-        child: InteractiveViewer(
-          child: Center(
-            child: Image.memory(
-              _bytes!,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const Center(
-                child: Text('图片加载失败', style: TextStyle(color: Colors.white70)),
+      builder: (dialogContext) => Semantics(
+        scopesRoute: true,
+        namesRoute: true,
+        explicitChildNodes: true,
+        label: '图片预览',
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(dialogContext).pop(),
+              child: InteractiveViewer(
+                child: Center(
+                  child: Image.memory(
+                    _bytes!,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Center(
+                      child: Text(
+                        '图片加载失败',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: SafeArea(
+                child: Material(
+                  color: Colors.transparent,
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      tooltip: '关闭预览',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 48,
+                        height: 48,
+                      ),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -283,29 +329,33 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
 
     return Stack(
       children: [
-        GestureDetector(
-          onTap: _openPreview,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.memory(
-              _bytes!,
-              width: widget.size,
-              height: widget.size,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
+        Semantics(
+          button: true,
+          label: '预览第 ${widget.index + 1} 张图片',
+          child: GestureDetector(
+            onTap: _openPreview,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(FloraRadius.sm),
+              child: Image.memory(
+                _bytes!,
                 width: widget.size,
                 height: widget.size,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(FloraRadius.sm),
-                ),
-                child: Center(
-                  child: Text(
-                    '图片加载失败',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  width: widget.size,
+                  height: widget.size,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(FloraRadius.sm),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '图片加载失败',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ),
               ),

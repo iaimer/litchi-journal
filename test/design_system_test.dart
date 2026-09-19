@@ -48,6 +48,7 @@ void main() {
       FloraIcons.candidateBooks,
       FloraIcons.pin,
       FloraIcons.chatFeedback,
+      FloraIcons.fabInsight,
     ];
 
     test('通用动作与习惯图标使用固定的逻辑资源映射', () {
@@ -63,6 +64,14 @@ void main() {
       expect(
         FloraIcons.path(FloraIcons.habitLanguage),
         'assets/svg/flora-language.svg',
+      );
+      expect(
+        FloraIcons.path(FloraIcons.fabWrite),
+        'assets/svg/chat-edit-svgrepo-com.svg',
+      );
+      expect(
+        FloraIcons.path(FloraIcons.fabInsight),
+        'assets/svg/flora-eye.svg',
       );
     });
 
@@ -134,18 +143,8 @@ void main() {
     });
 
     test('Today Rainbow 标签在最终混合背景上满足文字对比度', () {
-      const moduleColors = <Color>[
-        Color(0xFFFF6B6B),
-        Color(0xFFFF9F43),
-        Color(0xFFFFD43B),
-        Color(0xFF51CF66),
-        Color(0xFF12B5CB),
-        Color(0xFF4DABF7),
-        Color(0xFF9775FA),
-      ];
-
       for (final theme in [AppTheme.light, AppTheme.dark]) {
-        for (final moduleColor in moduleColors) {
+        for (final moduleColor in TodayRainbow.values) {
           for (final selected in [false, true]) {
             final colors = tagChipColorsFor(
               label: '测试标签',
@@ -164,6 +163,18 @@ void main() {
           }
         }
       }
+    });
+
+    test('Today Rainbow 只映射七个系统章节', () {
+      expect(TodayRainbow.forSectionType('quickNote'), TodayRainbow.quickNote);
+      expect(TodayRainbow.forSectionType('happiness'), TodayRainbow.happiness);
+      expect(TodayRainbow.forSectionType('anxiety'), TodayRainbow.anxiety);
+      expect(TodayRainbow.forSectionType('review'), TodayRainbow.review);
+      expect(TodayRainbow.forSectionType('coach'), TodayRainbow.coach);
+      expect(TodayRainbow.forSectionType('tomorrow'), TodayRainbow.tomorrow);
+      expect(TodayRainbow.forSectionType('media'), TodayRainbow.media);
+      expect(TodayRainbow.forSectionType('habit'), isNull);
+      expect(TodayRainbow.forSectionType('generic'), isNull);
     });
 
     test('Callout 语义颜色在抬升表面上保持可读', () {

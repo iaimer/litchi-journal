@@ -8,8 +8,11 @@ import '../models/memory_entry.dart';
 import '../services/api_client.dart';
 import '../services/gallery_service.dart';
 import '../services/past_memory_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/flora_empty.dart';
+import '../widgets/flora_error_state.dart';
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_skeleton.dart';
 import '../widgets/gallery_image_tile.dart';
 import '../widgets/history_calendar.dart';
 import 'gallery_image_viewer_screen.dart';
@@ -128,14 +131,18 @@ class _PastScreenState extends State<PastScreen> {
         ? ++_galleryRequestGeneration
         : _galleryRequestGeneration;
     if (reset) {
+      final preserveVisibleContent =
+          _galleryMonths.isNotEmpty && cursor == null;
       setState(() {
         _galleryLoading = true;
         _galleryLoadingMore = false;
         _galleryError = null;
         _emptyMonthNotice = null;
-        _galleryMonths = [];
-        _nextCursor = null;
-        _monthKeys.clear();
+        if (!preserveVisibleContent) {
+          _galleryMonths = [];
+          _nextCursor = null;
+          _monthKeys.clear();
+        }
       });
       _galleryService.clearImageCache();
     } else {
@@ -369,7 +376,7 @@ class _PastScreenState extends State<PastScreen> {
     if (monthContext == null) return;
     await Scrollable.ensureVisible(
       monthContext,
-      duration: const Duration(milliseconds: 280),
+      duration: FloraMotion.standardFor(MediaQuery.of(context)),
       alignment: 0.05,
     );
   }
@@ -440,15 +447,7 @@ class _PastScreenState extends State<PastScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            '把值得记住的日子，慢慢翻出来',
-            style: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           _buildMonthPicker(theme),
           if (_calendarExpanded) ...[
             const SizedBox(height: 16),
@@ -483,13 +482,13 @@ class _PastScreenState extends State<PastScreen> {
         Expanded(
           child: InkWell(
             key: const Key('gallery_month_picker'),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(FloraRadius.pill),
             onTap: _pickMonth,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 11),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(FloraRadius.pill),
                 border: Border.all(color: theme.dividerColor, width: 0.5),
               ),
               child: Text(
@@ -522,6 +521,10 @@ class _PastScreenState extends State<PastScreen> {
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
+        if (_galleryLoading && _galleryMonths.isNotEmpty)
+          const SliverToBoxAdapter(
+            child: LinearProgressIndicator(minHeight: 2),
+          ),
         if (_todayMemory != null)
           SliverToBoxAdapter(
             child: Padding(
@@ -549,17 +552,14 @@ class _PastScreenState extends State<PastScreen> {
         if (_galleryLoading && _galleryMonths.isEmpty)
           const SliverFillRemaining(
             hasScrollBody: false,
-            child: Center(child: CircularProgressIndicator()),
+            child: _GalleryLoadingPlaceholder(),
           )
         else if (_galleryError != null && _galleryMonths.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _buildGalleryError(theme),
-          )
+          SliverFillRemaining(hasScrollBody: false, child: _buildGalleryError())
         else if (!hasPhotos && _todayLoading)
           const SliverFillRemaining(
             hasScrollBody: false,
-            child: Center(child: CircularProgressIndicator()),
+            child: _GalleryLoadingPlaceholder(),
           )
         else if (!hasPhotos && !_todayLoading)
           SliverFillRemaining(
@@ -641,23 +641,12 @@ class _PastScreenState extends State<PastScreen> {
 
   Widget _buildGalleryEmpty(ThemeData theme) {
     final canLoadMore = _nextCursor != null;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const FloraEmpty(name: FloraIcons.emptyPast),
-          const SizedBox(height: 12),
-          Text('还没有照片回忆', style: theme.textTheme.titleLarge),
-          const SizedBox(height: 6),
-          Text(
-            '已有文字记录的日子，可以从右上角月历进入',
-            style: theme.textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-          if (canLoadMore) ...[
-            const SizedBox(height: 12),
-            TextButton.icon(
+    return FloraEmpty(
+      name: FloraIcons.emptyPast,
+      title: '还没有照片回忆',
+      message: '已有文字记录的日子，可以从右上角月历进入',
+      action: canLoadMore
+          ? TextButton.icon(
               onPressed: _galleryLoadingMore
                   ? null
                   : () {
@@ -672,25 +661,15 @@ class _PastScreenState extends State<PastScreen> {
                     )
                   : const Icon(Icons.history_rounded),
               label: Text(_galleryError == null ? '加载更早的照片' : '更多回忆加载失败，重试'),
-            ),
-          ],
-        ],
-      ),
+            )
+          : null,
     );
   }
 
-  Widget _buildGalleryError(ThemeData theme) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(_galleryError!, style: theme.textTheme.bodyMedium),
-        const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: () => _loadGallery(reset: true),
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text('重试'),
-        ),
-      ],
+  Widget _buildGalleryError() {
+    return FloraErrorState(
+      message: _galleryError!,
+      onRetry: () => _loadGallery(reset: true),
     );
   }
 
@@ -719,10 +698,44 @@ class _PastScreenState extends State<PastScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         border: Border.all(color: theme.dividerColor, width: 0.5),
       ),
       child: Text('$label 暂无照片，继续向下看看更早的记录', style: theme.textTheme.bodySmall),
+    );
+  }
+}
+
+class _GalleryLoadingPlaceholder extends StatelessWidget {
+  const _GalleryLoadingPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final availableWidth = MediaQuery.sizeOf(context).width - 32;
+    final cell = (availableWidth - 12) / 3;
+    return FloraSkeletonRegion(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const FloraSkeletonBox(width: 150, height: 20),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (var index = 0; index < 6; index++)
+                  FloraSkeletonBox(
+                    width: cell,
+                    height: cell,
+                    radius: FloraRadius.sm,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -780,7 +793,9 @@ class _MemoryCapsuleState extends State<_MemoryCapsule> {
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(FloraRadius.md),
+      ),
       child: InkWell(
         onTap: widget.onTap,
         child: Padding(
@@ -791,7 +806,7 @@ class _MemoryCapsuleState extends State<_MemoryCapsule> {
                 width: 76,
                 height: 76,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(FloraRadius.sm),
                   child: FutureBuilder<Uint8List>(
                     future: _imageFuture,
                     builder: (context, snapshot) {

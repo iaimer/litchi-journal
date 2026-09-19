@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../theme/app_theme.dart';
 import '../widgets/flora_icon.dart';
 import '../widgets/flora_page_scaffold.dart';
 
@@ -121,7 +122,7 @@ class _AboutPageState extends State<AboutPage> {
                   ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(FloraRadius.pill),
                   ),
                   child: Text(
                     '版本 $_version',

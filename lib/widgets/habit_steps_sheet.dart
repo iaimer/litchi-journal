@@ -62,9 +62,7 @@ class _HabitStepsSheetState extends State<_HabitStepsSheet> {
     return SafeArea(
       top: false,
       child: AnimatedPadding(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
+        duration: FloraMotion.fastFor(MediaQuery.of(context)),
         padding: EdgeInsets.fromLTRB(
           FloraSpacing.lg,
           FloraSpacing.xs,

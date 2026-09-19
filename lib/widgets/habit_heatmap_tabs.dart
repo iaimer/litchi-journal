@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
+import '../theme/app_theme.dart';
 import 'habit_icon.dart';
 
 /// 30 天热力图，按习惯图标 Tab 切换。
@@ -44,7 +45,7 @@ class _HabitHeatmapTabsState extends State<HabitHeatmapTabs> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('看看这 30 天的小痕迹', style: theme.textTheme.titleLarge),
+            Text('最近 30 天', style: theme.textTheme.titleLarge),
             const SizedBox(height: 12),
             _buildTabStrip(theme),
             const SizedBox(height: 12),
@@ -259,12 +260,12 @@ class _HabitHeatmapTabStrip extends StatelessWidget {
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: trackColor,
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(FloraRadius.pill),
       ),
       child: Stack(
         children: [
           AnimatedPositioned(
-            duration: const Duration(milliseconds: 200),
+            duration: FloraMotion.standardFor(MediaQuery.of(context)),
             curve: Curves.easeOutCubic,
             top: 0,
             left: selectedIndex * tabWidth,
@@ -273,7 +274,7 @@ class _HabitHeatmapTabStrip extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: indicatorColor,
-                borderRadius: BorderRadius.circular(7),
+                borderRadius: BorderRadius.circular(FloraRadius.pill),
                 border: Border.all(
                   color: theme.colorScheme.outlineVariant.withAlpha(
                     theme.brightness == Brightness.dark ? 70 : 42,
@@ -342,13 +343,13 @@ class _HabitHeatmapTabButton extends StatelessWidget {
         label: item.displayName,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(FloraRadius.pill),
           child: SizedBox(
             width: width,
             height: 44,
             child: Center(
               child: AnimatedScale(
-                duration: const Duration(milliseconds: 180),
+                duration: FloraMotion.fastFor(MediaQuery.of(context)),
                 curve: Curves.easeOutCubic,
                 scale: selected ? 1.04 : 1,
                 child: HabitIcon(

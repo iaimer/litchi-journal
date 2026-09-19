@@ -9,6 +9,10 @@ class TagPicker extends StatefulWidget {
   final TagConfig tagConfig;
   final List<String> initialTags;
 
+  /// 是否在选择区上方显示已选标签摘要。
+  /// 快速记录页会把摘要放在自己的写作工具上方。
+  final bool showSummary;
+
   /// 旧记录中已有、但现已被隐藏的标签。
   /// 显示为灰色"已隐藏"，由用户决定是否保留。
   final List<String> hiddenInitialTags;
@@ -22,6 +26,7 @@ class TagPicker extends StatefulWidget {
     super.key,
     required this.tagConfig,
     this.initialTags = const [],
+    this.showSummary = true,
     this.hiddenInitialTags = const [],
     required this.onChanged,
     this.forceExpanded,
@@ -51,7 +56,8 @@ class _TagPickerState extends State<TagPicker> {
   void didUpdateWidget(covariant TagPicker oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTags != widget.initialTags ||
-        oldWidget.hiddenInitialTags != widget.hiddenInitialTags) {
+        oldWidget.hiddenInitialTags != widget.hiddenInitialTags ||
+        oldWidget.tagConfig != widget.tagConfig) {
       _retainedHiddenTags = Set.from(widget.hiddenInitialTags);
       _restoreInitialTags();
     }
@@ -59,10 +65,11 @@ class _TagPickerState extends State<TagPicker> {
 
   void _restoreInitialTags() {
     final tags = widget.initialTags;
+    _selectedDomain = null;
+    _selectedTopic = null;
+    _selectedMethod = null;
+
     if (tags.isEmpty) {
-      _selectedDomain = null;
-      _selectedTopic = null;
-      _selectedMethod = null;
       _expanded = false;
       return;
     }
@@ -139,13 +146,14 @@ class _TagPickerState extends State<TagPicker> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tags = _buildTags();
+    final expanded = widget.forceExpanded ?? _expanded;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildCollapsedBar(theme, tags),
-        if (widget.forceExpanded ?? _expanded) ...[
+        if (widget.showSummary) _buildCollapsedBar(theme, tags),
+        if (expanded) ...[
           const SizedBox(height: 4),
           _buildDomainRow(theme),
           if (_selectedDomain != null) ...[
@@ -165,45 +173,14 @@ class _TagPickerState extends State<TagPicker> {
   }
 
   Widget _buildCollapsedBar(ThemeData theme, List<String> tags) {
-    final hidden = _retainedHiddenTags;
     return Row(
       children: [
         if (tags.isNotEmpty)
           Expanded(
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: tags
-                  .map((name) {
-                    final isHidden = hidden.contains(name);
-                    final colors = tagChipColorsFor(
-                      label: name,
-                      tagConfig: widget.tagConfig,
-                      theme: theme,
-                    );
-                    return Chip(
-                      label: Text(
-                        isHidden ? '$name (已隐藏)' : name,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isHidden
-                              ? theme.colorScheme.onSurfaceVariant
-                              : colors.textColor,
-                        ),
-                      ),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                      backgroundColor: isHidden
-                          ? theme.colorScheme.surfaceContainerHighest
-                          : colors.backgroundColor,
-                      side: BorderSide(
-                        color: isHidden
-                            ? Colors.transparent
-                            : colors.borderColor,
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
+            child: TagSelectionSummary(
+              tagConfig: widget.tagConfig,
+              tags: tags,
+              hiddenTags: _retainedHiddenTags.toList(growable: false),
             ),
           )
         else
@@ -311,8 +288,7 @@ class _TagPickerState extends State<TagPicker> {
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.padded,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 side: BorderSide.none,
               );
@@ -378,8 +354,7 @@ class _TagPickerState extends State<TagPicker> {
                   ),
                   selected: selected,
                   onSelected: (_) => onSelected(item.id),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.padded,
                   selectedColor: colors.backgroundColor,
                   backgroundColor: colors.backgroundColor,
                   side: BorderSide(color: colors.borderColor),
@@ -389,6 +364,62 @@ class _TagPickerState extends State<TagPicker> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 只显示已选标签，不暴露标签选择控件。
+/// 写作页面可以据此把摘要和展开后的选择区分开放置。
+class TagSelectionSummary extends StatelessWidget {
+  final TagConfig? tagConfig;
+  final List<String> tags;
+  final List<String> hiddenTags;
+
+  const TagSelectionSummary({
+    super.key,
+    required this.tagConfig,
+    required this.tags,
+    this.hiddenTags = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (tags.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    final hidden = hiddenTags.toSet();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: tags
+          .map((name) {
+            final isHidden = hidden.contains(name);
+            final colors = tagChipColorsFor(
+              label: name,
+              tagConfig: tagConfig,
+              theme: theme,
+            );
+            return Chip(
+              label: Text(
+                isHidden ? '$name (已隐藏)' : name,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isHidden
+                      ? theme.colorScheme.onSurfaceVariant
+                      : colors.textColor,
+                ),
+              ),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              backgroundColor: isHidden
+                  ? theme.colorScheme.surfaceContainerHighest
+                  : colors.backgroundColor,
+              side: BorderSide(
+                color: isHidden ? Colors.transparent : colors.borderColor,
+              ),
+            );
+          })
+          .toList(growable: false),
     );
   }
 }

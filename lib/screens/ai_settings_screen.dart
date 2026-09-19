@@ -4,6 +4,7 @@ import '../models/ai_config.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
 import '../services/polisher_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/flora_page_scaffold.dart';
 import '../widgets/flora_switch.dart';
 
@@ -158,7 +159,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             InkWell(
               key: const ValueKey('ai_enabled_toggle'),
               onTap: () => setState(() => _enabled = !_enabled),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(FloraRadius.sm),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(

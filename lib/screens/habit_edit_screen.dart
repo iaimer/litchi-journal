@@ -11,6 +11,7 @@ import '../services/habit_stats_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/habit_icon.dart';
 import '../widgets/flora_page_scaffold.dart';
+import '../widgets/flora_skeleton.dart';
 import '../widgets/flora_switch.dart';
 
 /// 习惯编辑页。
@@ -340,7 +341,27 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
     if (!_loaded) {
       return const FloraPageScaffold(
         title: '编辑习惯',
-        body: Center(child: CircularProgressIndicator()),
+        body: FloraSkeletonRegion(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FloraSkeletonBox(width: 120, height: 16),
+                SizedBox(height: 8),
+                FloraSkeletonBox(width: double.infinity, height: 48),
+                SizedBox(height: 20),
+                FloraSkeletonBox(width: 120, height: 16),
+                SizedBox(height: 8),
+                FloraSkeletonBox(
+                  width: double.infinity,
+                  height: 180,
+                  radius: FloraRadius.md,
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -544,7 +565,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(FloraRadius.sm),
                 border: Border.all(color: theme.dividerColor),
               ),
               child: Column(

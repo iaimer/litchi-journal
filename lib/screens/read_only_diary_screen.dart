@@ -22,7 +22,11 @@ import '../services/tag_settings_repository.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/diary_date_title.dart';
 import '../widgets/entry_type.dart';
+import '../widgets/flora_empty.dart';
+import '../widgets/flora_error_state.dart';
+import '../widgets/flora_icon.dart';
 import '../widgets/historical_quick_record_fab.dart';
+import '../widgets/flora_skeleton.dart';
 import 'quick_capture_screen.dart';
 
 typedef HistoricalImagePicker =
@@ -65,6 +69,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   TagConfig? _tagConfig;
   TagSettings? _tagSettings;
   bool _loading = true;
+  bool _refreshing = false;
   bool _quickRecordExpanded = false;
   final List<ImageUploadItem> _imageUploads = [];
   bool _diaryReadyForImageUpload = false;
@@ -89,24 +94,31 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   }
 
   Future<void> _loadDiary() async {
+    final hasVisibleContent = _diary != null || _imageUploads.isNotEmpty;
     setState(() {
-      _loading = true;
+      _loading = !hasVisibleContent;
+      _refreshing = hasVisibleContent;
       _error = null;
     });
 
     try {
       final diary = await widget.apiClient.getDiary(widget.date);
+      if (diary == null && hasVisibleContent) {
+        throw StateError('diary refresh failed');
+      }
       if (!mounted) return;
       setState(() {
         _diary = diary?.raw.isNotEmpty == true ? diary : null;
         _diaryReadyForImageUpload = diary != null;
         _loading = false;
+        _refreshing = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _error = '加载失败，请检查网络后重试';
         _loading = false;
+        _refreshing = false;
       });
     }
   }
@@ -383,19 +395,40 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   }
 
   Widget _buildBody(ThemeData theme) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) {
+      return FloraSkeletonRegion(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16, 24, 16, 96),
+          children: [
+            FloraSkeletonBox(width: 220, height: 18),
+            SizedBox(height: 20),
+            FloraSkeletonBox(width: double.infinity, height: 18),
+            SizedBox(height: 12),
+            FloraSkeletonBox(width: double.infinity, height: 18),
+            SizedBox(height: 12),
+            FloraSkeletonBox(width: 240, height: 18),
+          ],
+        ),
+      );
+    }
     return RefreshIndicator(
       onRefresh: _loadDiary,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
+          if (_refreshing)
+            const SizedBox(
+              height: 2,
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
           const SizedBox(height: 16),
-          if (_error != null && _imageUploads.isEmpty)
-            _buildError(theme)
+          if (_error != null && _diary == null && _imageUploads.isEmpty)
+            _buildError()
           else if (_diary == null && _imageUploads.isEmpty)
             _buildEmpty(theme)
-          else
+          else ...[
+            if (_error != null) _buildInlineError(theme),
             DiaryMarkdownView(
               markdown: _diary?.raw ?? '',
               onHabitUpdate: null,
@@ -411,6 +444,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
               onImageUploadRemove: _removeImageUpload,
               canRemoveImageUpload: _canRemoveImageUpload,
             ),
+          ],
           const SizedBox(height: 96),
         ],
       ),
@@ -418,30 +452,37 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   }
 
   Widget _buildEmpty(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 120),
-      child: Column(
-        children: [
-          Text('这一天还没有留下记录', style: theme.textTheme.titleLarge),
-          const SizedBox(height: 8),
-          Text(
-            '点击右下角，为这一天补一条。',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+    return const Padding(
+      padding: EdgeInsets.only(top: 64),
+      child: FloraEmpty(
+        name: FloraIcons.emptyPast,
+        title: '这一天还没有留下记录',
+        message: '点击右下角，为这一天补一条。',
       ),
     );
   }
 
-  Widget _buildError(ThemeData theme) {
+  Widget _buildError() {
+    return FloraErrorState(
+      message: _error!,
+      onRetry: _loadDiary,
+      padding: const EdgeInsets.only(top: 64),
+    );
+  }
+
+  Widget _buildInlineError(ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.only(top: 120),
-      child: Column(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
         children: [
-          Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
-          const SizedBox(height: 12),
+          Expanded(
+            child: Text(
+              _error!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
           TextButton(onPressed: _loadDiary, child: const Text('重试')),
         ],
       ),

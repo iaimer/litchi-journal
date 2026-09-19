@@ -75,7 +75,7 @@ class _MemoryCardState extends State<MemoryCard> {
         margin: const EdgeInsets.only(bottom: 16),
         color: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(FloraRadius.md),
           side: BorderSide(color: theme.dividerColor, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
@@ -161,7 +161,7 @@ class _MemoryCardState extends State<MemoryCard> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(FloraRadius.sm),
         child: SizedBox(
           width: double.infinity,
           height: 180,
@@ -193,7 +193,7 @@ class _MemoryCardState extends State<MemoryCard> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.black54,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(FloraRadius.pill),
                 ),
                 child: Text(
                   '${widget.entry.imageCount} 张照片',

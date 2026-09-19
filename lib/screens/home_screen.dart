@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_skeleton.dart';
 
 import '../models/default_tag_config.dart';
 import '../models/diary_document.dart';
@@ -37,6 +38,7 @@ import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
 import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
+import '../theme/app_theme.dart';
 import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/diary_date_title.dart';
@@ -133,6 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? _diaryDate;
   int _diaryRefreshSerial = 0;
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
   TagConfig? _tagConfig;
   TagSettings? _tagSettings;
@@ -206,8 +209,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadDiary() async {
     final requestId = ++_diaryRefreshSerial;
+    final hasVisibleContent = _diary != null;
     setState(() {
-      _loading = true;
+      _loading = !hasVisibleContent;
+      _refreshing = hasVisibleContent;
       _error = null;
     });
 
@@ -218,6 +223,9 @@ class _HomeScreenState extends State<HomeScreen> {
           .timeout(_diaryLoadTimeout);
 
       if (diary == null) {
+        if (hasVisibleContent) {
+          throw StateError('diary refresh failed');
+        }
         await widget.apiClient.ensureDiary(date).timeout(_diaryLoadTimeout);
         diary = await widget.apiClient
             .getDiary(date)
@@ -234,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _diary = diary;
         _diaryDate = date;
         _loading = false;
+        _refreshing = false;
         _habitSettings = settings;
         _activeHabitKeys = settings.activeKeys.toSet();
         _customCheckboxStates = _readCustomCheckboxStates(diary, settings);
@@ -244,6 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _error = '加载失败';
         _loading = false;
+        _refreshing = false;
       });
     }
   }
@@ -1151,10 +1161,10 @@ class _HomeScreenState extends State<HomeScreen> {
             label: '继续${session.displayName}专注，已计时 $elapsed',
             child: Material(
               color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(FloraRadius.md),
               child: InkWell(
                 onTap: _openFocusTimer,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(FloraRadius.md),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -1194,6 +1204,47 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildHomeLoading() {
+    return FloraSkeletonRegion(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        children: [
+          const FloraSkeletonBox(width: 180, height: 16),
+          const SizedBox(height: 24),
+          FloraSkeletonBox(
+            width: double.infinity,
+            height: 18,
+            radius: FloraRadius.md,
+          ),
+          const SizedBox(height: 12),
+          FloraSkeletonBox(
+            width: double.infinity,
+            height: 18,
+            radius: FloraRadius.md,
+          ),
+          const SizedBox(height: 12),
+          FloraSkeletonBox(
+            width: MediaQuery.sizeOf(context).width * 0.68,
+            height: 18,
+            radius: FloraRadius.md,
+          ),
+          const SizedBox(height: 28),
+          FloraSkeletonBox(
+            width: double.infinity,
+            height: 64,
+            radius: FloraRadius.md,
+          ),
+          const SizedBox(height: 12),
+          FloraSkeletonBox(
+            width: double.infinity,
+            height: 64,
+            radius: FloraRadius.md,
+          ),
+        ],
+      ),
     );
   }
 
@@ -1247,7 +1298,7 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           },
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? _buildHomeLoading()
               : Theme(
                   data: theme.copyWith(
                     canvasColor: theme.scaffoldBackgroundColor,
@@ -1258,6 +1309,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: _scrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
+                        if (_refreshing)
+                          const SizedBox(
+                            height: 2,
+                            child: LinearProgressIndicator(minHeight: 2),
+                          ),
                         const SizedBox(height: 16),
                         _buildFocusTimerStrip(theme),
                         if (_error != null) ...[

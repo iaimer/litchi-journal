@@ -134,6 +134,7 @@ Flutter 端已建立的领域组件：
 - 启动页必须从 `docs/design-reference/splash.png` 派生到 `assets/icon/brand-splash-reference.png`，不要重新绘制近似版本。
 - App 图标和关于页品牌图必须从 `docs/design-reference/icon.png` 派生到 `assets/icon/app-icon.png`、`assets/icon/app-launcher.png` 和 Android launcher mipmap 资源。
 - `docs/design-reference/reference.png` 仅作为整体视觉参考，不作为直接切图资源。
+- 深色启动页资源 `assets/icon/brand-splash-dark.png` 也必须从 `splash.png` 派生，保持原构图和品牌元素。
 - 关于页品牌图当前使用 168dp 展示尺寸；如需调整，先真机比对后再改。
 - 更新品牌资源时必须重新构建并重装 APK，系统桌面图标不会只靠 hot reload 更新。
 
@@ -184,6 +185,14 @@ Flutter UI 应优先使用原生组件表达领域对象。
 
 习惯卡的高密度任务列表是通用 48dp 点击规范的明确例外：正常字体下单行约 30dp，字体放大时允许自然增高；不要用固定最小行高或仅移动绘制内容的方式人为撑大或压缩列表。
 
+## 阶段 7 全局细节规则
+
+- 一级页面标题统一使用 `24sp / w700 / 1.25`；首页日期辅助信息使用 `12sp / w500`；二级路由页 AppBar 标题使用 `18sp / w600`。日记章节不因全局标题规则而放大。
+- 普通圆角只按语义使用图片 `8dp`、内容 `12dp`、浮层 `16dp` 和紧凑操作 `pill`；时间轴节点、进度条、热力图点、开关滑块和圆形按钮保留自己的几何形状。
+- 首次加载优先显示内容形状占位；刷新不得清空已有内容。无数据错误应提供简短说明和重试操作，局部提交、删除、润色和上传继续显示各自的原位反馈。
+- 自定义动效使用 `FloraMotion.fast/standard/slow`，系统开启减少动态效果时必须直接完成，不等待淡入或位移动画。
+- 启动页浅色使用 `#F7F2EA`、深色使用 `#1F1B18`；深色品牌启动资源必须由 `docs/design-reference/splash.png` 派生，不能重新绘制近似品牌图。
+
 ## 编码准则
 
 ### 可读性优先
@@ -226,7 +235,7 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前状态：`1.7.2+28` 已完成 Flutter 测试、analyze 和 Release 构建；服务端代码和接口未改动，真机安装与视觉验收由用户自行执行。
+当前状态：`1.7.5+31` 已完成阶段 1-7 UI 改造与复审修正；Flutter 完整回归（520 项）、analyze、模拟器验收和 Release 模式 APK 构建已通过。服务端代码、API、Markdown、Parser、领域模型与真实 Vault 未改动。Android Release 目前仍使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店的正式签名包。
 
 ## 数据完整性规则
 

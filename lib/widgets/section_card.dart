@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class SectionCard extends StatelessWidget {
   final String? title;
   final Color? accentColor;
@@ -43,7 +45,7 @@ class SectionCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: surfaceColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(FloraRadius.md),
           border: Border.all(color: borderColor, width: hasAccent ? 1 : 0.5),
         ),
         clipBehavior: Clip.antiAlias,

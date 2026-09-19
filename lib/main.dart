@@ -9,6 +9,7 @@ import 'screens/past_screen.dart';
 import 'screens/habit_stats_screen.dart';
 import 'theme/app_theme.dart';
 import 'widgets/flora_icon.dart';
+import 'widgets/flora_skeleton.dart';
 import 'widgets/flora_splash.dart';
 import 'screens/setup_screen.dart';
 
@@ -125,10 +126,15 @@ class _AppEntryState extends State<AppEntry> {
   @override
   Widget build(BuildContext context) {
     if (_showSplash) {
-      return FloraSplash(onDone: _onSplashDone);
+      return FloraSplash(ready: !_loading, onDone: _onSplashDone);
     }
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: const FloraSkeletonRegion(
+          child: Center(child: FloraSkeletonBox(width: 180, height: 16)),
+        ),
+      );
     }
     if (_config == null) {
       return SetupScreen(onConfigured: _onConfigured);

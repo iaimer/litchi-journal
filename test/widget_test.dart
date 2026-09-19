@@ -73,6 +73,7 @@ import 'package:litchi_journal_flutter/widgets/section_card.dart';
 import 'package:litchi_journal_flutter/widgets/tag_color_helper.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 import 'package:litchi_journal_flutter/widgets/flora_switch.dart';
+import 'package:litchi_journal_flutter/widgets/flora_skeleton.dart';
 
 import 'package:litchi_journal_flutter/models/tag_settings.dart';
 import 'package:litchi_journal_flutter/services/tag_settings_helper.dart';
@@ -1075,19 +1076,12 @@ void main() {
 
       expect(find.byType(SafeArea), findsOneWidget);
       expect(find.text('过往'), findsOneWidget);
-      expect(find.text('把值得记住的日子，慢慢翻出来'), findsOneWidget);
+      expect(find.text('把值得记住的日子，慢慢翻出来'), findsNothing);
       expect(find.byKey(const Key('gallery_month_picker')), findsOneWidget);
       expect(find.text('今天曾经发生过'), findsNothing);
       expect(find.text('随便走走'), findsNothing);
       expect(
         find.ancestor(of: find.text('过往'), matching: find.byType(ListView)),
-        findsNothing,
-      );
-      expect(
-        find.ancestor(
-          of: find.text('把值得记住的日子，慢慢翻出来'),
-          matching: find.byType(ListView),
-        ),
         findsNothing,
       );
       expect(
@@ -2007,7 +2001,8 @@ void main() {
       await tester.pumpWidget(buildHome(httpClient: _HangingHttpClient()));
       await tester.pump();
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(FloraSkeletonBox), findsWidgets);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
 
       await tester.pump(const Duration(seconds: 13));
       await tester.pump();
@@ -2243,9 +2238,12 @@ void main() {
 
       expect(find.byType(QuickCaptureScreen), findsOneWidget);
       expect(find.text('随手记'), findsOneWidget);
-      expect(find.text('记录时间'), findsOneWidget);
+      expect(
+        find.byKey(const Key('quick_capture_time_metadata')),
+        findsOneWidget,
+      );
       expect(find.text('标签暂不可用'), findsNothing);
-      expect(find.byType(TagPicker), findsOneWidget);
+      expect(find.byKey(const Key('quick_capture_tag_toggle')), findsOneWidget);
     });
 
     testWidgets('happiness entry opens QuickCaptureScreen', (tester) async {
@@ -2429,7 +2427,10 @@ void main() {
       await tester.pumpWidget(buildCapture());
 
       expect(find.text('随手记'), findsOneWidget);
-      expect(find.text('记录时间'), findsOneWidget);
+      expect(
+        find.byKey(const Key('quick_capture_time_metadata')),
+        findsOneWidget,
+      );
       expect(find.text('今天 21:35'), findsOneWidget);
       expect(find.text('润色'), findsOneWidget);
       expect(find.text('AI 润色'), findsNothing);
@@ -2478,7 +2479,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byKey(const Key('quick_capture_time_tile')));
+      await tester.tap(find.byKey(const Key('quick_capture_time_metadata')));
       await tester.pumpAndSettle();
       expect(find.text('今天 22:10'), findsOneWidget);
 
@@ -2524,7 +2525,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), '原始内容');
       await tester.pump();
-      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.tap(find.byKey(const Key('quick_capture_polish')));
       await tester.pumpAndSettle();
 
       final field = tester.widget<TextField>(find.byType(TextField));
@@ -2545,7 +2546,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), '等待润色');
       await tester.pump();
-      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.tap(find.byKey(const Key('quick_capture_polish')));
       await tester.pump();
 
       expect(
@@ -2553,7 +2554,11 @@ void main() {
         isNull,
       );
       expect(
-        tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+        tester
+            .widget<TextButton>(
+              find.byKey(const Key('quick_capture_tag_toggle')),
+            )
+            .onPressed,
         isNull,
       );
 
@@ -3167,6 +3172,12 @@ tags:
 
       expect(find.byType(ChoiceChip), findsWidgets);
       expect(find.text('工作'), findsWidgets);
+      for (final chip in find.byType(ChoiceChip).evaluate()) {
+        expect(
+          tester.getSize(find.byWidget(chip.widget)).height,
+          greaterThanOrEqualTo(48),
+        );
+      }
     });
 
     testWidgets('shows topics after expanding and tapping domain', (
@@ -3297,6 +3308,177 @@ tags:
       // Should be collapsed again
       expect(find.byType(ChoiceChip), findsNothing);
       expect(find.text('标签'), findsOneWidget);
+    });
+
+    testWidgets('clears stale topic and method when external tags shrink', (
+      WidgetTester tester,
+    ) async {
+      var tags = ['生活', '健康管理', '回忆'];
+      late void Function(VoidCallback) update;
+      List<String>? output;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return TagPicker(
+                  tagConfig: testConfig,
+                  initialTags: tags,
+                  onChanged: (value) => output = value,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('标签'));
+      await tester.pump();
+      update(() => tags = ['生活']);
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '健康管理'))
+            .selected,
+        isFalse,
+      );
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '回忆'))
+            .selected,
+        isFalse,
+      );
+
+      final recalledChip = find.widgetWithText(ChoiceChip, '回忆');
+      await tester.ensureVisible(recalledChip);
+      await tester.tap(recalledChip);
+      await tester.pump();
+      expect(output, ['生活', '回忆']);
+    });
+
+    testWidgets('clears stale method when external tags lose method', (
+      WidgetTester tester,
+    ) async {
+      var tags = ['生活', '健康管理', '回忆'];
+      late void Function(VoidCallback) update;
+      List<String>? output;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return TagPicker(
+                  tagConfig: testConfig,
+                  initialTags: tags,
+                  onChanged: (value) => output = value,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('标签'));
+      await tester.pump();
+      update(() => tags = ['生活', '健康管理']);
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '回忆'))
+            .selected,
+        isFalse,
+      );
+      final reflectionChip = find.widgetWithText(ChoiceChip, '反思');
+      await tester.ensureVisible(reflectionChip);
+      await tester.tap(reflectionChip);
+      await tester.pump();
+      expect(output, ['生活', '健康管理', '反思']);
+    });
+
+    testWidgets('unknown external domain clears all previous selections', (
+      WidgetTester tester,
+    ) async {
+      var tags = ['生活', '健康管理', '回忆'];
+      late void Function(VoidCallback) update;
+      List<String>? output;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return TagPicker(
+                  tagConfig: testConfig,
+                  initialTags: tags,
+                  onChanged: (value) => output = value,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('标签'));
+      await tester.pump();
+      update(() => tags = ['不存在的领域', '健康管理', '回忆']);
+      await tester.pump();
+
+      await tester.tap(find.text('反思').last);
+      await tester.pump();
+      expect(output, ['反思']);
+    });
+
+    testWidgets('tag config changes clear removed selections', (
+      WidgetTester tester,
+    ) async {
+      var config = testConfig;
+      late void Function(VoidCallback) update;
+
+      final renamedConfig = TagConfig(
+        domains: [
+          TagDomain(
+            id: 'life',
+            name: '生活',
+            order: 1,
+            topics: const [TagTopic(id: 'new-topic', name: '新的主题', order: 1)],
+          ),
+        ],
+        methods: const [],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return TagPicker(
+                  tagConfig: config,
+                  initialTags: const ['生活', '健康管理', '回忆'],
+                  onChanged: (_) {},
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('健康管理'), findsAtLeastNWidgets(1));
+      expect(find.text('回忆'), findsAtLeastNWidgets(1));
+
+      update(() => config = renamedConfig);
+      await tester.pump();
+
+      expect(find.text('健康管理'), findsNothing);
+      expect(find.text('回忆'), findsNothing);
+      expect(find.text('新的主题'), findsNothing);
     });
 
     test('uses distinct domain colors and unified topic/method colors', () {
@@ -7351,6 +7533,12 @@ tags:
       expect(find.text('今日回顾'), findsOneWidget);
       expect(find.text('生成回顾'), findsOneWidget);
 
+      final generateButton = find.ancestor(
+        of: find.text('生成回顾'),
+        matching: find.byType(TextButton),
+      );
+      expect(tester.getSize(generateButton).height, greaterThanOrEqualTo(48));
+
       await tester.tap(find.text('生成回顾'));
       await tester.pump();
 
@@ -8877,7 +9065,7 @@ tags:
         ),
       );
 
-      await tester.tap(find.widgetWithText(OutlinedButton, '润色'));
+      await tester.tap(find.byKey(const Key('quick_capture_polish')));
       await tester.pumpAndSettle();
       expect(find.text('陪伴互动 (已隐藏)'), findsOneWidget);
 
@@ -9613,11 +9801,12 @@ tags:
     testWidgets('tap thumbnail opens preview with close gesture', (
       tester,
     ) async {
+      final semanticsHandle = tester.ensureSemantics();
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: ImageSectionCard(
-              section: imageSection(['img-001.jpg']),
+              section: imageSection(['img-001.jpg', 'img-002.jpg']),
               apiClient: imageTestApiClient(),
               date: DateTime(2026, 6, 8),
             ),
@@ -9626,18 +9815,45 @@ tags:
       );
       await tester.pumpAndSettle();
 
+      final thumbnail = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics && widget.properties.label == '预览第 1 张图片',
+      );
+      final secondThumbnail = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics && widget.properties.label == '预览第 2 张图片',
+      );
+      expect(thumbnail, findsOneWidget);
+      expect(secondThumbnail, findsOneWidget);
+      expect(tester.getSemantics(thumbnail).flagsCollection.isButton, isTrue);
+      expect(
+        tester.getSemantics(secondThumbnail).flagsCollection.isButton,
+        isTrue,
+      );
+
       // Tap the thumbnail image
-      await tester.tap(find.byType(Image));
+      await tester.tap(thumbnail);
       await tester.pumpAndSettle();
 
       // Should show the full-screen preview image
       expect(find.byType(InteractiveViewer), findsOneWidget);
+      final closeButton = find.byTooltip('关闭预览');
+      expect(closeButton, findsOneWidget);
+      expect(tester.getSize(closeButton), const Size(48, 48));
 
       // Tap to close
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(closeButton);
       await tester.pumpAndSettle();
 
       expect(find.byType(InteractiveViewer), findsNothing);
+
+      // Tapping the dimmed background remains a second, discoverable close path.
+      await tester.tap(thumbnail);
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(200, 300));
+      await tester.pumpAndSettle();
+      expect(find.byType(InteractiveViewer), findsNothing);
+      semanticsHandle.dispose();
     });
   });
 
@@ -10507,7 +10723,8 @@ tags:
       );
 
       // 还没 settle，应显示 loading
-      expect(find.text('加载习惯趋势'), findsOneWidget);
+      expect(find.byType(FloraSkeletonBox), findsWidgets);
+      expect(find.text('加载习惯趋势'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
@@ -11197,7 +11414,7 @@ tags:
       await tester.tap(find.text('外观'));
       await tester.pumpAndSettle();
 
-      expect(find.text('选择你喜欢的显示方式'), findsOneWidget);
+      expect(find.text('选择你喜欢的显示方式'), findsNothing);
     });
 
     testWidgets('tapping AI config navigates to AI settings', (tester) async {
@@ -11596,7 +11813,7 @@ tags:
         MaterialApp(home: const AppearanceSettingsPage()),
       );
 
-      expect(find.text('选择你喜欢的显示方式'), findsOneWidget);
+      expect(find.text('选择你喜欢的显示方式'), findsNothing);
       expect(find.text('跟随系统'), findsOneWidget);
       expect(find.text('浅色模式'), findsOneWidget);
       expect(find.text('深色模式'), findsOneWidget);

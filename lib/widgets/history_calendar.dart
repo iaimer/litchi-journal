@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
+import '../theme/app_theme.dart';
 
 class HistoryCalendar extends StatelessWidget {
   final DateTime displayedMonth;
@@ -38,7 +39,7 @@ class HistoryCalendar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(FloraRadius.lg),
         border: Border.all(color: theme.dividerColor, width: 0.5),
       ),
       child: GestureDetector(

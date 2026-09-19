@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/image_settings.dart';
 import '../services/image_settings_repository.dart';
+import '../theme/app_theme.dart';
 import '../widgets/flora_page_scaffold.dart';
+import '../widgets/flora_skeleton.dart';
 
 /// 图片上传设置页。
 class ImageCompressPage extends StatefulWidget {
@@ -79,7 +81,22 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
     return FloraPageScaffold(
       title: '图片设置',
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const FloraSkeletonRegion(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    FloraSkeletonBox(width: 120, height: 16),
+                    SizedBox(height: 12),
+                    FloraSkeletonBox(
+                      width: double.infinity,
+                      height: 280,
+                      radius: FloraRadius.md,
+                    ),
+                  ],
+                ),
+              ),
+            )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: [

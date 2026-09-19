@@ -1355,9 +1355,9 @@ class _HabitProgressBar extends StatelessWidget {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: AnimatedContainer(
-                            duration: MediaQuery.disableAnimationsOf(context)
-                                ? Duration.zero
-                                : const Duration(milliseconds: 200),
+                            duration: FloraMotion.fastFor(
+                              MediaQuery.of(context),
+                            ),
                             curve: Curves.easeOutCubic,
                             width: constraints.maxWidth * ratio!,
                             height: 6,
@@ -1517,7 +1517,7 @@ class _AnimatedHabitCheckboxState extends State<_AnimatedHabitCheckbox>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 420),
+      duration: FloraMotion.standard,
       value: widget.checked ? 1 : 0,
     );
     _curve = CurvedAnimation(
@@ -1528,9 +1528,21 @@ class _AnimatedHabitCheckboxState extends State<_AnimatedHabitCheckbox>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.duration = FloraMotion.standardFor(MediaQuery.of(context));
+  }
+
+  @override
   void didUpdateWidget(covariant _AnimatedHabitCheckbox oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.checked == widget.checked) return;
+    final duration = FloraMotion.standardFor(MediaQuery.of(context));
+    _controller.duration = duration;
+    if (duration == Duration.zero) {
+      _controller.value = widget.checked ? 1 : 0;
+      return;
+    }
     if (widget.checked) {
       _controller.forward();
     } else {

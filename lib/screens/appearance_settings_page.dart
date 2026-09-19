@@ -29,22 +29,11 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return FloraPageScaffold(
       title: '外观',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Text(
-              '选择你喜欢的显示方式',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
           _buildOption(
             icon: const FloraIcon(FloraIcons.deviceSystem, size: 22),
             title: '跟随系统',

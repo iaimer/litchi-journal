@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class FloraSwitch extends StatefulWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -44,16 +46,16 @@ class _FloraSwitchState extends State<FloraSwitch> {
           width: 40,
           height: 24,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
+            duration: FloraMotion.standardFor(MediaQuery.of(context)),
             curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(34),
+              borderRadius: BorderRadius.circular(FloraRadius.pill),
               color: widget.value ? activeTrack : inactiveTrack,
             ),
             child: Stack(
               children: [
                 AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
+                  duration: FloraMotion.standardFor(MediaQuery.of(context)),
                   curve: Curves.easeOutCubic,
                   top: 2,
                   left: widget.value ? 18 : 2,

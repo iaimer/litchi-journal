@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../models/diary_document.dart';
+import '../theme/app_theme.dart';
 import 'journal_section.dart';
 
 final _templateQuestionHint = RegExp(r'[？?]');
-const _anxietyAccentColor = Color(0xFFFFD43B);
 
 class AnxietyCard extends StatelessWidget {
   final AnxietySection section;
@@ -15,7 +15,7 @@ class AnxietyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveAccentColor = accentColor ?? _anxietyAccentColor;
+    final effectiveAccentColor = accentColor ?? TodayRainbow.anxiety;
     final parsed = _parseContent();
     final hasRealAnswers = parsed.any((item) => item.answer != null);
     final visibleItems = hasRealAnswers

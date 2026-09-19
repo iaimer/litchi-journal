@@ -9,8 +9,11 @@ import '../services/habit_settings_repository.dart';
 import '../services/habit_stats_cache_repository.dart';
 import '../services/habit_trend_cache_repository.dart';
 import '../services/habit_trend_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/flora_error_state.dart';
 import '../widgets/flora_empty.dart';
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_skeleton.dart';
 import '../widgets/habit_trend_dashboard.dart';
 import '../widgets/habit_trend_heatmap.dart';
 
@@ -260,9 +263,9 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
                     _buildPeriodNavigator(theme),
                     const SizedBox(height: 2),
                     if (_error != null)
-                      _buildError(theme)
+                      _buildError()
                     else if (_stats == null)
-                      _buildLoading(theme)
+                      _buildLoading()
                     else
                       _buildStats(_stats!, theme),
                   ],
@@ -281,7 +284,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
         16,
         16 + MediaQuery.of(context).padding.top,
         16,
-        0,
+        16,
       ),
       child: Text('习惯趋势', style: theme.textTheme.headlineLarge),
     );
@@ -348,46 +351,41 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
     }
   }
 
-  Widget _buildLoading(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 24),
-      child: Column(
-        children: [
-          const SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            '加载习惯趋势',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+  Widget _buildLoading() {
+    return FloraSkeletonRegion(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                for (var index = 0; index < 4; index++) ...[
+                  if (index > 0) const SizedBox(width: 8),
+                  const Expanded(
+                    child: FloraSkeletonBox(height: 68, radius: FloraRadius.md),
+                  ),
+                ],
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            const FloraSkeletonBox(width: 130, height: 16),
+            const SizedBox(height: 12),
+            FloraSkeletonBox(
+              width: double.infinity,
+              height: MediaQuery.sizeOf(context).width * 0.42,
+              radius: FloraRadius.md,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildError(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 28),
-      child: Column(
-        children: [
-          Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 10),
-          TextButton.icon(
-            onPressed: () => _loadPeriod(reset: true, useCache: false),
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('重试'),
-          ),
-        ],
-      ),
+  Widget _buildError() {
+    return FloraErrorState(
+      message: _error!,
+      onRetry: () => _loadPeriod(reset: true, useCache: false),
     );
   }
 

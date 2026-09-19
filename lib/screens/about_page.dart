@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
 import '../widgets/flora_icon.dart';
@@ -68,6 +69,21 @@ class _AboutPageState extends State<AboutPage> {
       if (!mounted) return;
       setState(() => _version = 'v1.1.0 (1)');
     }
+  }
+
+  Future<void> _openLordiconAttribution() async {
+    try {
+      final opened = await launchUrl(Uri.parse('https://lordicon.com/'));
+      if (!opened && mounted) _showLinkError();
+    } catch (_) {
+      if (mounted) _showLinkError();
+    }
+  }
+
+  void _showLinkError() {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('暂时无法打开链接')));
   }
 
   @override
@@ -164,8 +180,53 @@ class _AboutPageState extends State<AboutPage> {
               ),
             ),
           ],
+          const SizedBox(height: 32),
+          _buildIconAttribution(theme),
         ],
       ),
+    );
+  }
+
+  Widget _buildIconAttribution(ThemeData theme) {
+    final attributionStyle = theme.textTheme.bodySmall?.copyWith(
+      fontSize: 12,
+      height: 1.4,
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
+    );
+
+    return Column(
+      key: const Key('about_icon_attribution_footer'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Static icons: Lucide Icons', style: attributionStyle),
+        Semantics(
+          button: true,
+          label: 'Animated icons by Lordicon.com',
+          child: InkWell(
+            onTap: _openLordiconAttribution,
+            borderRadius: BorderRadius.circular(FloraRadius.sm),
+            child: SizedBox(
+              height: 48,
+              width: double.infinity,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Animated icons by Lordicon.com',
+                      style: attributionStyle,
+                    ),
+                  ),
+                  FloraIcon(
+                    FloraIcons.arrowRight,
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

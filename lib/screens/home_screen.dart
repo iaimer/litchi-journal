@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_success_snackbar.dart';
 import '../widgets/flora_skeleton.dart';
 
 import '../models/default_tag_config.dart';
@@ -657,9 +658,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (!ok) throw Exception('删除失败');
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已删除')));
+    showFloraSuccessSnackBar(context, '已删除');
     _loadDiarySilently();
   }
 
@@ -684,9 +683,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (!ok) throw Exception('更新失败');
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已更新')));
+    showFloraSuccessSnackBar(context, '已更新');
     _loadDiarySilently();
   }
 
@@ -804,9 +801,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
       setState(() => item.status = ImageUploadStatus.success);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已添加照片')));
+      showFloraSuccessSnackBar(context, '已添加照片');
       await _loadDiarySilently();
       if (mounted) setState(() => _imageUploads.remove(item));
     } catch (e) {
@@ -901,9 +896,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('今日回顾已保存')));
+      showFloraSuccessSnackBar(context, '今日回顾已保存');
       _loadDiarySilently();
     } catch (e) {
       if (!mounted) return;
@@ -985,8 +978,8 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() => _quickRecordExpanded = !_quickRecordExpanded);
             },
             child: _quickRecordExpanded
-                ? const Icon(Icons.close_rounded, size: 24)
-                : const Icon(Icons.add_rounded, size: 24),
+                ? const FloraIcon(FloraIcons.close, size: 24)
+                : const FloraIcon(FloraIcons.add, size: 24),
           ),
         ],
       ),
@@ -1106,9 +1099,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (!mounted || saved != true) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已保存')));
+    showFloraSuccessSnackBar(context, '已保存');
     _loadDiarySilently();
   }
 
@@ -1128,9 +1119,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (!mounted || saved != true) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已保存')));
+    showFloraSuccessSnackBar(context, '已保存');
     _loadDiarySilently();
   }
 
@@ -1192,8 +1181,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(
-                        Icons.chevron_right_rounded,
+                      FloraIcon(
+                        FloraIcons.chevronRight,
+                        size: 18,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ],

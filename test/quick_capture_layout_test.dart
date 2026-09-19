@@ -5,6 +5,7 @@ import 'package:litchi_journal_flutter/models/polish_result.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
+import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
 
 void main() {
   group('QuickCaptureScreen layout', () {
@@ -72,20 +73,17 @@ void main() {
       expect(tag, findsOneWidget);
       expect(toggle, findsOneWidget);
       expect(tester.getCenter(tag).dy, lessThan(tester.getCenter(toggle).dy));
-      expect(
-        find.descendant(
-          of: toggle,
-          matching: find.byIcon(Icons.expand_more_rounded),
+      final arrows = find.descendant(
+        of: toggle,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is FloraIcon &&
+              (widget.name == FloraIcons.chevronDown ||
+                  widget.name == FloraIcons.chevronUp),
         ),
-        findsOneWidget,
       );
-      expect(
-        find.descendant(
-          of: toggle,
-          matching: find.byIcon(Icons.keyboard_arrow_down),
-        ),
-        findsNothing,
-      );
+      expect(arrows, findsOneWidget);
+      expect(tester.widget<FloraIcon>(arrows).name, FloraIcons.chevronDown);
     });
 
     testWidgets('展开标签前收起正文焦点，折叠后不自动重新聚焦', (tester) async {

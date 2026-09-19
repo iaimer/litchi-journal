@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/tag_config.dart';
 import '../theme/app_theme.dart';
+import 'flora_icon.dart';
 import 'tag_color_helper.dart';
 
 double journalFabSafetyInset(BuildContext context) {
@@ -119,7 +120,7 @@ class JournalEntryActionSlot extends StatelessWidget {
         constraints: const BoxConstraints.tightFor(width: 48, height: 48),
         iconSize: 16,
         tooltip: '更多操作',
-        icon: const Icon(Icons.more_horiz_rounded, size: 18),
+        icon: const FloraIcon(FloraIcons.more, size: 18),
         onPressed: onPressed,
       ),
     );

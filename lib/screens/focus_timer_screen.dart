@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/focus_timer.dart';
 import '../services/focus_timer_controller.dart';
 import '../widgets/habit_icon.dart';
+import '../widgets/flora_icon.dart';
 
 typedef SaveFocusDuration =
     Future<bool> Function(FocusTimerSession session, int minutes);
@@ -131,10 +132,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                               : session.isRunning
                               ? widget.controller.pause
                               : widget.controller.resume,
-                          icon: Icon(
+                          icon: FloraIcon(
                             session.isRunning
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
+                                ? FloraIcons.pause
+                                : FloraIcons.play,
+                            size: 20,
                           ),
                           label: Text(session.isRunning ? '暂停' : '继续'),
                         ),
@@ -145,7 +147,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                           onPressed: widget.controller.isBusy || _saving
                               ? null
                               : () => _finish(session),
-                          icon: const Icon(Icons.check),
+                          icon: const FloraIcon(FloraIcons.check),
                           label: const Text('完成'),
                         ),
                       ),

@@ -319,7 +319,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
         IconButton(
           tooltip: '上一个${_range.label}',
           onPressed: () => _shiftPeriod(-1),
-          icon: const Icon(Icons.chevron_left_rounded),
+          icon: const FloraIcon(FloraIcons.chevronLeft),
         ),
         Expanded(
           child: Text(
@@ -331,7 +331,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
         IconButton(
           tooltip: '下一个${_range.label}',
           onPressed: canMoveForward ? () => _shiftPeriod(1) : null,
-          icon: const Icon(Icons.chevron_right_rounded),
+          icon: const FloraIcon(FloraIcons.chevronRight),
         ),
       ],
     );

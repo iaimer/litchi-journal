@@ -34,7 +34,7 @@ void _expectOutlineContrast(Color outline, Color background) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('阶段 4 Flora 图标资源', () {
+  group('阶段 4 Lucide 图标资源', () {
     const normalizedIcons = <String>[
       FloraIcons.shuffle,
       FloraIcons.close,
@@ -54,24 +54,24 @@ void main() {
     test('通用动作与习惯图标使用固定的逻辑资源映射', () {
       expect(
         FloraIcons.path(FloraIcons.shuffle),
-        'assets/svg/flora-arrows-shuffle.svg',
+        'assets/icons/lucide/shuffle.svg',
       );
-      expect(FloraIcons.path(FloraIcons.close), 'assets/svg/flora-close.svg');
+      expect(FloraIcons.path(FloraIcons.close), 'assets/icons/lucide/x.svg');
       expect(
         FloraIcons.path(FloraIcons.habitWalk),
-        'assets/svg/flora-walk.svg',
+        'assets/icons/lucide/footprints.svg',
       );
       expect(
         FloraIcons.path(FloraIcons.habitLanguage),
-        'assets/svg/flora-language.svg',
+        'assets/icons/lucide/languages.svg',
       );
       expect(
         FloraIcons.path(FloraIcons.fabWrite),
-        'assets/svg/chat-edit-svgrepo-com.svg',
+        'assets/icons/lucide/pen-line.svg',
       );
       expect(
         FloraIcons.path(FloraIcons.fabInsight),
-        'assets/svg/flora-eye.svg',
+        'assets/icons/lucide/eye.svg',
       );
     });
 
@@ -198,7 +198,7 @@ void main() {
     });
   });
 
-  testWidgets('通用条目操作槽使用 Material 图标和 48dp 热区', (tester) async {
+  testWidgets('通用条目操作槽使用 Lucide 图标和 48dp 热区', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
@@ -212,9 +212,12 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
+    final moreIcon = find.byWidgetPredicate(
+      (widget) => widget is FloraIcon && widget.name == FloraIcons.more,
+    );
+    expect(moreIcon, findsOneWidget);
     expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
-    final menuCenter = tester.getCenter(find.byIcon(Icons.more_horiz_rounded));
+    final menuCenter = tester.getCenter(moreIcon);
 
     await tester.pumpWidget(
       MaterialApp(

@@ -317,7 +317,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         resizeToAvoidBottomInset: true,
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded),
+            icon: const FloraIcon(FloraIcons.back),
             onPressed: _handleBack,
           ),
           title: Text(_isEditing ? '编辑记录' : widget.entryType.label),
@@ -512,10 +512,10 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
             const SizedBox(width: 4),
             Text(_tagPickerExpanded ? '收起标签' : '标签'),
             const SizedBox(width: 2),
-            Icon(
+            FloraIcon(
               _tagPickerExpanded
-                  ? Icons.expand_less_rounded
-                  : Icons.expand_more_rounded,
+                  ? FloraIcons.chevronUp
+                  : FloraIcons.chevronDown,
               size: 18,
             ),
           ],
@@ -549,8 +549,8 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
           height: 48,
           child: Row(
             children: [
-              Icon(
-                Icons.schedule_rounded,
+              FloraIcon(
+                FloraIcons.clock,
                 size: 20,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -563,8 +563,8 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
                   ),
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
+              FloraIcon(
+                FloraIcons.chevronRight,
                 size: 20,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

@@ -25,6 +25,7 @@ import '../widgets/entry_type.dart';
 import '../widgets/flora_empty.dart';
 import '../widgets/flora_error_state.dart';
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_success_snackbar.dart';
 import '../widgets/historical_quick_record_fab.dart';
 import '../widgets/flora_skeleton.dart';
 import 'quick_capture_screen.dart';
@@ -212,9 +213,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
       ),
     );
     if (!mounted || saved != true) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已补录')));
+    showFloraSuccessSnackBar(context, '已补录');
     await _loadDiary();
   }
 
@@ -296,9 +295,13 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
         ? '已补录 $uploadedImages 张相片'
         : '已成功 $uploadedImages 张，第 ${uploadedImages + 1} 张失败：'
               '${_uploadErrorMessage(uploadError)}';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    if (uploadError == null) {
+      showFloraSuccessSnackBar(context, message);
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   Future<void> _uploadImage(

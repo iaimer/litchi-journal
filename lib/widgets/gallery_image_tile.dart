@@ -152,10 +152,8 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                unavailable
-                    ? Icons.image_not_supported_outlined
-                    : Icons.refresh_rounded,
+              FloraIcon(
+                unavailable ? FloraIcons.imageOff : FloraIcons.refresh,
                 size: 22,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

@@ -5,6 +5,7 @@ import '../services/image_settings_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/flora_page_scaffold.dart';
 import '../widgets/flora_skeleton.dart';
+import '../widgets/flora_success_snackbar.dart';
 
 /// 图片上传设置页。
 class ImageCompressPage extends StatefulWidget {
@@ -59,9 +60,7 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
     await _repository.save(_settings.copyWith(filenamePrefix: prefix));
     if (!mounted) return;
     setState(() => _saving = false);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('图片设置已保存')));
+    showFloraSuccessSnackBar(context, '图片设置已保存');
   }
 
   Future<void> _resetDefault() async {

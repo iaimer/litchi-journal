@@ -5,6 +5,8 @@ import '../services/ai_config_repository.dart';
 import '../services/api_config.dart';
 import '../services/polisher_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/flora_icon.dart';
+import '../widgets/flora_success_snackbar.dart';
 import '../widgets/flora_page_scaffold.dart';
 import '../widgets/flora_switch.dart';
 
@@ -124,9 +126,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         ),
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('AI 配置已保存')));
+      showFloraSuccessSnackBar(context, 'AI 配置已保存');
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = '保存失败');
@@ -218,10 +218,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               decoration: InputDecoration(
                 labelText: 'API Key',
                 suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureApiKey
-                        ? Icons.visibility_rounded
-                        : Icons.visibility_off_rounded,
+                  icon: FloraIcon(
+                    _obscureApiKey ? FloraIcons.eye : FloraIcons.eyeOff,
+                    size: 20,
                   ),
                   onPressed: () =>
                       setState(() => _obscureApiKey = !_obscureApiKey),
@@ -252,7 +251,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.wifi_tethering),
+                  : const FloraIcon(FloraIcons.wifi),
               label: Text(_testing ? '测试中…' : '测试连接'),
             ),
             if (_testMessage != null)

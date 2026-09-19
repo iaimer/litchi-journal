@@ -10,6 +10,7 @@ import '../models/image_upload_item.dart';
 import '../services/api_client.dart';
 import '../theme/app_theme.dart';
 import 'image_upload_strip.dart';
+import 'flora_icon.dart';
 import 'timeline_action_sheet.dart';
 
 class ImageSectionCard extends StatelessWidget {
@@ -240,8 +241,8 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
                         width: 48,
                         height: 48,
                       ),
-                      icon: const Icon(
-                        Icons.close_rounded,
+                      icon: const FloraIcon(
+                        FloraIcons.close,
                         color: Colors.white,
                       ),
                     ),
@@ -377,7 +378,7 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
                   width: 48,
                   height: 48,
                 ),
-                icon: const Icon(Icons.more_horiz_rounded, size: 18),
+                icon: const FloraIcon(FloraIcons.more, size: 18),
               ),
             ),
           ),

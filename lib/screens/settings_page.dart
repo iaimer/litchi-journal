@@ -63,7 +63,7 @@ class SettingsPage extends StatelessWidget {
     return FloraPageScaffold(
       title: '设置',
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded),
+        icon: const FloraIcon(FloraIcons.back),
         onPressed: () => Navigator.of(context).pop(),
       ),
       body: ListView(
@@ -201,8 +201,8 @@ class SettingsPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right_rounded,
+                FloraIcon(
+                  FloraIcons.chevronRight,
                   size: 22,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

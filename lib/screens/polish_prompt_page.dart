@@ -4,6 +4,7 @@ import '../models/ai_config.dart';
 import '../services/ai_config_repository.dart';
 import '../services/polisher_service.dart';
 import '../widgets/flora_page_scaffold.dart';
+import '../widgets/flora_success_snackbar.dart';
 
 /// 润色提示词编辑页。
 class PolishPromptPage extends StatefulWidget {
@@ -64,9 +65,7 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
       );
       await repo.saveAIConfig(updated);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已保存')));
+      showFloraSuccessSnackBar(context, '已保存');
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;

@@ -172,18 +172,25 @@ Flutter 主题显式提供 `onSurfaceVariant`、`outline`、`outlineVariant`、
 
 ## Icon Language
 
-Flora 与 Material 有明确分工：日记、习惯、回顾、快速记录、设置分类、空状态和
-AI 内容标记使用 Flora 语义图标；返回、关闭、添加、删除、刷新、显隐、方向、
-展开收起、播放暂停和单选等通用操作使用 Material 圆角图标。这样品牌图标保留
-产品性格，系统动作仍符合用户熟悉的操作预期。
-
-需要统一描边的 Flora SVG 使用 `24×24` 画板、`2px` 描边、`fill="none"`、
-`stroke="currentColor"`、圆形端点和圆形转角。习惯配置中的旧逻辑名称与旧 emoji
+所有由 App 明确指定的静态界面图标统一使用官方 [Lucide](https://lucide.dev/)
+`1.47.0` SVG，并通过 `FloraIcon` / `FloraIcons` 逻辑注册表加载。产品语义图标和
+通用操作图标都来自同一套描边系统；业务代码不得直接使用 `Icons.*` 或旧 SVG 路径。
+Lucide SVG 保留官方 `24×24` 画板、`2px` 描边、`fill="none"`、
+`stroke="currentColor"`、圆形端点和圆形转角。现存习惯逻辑名及旧 emoji 配置
 继续兼容，不迁移用户数据。
 
-本轮规范化资源取自 [Tabler Icons v3.46.0](https://github.com/tabler/tabler-icons)，
-以静态 SVG 形式随项目发布，不增加运行时依赖。Tabler Icons 按 MIT License 发布，
-许可文本和来源记录见 `docs/THIRD_PARTY_NOTICES.md`。
+Lordicon 仅用于过往空状态的书本和明确成功后的 SnackBar 勾选反馈。资源从本地
+打包，动画只播放一次 `in-reveal`，不循环；系统减少动态效果时使用对应静态 SVG。
+播放器加载失败也回退到同一静态图。App 必须在关于页提供可点击的 Lordicon 署名，
+每次正式发布还需在应用商店描述中加入 `Animated icons by Lordicon.com`。
+
+关于页的图标来源署名放在全部版本更新内容之后，作为页尾辅助信息：使用 `12sp`
+及主文字色 `82%` 不透明度，不与品牌介绍和更新内容争夺层级。Lordicon 来源行保持
+至少 `48dp` 高的可点击区域，字体放大时允许自然换行。
+
+Checkbox、Switch、DatePicker 等 Flutter 原生控件内部绘制的状态符号不覆盖；启动页、
+App 桌面图标和关于页品牌图继续使用 `docs/design-reference/` 派生的荔枝品牌资源。
+Lucide、Lordicon 图标 ID、下载日期和完整许可文本见 `docs/THIRD_PARTY_NOTICES.md`。
 
 ## Typography
 
@@ -351,8 +358,9 @@ AI 内容标记使用 Flora 语义图标；返回、关闭、添加、删除、�
 
 - 颜色、间距、圆角统一使用 `lib/theme/app_theme.dart` 的 `AppColors`、`FloraSpacing`、`FloraRadius`。
 - Today Rainbow 的唯一展示层代码来源是 `lib/theme/app_theme.dart` 的 `TodayRainbow`，普通控件和快速记录标签色板不混入模块色。
-- 图标使用 `lib/widgets/flora_icon.dart`，不要回退 emoji，也不批量引入 Material Icon。
-- 空状态使用 `lib/widgets/flora_empty.dart`；启动品牌页使用 `lib/widgets/flora_splash.dart`，不引入 Lottie、Rive 或额外动画依赖。
+- 静态图标通过 `lib/widgets/flora_icon.dart` 使用 Lucide 逻辑名称；不要回退旧 SVG 或直接使用 `Icons.*`。
+- 空状态使用 `lib/widgets/flora_empty.dart`；Lordicon 动画仅通过 `lib/widgets/flora_animated_icon.dart` 播放，并尊重系统减少动态效果设置。
+- 启动品牌页使用 `lib/widgets/flora_splash.dart` 和现有品牌图，不使用 Lordicon 动效。
 
 ## 品牌资源规则
 

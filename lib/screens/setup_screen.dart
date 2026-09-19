@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_config.dart';
 import '../services/api_client.dart';
+import '../widgets/flora_icon.dart';
 
 class SetupScreen extends StatefulWidget {
   final void Function(ApiConfig config) onConfigured;
@@ -87,10 +88,9 @@ class _SetupScreenState extends State<SetupScreen> {
               decoration: InputDecoration(
                 labelText: 'Token',
                 suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureToken
-                        ? Icons.visibility_rounded
-                        : Icons.visibility_off_rounded,
+                  icon: FloraIcon(
+                    _obscureToken ? FloraIcons.eye : FloraIcons.eyeOff,
+                    size: 20,
                   ),
                   onPressed: () =>
                       setState(() => _obscureToken = !_obscureToken),

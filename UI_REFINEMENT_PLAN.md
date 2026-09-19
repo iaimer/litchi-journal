@@ -181,6 +181,8 @@
 - [x] Material 图标只承担返回、关闭、编辑、恢复、重置、删除、刷新、展开、显隐、方向和播放暂停等通用操作；日记、习惯、回顾和设置分类继续使用 Flora。
 - [x] 记录 Tabler Icons `v3.46.0` 的静态资源来源与 MIT 许可，不增加运行时依赖。
 
+以上记录属于阶段 4 的首轮收敛。2026-09-19 后续全量替换统一改用 Lucide 与 Lordicon；现行资源映射和署名规则以本文“Lucide 与 Lordicon 全量图标替换”记录及 `DESIGN.md` 为准，Tabler 仅保留为历史来源记录。
+
 ### 阶段 5：修正颜色层级与对比度
 
 - [x] 调整浅色模式主色、次级文字、错误文字和功能边界，使普通字号达到 WCAG AA。
@@ -241,6 +243,18 @@
 - `flutter test test/quick_capture_layout_test.dart`、`test/design_system_test.dart`、`test/stage7_ui_finish_test.dart`、`test/stage7_refresh_state_test.dart`、`test/open_layout_width_test.dart`、`test/widget_test.dart`、`flutter analyze` 和 `git diff --check` 均已通过。
 - `test_36` 已完成浅色、深色、1.3 倍字体和标签展开的 Debug 验收；首页、设置页、快速记录页无明显溢出或遮挡，验收数据未写入真实 Vault，模拟器设置已恢复。
 - 以最新 `main` 为基线复跑后，完整 `flutter test` 520 项通过，`flutter analyze` 无问题；`1.7.5+31` Release APK 已安装并在 `test_36` 启动。备份/WebDAV 相关页面保持撤回状态。
+
+### Lucide 与 Lordicon 全量图标替换（阶段 4 后续）
+
+**状态：代码、自动化和代表性模拟器验收完成；复审修正已通过；尚未提交、推送或发布。**
+
+- 所有 App 主动指定的静态图标统一通过 `FloraIcon` 映射到 Lucide 1.47.0；旧 SVGrepo、Tabler Flora 及旧空状态 SVG 已清理。Flutter 原生控件内部图形、荔枝品牌资源、已保存的习惯逻辑名和旧 emoji 继续保留。
+- 过往空状态书本与成功 SnackBar 勾选使用本地 Lordicon FREE 资源，只播放一次；减少动态效果和资源错误时回退配套静态 SVG。关于页署名位于全部更新内容之后，采用 `12sp`、主文字色 `82%` 不透明度，Lordicon 链接保留 `48dp` 热区。
+- `FloraIcon` 未传显式尺寸或颜色时继承最近的 `IconTheme`；显式 `size`、`color` 和原有非空 `size` getter 保持兼容。动画只在系统未启用减少动态效果时加载 JSON，并使用当前 `DefaultAssetBundle` 参与缓存键；资源加载失败回退静态 SVG，测试覆盖单次播放、卸载释放和失败回退。
+- 官方 Flutter `lordicon 1.0.3` 与项目图片依赖的 `archive` 主版本不兼容；为避免降级 `image 4.x`，使用官方 Lordicon 资源并由 `lottie 3.6.1` 直接播放。依赖取舍见 `docs/THIRD_PARTY_NOTICES.md`。
+- `flutter test`：535 项通过；`flutter analyze` 无问题；图标资源、映射、旧引用扫描、动画播放、减少动态效果回退与署名链接均有自动化覆盖。
+- `test_36` 对首页、过往、快速记录、设置和关于页完成代表性检查；本轮复审再次截图确认首页/设置的图标继承主题色、署名位于关于页末尾。页尾署名在浅色、深色、约 320dp 窄屏和 1.3 倍字体下均无溢出。当前模拟器首页 API 加载失败，因此没有把它当作有日记内容或空画廊的人工验收；空态动画由 Widget 测试覆盖。快速记录成功流程使用本地内存 mock 服务，未改写真实 Vault；临时 `.preview` 包、HTTP 调试开关、端口转发和模拟器分辨率/字体覆盖均已清理。
+- 正式发布说明必须包含 `Animated icons by Lordicon.com`；本轮未递增版本号、未更新 `CHANGELOG.md`、未构建 Release。
 
 ## 5. 执行与验收流程
 

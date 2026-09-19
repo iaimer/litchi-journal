@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/image_upload_item.dart';
 import '../theme/app_theme.dart';
+import 'flora_icon.dart';
 
 class ImageUploadStrip extends StatelessWidget {
   final List<ImageUploadItem> items;
@@ -131,7 +132,7 @@ class _ImageUploadTileState extends State<_ImageUploadTile> {
                       minimumSize: const Size(48, 48),
                       padding: EdgeInsets.zero,
                     ),
-                    icon: const Icon(Icons.close_rounded, size: 18),
+                    icon: const FloraIcon(FloraIcons.close, size: 18),
                   ),
                 ),
             ],

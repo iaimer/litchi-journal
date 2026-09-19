@@ -116,6 +116,10 @@ Flutter 端已建立的领域组件：
 
 ## Flora 图标规则
 
+- 所有由 App 明确指定的静态界面图标统一从官方 Lucide SVG 资源映射，并通过 `FloraIcon` / `FloraIcons` 调用；不要在业务代码直接使用 `Icons.*`、旧 SVGrepo 或 Tabler Flora 资源。
+- Lordicon 仅用于过往空状态书本和正向 SnackBar 勾选反馈；必须从本地资源播放单次 `in-reveal`，系统减少动态效果或资源加载失败时使用对应静态 SVG。不得循环播放。
+- 免费 Lordicon 的 About 链接署名必须保留；正式发布时应用商店描述必须包含 `Animated icons by Lordicon.com`。
+- Checkbox、Switch、DatePicker 等 Flutter 原生控件内部绘制的状态图形不覆盖；App 桌面图标、启动页和关于页品牌图继续使用既有荔枝品牌资源。
 - 习惯默认图标和习惯候选图标使用 `FloraIcon` 逻辑名称，而不是直接保存新的 emoji。
 - 习惯展示统一经过 `HabitIcon`：新配置渲染 SVG，旧用户配置中保存过的 emoji 继续兼容显示。
 - 不要在习惯卡、习惯设置页或习惯统计页直接 `Text(icon)`，否则会把 `habit-water` 等逻辑名称显示成文本。
@@ -235,7 +239,7 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前状态：`1.7.5+31` 已完成阶段 1-7 UI 改造与复审修正；Flutter 完整回归（520 项）、analyze、模拟器验收和 Release 模式 APK 构建已通过。服务端代码、API、Markdown、Parser、领域模型与真实 Vault 未改动。Android Release 目前仍使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店的正式签名包。
+当前发布版本仍是 `1.7.5+31`。`feat/icons-lucide-lordicon-20260919` 开发分支完成静态 Lucide 与本地 Lordicon 图标迁移，完整 Flutter 测试 531 项通过，`flutter analyze` 无问题；`test_36` 已完成代表页面及关于页浅色/深色、320dp 与 1.3 倍字体验收。临时 `.preview` 包、mock 服务和模拟器覆盖设置均已清理，未修改真实 Vault；该分支尚未提交、推送或发布。Android Release 目前仍使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店的正式签名包。
 
 ## 数据完整性规则
 

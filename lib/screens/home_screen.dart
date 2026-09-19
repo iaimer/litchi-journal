@@ -223,6 +223,9 @@ class _HomeScreenState extends State<HomeScreen> {
           .timeout(_diaryLoadTimeout);
 
       if (diary == null) {
+        if (hasVisibleContent) {
+          throw StateError('diary refresh failed');
+        }
         await widget.apiClient.ensureDiary(date).timeout(_diaryLoadTimeout);
         diary = await widget.apiClient
             .getDiary(date)
@@ -1205,41 +1208,43 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHomeLoading() {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-      children: [
-        const FloraSkeletonBox(width: 180, height: 16),
-        const SizedBox(height: 24),
-        FloraSkeletonBox(
-          width: double.infinity,
-          height: 18,
-          radius: FloraRadius.md,
-        ),
-        const SizedBox(height: 12),
-        FloraSkeletonBox(
-          width: double.infinity,
-          height: 18,
-          radius: FloraRadius.md,
-        ),
-        const SizedBox(height: 12),
-        FloraSkeletonBox(
-          width: MediaQuery.sizeOf(context).width * 0.68,
-          height: 18,
-          radius: FloraRadius.md,
-        ),
-        const SizedBox(height: 28),
-        FloraSkeletonBox(
-          width: double.infinity,
-          height: 64,
-          radius: FloraRadius.md,
-        ),
-        const SizedBox(height: 12),
-        FloraSkeletonBox(
-          width: double.infinity,
-          height: 64,
-          radius: FloraRadius.md,
-        ),
-      ],
+    return FloraSkeletonRegion(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        children: [
+          const FloraSkeletonBox(width: 180, height: 16),
+          const SizedBox(height: 24),
+          FloraSkeletonBox(
+            width: double.infinity,
+            height: 18,
+            radius: FloraRadius.md,
+          ),
+          const SizedBox(height: 12),
+          FloraSkeletonBox(
+            width: double.infinity,
+            height: 18,
+            radius: FloraRadius.md,
+          ),
+          const SizedBox(height: 12),
+          FloraSkeletonBox(
+            width: MediaQuery.sizeOf(context).width * 0.68,
+            height: 18,
+            radius: FloraRadius.md,
+          ),
+          const SizedBox(height: 28),
+          FloraSkeletonBox(
+            width: double.infinity,
+            height: 64,
+            radius: FloraRadius.md,
+          ),
+          const SizedBox(height: 12),
+          FloraSkeletonBox(
+            width: double.infinity,
+            height: 64,
+            radius: FloraRadius.md,
+          ),
+        ],
+      ),
     );
   }
 

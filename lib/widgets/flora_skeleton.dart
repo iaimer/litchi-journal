@@ -18,18 +18,37 @@ class FloraSkeletonBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.surfaceContainerHighest;
-    return Semantics(
-      label: '正在加载',
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: color.withAlpha(150),
-            borderRadius: BorderRadius.circular(radius),
-          ),
+    return SizedBox(
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color.withAlpha(150),
+          borderRadius: BorderRadius.circular(radius),
         ),
       ),
+    );
+  }
+}
+
+/// 一组静态占位共用一个加载语义，避免读屏重复播报。
+class FloraSkeletonRegion extends StatelessWidget {
+  const FloraSkeletonRegion({
+    super.key,
+    required this.child,
+    this.label = '正在加载',
+  });
+
+  final Widget child;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: label,
+      child: ExcludeSemantics(child: child),
     );
   }
 }

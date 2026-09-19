@@ -41,6 +41,50 @@ class AppColors {
   static const darkTagAmber = Color(0xFFD4B57A);
 }
 
+/// Today 页面七个日记模块的固定语义色。
+///
+/// 快速记录页的标签色板是另一套规则，不在这里复用。
+class TodayRainbow {
+  static const quickNote = Color(0xFFFF6B6B);
+  static const happiness = Color(0xFFFF9F43);
+  static const anxiety = Color(0xFFFFD43B);
+  static const review = Color(0xFF51CF66);
+  static const coach = Color(0xFF12B5CB);
+  static const tomorrow = Color(0xFF4DABF7);
+  static const media = Color(0xFF9775FA);
+
+  static const values = <Color>[
+    quickNote,
+    happiness,
+    anxiety,
+    review,
+    coach,
+    tomorrow,
+    media,
+  ];
+
+  static Color? forSectionType(String sectionType) {
+    switch (sectionType) {
+      case 'quickNote':
+        return quickNote;
+      case 'happiness':
+        return happiness;
+      case 'anxiety':
+        return anxiety;
+      case 'review':
+        return review;
+      case 'coach':
+        return coach;
+      case 'tomorrow':
+        return tomorrow;
+      case 'media':
+        return media;
+      default:
+        return null;
+    }
+  }
+}
+
 @immutable
 class AppCalloutColors extends ThemeExtension<AppCalloutColors> {
   final Color info;
@@ -230,6 +274,7 @@ class AppTheme {
       headlineLarge: TextStyle(
         fontSize: 24,
         fontWeight: FontWeight.bold,
+        height: 1.25,
         color: AppColors.textPrimary,
       ),
       titleLarge: TextStyle(
@@ -354,6 +399,7 @@ class AppTheme {
       headlineLarge: TextStyle(
         fontSize: 24,
         fontWeight: FontWeight.bold,
+        height: 1.25,
         color: AppColors.darkTextPrimary,
       ),
       titleLarge: TextStyle(

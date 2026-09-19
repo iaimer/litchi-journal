@@ -713,26 +713,28 @@ class _GalleryLoadingPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final availableWidth = MediaQuery.sizeOf(context).width - 32;
     final cell = (availableWidth - 12) / 3;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const FloraSkeletonBox(width: 150, height: 20),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (var index = 0; index < 6; index++)
-                FloraSkeletonBox(
-                  width: cell,
-                  height: cell,
-                  radius: FloraRadius.sm,
-                ),
-            ],
-          ),
-        ],
+    return FloraSkeletonRegion(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const FloraSkeletonBox(width: 150, height: 20),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (var index = 0; index < 6; index++)
+                  FloraSkeletonBox(
+                    width: cell,
+                    height: cell,
+                    radius: FloraRadius.sm,
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

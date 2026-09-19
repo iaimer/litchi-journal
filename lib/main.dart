@@ -131,7 +131,9 @@ class _AppEntryState extends State<AppEntry> {
     if (_loading) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: const Center(child: FloraSkeletonBox(width: 180, height: 16)),
+        body: const FloraSkeletonRegion(
+          child: Center(child: FloraSkeletonBox(width: 180, height: 16)),
+        ),
       );
     }
     if (_config == null) {

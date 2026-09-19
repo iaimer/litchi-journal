@@ -3172,6 +3172,12 @@ tags:
 
       expect(find.byType(ChoiceChip), findsWidgets);
       expect(find.text('工作'), findsWidgets);
+      for (final chip in find.byType(ChoiceChip).evaluate()) {
+        expect(
+          tester.getSize(find.byWidget(chip.widget)).height,
+          greaterThanOrEqualTo(48),
+        );
+      }
     });
 
     testWidgets('shows topics after expanding and tapping domain', (
@@ -3302,6 +3308,177 @@ tags:
       // Should be collapsed again
       expect(find.byType(ChoiceChip), findsNothing);
       expect(find.text('标签'), findsOneWidget);
+    });
+
+    testWidgets('clears stale topic and method when external tags shrink', (
+      WidgetTester tester,
+    ) async {
+      var tags = ['生活', '健康管理', '回忆'];
+      late void Function(VoidCallback) update;
+      List<String>? output;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return TagPicker(
+                  tagConfig: testConfig,
+                  initialTags: tags,
+                  onChanged: (value) => output = value,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('标签'));
+      await tester.pump();
+      update(() => tags = ['生活']);
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '健康管理'))
+            .selected,
+        isFalse,
+      );
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '回忆'))
+            .selected,
+        isFalse,
+      );
+
+      final recalledChip = find.widgetWithText(ChoiceChip, '回忆');
+      await tester.ensureVisible(recalledChip);
+      await tester.tap(recalledChip);
+      await tester.pump();
+      expect(output, ['生活', '回忆']);
+    });
+
+    testWidgets('clears stale method when external tags lose method', (
+      WidgetTester tester,
+    ) async {
+      var tags = ['生活', '健康管理', '回忆'];
+      late void Function(VoidCallback) update;
+      List<String>? output;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return TagPicker(
+                  tagConfig: testConfig,
+                  initialTags: tags,
+                  onChanged: (value) => output = value,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('标签'));
+      await tester.pump();
+      update(() => tags = ['生活', '健康管理']);
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '回忆'))
+            .selected,
+        isFalse,
+      );
+      final reflectionChip = find.widgetWithText(ChoiceChip, '反思');
+      await tester.ensureVisible(reflectionChip);
+      await tester.tap(reflectionChip);
+      await tester.pump();
+      expect(output, ['生活', '健康管理', '反思']);
+    });
+
+    testWidgets('unknown external domain clears all previous selections', (
+      WidgetTester tester,
+    ) async {
+      var tags = ['生活', '健康管理', '回忆'];
+      late void Function(VoidCallback) update;
+      List<String>? output;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return TagPicker(
+                  tagConfig: testConfig,
+                  initialTags: tags,
+                  onChanged: (value) => output = value,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('标签'));
+      await tester.pump();
+      update(() => tags = ['不存在的领域', '健康管理', '回忆']);
+      await tester.pump();
+
+      await tester.tap(find.text('反思').last);
+      await tester.pump();
+      expect(output, ['反思']);
+    });
+
+    testWidgets('tag config changes clear removed selections', (
+      WidgetTester tester,
+    ) async {
+      var config = testConfig;
+      late void Function(VoidCallback) update;
+
+      final renamedConfig = TagConfig(
+        domains: [
+          TagDomain(
+            id: 'life',
+            name: '生活',
+            order: 1,
+            topics: const [TagTopic(id: 'new-topic', name: '新的主题', order: 1)],
+          ),
+        ],
+        methods: const [],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return TagPicker(
+                  tagConfig: config,
+                  initialTags: const ['生活', '健康管理', '回忆'],
+                  onChanged: (_) {},
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('健康管理'), findsAtLeastNWidgets(1));
+      expect(find.text('回忆'), findsAtLeastNWidgets(1));
+
+      update(() => config = renamedConfig);
+      await tester.pump();
+
+      expect(find.text('健康管理'), findsNothing);
+      expect(find.text('回忆'), findsNothing);
+      expect(find.text('新的主题'), findsNothing);
     });
 
     test('uses distinct domain colors and unified topic/method colors', () {
@@ -7356,6 +7533,12 @@ tags:
       expect(find.text('今日回顾'), findsOneWidget);
       expect(find.text('生成回顾'), findsOneWidget);
 
+      final generateButton = find.ancestor(
+        of: find.text('生成回顾'),
+        matching: find.byType(TextButton),
+      );
+      expect(tester.getSize(generateButton).height, greaterThanOrEqualTo(48));
+
       await tester.tap(find.text('生成回顾'));
       await tester.pump();
 
@@ -9618,11 +9801,12 @@ tags:
     testWidgets('tap thumbnail opens preview with close gesture', (
       tester,
     ) async {
+      final semanticsHandle = tester.ensureSemantics();
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: ImageSectionCard(
-              section: imageSection(['img-001.jpg']),
+              section: imageSection(['img-001.jpg', 'img-002.jpg']),
               apiClient: imageTestApiClient(),
               date: DateTime(2026, 6, 8),
             ),
@@ -9631,18 +9815,45 @@ tags:
       );
       await tester.pumpAndSettle();
 
+      final thumbnail = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics && widget.properties.label == '预览第 1 张图片',
+      );
+      final secondThumbnail = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics && widget.properties.label == '预览第 2 张图片',
+      );
+      expect(thumbnail, findsOneWidget);
+      expect(secondThumbnail, findsOneWidget);
+      expect(tester.getSemantics(thumbnail).flagsCollection.isButton, isTrue);
+      expect(
+        tester.getSemantics(secondThumbnail).flagsCollection.isButton,
+        isTrue,
+      );
+
       // Tap the thumbnail image
-      await tester.tap(find.byType(Image));
+      await tester.tap(thumbnail);
       await tester.pumpAndSettle();
 
       // Should show the full-screen preview image
       expect(find.byType(InteractiveViewer), findsOneWidget);
+      final closeButton = find.byTooltip('关闭预览');
+      expect(closeButton, findsOneWidget);
+      expect(tester.getSize(closeButton), const Size(48, 48));
 
       // Tap to close
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(closeButton);
       await tester.pumpAndSettle();
 
       expect(find.byType(InteractiveViewer), findsNothing);
+
+      // Tapping the dimmed background remains a second, discoverable close path.
+      await tester.tap(thumbnail);
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(200, 300));
+      await tester.pumpAndSettle();
+      expect(find.byType(InteractiveViewer), findsNothing);
+      semanticsHandle.dispose();
     });
   });
 

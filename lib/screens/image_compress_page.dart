@@ -81,18 +81,20 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
     return FloraPageScaffold(
       title: '图片设置',
       body: _loading
-          ? const Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  FloraSkeletonBox(width: 120, height: 16),
-                  SizedBox(height: 12),
-                  FloraSkeletonBox(
-                    width: double.infinity,
-                    height: 280,
-                    radius: FloraRadius.md,
-                  ),
-                ],
+          ? const FloraSkeletonRegion(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    FloraSkeletonBox(width: 120, height: 16),
+                    SizedBox(height: 12),
+                    FloraSkeletonBox(
+                      width: double.infinity,
+                      height: 280,
+                      radius: FloraRadius.md,
+                    ),
+                  ],
+                ),
               ),
             )
           : ListView(

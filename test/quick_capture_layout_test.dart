@@ -202,6 +202,46 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('润色缩减标签后再次选择不会带回旧标签', (tester) async {
+      List<String>? savedTags;
+
+      await tester.pumpWidget(
+        _buildCapture(
+          tagConfig: _tagConfig(),
+          initialContent: '原始内容',
+          initialTags: const ['工作', '复盘', '记录'],
+          onPolish: (_, _) async =>
+              const PolishResult(content: '润色内容', tags: ['工作']),
+          onSave: (_, tags, _) async => savedTags = tags,
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('quick_capture_polish')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_capture_tag_toggle')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '复盘'))
+            .selected,
+        isFalse,
+      );
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '记录'))
+            .selected,
+        isFalse,
+      );
+
+      await tester.tap(find.text('行动').last);
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(savedTags, ['工作', '行动']);
+    });
   });
 }
 
@@ -210,6 +250,7 @@ Widget _buildCapture({
   List<String> initialTags = const [],
   DateTime? recordDate,
   String? initialContent,
+  Future<PolishResult> Function(String content, EntryType entryType)? onPolish,
   Future<void> Function(String content, List<String> tags, String time)? onSave,
 }) {
   return MaterialApp(
@@ -220,8 +261,9 @@ Widget _buildCapture({
       initialContent: initialContent,
       initialTags: initialTags,
       tagConfig: tagConfig,
-      onPolish: (_, _) async =>
-          const PolishResult(content: '润色后的内容', tags: ['工作']),
+      onPolish:
+          onPolish ??
+          ((_, _) async => const PolishResult(content: '润色后的内容', tags: ['工作'])),
       onSave: onSave ?? (_, _, _) async {},
     ),
   );

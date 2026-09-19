@@ -214,6 +214,8 @@ AI 内容标记使用 Flora 语义图标；返回、关闭、添加、删除、�
 - 首次加载使用接近真实内容的静态形状占位，不使用整页通用转圈；已有内容刷新时保留旧内容，只显示顶部轻量进度或局部状态。无数据错误使用图标、简短说明和“重试”。
 - 自定义动效统一使用 `FloraMotion` 的 `160ms / 220ms / 320ms` 档位；系统开启减少动态效果时直接到达目标状态。
 - 启动页的浅色与深色背景分别匹配页面纸色。品牌过渡与配置加载并行，普通模式只保留约 `400ms` 的最短展示时间，减少动态效果时取消淡入和等待。
+- 首次加载的骨架占位由 `FloraSkeletonRegion` 统一播报一次“正在加载”，内部形状不重复声明语义；已有内容刷新不得清空旧内容。
+- 常规交互热区不小于 `48dp`；紧凑标签和视觉元素可以保持小尺寸，但点击区域必须独立保留。
 
 ## Elevation
 
@@ -342,12 +344,13 @@ AI 内容标记使用 Flora 语义图标；返回、关闭、添加、删除、�
 
 ### 空状态系统
 
-- 渲染尺寸 80×80 dp；布局：图标居中，下方 24dp → 主文案（16px / w600 / textPrimary），下方 8dp → 副文案（13px / w400 / textSecondary）；容器上下各留 64dp、左右 32dp。
+- 渲染尺寸 80×80 dp；布局：图标居中，下方 20dp → 主文案（16px / w600 / textPrimary），下方 8dp → 副文案（13px / w400 / textSecondary）；容器上下各留 32dp、左右 24dp。
 - 文案保持温柔提示，不使用「暂无数据」式冷硬措辞。
 
 ### 组件约束（长期有效）
 
 - 颜色、间距、圆角统一使用 `lib/theme/app_theme.dart` 的 `AppColors`、`FloraSpacing`、`FloraRadius`。
+- Today Rainbow 的唯一展示层代码来源是 `lib/theme/app_theme.dart` 的 `TodayRainbow`，普通控件和快速记录标签色板不混入模块色。
 - 图标使用 `lib/widgets/flora_icon.dart`，不要回退 emoji，也不批量引入 Material Icon。
 - 空状态使用 `lib/widgets/flora_empty.dart`；启动品牌页使用 `lib/widgets/flora_splash.dart`，不引入 Lottie、Rive 或额外动画依赖。
 

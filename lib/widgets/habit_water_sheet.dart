@@ -182,7 +182,7 @@ class _HabitWaterSheetState extends State<_HabitWaterSheet> {
     return SafeArea(
       top: false,
       child: AnimatedPadding(
-        duration: const Duration(milliseconds: 180),
+        duration: FloraMotion.fastFor(MediaQuery.of(context)),
         padding: EdgeInsets.fromLTRB(
           FloraSpacing.lg,
           FloraSpacing.xs,
@@ -190,9 +190,7 @@ class _HabitWaterSheetState extends State<_HabitWaterSheet> {
           FloraSpacing.lg + bottomInset,
         ),
         child: AnimatedSwitcher(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+          duration: FloraMotion.fastFor(MediaQuery.of(context)),
           child: switch (_mode) {
             _SheetMode.actions => _buildActions(),
             _SheetMode.custom => _buildCustom(),

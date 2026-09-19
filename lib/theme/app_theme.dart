@@ -112,6 +112,25 @@ class FloraRadius {
   static const pill = 9999.0;
 }
 
+/// 应用内自定义动效的统一时长。
+///
+/// 统一时长让页面状态变化保持在用户注意力可以跟上的范围内；
+/// 系统开启减少动态效果时，组件直接落到目标状态。
+class FloraMotion {
+  static const fast = Duration(milliseconds: 160);
+  static const standard = Duration(milliseconds: 220);
+  static const slow = Duration(milliseconds: 320);
+
+  static Duration fastFor(MediaQueryData mediaQuery) =>
+      mediaQuery.disableAnimations ? Duration.zero : fast;
+
+  static Duration standardFor(MediaQueryData mediaQuery) =>
+      mediaQuery.disableAnimations ? Duration.zero : standard;
+
+  static Duration slowFor(MediaQueryData mediaQuery) =>
+      mediaQuery.disableAnimations ? Duration.zero : slow;
+}
+
 class AppTheme {
   static ThemeData get light => ThemeData(
     brightness: Brightness.light,
@@ -151,15 +170,15 @@ class AppTheme {
       fillColor: AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.outline),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.outline),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.primary),
       ),
     ),
@@ -169,7 +188,9 @@ class AppTheme {
         foregroundColor: AppColors.surface,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FloraRadius.md),
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -182,7 +203,7 @@ class AppTheme {
       color: AppColors.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         side: const BorderSide(color: AppColors.outlineVariant, width: 0.5),
       ),
     ),
@@ -269,15 +290,15 @@ class AppTheme {
       fillColor: AppColors.darkSurface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.darkOutline),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.darkOutline),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         borderSide: const BorderSide(color: AppColors.darkPrimary),
       ),
     ),
@@ -287,7 +308,9 @@ class AppTheme {
         foregroundColor: AppColors.darkBackground,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FloraRadius.md),
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -300,7 +323,7 @@ class AppTheme {
       color: AppColors.darkSurface,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         side: const BorderSide(color: AppColors.darkOutlineVariant, width: 0.5),
       ),
     ),

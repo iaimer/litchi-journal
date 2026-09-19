@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/backup_settings.dart';
 import '../services/api_client.dart';
 import '../services/safe_error_message.dart';
+import '../theme/app_theme.dart';
 import '../widgets/flora_page_scaffold.dart';
 
 /// WebDAV 独立全屏配置页。
@@ -361,7 +362,7 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
       ),
       child: Text(
         message,

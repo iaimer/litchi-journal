@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
 import '../models/habit_trend.dart';
+import '../theme/app_theme.dart';
 
 /// 习惯趋势页顶部的极简指标条。
 class HabitTrendDashboard extends StatelessWidget {
@@ -76,7 +77,7 @@ class _HabitTrendMetricCard extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: item.color.withAlpha(backgroundAlpha),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(FloraRadius.md),
           border: Border.all(
             color: item.color.withAlpha(borderAlpha),
             width: 0.7,

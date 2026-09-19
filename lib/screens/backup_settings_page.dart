@@ -6,6 +6,7 @@ import '../models/backup_settings.dart';
 import '../services/api_client.dart';
 import '../services/backup_download_service.dart';
 import '../services/safe_error_message.dart';
+import '../theme/app_theme.dart';
 import '../widgets/flora_page_scaffold.dart';
 import 'webdav_settings_page.dart';
 
@@ -427,7 +428,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
       ),
       child: Text(
         message,
@@ -444,7 +445,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: theme.colorScheme.tertiaryContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
       ),
       child: Row(
         children: [
@@ -476,7 +477,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withAlpha(24),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(FloraRadius.pill),
       ),
       child: Text(
         _statusLabel(status),

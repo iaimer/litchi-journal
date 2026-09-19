@@ -73,6 +73,7 @@ import 'package:litchi_journal_flutter/widgets/section_card.dart';
 import 'package:litchi_journal_flutter/widgets/tag_color_helper.dart';
 import 'package:litchi_journal_flutter/widgets/tag_picker.dart';
 import 'package:litchi_journal_flutter/widgets/flora_switch.dart';
+import 'package:litchi_journal_flutter/widgets/flora_skeleton.dart';
 
 import 'package:litchi_journal_flutter/models/tag_settings.dart';
 import 'package:litchi_journal_flutter/services/tag_settings_helper.dart';
@@ -1075,19 +1076,12 @@ void main() {
 
       expect(find.byType(SafeArea), findsOneWidget);
       expect(find.text('过往'), findsOneWidget);
-      expect(find.text('把值得记住的日子，慢慢翻出来'), findsOneWidget);
+      expect(find.text('把值得记住的日子，慢慢翻出来'), findsNothing);
       expect(find.byKey(const Key('gallery_month_picker')), findsOneWidget);
       expect(find.text('今天曾经发生过'), findsNothing);
       expect(find.text('随便走走'), findsNothing);
       expect(
         find.ancestor(of: find.text('过往'), matching: find.byType(ListView)),
-        findsNothing,
-      );
-      expect(
-        find.ancestor(
-          of: find.text('把值得记住的日子，慢慢翻出来'),
-          matching: find.byType(ListView),
-        ),
         findsNothing,
       );
       expect(
@@ -2007,7 +2001,8 @@ void main() {
       await tester.pumpWidget(buildHome(httpClient: _HangingHttpClient()));
       await tester.pump();
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(FloraSkeletonBox), findsWidgets);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
 
       await tester.pump(const Duration(seconds: 13));
       await tester.pump();
@@ -10517,7 +10512,8 @@ tags:
       );
 
       // 还没 settle，应显示 loading
-      expect(find.text('加载习惯趋势'), findsOneWidget);
+      expect(find.byType(FloraSkeletonBox), findsWidgets);
+      expect(find.text('加载习惯趋势'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
@@ -11200,7 +11196,7 @@ tags:
       await tester.tap(find.text('外观'));
       await tester.pumpAndSettle();
 
-      expect(find.text('选择你喜欢的显示方式'), findsOneWidget);
+      expect(find.text('选择你喜欢的显示方式'), findsNothing);
     });
 
     testWidgets('tapping AI config navigates to AI settings', (tester) async {
@@ -11599,7 +11595,7 @@ tags:
         MaterialApp(home: const AppearanceSettingsPage()),
       );
 
-      expect(find.text('选择你喜欢的显示方式'), findsOneWidget);
+      expect(find.text('选择你喜欢的显示方式'), findsNothing);
       expect(find.text('跟随系统'), findsOneWidget);
       expect(find.text('浅色模式'), findsOneWidget);
       expect(find.text('深色模式'), findsOneWidget);

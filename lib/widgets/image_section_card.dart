@@ -286,7 +286,7 @@ class _ImageThumbnailState extends State<_ImageThumbnail> {
         GestureDetector(
           onTap: _openPreview,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(FloraRadius.sm),
             child: Image.memory(
               _bytes!,
               width: widget.size,

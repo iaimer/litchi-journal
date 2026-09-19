@@ -161,7 +161,7 @@ class FloraIcons {
   static const Map<String, String> _pngFiles = {
     brandIcon: 'app-icon.png',
     brandSplash: 'brand-splash-reference.png',
-    brandSplashDark: 'brand-splash-reference.png',
+    brandSplashDark: 'brand-splash-dark.png',
   };
 
   static const String _svgPrefix = 'assets/svg/';
@@ -243,6 +243,7 @@ class FloraIcons {
     target,
     brandIcon,
     brandSplash,
+    brandSplashDark,
     emptyPast,
     emptyTags,
     emptyHabits,

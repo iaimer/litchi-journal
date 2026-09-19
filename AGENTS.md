@@ -235,7 +235,7 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前状态：`1.7.4+30` 已完成阶段 7 的 Flutter 定向测试、完整回归、analyze 和 Debug 构建；服务端代码和接口未改动，Release 发布仍按单独版本流程执行。
+当前状态：`1.7.5+31` 已完成阶段 1-7 UI 改造与复审修正；Flutter 完整回归（520 项）、analyze、模拟器验收和 Release 模式 APK 构建已通过。服务端代码、API、Markdown、Parser、领域模型与真实 Vault 未改动。Android Release 目前仍使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店的正式签名包。
 
 ## 数据完整性规则
 

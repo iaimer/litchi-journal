@@ -226,7 +226,7 @@
 
 - 新增 `test/stage7_ui_finish_test.dart`，覆盖标题层级、四档圆角、内容占位、空状态合并、减少动态效果和浅深色启动资源；更新核心 Widget 测试以断言新占位和新文案。
 - `flutter test test/stage7_ui_finish_test.dart`、`test/design_system_test.dart`、`test/quick_capture_layout_test.dart`、`test/open_layout_width_test.dart` 和 `test/widget_test.dart` 均通过；`flutter analyze` 与 `git diff --check` 通过。
-- 第一批页面已接入首页、过往、习惯趋势、历史详情、快速记录、焦虑和启动流程；第二批设置、外观、习惯/标签编辑、API/AI、备份、WebDAV、图片设置、关于、初始设置和专注计时完成圆角、占位与动效令牌清理。
+- 第一批页面已接入首页、过往、习惯趋势、历史详情、快速记录、焦虑和启动流程；第二批当前保留的设置、外观、习惯/标签编辑、API/AI、图片设置、关于、初始设置和专注计时页面完成圆角、占位与动效令牌清理。备份与 WebDAV 页面已按后续产品决定撤回，不属于当前应用范围。
 - `test_36` 已完成浅色、深色、1.3 倍字体、约 320dp 窄屏和关闭系统动画检查；冷启动背景与页面背景一致，未修改真实 Vault。
 
 ### 全阶段复审修正
@@ -240,6 +240,7 @@
 - 首页、过往画廊和历史详情刷新失败时保留已有内容；新增 `test/stage7_refresh_state_test.dart` 覆盖 pending、成功替换和失败保留。
 - `flutter test test/quick_capture_layout_test.dart`、`test/design_system_test.dart`、`test/stage7_ui_finish_test.dart`、`test/stage7_refresh_state_test.dart`、`test/open_layout_width_test.dart`、`test/widget_test.dart`、`flutter analyze` 和 `git diff --check` 均已通过。
 - `test_36` 已完成浅色、深色、1.3 倍字体和标签展开的 Debug 验收；首页、设置页、快速记录页无明显溢出或遮挡，验收数据未写入真实 Vault，模拟器设置已恢复。
+- 以最新 `main` 为基线复跑后，完整 `flutter test` 520 项通过，`flutter analyze` 无问题；`1.7.5+31` Release APK 已安装并在 `test_36` 启动。备份/WebDAV 相关页面保持撤回状态。
 
 ## 5. 执行与验收流程
 

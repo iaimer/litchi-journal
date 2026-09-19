@@ -4,6 +4,7 @@ import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 
 import '../services/habit_settings_repository.dart';
+import '../theme/app_theme.dart';
 import '../widgets/flora_page_scaffold.dart';
 
 import '../widgets/flora_empty.dart';
@@ -141,7 +142,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(FloraRadius.sm),
         border: Border.all(color: theme.dividerColor),
       ),
       child: Row(
@@ -177,7 +178,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
       margin: const EdgeInsets.only(bottom: 4),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(FloraRadius.md),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(

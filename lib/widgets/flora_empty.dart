@@ -15,6 +15,9 @@ class FloraEmpty extends StatelessWidget {
     super.key,
     required this.name,
     this.size = 80,
+    this.title,
+    this.message,
+    this.action,
   });
 
   /// 空状态 SVG 名称（FloraIcons.emptyPast / emptyTags / emptyHabits / emptySearch）。
@@ -22,6 +25,15 @@ class FloraEmpty extends StatelessWidget {
 
   /// SVG 插画尺寸。默认 80dp。
   final double size;
+
+  /// 覆盖场景默认主文案。
+  final String? title;
+
+  /// 覆盖场景默认辅助文案。
+  final String? message;
+
+  /// 可选的后续操作，例如重试或打开日历。
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +57,7 @@ class FloraEmpty extends StatelessWidget {
             ),
           const SizedBox(height: 20),
           Text(
-            _headline(name),
+            title ?? _headline(name),
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurface,
               height: 1.4,
@@ -53,14 +65,16 @@ class FloraEmpty extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          Text(
-            _subtext(name),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.5,
+          if ((message ?? _subtext(name)).isNotEmpty)
+            Text(
+              message ?? _subtext(name),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
+          if (action != null) ...[const SizedBox(height: 12), action!],
         ],
       ),
     );

@@ -193,7 +193,7 @@ class GenericSectionCard extends StatelessWidget {
       ),
       blockquoteDecoration: BoxDecoration(
         color: quoteBackground,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(FloraRadius.sm),
         border: Border(left: BorderSide(color: quoteBorderColor, width: 1)),
       ),
       horizontalRuleDecoration: BoxDecoration(
@@ -244,7 +244,7 @@ class GenericSectionCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(FloraRadius.sm),
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
       child: Column(
@@ -327,7 +327,7 @@ class GenericSectionCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(FloraRadius.sm),
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
       child: Row(

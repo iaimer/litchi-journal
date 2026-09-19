@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/tag_config.dart';
+import '../theme/app_theme.dart';
 
 class TagChipColors {
   final Color backgroundColor;
@@ -46,7 +47,7 @@ class TagChipList extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: colors.backgroundColor,
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(FloraRadius.pill),
                 border: Border.all(color: colors.borderColor, width: 0.6),
               ),
               child: Text(

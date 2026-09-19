@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/gallery_result.dart';
 import '../services/api_client.dart';
 import '../services/gallery_service.dart';
+import '../theme/app_theme.dart';
 import 'flora_icon.dart';
 
 class GalleryImageTile extends StatefulWidget {
@@ -65,7 +66,7 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
     return GestureDetector(
       onTap: widget.onTap,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(FloraRadius.sm),
         child: AspectRatio(
           aspectRatio: 1,
           child: FutureBuilder<Uint8List>(
@@ -94,7 +95,7 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
                       key: ValueKey('gallery_day_badge_${widget.day.date}'),
                       decoration: BoxDecoration(
                         color: Colors.black54,
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(FloraRadius.pill),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(

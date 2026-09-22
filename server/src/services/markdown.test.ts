@@ -98,6 +98,29 @@ describe('appendToSection', () => {
         .split('## ✨ 每日小确幸')[0];
     expect(quickNotes).toContain('- **10:00** 上午记录\n- **18:00** 晚间记录');
   });
+
+  it('appends multiline content without detaching its continuation', () => {
+    const first = appendToSection(
+      template,
+      'quick_notes',
+      '- **18:00** 晚间第一段。\n  晚间第二段。 #晚间',
+    );
+    const result = appendToSection(
+      first,
+      'quick_notes',
+      '- **08:00** 早间第一段。\n  早间第二段。 #早间',
+    );
+
+    const quickNotes = result.split('## ✍️ 随手记 & 灵感')[1].split('## ✨ 每日小确幸')[0];
+    expect(quickNotes).toContain(
+      [
+        '- **08:00** 早间第一段。',
+        '  早间第二段。 #早间',
+        '- **18:00** 晚间第一段。',
+        '  晚间第二段。 #晚间',
+      ].join('\n'),
+    );
+  });
 });
 
 describe('sortTimelineEntriesInSection', () => {
@@ -127,6 +150,73 @@ describe('sortTimelineEntriesInSection', () => {
     const happiness = result.split('## ✨ 每日小确幸')[1].split('## 😰 焦虑时刻')[0];
     expect(happiness).toContain('> [!success] 总有事件值得感恩🙏♥️');
     expect(happiness).toContain('> \n> **09:30** 咖啡 #日常记录\n> **14:00** 晚霞 #生活');
+  });
+
+  it('keeps multiline entries together while sorting by time', () => {
+    const content = template.replace(
+      '- **HH:MM** 内容 #标签',
+      [
+        '- **18:00** 晚间第一段。',
+        '',
+        '晚间第二段。 #晚间',
+        '- **08:00** 早间第一段。',
+        '',
+        '早间第二段。 #早间',
+      ].join('\n'),
+    );
+
+    const result = sortTimelineEntriesInSection(content, 'quick_notes');
+    const quickNotes = result.split('## ✍️ 随手记 & 灵感')[1].split('## ✨ 每日小确幸')[0];
+
+    expect(quickNotes).toContain(
+      [
+        '- **08:00** 早间第一段。',
+        '',
+        '早间第二段。 #早间',
+        '- **18:00** 晚间第一段。',
+        '',
+        '晚间第二段。 #晚间',
+      ].join('\n'),
+    );
+    expect(quickNotes.indexOf('早间第一段。')).toBeLessThan(
+      quickNotes.indexOf('早间第二段。'),
+    );
+    expect(quickNotes.indexOf('早间第二段。')).toBeLessThan(
+      quickNotes.indexOf('- **18:00**'),
+    );
+    expect(quickNotes.indexOf('晚间第一段。')).toBeLessThan(
+      quickNotes.indexOf('晚间第二段。'),
+    );
+  });
+
+  it('keeps multiline quote entries together while sorting happiness', () => {
+    const content = template.replace(
+      '> [!success] 总有事件值得感恩🙏♥️\n> ',
+      [
+        '> [!success] 总有事件值得感恩🙏♥️',
+        '> ',
+        '> **14:00** 晚霞第一段。',
+        '> ',
+        '> 晚霞第二段。 #晚霞',
+        '> **09:30** 咖啡第一段。',
+        '> ',
+        '> 咖啡第二段。 #咖啡',
+      ].join('\n'),
+    );
+
+    const result = sortTimelineEntriesInSection(content, 'happiness');
+    const happiness = result.split('## ✨ 每日小确幸')[1].split('## 😰 焦虑时刻')[0];
+
+    expect(happiness).toContain(
+      [
+        '> **09:30** 咖啡第一段。',
+        '> ',
+        '> 咖啡第二段。 #咖啡',
+        '> **14:00** 晚霞第一段。',
+        '> ',
+        '> 晚霞第二段。 #晚霞',
+      ].join('\n'),
+    );
   });
 });
 

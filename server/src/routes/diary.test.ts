@@ -39,6 +39,12 @@ function habitDurationHandler(): Handler {
   return layer.route.stack[0].handle as Handler;
 }
 
+function diaryEntryHandler(path: string): Handler {
+  const stack = (diaryRoutes as any).stack as any[];
+  const layer = stack.find(item => item.route?.path === path);
+  return layer.route.stack[0].handle as Handler;
+}
+
 function response() {
   return {
     statusCode: 200,
@@ -280,5 +286,89 @@ describe('habit duration route', () => {
 
     expect(res.statusCode).toBe(200);
     expect(readDiary(date)).toContain('- [x] 📝 法语听力 12 分钟');
+  });
+});
+
+describe('multiline timeline entry routes', () => {
+  const date = new Date('2024-08-12T12:00:00+08:00');
+  const content = [
+    '# 今天',
+    '',
+    '## ✍️ 随手记 & 灵感',
+    '- **08:00** 早间第一段。',
+    '',
+    '早间第二段。 #早间',
+    '- **18:00** 晚间第一段。',
+    '',
+    '晚间第二段。 #晚间',
+    '',
+    '## ✨ 每日小确幸',
+  ].join('\n');
+
+  beforeEach(() => {
+    rmSync(testConfig.vaultPath, { recursive: true, force: true });
+    writeDiary(date, content);
+  });
+
+  afterAll(() => {
+    rmSync(testConfig.vaultPath, { recursive: true, force: true });
+  });
+
+  it('deletes exactly one multiline block using Parser rawLine', async () => {
+    const rawLine = '- **18:00** 晚间第一段。\n\n晚间第二段。 #晚间';
+    const res = response();
+    await diaryEntryHandler('/delete-entry')(
+      { body: { date: '2024-08-12', section: 'quick_notes', line: rawLine } },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    const updated = readDiary(date);
+    expect(updated).toContain('- **08:00** 早间第一段。\n\n早间第二段。 #早间');
+    expect(updated).not.toContain('晚间第一段。');
+    expect(updated).not.toContain('晚间第二段。');
+  });
+
+  it('edits exactly one multiline block and preserves neighboring entries', async () => {
+    const target = '- **18:00** 晚间第一段。\n\n晚间第二段。 #晚间';
+    const replacement = '- **19:00** 更新第一段。\n  更新第二段。 #更新';
+    const res = response();
+    await diaryEntryHandler('/edit-entry')(
+      {
+        body: {
+          date: '2024-08-12',
+          section: 'quick_notes',
+          target,
+          replacement,
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    const updated = readDiary(date);
+    expect(updated).toContain('- **08:00** 早间第一段。\n\n早间第二段。 #早间');
+    expect(updated).toContain('- **19:00** 更新第一段。\n  更新第二段。 #更新');
+    expect(updated).not.toContain('晚间第一段。');
+  });
+
+  it('writes continuation paragraphs with a stable list-item prefix', async () => {
+    const res = response();
+    await diaryEntryHandler('/quick-note')(
+      {
+        body: {
+          date: '2024-08-12',
+          time: '10:00',
+          content: '新增第一段。\n\n新增第二段。',
+          tags: ['新增'],
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(readDiary(date)).toContain(
+      '- **10:00** 新增第一段。\n  \n  新增第二段。 #新增',
+    );
   });
 });

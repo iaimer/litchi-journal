@@ -203,16 +203,58 @@ export function sortTimelineEntriesInSection(content: string, section: string): 
   }
 
   const timeline = /^(?:-\s*|>\s*)\*\*((?:[01]\d|2[0-3]):[0-5]\d)\*\*/;
-  const entries = lines
-    .slice(start + 1, end)
-    .map((line, offset) => ({ line, index: start + 1 + offset, time: timeline.exec(line.trim())?.[1] }))
-    .filter((entry): entry is { line: string; index: number; time: string } => entry.time != null)
-    .sort((a, b) => a.time.localeCompare(b.time));
-  const positions = entries.map(entry => entry.index).sort((a, b) => a - b);
+  const entryStarts = [] as Array<{ index: number; time: string }>;
+  for (let i = start + 1; i < end; i++) {
+    const time = timeline.exec(lines[i].trim())?.[1];
+    if (time != null) entryStarts.push({ index: i, time });
+  }
+  if (entryStarts.length < 2) return content;
 
-  entries.forEach((entry, index) => {
-    lines[positions[index]] = entry.line;
-  });
+  const prefix = lines.slice(start + 1, entryStarts[0].index);
+  const blocks: Array<{ index: number; time: string; lines: string[] }> = [];
+  const separators: string[][] = [];
+
+  for (let i = 0; i < entryStarts.length; i++) {
+    const entry = entryStarts[i];
+    const rawEnd = i + 1 < entryStarts.length ? entryStarts[i + 1].index : end;
+    let trimmedEnd = rawEnd;
+    while (trimmedEnd > entry.index && lines[trimmedEnd - 1].trim() === '') {
+      trimmedEnd--;
+    }
+    blocks.push({
+      index: i,
+      time: entry.time,
+      lines: lines.slice(entry.index, trimmedEnd),
+    });
+    if (i + 1 < entryStarts.length) {
+      separators.push(lines.slice(trimmedEnd, rawEnd));
+    }
+  }
+
+  // The last block owns the section separator only after its actual content.
+  const lastEntryStart = entryStarts[entryStarts.length - 1].index;
+  let lastContentEnd = end;
+  while (lastContentEnd > lastEntryStart && lines[lastContentEnd - 1].trim() === '') {
+    lastContentEnd--;
+  }
+  if (lastContentEnd > lastEntryStart && lines[lastContentEnd - 1].trim() === '---') {
+    lastContentEnd--;
+    while (lastContentEnd > lastEntryStart && lines[lastContentEnd - 1].trim() === '') {
+      lastContentEnd--;
+    }
+  }
+  blocks[blocks.length - 1].lines = lines.slice(lastEntryStart, lastContentEnd);
+  const suffix = lines.slice(lastContentEnd, end);
+
+  blocks.sort((a, b) => a.time.localeCompare(b.time) || a.index - b.index);
+  const replacement = [...prefix];
+  for (let i = 0; i < blocks.length; i++) {
+    replacement.push(...blocks[i].lines);
+    if (i < blocks.length - 1) replacement.push(...(separators[i] ?? []));
+  }
+  replacement.push(...suffix);
+
+  lines.splice(start + 1, end - start - 1, ...replacement);
 
   return lines.join('\n');
 }

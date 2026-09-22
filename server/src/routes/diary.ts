@@ -71,6 +71,26 @@ function cleanHabitLabel(value: unknown): string | null {
   return label.replace(/\s+\d+\s*(?:分钟|min)\s*$/i, '').trim() || null;
 }
 
+function formatTimelineEntry(
+  prefix: '-' | '>',
+  time: string,
+  content: unknown,
+  tags: unknown,
+): string {
+  const body = typeof content === 'string' ? content.trim() : '';
+  const bodyLines = body.split(/\r?\n/);
+  const continuationPrefix = prefix === '>' ? '> ' : '  ';
+  const firstPrefix = `${prefix} **${time}** `;
+  const formattedLines = bodyLines.map((line, index) => {
+    const linePrefix = index === 0 ? firstPrefix : continuationPrefix;
+    return `${linePrefix}${line.trimEnd()}`;
+  });
+  const tagStr = Array.isArray(tags) && tags.length > 0
+    ? ` ${tags.map((tag) => `#${tag}`).join(' ')}`
+    : '';
+  return `${formattedLines.join('\n')}${tagStr}`;
+}
+
 function hasOwn(body: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(body, key);
 }
@@ -203,8 +223,7 @@ router.post('/quick-note', async (req, res) => {
     const date = getRequestDate(req.body.date);
     const time = getRequestTime(req.body.time, date);
 
-    const tagStr = tags?.length > 0 ? ' ' + tags.map((t: string) => `#${t}`).join(' ') : '';
-    const formatted = `- **${time}** ${content}${tagStr}`;
+    const formatted = formatTimelineEntry('-', time, content, tags);
 
     let originalContent: string;
     try {
@@ -494,8 +513,7 @@ router.post('/happiness', async (req, res) => {
       }
     }
 
-    const tagStr = tags?.length > 0 ? ' ' + tags.map((t: string) => `#${t}`).join(' ') : '';
-    const formattedContent = `> **${time}** ${content}${tagStr}`;
+    const formattedContent = formatTimelineEntry('>', time, content, tags);
     const updated = stripOldOpMarkers(appendToSection(originalContent, 'happiness', formattedContent));
     writeDiary(date, updated);
     if (operationId && validateOperationId(operationId)) {
@@ -527,8 +545,7 @@ router.post('/reflection', async (req, res) => {
       }
     }
 
-    const tagStr = tags?.length > 0 ? ' ' + tags.map((t: string) => `#${t}`).join(' ') : '';
-    const formattedContent = `- **${time}** ${content}${tagStr}`;
+    const formattedContent = formatTimelineEntry('-', time, content, tags);
 
     // Replace template placeholder "- " bullet on first write, else fall through to append
     const replaced = replaceEmptyBulletInSection(originalContent, 'reflection', formattedContent);
@@ -1041,7 +1058,7 @@ router.get('/image/:year/:imageName', async (req, res) => {
 });
 
 function getFirstLine(grouped: string): string {
-  return grouped.split('\n\n')[0];
+  return grouped.split(/\r?\n/, 1)[0];
 }
 
 function extractImageName(line: string): string | null {
@@ -1067,6 +1084,32 @@ function isEntryOrBoundary(line: string): boolean {
   return false;
 }
 
+function isTimelineEntryStart(line: string): boolean {
+  return /^(?:-\s*|>\s*)\*\*((?:[01]\d|2[0-3]):[0-5]\d)\*\*/.test(line.trim());
+}
+
+function findTimelineBlockEnd(lines: string[], startIndex: number, endIdx: number): number {
+  let end = startIndex + 1;
+  while (end < endIdx) {
+    const trimmed = lines[end].trim();
+    if (
+      trimmed &&
+      (isTimelineEntryStart(trimmed) ||
+        trimmed.startsWith('##') ||
+        trimmed.startsWith('###') ||
+        trimmed === '---' ||
+        trimmed.startsWith('<!--') ||
+        trimmed.startsWith('> [!') ||
+        /^-\s*\[[ xX]\]/.test(trimmed))
+    ) {
+      break;
+    }
+    end++;
+  }
+  while (end > startIndex + 1 && lines[end - 1].trim() === '') end--;
+  return end;
+}
+
 function findSectionBounds(lines: string[], header: string): { start: number; end: number } | null {
   const LEGACY_LIZHI_SAYS = '### 🧠 荔枝喵说';
   const allHeaders = [...Object.values(sectionHeaders), LEGACY_LIZHI_SAYS, '## 📈 每日复盘'];
@@ -1087,6 +1130,22 @@ function findEntryRangeInSection(
   targetLine: string, matches: number[]
 ): { startIndex: number; endIndexExclusive: number } | null {
   if (matches.length === 0) return null;
+
+  const firstMatch = matches[0];
+  if (isTimelineEntryStart(lines[firstMatch].trim())) {
+    const normalize = (value: string) => value.replace(/\r\n/g, '\n').trimEnd();
+    const exactMatch = matches.find((matchIndex) => {
+      const blockEnd = findTimelineBlockEnd(lines, matchIndex, endIdx);
+      const block = lines.slice(matchIndex, blockEnd).join('\n');
+      return normalize(block) === normalize(targetLine);
+    });
+    const matchedIndex = exactMatch ?? firstMatch;
+    const blockEnd = findTimelineBlockEnd(lines, matchedIndex, endIdx);
+    if (exactMatch === undefined && matches.length > 1) {
+      console.warn(`Duplicate entry first line at indices ${matches.join(', ')}; using first`);
+    }
+    return { startIndex: matchedIndex, endIndexExclusive: blockEnd };
+  }
 
   const targetLines = targetLine.split(/\n\n|\n/).filter(l => l.trim());
   if (targetLines.length > 1) {

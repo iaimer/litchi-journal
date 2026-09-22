@@ -153,18 +153,20 @@ class MarkdownParser {
 
       final timelineMatch = _timelineLine.firstMatch(trimmed);
       if (timelineMatch != null) {
-        final rawContent = (timelineMatch.group(2) ?? '').trim();
+        final blockEnd = _timelineBlockEnd(lines, i);
+        final blockLines = lines.sublist(i, blockEnd);
+        final rawContent = _timelineContent(blockLines, timelineMatch);
         if (rawContent.isNotEmpty && rawContent != _templateTimelineText) {
           contents.add(
             TimelineContent(
               time: timelineMatch.group(1)!,
               text: _stripTags(rawContent),
               tags: _extractTags(rawContent),
-              rawLine: line,
+              rawLine: blockLines.join('\n'),
             ),
           );
         }
-        i++;
+        i = blockEnd;
         continue;
       }
 
@@ -211,6 +213,38 @@ class MarkdownParser {
         _calloutStart.hasMatch(trimmed) ||
         _checkboxLine.hasMatch(trimmed) ||
         _timelineLine.hasMatch(trimmed);
+  }
+
+  int _timelineBlockEnd(List<String> lines, int start) {
+    var end = start + 1;
+    while (end < lines.length) {
+      final line = lines[end];
+      final trimmed = line.trim();
+      if (trimmed.isNotEmpty && _isSpecialLine(line)) break;
+      if (trimmed.isNotEmpty && _horizontalRule.hasMatch(trimmed)) break;
+      if (trimmed.isNotEmpty && _htmlComment.hasMatch(trimmed)) break;
+      end++;
+    }
+
+    while (end > start + 1 && lines[end - 1].trim().isEmpty) {
+      end--;
+    }
+    return end;
+  }
+
+  String _timelineContent(List<String> blockLines, RegExpMatch timelineMatch) {
+    final isQuote = blockLines.first.trimLeft().startsWith('>');
+    final contentLines = <String>[(timelineMatch.group(2) ?? '').trim()];
+
+    for (final line in blockLines.skip(1)) {
+      var continuation = line.trim();
+      if (isQuote && continuation.startsWith('>')) {
+        continuation = continuation.substring(1).trimLeft();
+      }
+      contentLines.add(continuation);
+    }
+
+    return contentLines.join('\n').trim();
   }
 
   List<String> _extractTags(String text) {

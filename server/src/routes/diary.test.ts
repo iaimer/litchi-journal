@@ -371,4 +371,92 @@ describe('multiline timeline entry routes', () => {
       '- **10:00** 新增第一段。\n  \n  新增第二段。 #新增',
     );
   });
+
+  const duplicateFirstLineCases = [
+    {
+      name: '随手记',
+      section: 'quick_notes',
+      header: '## ✍️ 随手记 & 灵感',
+      nextHeader: '## ✨ 每日小确幸',
+      first: '- **18:00** 相同首段。\n  第一条末段。 #第一条',
+      second: '- **18:00** 相同首段。\n  第二条末段。 #第二条',
+      replacement: '- **19:00** 更新首段。\n  更新末段。 #更新',
+    },
+    {
+      name: '觉察',
+      section: 'reflection',
+      header: '### 💡 觉察与迭代',
+      nextHeader: '### 🧠 人生教练',
+      first: '- **18:00** 相同首段。\n  第一条末段。 #第一条',
+      second: '- **18:00** 相同首段。\n  第二条末段。 #第二条',
+      replacement: '- **19:00** 更新首段。\n  更新末段。 #更新',
+    },
+    {
+      name: '小确幸',
+      section: 'happiness',
+      header: '## ✨ 每日小确幸',
+      nextHeader: '## 😰 焦虑时刻',
+      first: '> **18:00** 相同首段。\n> 第一条末段。 #第一条',
+      second: '> **18:00** 相同首段。\n> 第二条末段。 #第二条',
+      replacement: '> **19:00** 更新首段。\n> 更新末段。 #更新',
+    },
+  ];
+
+  it.each(duplicateFirstLineCases)(
+    'deletes the exact $name block when first lines are identical',
+    async ({ section, header, nextHeader, first, second }) => {
+      writeDiary(date, ['# 今天', '', header, first, second, '', nextHeader].join('\n'));
+      const res = response();
+
+      await diaryEntryHandler('/delete-entry')(
+        { body: { date: '2024-08-12', section, line: second } },
+        res,
+      );
+
+      expect(res.statusCode).toBe(200);
+      const updated = readDiary(date);
+      expect(updated).toContain(first);
+      expect(updated).not.toContain('第二条末段。');
+    },
+  );
+
+  it.each(duplicateFirstLineCases)(
+    'edits the exact $name block when first lines are identical',
+    async ({ section, header, nextHeader, first, second, replacement }) => {
+      writeDiary(date, ['# 今天', '', header, first, second, '', nextHeader].join('\n'));
+      const res = response();
+
+      await diaryEntryHandler('/edit-entry')(
+        {
+          body: {
+            date: '2024-08-12',
+            section,
+            target: second,
+            replacement,
+          },
+        },
+        res,
+      );
+
+      expect(res.statusCode).toBe(200);
+      const updated = readDiary(date);
+      expect(updated).toContain(first);
+      expect(updated).toContain(replacement);
+      expect(updated).not.toContain('第二条末段。');
+    },
+  );
+
+  it('rejects a stale multiline rawLine without changing the diary', async () => {
+    const before = readDiary(date);
+    const staleRawLine = '- **18:00** 晚间第一段。\n\n已经过期的第二段。 #晚间';
+    const res = response();
+
+    await diaryEntryHandler('/delete-entry')(
+      { body: { date: '2024-08-12', section: 'quick_notes', line: staleRawLine } },
+      res,
+    );
+
+    expect(res.statusCode).toBe(404);
+    expect(readDiary(date)).toBe(before);
+  });
 });

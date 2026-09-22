@@ -218,6 +218,58 @@ describe('sortTimelineEntriesInSection', () => {
       ].join('\n'),
     );
   });
+
+  it('keeps non-entry content in place while sorting multiline entries', () => {
+    const content = template.replace(
+      '- **HH:MM** 内容 #标签',
+      [
+        '- **18:00** 晚间第一段。',
+        '  晚间第二段。 #晚间',
+        '<!-- 固定说明 -->',
+        '- **08:00** 早间第一段。',
+        '  早间第二段。 #早间',
+      ].join('\n'),
+    );
+
+    const result = sortTimelineEntriesInSection(content, 'quick_notes');
+    const quickNotes = result.split('## ✍️ 随手记 & 灵感')[1].split('## ✨ 每日小确幸')[0];
+
+    expect(quickNotes).toContain(
+      [
+        '- **08:00** 早间第一段。',
+        '  早间第二段。 #早间',
+        '<!-- 固定说明 -->',
+        '- **18:00** 晚间第一段。',
+        '  晚间第二段。 #晚间',
+      ].join('\n'),
+    );
+  });
+
+  it('sorts multiline reflection entries without moving its comment', () => {
+    const content = template.replace(
+      '<!-- 这里是你的观点和思考，荔枝喵会重点提取 -->\n- ',
+      [
+        '<!-- 这里是你的观点和思考，荔枝喵会重点提取 -->',
+        '- **18:00** 晚间觉察。',
+        '  晚间第二段。 #晚间',
+        '- **08:00** 早间觉察。',
+        '  早间第二段。 #早间',
+      ].join('\n'),
+    );
+
+    const result = sortTimelineEntriesInSection(content, 'reflection');
+    const reflection = result.split('### 💡 觉察与迭代')[1].split('### 🧠 人生教练')[0];
+
+    expect(reflection).toContain(
+      [
+        '<!-- 这里是你的观点和思考，荔枝喵会重点提取 -->',
+        '- **08:00** 早间觉察。',
+        '  早间第二段。 #早间',
+        '- **18:00** 晚间觉察。',
+        '  晚间第二段。 #晚间',
+      ].join('\n'),
+    );
+  });
 });
 
 describe('replaceEmptyBulletInSection', () => {

@@ -12,7 +12,15 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, unlink
 import { isAbsolute, join, relative, resolve } from 'path';
 import sharp from 'sharp';
 import config from '../config/index.js';
-import { parseDiary, appendToSection, sectionHeaders, replaceEmptyBulletInSection, sortTimelineEntriesInSection } from '../services/markdown.js';
+import {
+  appendToSection,
+  findTimelineEntryBlockEnd,
+  isTimelineEntryStart,
+  parseDiary,
+  replaceEmptyBulletInSection,
+  sectionHeaders,
+  sortTimelineEntriesInSection,
+} from '../services/markdown.js';
 import { createObsidianDiaryContent } from '../services/template.js';
 import { parseShanghaiDate } from '../utils/date.js';
 
@@ -1084,32 +1092,6 @@ function isEntryOrBoundary(line: string): boolean {
   return false;
 }
 
-function isTimelineEntryStart(line: string): boolean {
-  return /^(?:-\s*|>\s*)\*\*((?:[01]\d|2[0-3]):[0-5]\d)\*\*/.test(line.trim());
-}
-
-function findTimelineBlockEnd(lines: string[], startIndex: number, endIdx: number): number {
-  let end = startIndex + 1;
-  while (end < endIdx) {
-    const trimmed = lines[end].trim();
-    if (
-      trimmed &&
-      (isTimelineEntryStart(trimmed) ||
-        trimmed.startsWith('##') ||
-        trimmed.startsWith('###') ||
-        trimmed === '---' ||
-        trimmed.startsWith('<!--') ||
-        trimmed.startsWith('> [!') ||
-        /^-\s*\[[ xX]\]/.test(trimmed))
-    ) {
-      break;
-    }
-    end++;
-  }
-  while (end > startIndex + 1 && lines[end - 1].trim() === '') end--;
-  return end;
-}
-
 function findSectionBounds(lines: string[], header: string): { start: number; end: number } | null {
   const LEGACY_LIZHI_SAYS = '### 🧠 荔枝喵说';
   const allHeaders = [...Object.values(sectionHeaders), LEGACY_LIZHI_SAYS, '## 📈 每日复盘'];
@@ -1135,12 +1117,13 @@ function findEntryRangeInSection(
   if (isTimelineEntryStart(lines[firstMatch].trim())) {
     const normalize = (value: string) => value.replace(/\r\n/g, '\n').trimEnd();
     const exactMatch = matches.find((matchIndex) => {
-      const blockEnd = findTimelineBlockEnd(lines, matchIndex, endIdx);
+      const blockEnd = findTimelineEntryBlockEnd(lines, matchIndex, endIdx);
       const block = lines.slice(matchIndex, blockEnd).join('\n');
       return normalize(block) === normalize(targetLine);
     });
+    if (exactMatch === undefined && targetLine.includes('\n')) return null;
     const matchedIndex = exactMatch ?? firstMatch;
-    const blockEnd = findTimelineBlockEnd(lines, matchedIndex, endIdx);
+    const blockEnd = findTimelineEntryBlockEnd(lines, matchedIndex, endIdx);
     if (exactMatch === undefined && matches.length > 1) {
       console.warn(`Duplicate entry first line at indices ${matches.join(', ')}; using first`);
     }

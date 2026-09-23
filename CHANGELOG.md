@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.6
+
+### 多自然段记录修复
+- 随手记、觉察和小确幸的多段正文完整显示，标签与操作菜单移到最后一段下方。
+- 编辑和删除按完整原始记录精确定位；时间排序仅移动记录块，保留注释等非记录内容的位置。
+
+### 验证
+- Flutter 测试 541 项通过，`flutter analyze` 无问题。
+- 服务端测试 52 项通过，TypeScript 构建成功。
+- Release APK 构建成功，清单版本为 `1.7.6` / versionCode `32`，`apksigner verify` 通过。
+- APK 位于 `build/app/outputs/flutter-apk/app-release.apk`；未安装到真机。当前使用 debug 签名，仅用于内部安装验证，不是应用商店签名包。
+
 ## 1.7.5
 
 ### 快速记录与全局 UI 收尾

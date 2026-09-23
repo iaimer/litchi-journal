@@ -239,7 +239,7 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前发布版本仍是 `1.7.5+31`。`feat/icons-lucide-lordicon-20260919` 开发分支完成静态 Lucide 与本地 Lordicon 图标迁移，完整 Flutter 测试 531 项通过，`flutter analyze` 无问题；`test_36` 已完成代表页面及关于页浅色/深色、320dp 与 1.3 倍字体验收。临时 `.preview` 包、mock 服务和模拟器覆盖设置均已清理，未修改真实 Vault；该分支尚未提交、推送或发布。Android Release 目前仍使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店的正式签名包。
+当前版本为 `1.7.6+32`。多自然段记录修复已合并到 `main`，Flutter 测试 541 项、服务端测试 52 项、`flutter analyze` 和 TypeScript 构建均通过；Release APK 已构建，真机安装仍由用户验收。Android Release 目前使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店正式签名包。
 
 ## 数据完整性规则
 

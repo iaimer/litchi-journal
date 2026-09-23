@@ -4,13 +4,13 @@
 
 ## 当前目标与上下文
 
-`1.7.5+31` 是当前发布版本：在 `1.7.4+30` 的时间轴与操作布局修正基础上，完成快速记录正文优先布局、阶段 7 全局细节收尾和阶段 1-7 复审修正。完整 Flutter 测试 520 项通过，Release APK 已在 `test_36` 安装并启动。项目流程采用 Project Docs Workflow；旧的 `SESSION_LOG.md` 保留为历史档案，不再追加。
+`1.7.6+32` 是当前版本：修复随手记、觉察和小确幸的多自然段布局、完整条目解析和 Markdown 排序边界。完整 Flutter 测试 541 项、服务端 52 项测试、`flutter analyze` 和 TypeScript 构建通过；Release APK 清单版本为 `1.7.6` / versionCode `32`，`apksigner verify` 通过。APK 使用 debug 签名，未安装到真机；真机安装与视觉验收由用户执行。项目流程采用 Project Docs Workflow；旧的 `SESSION_LOG.md` 保留为历史档案，不再追加。
 
-当前未发布分支 `codex/fix-multiline-entry-20260923` 修复随手记、觉察和小确幸的多自然段记录：展示层把标签与三点菜单放在末段下方，Parser 聚合完整正文与 `rawLine`，服务端使用稳定续行前缀并按完整记录块排序。复审后进一步统一了排序、编辑与删除的条目边界；多行 `rawLine` 不再回退首行匹配，注释、Callout、图片和 checkbox 等非记录结构保持原位。完整 Flutter 测试 541 项、服务端 52 项测试、`flutter analyze` 和 TypeScript 构建均通过；版本仍为 `1.7.5+31`，未构建或安装新 APK。
+多自然段记录修复已 squash 合并并推送到 `main`。展示层把标签与三点菜单放在末段下方；Parser 聚合完整正文与 `rawLine`；服务端使用稳定续行前缀并按完整记录块排序。多行 `rawLine` 精确匹配，注释、Callout、图片和 checkbox 等非记录结构保持原位。Release APK 输出路径为 `build/app/outputs/flutter-apk/app-release.apk`；本次未安装到真机。
 
 日记 ZIP 与 WebDAV 备份已撤回。用户改为由外部云盘同步整个 Obsidian Vault，因此客户端、服务端、Android 下载通道和相关依赖均不再维护；服务端提供白名单式遗留数据清理脚本，部署新版服务端时先停止旧服务再执行，不能触碰 Vault 或云盘中的现有文件。
 
-撤回分支已通过服务端 37 项测试、TypeScript 构建、Flutter `analyze`、486 项 Flutter 测试和 Release APK 构建；该次验收未连接 PLG110 真机。本轮 `1.7.5+31` Release APK 已在 `test_36` 模拟器安装并启动，PLG110 真机验收仍由用户按发布流程执行。
+撤回分支已通过服务端 37 项测试、TypeScript 构建、Flutter `analyze`、486 项 Flutter 测试和 Release APK 构建；该次验收未连接 PLG110 真机。此前 `1.7.5+31` Release APK 已在 `test_36` 模拟器安装并启动。
 
 Mac mini 已在 2026-09-17 拉取 `63fff12` 并完成停服清理：dry-run 仅发现 `backup-state.json` 和应用专用临时目录，随后已按白名单删除；服务端依赖同步移除了 90 个旧包，TypeScript 构建成功并重启 `diary-api`。健康接口返回 `200`，四个旧备份接口均在鉴权后返回 `404`；复核时 `server/data` 与应用专用临时目录均为空/不存在。Vault、云盘、远端 ZIP 和 Android 下载目录未纳入清理范围。
 

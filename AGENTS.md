@@ -245,8 +245,8 @@ flutter test
 
 以下规则从开发中沉淀，所有写入类改动必须遵守：
 
-- **rawLine 不可反推**：编辑/删除时必须使用 Parser 解析的原始 rawLine，不能用 content + tags 重新组装 target 或 line。
-- **时间轴写入即排序**：新增或编辑带 `**HH:mm**` 的时间条目后，服务端必须仅在当前 section 内按时间升序重排；排序直接写入 Markdown，完整保留 `-` / `>` 前缀、正文和标签，不能只在 Flutter UI 排序。
+- **rawLine 不可反推**：编辑/删除时必须使用 Parser 解析的原始 rawLine，不能用 content + tags 重新组装 target 或 line；多行 rawLine 必须整块精确匹配，匹配失败时返回未找到，不能退化为首行匹配。
+- **时间轴写入即排序**：新增或编辑带 `**HH:mm**` 的时间条目后，服务端必须仅在当前 section 内按时间升序重排；排序直接写入 Markdown，完整保留 `-` / `>` 前缀、正文和标签，不能只在 Flutter UI 排序。注释、Callout、图片、checkbox 等非时间条目不得被吸收到相邻记录块或随记录移动；排序、编辑和删除必须复用同一套条目边界规则。
 - **tags 前缀差异**：`TimelineContent.tags` 存储带 `#` 前缀（如 `['#育儿']`），TagPicker 和 `_selectedTags` 存储不带 `#`（如 `['育儿']`）。`QuickCaptureScreen` 编辑态初始化时须 strip `#`。
 - **### 独立 section**：`###` 标题中觉察/人生教练/荔枝喵说/明日寄语/影像 应作为独立 DiarySection，不能作为 SubSectionContent 嵌套在父 section 中。
 - **跨日自动创建**：`_loadDiary()` 中如果 `getDiary(date)` 返回 null，须调用 `ensureDiary(date)` 后再重新读取。提交记录时首次失败须 ensureDiary 并重试。

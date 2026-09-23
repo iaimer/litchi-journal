@@ -11,6 +11,46 @@ export const sectionHeaders: Record<string, string> = {
 
 // 旧版标题（向后兼容）
 const LEGACY_LIZHI_SAYS = '### 🧠 荔枝喵说';
+const TIMELINE_ENTRY_PATTERN = /^(?:-\s*|>\s*)\*\*((?:[01]\d|2[0-3]):[0-5]\d)\*\*/;
+
+interface TimelineEntryBlock {
+  originalIndex: number;
+  time: string;
+  lines: string[];
+}
+
+interface TimelineSectionParts {
+  entries: TimelineEntryBlock[];
+  staticSegments: string[][];
+}
+
+export function isTimelineEntryStart(line: string): boolean {
+  return TIMELINE_ENTRY_PATTERN.test(line.trim());
+}
+
+function isTimelineBlockBoundary(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return isTimelineEntryStart(trimmed) ||
+    trimmed.startsWith('##') ||
+    trimmed.startsWith('###') ||
+    trimmed === '---' ||
+    trimmed.startsWith('<!--') ||
+    trimmed.startsWith('> [!') ||
+    trimmed.startsWith('![[') ||
+    /^-\s*\[[ xX]\]/.test(trimmed);
+}
+
+export function findTimelineEntryBlockEnd(
+  lines: string[],
+  startIndex: number,
+  endIndex: number,
+): number {
+  let end = startIndex + 1;
+  while (end < endIndex && !isTimelineBlockBoundary(lines[end])) end++;
+  while (end > startIndex + 1 && lines[end - 1].trim() === '') end--;
+  return end;
+}
 
 export function parseDiary(content: string) {
   const lines = content.split('\n');
@@ -185,6 +225,51 @@ export function appendToSection(content: string, section: string, newLine: strin
   return sortTimelineEntriesInSection(lines.join('\n'), section);
 }
 
+function findSectionEnd(lines: string[], start: number): number {
+  const allHeaders = [...Object.values(sectionHeaders), '### 🧠 荔枝喵说', '## 📈 每日复盘'];
+  for (let i = start + 1; i < lines.length; i++) {
+    if (allHeaders.some(header => lines[i].startsWith(header))) return i;
+  }
+  return lines.length;
+}
+
+function splitTimelineSection(lines: string[], start: number, end: number): TimelineSectionParts {
+  const entries: TimelineEntryBlock[] = [];
+  const staticSegments: string[][] = [];
+  let cursor = start + 1;
+
+  while (cursor < end) {
+    let entryStart = cursor;
+    while (entryStart < end && !isTimelineEntryStart(lines[entryStart])) entryStart++;
+    staticSegments.push(lines.slice(cursor, entryStart));
+    if (entryStart === end) break;
+
+    const blockEnd = findTimelineEntryBlockEnd(lines, entryStart, end);
+    const time = TIMELINE_ENTRY_PATTERN.exec(lines[entryStart].trim())?.[1];
+    if (time == null) break;
+    entries.push({
+      originalIndex: entries.length,
+      time,
+      lines: lines.slice(entryStart, blockEnd),
+    });
+    cursor = blockEnd;
+  }
+  if (staticSegments.length === entries.length) staticSegments.push(lines.slice(cursor, end));
+  return { entries, staticSegments };
+}
+
+function rebuildTimelineSection(parts: TimelineSectionParts): string[] {
+  const sortedEntries = [...parts.entries].sort(
+    (a, b) => a.time.localeCompare(b.time) || a.originalIndex - b.originalIndex,
+  );
+  const rebuilt: string[] = [];
+  for (let i = 0; i < sortedEntries.length; i++) {
+    rebuilt.push(...parts.staticSegments[i], ...sortedEntries[i].lines);
+  }
+  rebuilt.push(...parts.staticSegments[sortedEntries.length]);
+  return rebuilt;
+}
+
 export function sortTimelineEntriesInSection(content: string, section: string): string {
   const header = sectionHeaders[section];
   if (!header) return content;
@@ -193,27 +278,10 @@ export function sortTimelineEntriesInSection(content: string, section: string): 
   const start = lines.findIndex(line => line.startsWith(header));
   if (start === -1) return content;
 
-  const allHeaders = [...Object.values(sectionHeaders), '### 🧠 荔枝喵说', '## 📈 每日复盘'];
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i++) {
-    if (allHeaders.some(sectionHeader => lines[i].startsWith(sectionHeader))) {
-      end = i;
-      break;
-    }
-  }
-
-  const timeline = /^(?:-\s*|>\s*)\*\*((?:[01]\d|2[0-3]):[0-5]\d)\*\*/;
-  const entries = lines
-    .slice(start + 1, end)
-    .map((line, offset) => ({ line, index: start + 1 + offset, time: timeline.exec(line.trim())?.[1] }))
-    .filter((entry): entry is { line: string; index: number; time: string } => entry.time != null)
-    .sort((a, b) => a.time.localeCompare(b.time));
-  const positions = entries.map(entry => entry.index).sort((a, b) => a - b);
-
-  entries.forEach((entry, index) => {
-    lines[positions[index]] = entry.line;
-  });
-
+  const end = findSectionEnd(lines, start);
+  const parts = splitTimelineSection(lines, start, end);
+  if (parts.entries.length < 2) return content;
+  lines.splice(start + 1, end - start - 1, ...rebuildTimelineSection(parts));
   return lines.join('\n');
 }
 

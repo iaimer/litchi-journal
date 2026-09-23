@@ -6,7 +6,14 @@ String rebuildTimelineLine({
 }) {
   final prefix = _buildTimelinePrefix(rawLine, time);
   final tagStr = tags.isEmpty ? '' : ' ${tags.map((t) => '#$t').join(' ')}';
-  return '$prefix${content.trim()}$tagStr';
+  final bodyLines = content.trim().split(RegExp(r'\r?\n'));
+  final continuationPrefix = prefix.startsWith('> ') ? '> ' : '  ';
+  final formattedBody = [
+    '$prefix${bodyLines.first.trimRight()}',
+    for (final line in bodyLines.skip(1))
+      '$continuationPrefix${line.trimRight()}',
+  ].join('\n');
+  return '$formattedBody$tagStr';
 }
 
 String _buildTimelinePrefix(String rawLine, String? time) {

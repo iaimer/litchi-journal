@@ -245,7 +245,7 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前版本为 `1.7.6+32`。多自然段记录修复已合并到 `main`，Flutter 测试 541 项、服务端测试 52 项、`flutter analyze` 和 TypeScript 构建均通过；Release APK 已构建，真机安装仍由用户验收。Android Release 目前使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店正式签名包。
+当前版本为 `1.8.0+33`。随手记和小确幸图文记录已合并到 `main`；Flutter 测试 550 项、服务端测试 61 项、`flutter analyze` 和 TypeScript 构建均通过；Release APK 已构建，真机安装与视觉验收由用户执行。Android Release 目前使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店正式签名包。
 
 ## 数据完整性规则
 

@@ -6,10 +6,8 @@ import 'package:flutter/material.dart';
 import 'journal_section.dart';
 
 import '../models/diary_document.dart';
-import '../models/image_upload_item.dart';
 import '../services/api_client.dart';
 import '../theme/app_theme.dart';
-import 'image_upload_strip.dart';
 import 'flora_icon.dart';
 import 'timeline_action_sheet.dart';
 
@@ -27,23 +25,18 @@ class ImageSectionCard extends StatelessWidget {
     required this.apiClient,
     required this.date,
     this.onDeleteImage,
-    this.imageUploads = const [],
-    this.onRetryImageUpload,
-    this.onRemoveImageUpload,
-    this.canRemoveImageUpload,
   });
-
-  final List<ImageUploadItem> imageUploads;
-  final ValueChanged<ImageUploadItem>? onRetryImageUpload;
-  final ValueChanged<ImageUploadItem>? onRemoveImageUpload;
-  final bool Function(ImageUploadItem item)? canRemoveImageUpload;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final filenames = parseWikiLinks(section);
+    final allPhotos = section.photos;
+    final photos = allPhotos
+        .where((photo) => photo.entryId == null)
+        .toList(growable: false);
 
-    if (filenames.isEmpty && imageUploads.isEmpty) {
+    if (photos.isEmpty) {
+      if (allPhotos.isNotEmpty) return const SizedBox.shrink();
       return JournalSection(
         title: '影像记录',
         accentColor: accentColor ?? theme.colorScheme.primary,
@@ -59,7 +52,7 @@ class ImageSectionCard extends StatelessWidget {
     }
 
     final children = <Widget>[];
-    if (filenames.isNotEmpty) {
+    if (photos.isNotEmpty) {
       children.add(
         LayoutBuilder(
           builder: (context, constraints) {
@@ -69,37 +62,22 @@ class ImageSectionCard extends StatelessWidget {
             return Wrap(
               spacing: FloraSpacing.sm,
               runSpacing: FloraSpacing.sm,
-              children: filenames.asMap().entries.map((entry) {
+              children: photos.asMap().entries.map((entry) {
                 final index = entry.key;
-                final name = entry.value;
-                return _ImageThumbnail(
+                final photo = entry.value;
+                return DiaryImageThumbnail(
                   size: cellWidth,
                   index: index,
-                  filename: name,
+                  filename: photo.filename,
                   apiClient: apiClient,
                   date: date,
                   onDelete: onDeleteImage != null
-                      ? () => onDeleteImage!('![[$name]]')
+                      ? () => onDeleteImage!(photo.rawLine)
                       : null,
                 );
               }).toList(),
             );
           },
-        ),
-      );
-    }
-
-    if (imageUploads.isNotEmpty) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: FloraSpacing.md));
-      }
-      children.add(
-        ImageUploadStrip(
-          items: imageUploads,
-          onRetry: onRetryImageUpload ?? (_) {},
-          onRemove: onRemoveImageUpload ?? (_) {},
-          canRemove: canRemoveImageUpload,
-          padding: EdgeInsets.zero,
         ),
       );
     }
@@ -110,28 +88,9 @@ class ImageSectionCard extends StatelessWidget {
       children: children,
     );
   }
-
-  static List<String> parseWikiLinks(MediaSection section) {
-    final filenames = <String>[];
-    final wikiLinkPattern = RegExp(
-      r'!\[\[([^\]\\]+\.(?:jpg|jpeg|png|gif|webp|heic|heif))\]\]',
-      caseSensitive: false,
-    );
-
-    for (final content in section.contents) {
-      if (content is MarkdownContent) {
-        for (final match in wikiLinkPattern.allMatches(content.text)) {
-          final name = match.group(1);
-          if (name != null) filenames.add(name);
-        }
-      }
-    }
-
-    return filenames;
-  }
 }
 
-class _ImageThumbnail extends StatefulWidget {
+class DiaryImageThumbnail extends StatefulWidget {
   final double size;
   final int index;
   final String filename;
@@ -139,7 +98,8 @@ class _ImageThumbnail extends StatefulWidget {
   final DateTime date;
   final VoidCallback? onDelete;
 
-  const _ImageThumbnail({
+  const DiaryImageThumbnail({
+    super.key,
     required this.size,
     required this.index,
     required this.filename,
@@ -149,10 +109,10 @@ class _ImageThumbnail extends StatefulWidget {
   });
 
   @override
-  State<_ImageThumbnail> createState() => _ImageThumbnailState();
+  State<DiaryImageThumbnail> createState() => _DiaryImageThumbnailState();
 }
 
-class _ImageThumbnailState extends State<_ImageThumbnail> {
+class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
   Uint8List? _bytes;
   bool _loading = true;
   String? _error;

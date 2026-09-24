@@ -130,6 +130,8 @@ class ApiClient {
     String content,
     List<String> tags, {
     String? time,
+    String? entryId,
+    String? operationId,
   }) async {
     final response = await _post(
       '/api/v1/diary/$section',
@@ -138,7 +140,8 @@ class ApiClient {
         'content': content,
         'tags': tags,
         'time': time ?? formatTime(DateTime.now()),
-        'operationId': generateUuidV4(),
+        'entryId': ?entryId,
+        'operationId': operationId ?? generateUuidV4(),
       },
     );
     return response.statusCode == 200;
@@ -149,8 +152,18 @@ class ApiClient {
     String content, {
     List<String> tags = const [],
     String? time,
+    String? entryId,
+    String? operationId,
   }) {
-    return _appendToSection('quick-note', date, content, tags, time: time);
+    return _appendToSection(
+      'quick-note',
+      date,
+      content,
+      tags,
+      time: time,
+      entryId: entryId,
+      operationId: operationId,
+    );
   }
 
   Future<bool> appendReflection(
@@ -167,8 +180,18 @@ class ApiClient {
     String content, {
     List<String> tags = const [],
     String? time,
+    String? entryId,
+    String? operationId,
   }) {
-    return _appendToSection('happiness', date, content, tags, time: time);
+    return _appendToSection(
+      'happiness',
+      date,
+      content,
+      tags,
+      time: time,
+      entryId: entryId,
+      operationId: operationId,
+    );
   }
 
   Future<bool> appendAnxiety(
@@ -197,6 +220,7 @@ class ApiClient {
     String imageBase64, {
     String? operationId,
     String? imagePrefix,
+    String? entryId,
     UploadProgressCallback? onProgress,
   }) async {
     final body = {
@@ -204,6 +228,7 @@ class ApiClient {
       'imageData': imageBase64,
       if (imagePrefix != null && imagePrefix.trim().isNotEmpty)
         'imagePrefix': imagePrefix.trim(),
+      'entryId': ?entryId,
       // ignore: use_null_aware_elements
       if (operationId != null) 'operationId': operationId,
     };
@@ -292,6 +317,7 @@ class ApiClient {
     required String section,
     required String target,
     required String replacement,
+    String? entryId,
   }) async {
     final response = await _post(
       '/api/v1/diary/edit-entry',
@@ -300,6 +326,7 @@ class ApiClient {
         'section': section,
         'target': target,
         'replacement': replacement,
+        'entryId': ?entryId,
       },
     );
     return response.statusCode == 200;

@@ -1,11 +1,24 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
 
+import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/polish_result.dart';
+import 'package:litchi_journal_flutter/models/quick_capture_submission.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
+import 'package:litchi_journal_flutter/services/api_client.dart';
+import 'package:litchi_journal_flutter/services/api_config.dart';
+import 'package:litchi_journal_flutter/services/image_settings_repository.dart';
 import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
+import 'package:litchi_journal_flutter/widgets/entry_photo_grid.dart';
 import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
+import 'package:litchi_journal_flutter/widgets/image_upload_strip.dart';
 
 void main() {
   group('QuickCaptureScreen layout', () {
@@ -159,7 +172,7 @@ void main() {
             tagConfig: _longTagConfig(),
             initialContent: '已有内容',
             initialTags: const ['这是一个很长的工作领域名称'],
-            onSave: (_, _, _) async => throw Exception('保存失败'),
+            onSave: (_) async => throw Exception('保存失败'),
           ),
         ),
       );
@@ -211,7 +224,7 @@ void main() {
           initialTags: const ['工作', '复盘', '记录'],
           onPolish: (_, _) async =>
               const PolishResult(content: '润色内容', tags: ['工作']),
-          onSave: (_, tags, _) async => savedTags = tags,
+          onSave: (submission) async => savedTags = submission.tags,
         ),
       );
 
@@ -241,6 +254,131 @@ void main() {
       expect(savedTags, ['工作', '行动']);
     });
   });
+
+  testWidgets('1, 2, and 9 attached photos use equal square cells', (
+    tester,
+  ) async {
+    final apiClient = ApiClient(
+      ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+      httpClient: _PhotoPreviewHttpClient(),
+    );
+    final cellWidths = <double>[];
+
+    for (final count in [1, 2, 9]) {
+      final photos = List.generate(
+        count,
+        (index) => DiaryPhoto(
+          filename: 'photo$index.jpg',
+          rawLine: '![[photo$index.jpg]]',
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 330,
+                child: EntryPhotoGrid(
+                  photos: photos,
+                  uploads: const [],
+                  removedPhotoNames: const {},
+                  apiClient: apiClient,
+                  date: DateTime(2026, 9, 24),
+                  onAdd: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final firstCell = find.byKey(const ValueKey('entry_photo_photo0.jpg'));
+      final size = tester.getSize(firstCell);
+      cellWidths.add(size.width);
+      expect(size.height, size.width);
+      expect(find.byType(EntryPhotoGrid), findsOneWidget);
+    }
+
+    expect(cellWidths[0], cellWidths[1]);
+    expect(cellWidths[1], cellWidths[2]);
+  });
+
+  testWidgets('capture photo picker caps each entry at nine photos', (
+    tester,
+  ) async {
+    final photo = img.Image(width: 8, height: 8);
+    img.fill(photo, color: img.ColorRgb8(120, 90, 70));
+    final photoBytes = Uint8List.fromList(img.encodeJpg(photo));
+    final storage = _MemoryImageSettingsStorage();
+    final apiClient = ApiClient(
+      ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+      httpClient: _PhotoPreviewHttpClient(),
+    );
+    var requestedLimit = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: QuickCaptureScreen(
+          entryType: EntryType.quickNote,
+          openedAt: DateTime(2026, 9, 24, 9),
+          apiClient: apiClient,
+          imageSettingsRepository: ImageSettingsRepository(storage: storage),
+          imagePicker: (settings, limit) async {
+            requestedLimit = limit;
+            return List.generate(
+              10,
+              (index) => XFile.fromData(
+                photoBytes,
+                name: 'photo$index.jpg',
+                mimeType: 'image/jpeg',
+              ),
+            );
+          },
+          onSave: (_) async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('quick_capture_add_photo')));
+    await tester.pumpAndSettle();
+
+    expect(requestedLimit, 9);
+    expect(find.byType(ImageUploadTile), findsNWidgets(9));
+    expect(find.text('照片 9/9'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const Key('quick_capture_add_photo')))
+          .onPressed,
+      isNull,
+    );
+  });
+}
+
+class _PhotoPreviewHttpClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(Stream.value(utf8.encode('{}')), 404);
+  }
+}
+
+class _MemoryImageSettingsStorage implements ImageSettingsStorage {
+  final _values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    _values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    _values.remove(key);
+  }
 }
 
 Widget _buildCapture({
@@ -249,7 +387,7 @@ Widget _buildCapture({
   DateTime? recordDate,
   String? initialContent,
   Future<PolishResult> Function(String content, EntryType entryType)? onPolish,
-  Future<void> Function(String content, List<String> tags, String time)? onSave,
+  Future<void> Function(QuickCaptureSubmission submission)? onSave,
 }) {
   return MaterialApp(
     home: QuickCaptureScreen(
@@ -262,7 +400,7 @@ Widget _buildCapture({
       onPolish:
           onPolish ??
           ((_, _) async => const PolishResult(content: '润色后的内容', tags: ['工作'])),
-      onSave: onSave ?? (_, _, _) async {},
+      onSave: onSave ?? (_) async {},
     ),
   );
 }

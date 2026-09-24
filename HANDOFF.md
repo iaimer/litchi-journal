@@ -4,6 +4,8 @@
 
 ## 当前目标与上下文
 
+随手记与小确幸图文记录已在功能分支 `feat/entry-photo-attachments-20260924` 实现并完成本轮审查修复：新增/编辑/历史补录共用记录页内照片入口，照片以隐藏 UUID 标记关联到「影像记录」，正文下方使用 3 列等尺寸网格；历史与今天的独立相片 FAB 已移除。审查修复覆盖跨日引用时保留附件、严格关联标记、服务端 9 张上限、同名独立照片展示，以及部分成功和编辑结束后的父页刷新；同时修复了关联照片嵌入随手记时间轴时的 Flutter 固有高度布局异常。Flutter 550 项测试、服务端 61 项测试、`flutter analyze`、TypeScript 构建和 `git diff --check` 均通过。版本保持 `1.7.6+32`；功能分支尚未合并到 `main`，Mac mini 服务端也尚未部署本次代码；真机视觉截图仍待设备连接后验收。
+
 `1.7.6+32` 是当前版本：修复随手记、觉察和小确幸的多自然段布局、完整条目解析和 Markdown 排序边界。完整 Flutter 测试 541 项、服务端 52 项测试、`flutter analyze` 和 TypeScript 构建通过；Release APK 清单版本为 `1.7.6` / versionCode `32`，`apksigner verify` 通过。APK 使用 debug 签名，未安装到真机；真机安装与视觉验收由用户执行。项目流程采用 Project Docs Workflow；旧的 `SESSION_LOG.md` 保留为历史档案，不再追加。
 
 多自然段记录修复已 squash 合并并推送到 `main`。展示层把标签与三点菜单放在末段下方；Parser 聚合完整正文与 `rawLine`；服务端使用稳定续行前缀并按完整记录块排序。多行 `rawLine` 精确匹配，注释、Callout、图片和 checkbox 等非记录结构保持原位。Release APK 输出路径为 `build/app/outputs/flutter-apk/app-release.apk`；本次未安装到真机。
@@ -51,7 +53,7 @@ Mac mini 已在 2026-09-17 拉取 `63fff12` 并完成停服清理：dry-run 仅�
 
 ## 已知问题与阻塞
 
-- 当前没有已知阻塞。
+- 图文记录的真机视觉截图验收待 PLG110 或 Android 模拟器重新连接；本次仅完成 Debug APK 构建，未安装设备。
 
 ## 建议技能
 

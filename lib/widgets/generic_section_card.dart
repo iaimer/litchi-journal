@@ -5,6 +5,7 @@ import '../models/diary_document.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
+import '../services/api_client.dart';
 import '../screens/quick_capture_screen.dart';
 import '../theme/app_theme.dart';
 import 'entry_type.dart';
@@ -14,6 +15,7 @@ import 'journal_section.dart';
 import 'section_card.dart';
 import 'tag_color_helper.dart';
 import 'timeline_action_sheet.dart';
+import 'entry_photo_grid.dart';
 
 final _questionHint = RegExp(r'[？?]$|吗[？?]?$');
 
@@ -28,11 +30,23 @@ class GenericSectionCard extends StatelessWidget {
     String time,
   )?
   onTimelineEdit;
+  final Future<void> Function(
+    String rawLine,
+    String content,
+    List<String> tags,
+    String time,
+    String? entryId,
+  )?
+  onTimelineEditWithEntryId;
+  final Future<void> Function()? onTimelineEditCompleted;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
   final DateTime? recordDate;
   final Future<PolishResult> Function(String content, EntryType entryType)?
   onPolish;
+  final ApiClient? apiClient;
+  final QuickCaptureImagePicker? imagePicker;
+  final QuickCaptureImageCompressor? imageCompressor;
 
   const GenericSectionCard({
     super.key,
@@ -40,10 +54,15 @@ class GenericSectionCard extends StatelessWidget {
     this.accentColor,
     this.onTimelineDelete,
     this.onTimelineEdit,
+    this.onTimelineEditWithEntryId,
+    this.onTimelineEditCompleted,
     this.tagConfig,
     this.tagSettings,
     this.recordDate,
     this.onPolish,
+    this.apiClient,
+    this.imagePicker,
+    this.imageCompressor,
   });
 
   @override
@@ -140,12 +159,17 @@ class GenericSectionCard extends StatelessWidget {
             content: content,
             onDelete: onTimelineDelete,
             onEdit: onTimelineEdit,
+            onEditWithEntryId: onTimelineEditWithEntryId,
+            onEditCompleted: onTimelineEditCompleted,
             tagConfig: tagConfig,
             tagSettings: tagSettings,
             accentColor: accentColor,
             recordDate: recordDate,
             entryType: _entryTypeForSection(section),
             onPolish: onPolish,
+            apiClient: apiClient,
+            imagePicker: imagePicker,
+            imageCompressor: imageCompressor,
             journalLayout: journalLayout,
             showBullet: journalLayout && timelineCount > 1,
           ),
@@ -305,12 +329,17 @@ class GenericSectionCard extends StatelessWidget {
             content: entry,
             onDelete: onTimelineDelete,
             onEdit: onTimelineEdit,
+            onEditWithEntryId: onTimelineEditWithEntryId,
+            onEditCompleted: onTimelineEditCompleted,
             tagConfig: tagConfig,
             tagSettings: tagSettings,
             accentColor: effectiveAccent,
             recordDate: recordDate,
             entryType: EntryType.happiness,
             onPolish: onPolish,
+            apiClient: apiClient,
+            imagePicker: imagePicker,
+            imageCompressor: imageCompressor,
             journalLayout: true,
             showBullet: entries.length > 1,
           ),
@@ -461,6 +490,15 @@ class _EditableEntryRow extends StatefulWidget {
     String time,
   )?
   onEdit;
+  final Future<void> Function(
+    String rawLine,
+    String content,
+    List<String> tags,
+    String time,
+    String? entryId,
+  )?
+  onEditWithEntryId;
+  final Future<void> Function()? onEditCompleted;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
   final Color? accentColor;
@@ -470,11 +508,16 @@ class _EditableEntryRow extends StatefulWidget {
   onPolish;
   final bool journalLayout;
   final bool showBullet;
+  final ApiClient? apiClient;
+  final QuickCaptureImagePicker? imagePicker;
+  final QuickCaptureImageCompressor? imageCompressor;
 
   const _EditableEntryRow({
     required this.content,
     this.onDelete,
     this.onEdit,
+    this.onEditWithEntryId,
+    this.onEditCompleted,
     this.tagConfig,
     this.tagSettings,
     this.accentColor,
@@ -483,6 +526,9 @@ class _EditableEntryRow extends StatefulWidget {
     this.onPolish,
     this.journalLayout = false,
     this.showBullet = false,
+    this.apiClient,
+    this.imagePicker,
+    this.imageCompressor,
   });
 
   @override
@@ -493,14 +539,21 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
   bool _busy = false;
 
   bool get _showActions =>
-      (widget.onEdit != null || widget.onDelete != null) && !_busy;
+      (widget.onEdit != null ||
+          widget.onEditWithEntryId != null ||
+          widget.onDelete != null) &&
+      !_busy;
 
   Future<void> _confirmDelete() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
-        content: const Text('确定删除这条记录吗？'),
+        content: Text(
+          widget.content.photos.isEmpty
+              ? '确定删除这条记录吗？'
+              : '同时删除关联的 ${widget.content.photos.length} 张照片，确定继续吗？',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -530,10 +583,13 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
     }
   }
 
-  void _openEdit() {
+  Future<void> _openEdit() async {
     final entryType = widget.entryType;
-    if (widget.onEdit == null || entryType == null) return;
-    Navigator.of(context).push<bool>(
+    if ((widget.onEdit == null && widget.onEditWithEntryId == null) ||
+        entryType == null) {
+      return;
+    }
+    final result = await Navigator.of(context).push<QuickCaptureResult>(
       MaterialPageRoute(
         builder: (_) => QuickCaptureScreen(
           entryType: entryType,
@@ -542,21 +598,47 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
           initialContent: widget.content.text,
           initialTime: widget.content.time,
           initialTags: widget.content.tags,
+          initialEntryId: widget.content.entryId,
+          initialPhotos: widget.content.photos,
+          apiClient: widget.apiClient,
+          photoDate: widget.recordDate,
+          imagePicker: widget.imagePicker,
+          imageCompressor: widget.imageCompressor,
           tagConfig: widget.tagConfig,
           tagSettings: widget.tagSettings,
           onPolish: widget.onPolish,
-          onSave: (content, tags, time) =>
-              widget.onEdit!(widget.content.rawLine, content, tags, time),
+          onSave: (submission) {
+            final save = widget.onEditWithEntryId;
+            if (save != null) {
+              return save(
+                widget.content.rawLine,
+                submission.content,
+                submission.tags,
+                submission.time,
+                submission.entryId,
+              );
+            }
+            return widget.onEdit!(
+              widget.content.rawLine,
+              submission.content,
+              submission.tags,
+              submission.time,
+            );
+          },
         ),
       ),
     );
+    if (!mounted || result == null || result == QuickCaptureResult.discarded) {
+      return;
+    }
+    await widget.onEditCompleted?.call();
   }
 
   Future<void> _openActions() async {
     if (!_showActions) return;
     final action = await showTimelineActionSheet(
       context,
-      showEdit: widget.onEdit != null,
+      showEdit: widget.onEdit != null || widget.onEditWithEntryId != null,
       showDelete: widget.onDelete != null,
     );
     if (!mounted) return;
@@ -583,6 +665,7 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
         tagConfig: widget.tagConfig,
         showBullet: widget.showBullet,
         trailing: _buildJournalTrailing(),
+        attachment: _buildPhotoGrid(),
       );
     }
 
@@ -591,48 +674,70 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
       padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
       child: IntrinsicHeight(
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 48,
-              child: Text(
-                widget.content.time,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: accentColor,
-                  fontWeight: FontWeight.w600,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 48,
+                child: Text(
+                  widget.content.time,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: accentColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-            _TimelineMarker(color: accentColor),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(widget.content.text, style: theme.textTheme.bodyMedium),
-                  if (widget.content.tags.isNotEmpty || trailing != null)
-                    Row(
-                      children: [
-                        if (widget.content.tags.isNotEmpty)
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: TagChipList(
-                                tags: widget.content.tags,
-                                tagConfig: widget.tagConfig,
-                                moduleAccentColor: widget.accentColor,
+              _TimelineMarker(color: accentColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.content.text,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    if (_buildPhotoGrid() case final attachment?) ...[
+                      const SizedBox(height: FloraSpacing.sm),
+                      attachment,
+                    ],
+                    if (widget.content.tags.isNotEmpty || trailing != null)
+                      Row(
+                        children: [
+                          if (widget.content.tags.isNotEmpty)
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: TagChipList(
+                                  tags: widget.content.tags,
+                                  tagConfig: widget.tagConfig,
+                                  moduleAccentColor: widget.accentColor,
+                                ),
                               ),
                             ),
-                          ),
-                        ?trailing,
-                      ],
-                    ),
-                ],
+                          ?trailing,
+                        ],
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
         ),
       ),
+    );
+  }
+
+  Widget? _buildPhotoGrid() {
+    final apiClient = widget.apiClient;
+    final date = widget.recordDate;
+    if (widget.content.photos.isEmpty || apiClient == null || date == null) {
+      return null;
+    }
+    return EntryPhotoGrid(
+      photos: widget.content.photos,
+      uploads: const [],
+      removedPhotoNames: const {},
+      apiClient: apiClient,
+      date: date,
     );
   }
 

@@ -9,14 +9,12 @@ class HistoricalQuickRecordFab extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
   final ValueChanged<EntryType> onEntrySelected;
-  final VoidCallback onImagesSelected;
 
   const HistoricalQuickRecordFab({
     super.key,
     required this.expanded,
     required this.onToggle,
     required this.onEntrySelected,
-    required this.onImagesSelected,
   });
 
   @override
@@ -43,13 +41,6 @@ class HistoricalQuickRecordFab extends StatelessWidget {
         icon: const FloraIcon(FloraIcons.fabHappy, size: 19),
         angleDegrees: 114,
         onTap: () => onEntrySelected(EntryType.happiness),
-      ),
-      _HistoricalAction(
-        key: const Key('historical_quick_record_images'),
-        title: '添加相片',
-        icon: const FloraIcon(FloraIcons.fabPhoto, size: 19),
-        angleDegrees: 82,
-        onTap: onImagesSelected,
       ),
     ];
 

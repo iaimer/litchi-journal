@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../widgets/flora_icon.dart';
 import '../widgets/flora_success_snackbar.dart';
@@ -14,9 +12,8 @@ import '../models/diary_document.dart';
 import '../models/diary_entry.dart';
 import '../models/focus_timer.dart';
 import '../models/habit_settings.dart';
-import '../models/image_settings.dart';
-import '../models/image_upload_item.dart';
 import '../models/polish_result.dart';
+import '../models/quick_capture_submission.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../screens/anxiety_screen.dart';
@@ -32,8 +29,6 @@ import '../services/habit_settings_repository.dart';
 import '../services/habit_completion_sound.dart';
 import '../services/focus_timer_controller.dart';
 import '../services/habit_stats_service.dart';
-import '../services/image_compress_service.dart';
-import '../services/image_settings_repository.dart';
 import '../services/markdown_parser.dart';
 import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
@@ -47,16 +42,12 @@ import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/habit_icon.dart';
 
-typedef TodayImagePicker = Future<XFile?> Function(ImageSettings settings);
-typedef TodayImageCompressor =
-    Future<String> Function(Uint8List bytes, ImageSettings settings);
+typedef TodayImagePicker = QuickCaptureImagePicker;
+typedef TodayImageCompressor = QuickCaptureImageCompressor;
 
 class HomeScreen extends StatefulWidget {
-  static const maxImageUploadPayloadChars = 9 * 1024 * 1024;
-
   final ApiClient apiClient;
   final HabitSettingsRepository? habitSettingsRepo;
-  final Future<void> Function()? imageUploadHandler;
   final TodayImagePicker? imagePicker;
   final TodayImageCompressor? imageCompressor;
   final ValueChanged<ApiConfig>? onApiConfigChanged;
@@ -65,7 +56,6 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     this.habitSettingsRepo,
-    this.imageUploadHandler,
     this.imagePicker,
     this.imageCompressor,
     this.onApiConfigChanged,
@@ -141,12 +131,9 @@ class _HomeScreenState extends State<HomeScreen> {
   TagConfig? _tagConfig;
   TagSettings? _tagSettings;
   final _draftRepository = DraftRepository();
-  final _imageSettingsRepository = ImageSettingsRepository();
-  final _imagePicker = ImagePicker();
   final _scrollController = ScrollController();
   final _habitCompletionSound = HabitCompletionSound();
   late final FocusTimerController _focusTimerController;
-  final List<ImageUploadItem> _imageUploads = [];
   bool _generatingCoach = false;
   bool _quickRecordExpanded = false;
   HabitSettings? _habitSettings;
@@ -340,6 +327,8 @@ class _HomeScreenState extends State<HomeScreen> {
     String content,
     List<String> tags, {
     String? time,
+    String? entryId,
+    String? operationId,
   }) async {
     Future<bool> call() {
       switch (type) {
@@ -349,6 +338,8 @@ class _HomeScreenState extends State<HomeScreen> {
             content,
             tags: tags,
             time: time,
+            entryId: entryId,
+            operationId: operationId,
           );
         case EntryType.reflection:
           return widget.apiClient.appendReflection(
@@ -363,6 +354,8 @@ class _HomeScreenState extends State<HomeScreen> {
             content,
             tags: tags,
             time: time,
+            entryId: entryId,
+            operationId: operationId,
           );
         case EntryType.anxiety:
           return widget.apiClient.appendAnxiety(
@@ -667,8 +660,9 @@ class _HomeScreenState extends State<HomeScreen> {
     String rawLine,
     String content,
     List<String> tags,
-    String time,
-  ) async {
+    String time, {
+    String? entryId,
+  }) async {
     final replacement = rebuildTimelineLine(
       rawLine: rawLine,
       content: content,
@@ -680,6 +674,7 @@ class _HomeScreenState extends State<HomeScreen> {
       section: sectionKey,
       target: rawLine,
       replacement: replacement,
+      entryId: entryId,
     );
     if (!ok) throw Exception('更新失败');
     if (!mounted) return;
@@ -722,134 +717,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _handleQuickCaptureSave(
     EntryType type,
-    String content,
-    List<String> tags,
-    String time,
+    QuickCaptureSubmission submission,
   ) async {
     final success = await _appendEntry(
       type,
       _activeDate,
-      content,
-      tags,
-      time: time,
+      submission.content,
+      submission.tags,
+      time: submission.time,
+      entryId: submission.entryId,
+      operationId: submission.operationId,
     );
     if (!success) throw Exception('保存失败');
-  }
-
-  Future<void> _handleImageUpload() async {
-    if (_hasActiveImageUpload) return;
-    final imageSettings = await _loadImageSettings();
-    final file =
-        await (widget.imagePicker?.call(imageSettings) ??
-            _imagePicker.pickImage(
-              source: ImageSource.gallery,
-              maxWidth: imageSettings.maxLongSidePx.toDouble(),
-              maxHeight: imageSettings.maxLongSidePx.toDouble(),
-              imageQuality: imageSettings.initialQuality,
-            ));
-    if (file == null || !mounted) return;
-
-    final item = ImageUploadItem(id: ApiClient.generateUuidV4(), file: file);
-    setState(() => _imageUploads.add(item));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_imageUploads.contains(item)) return;
-      _uploadImage(item, imageSettings);
-    });
-  }
-
-  bool get _hasActiveImageUpload => _imageUploads.any(
-    (item) =>
-        item.status == ImageUploadStatus.preparing ||
-        item.status == ImageUploadStatus.uploading,
-  );
-
-  Future<void> _uploadImage(
-    ImageUploadItem item,
-    ImageSettings imageSettings,
-  ) async {
-    setState(() {
-      item.status = ImageUploadStatus.preparing;
-      item.sentBytes = 0;
-      item.totalBytes = 0;
-      item.errorMessage = null;
-    });
-
-    try {
-      final bytes = await item.file.readAsBytes();
-      final compressService = ImageCompressService.fromSettings(imageSettings);
-      final base64 =
-          await (widget.imageCompressor?.call(bytes, imageSettings) ??
-              compressService.compressToBase64InBackground(bytes));
-      if (base64.length > HomeScreen.maxImageUploadPayloadChars) {
-        throw Exception('图片压缩后仍过大，请在图片设置中降低尺寸或质量');
-      }
-
-      await widget.apiClient.uploadImage(
-        _activeDate,
-        base64,
-        operationId: item.id,
-        imagePrefix: imageSettings.filenamePrefix,
-        onProgress: (sentBytes, totalBytes) {
-          if (!mounted || !_imageUploads.contains(item)) return;
-          setState(() {
-            item.status = ImageUploadStatus.uploading;
-            item.sentBytes = sentBytes;
-            item.totalBytes = totalBytes;
-          });
-        },
-      );
-
-      if (!mounted) return;
-      setState(() => item.status = ImageUploadStatus.success);
-      showFloraSuccessSnackBar(context, '已添加照片');
-      await _loadDiarySilently();
-      if (mounted) setState(() => _imageUploads.remove(item));
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        item.status = ImageUploadStatus.failed;
-        item.errorMessage = _imageUploadErrorMessage(e);
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_imageUploadErrorMessage(e))));
-    }
-  }
-
-  Future<void> _retryImageUpload(ImageUploadItem item) async {
-    if (item.status != ImageUploadStatus.failed) return;
-    await _uploadImage(item, await _loadImageSettings());
-  }
-
-  void _removeImageUpload(ImageUploadItem item) {
-    if (item.status != ImageUploadStatus.selected &&
-        item.status != ImageUploadStatus.failed) {
-      return;
-    }
-    setState(() => _imageUploads.remove(item));
-  }
-
-  String _imageUploadErrorMessage(Object error) {
-    final message = error.toString().replaceFirst('Exception: ', '').trim();
-    if (message.isEmpty) return '上传失败，请重试';
-    return message;
-  }
-
-  Future<ImageSettings> _loadImageSettings() async {
-    try {
-      return await _imageSettingsRepository.load();
-    } catch (_) {
-      return ImageSettings.defaults();
-    }
-  }
-
-  Future<void> _startImageUpload() async {
-    final handler = widget.imageUploadHandler;
-    if (handler != null) {
-      await handler();
-      return;
-    }
-    await _handleImageUpload();
   }
 
   Future<void> _handleGenerateCoach() async {
@@ -943,13 +822,6 @@ class _HomeScreenState extends State<HomeScreen> {
         key: const Key('quick_record_anxiety'),
         angleDegrees: 105,
         onTap: () => _selectQuickEntry(EntryType.anxiety),
-      ),
-      _QuickRecordAction(
-        icon: const FloraIcon(FloraIcons.fabPhoto, size: 19),
-        title: '添加图片',
-        key: const Key('quick_record_image'),
-        angleDegrees: 82,
-        onTap: _selectImageUpload,
       ),
     ];
 
@@ -1104,28 +976,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openQuickCapture(EntryType type) async {
-    final saved = await Navigator.of(context).push<bool>(
+    final result = await Navigator.of(context).push<QuickCaptureResult>(
       MaterialPageRoute(
         builder: (_) => QuickCaptureScreen(
           entryType: type,
           openedAt: DateTime.now(),
           tagConfig: _effectiveTagConfig,
+          apiClient: widget.apiClient,
+          photoDate: _activeDate,
+          imagePicker: widget.imagePicker,
+          imageCompressor: widget.imageCompressor,
           onPolish: _handlePolish,
-          onSave: (content, tags, time) {
-            return _handleQuickCaptureSave(type, content, tags, time);
+          onSave: (submission) {
+            return _handleQuickCaptureSave(type, submission);
           },
         ),
       ),
     );
 
-    if (!mounted || saved != true) return;
-    showFloraSuccessSnackBar(context, '已保存');
+    if (!mounted || result == null || result == QuickCaptureResult.discarded) {
+      return;
+    }
+    if (result == QuickCaptureResult.saved) {
+      showFloraSuccessSnackBar(context, '已保存');
+    }
     _loadDiarySilently();
-  }
-
-  void _selectImageUpload() {
-    setState(() => _quickRecordExpanded = false);
-    _startImageUpload();
   }
 
   Widget _buildFocusTimerStrip(ThemeData theme) {
@@ -1313,13 +1188,23 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        if (_diary?.raw.isNotEmpty == true ||
-                            _imageUploads.isNotEmpty) ...[
+                        if (_diary?.raw.isNotEmpty == true) ...[
                           DiaryMarkdownView(
                             markdown: _diary?.raw ?? '',
                             onHabitUpdate: _handleHabitUpdate,
                             onEntryDelete: _handleEntryDelete,
                             onEntryEdit: _handleEntryEdit,
+                            onEntryEditWithEntryId:
+                                (section, rawLine, content, tags, time, id) =>
+                                    _handleEntryEdit(
+                                      section,
+                                      rawLine,
+                                      content,
+                                      tags,
+                                      time,
+                                      entryId: id,
+                                    ),
+                            onEntryEditCompleted: _loadDiarySilently,
                             onEntryPolish: _handlePolish,
                             tagConfig: _tagConfig,
                             tagSettings: _tagSettings,
@@ -1337,9 +1222,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             onStartDuration: _handleStartDuration,
                             onDurationUpdate: _handleDurationUpdate,
                             onCustomDurationUpdate: _handleCustomDurationUpdate,
-                            imageUploads: _imageUploads,
-                            onImageUploadRetry: _retryImageUpload,
-                            onImageUploadRemove: _removeImageUpload,
+                            imagePicker: widget.imagePicker,
+                            imageCompressor: widget.imageCompressor,
                           ),
                         ] else ...[
                           Text(

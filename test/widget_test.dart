@@ -20,6 +20,7 @@ import 'package:litchi_journal_flutter/models/diary_entry.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
 import 'package:litchi_journal_flutter/models/gallery_result.dart';
 import 'package:litchi_journal_flutter/models/polish_result.dart';
+import 'package:litchi_journal_flutter/models/quick_capture_submission.dart';
 import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/ai_config_repository.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
@@ -363,10 +364,12 @@ class _RecordingHttpClient extends _FakeHttpClient {
 
 class _HistoricalBackfillHttpClient extends http.BaseClient {
   bool diaryCreated = false;
+  int diaryGetCalls = 0;
   int createCalls = 0;
   int appendCalls = 0;
   int uploadCalls = 0;
   final uploadOperationIds = <String>[];
+  final uploadEntryIds = <String?>[];
   String? lastAppendBody;
 
   @override
@@ -376,6 +379,7 @@ class _HistoricalBackfillHttpClient extends http.BaseClient {
       return _response('{}', 500);
     }
     if (request.method == 'GET' && path.startsWith('/api/v1/diary/')) {
+      diaryGetCalls++;
       if (!diaryCreated) return _response('{}', 404);
       return _response(
         jsonEncode({
@@ -404,10 +408,17 @@ class _HistoricalBackfillHttpClient extends http.BaseClient {
       );
       final body = jsonDecode(utf8.decode(bodyBytes)) as Map<String, dynamic>;
       uploadOperationIds.add(body['operationId'] as String);
+      uploadEntryIds.add(body['entryId'] as String?);
       uploadCalls++;
       return uploadCalls == 2
           ? _response('{"error":"upload failed"}', 500)
-          : _response('{"ok":true}', 200);
+          : _response(
+              jsonEncode({
+                'success': true,
+                'filename': 'backfill_$uploadCalls.jpg',
+              }),
+              200,
+            );
     }
     return _response('{}', 404);
   }
@@ -422,8 +433,18 @@ class _HistoricalBackfillHttpClient extends http.BaseClient {
 }
 
 class _TodayImageUploadHttpClient extends http.BaseClient {
+  _TodayImageUploadHttpClient({
+    this.failFirstUpload = true,
+    this.diaryRaw = '# 今天\n',
+  });
+
+  final bool failFirstUpload;
+  String diaryRaw;
+  int diaryGetCalls = 0;
   int uploadCalls = 0;
   final uploadOperationIds = <String>[];
+  final uploadEntryIds = <String?>[];
+  String? lastAppendBody;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -432,15 +453,38 @@ class _TodayImageUploadHttpClient extends http.BaseClient {
       return _response('{}', 500);
     }
     if (request.method == 'GET' && path.startsWith('/api/v1/diary/')) {
+      diaryGetCalls++;
       return _response(
         jsonEncode({
           'date': path.split('/').last,
           'title': '今天',
-          'raw': '# 今天\n',
+          'raw': diaryRaw,
           'sections': {},
         }),
         200,
       );
+    }
+    if (request.method == 'POST' && path == '/api/v1/diary/quick-note') {
+      if (request is http.Request) {
+        lastAppendBody = request.body;
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        diaryRaw +=
+            '\n## ✍️ 随手记 & 灵感\n'
+            '- **${body['time']}** ${body['content']}\n'
+            '<!-- litchi-entry-id:${body['entryId']} -->\n'
+            '\n## 📸 影像记录\n';
+      }
+      return _response('{"ok":true}', 200);
+    }
+    if (request.method == 'POST' && path == '/api/v1/diary/edit-entry') {
+      if (request is http.Request) {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        diaryRaw = diaryRaw.replaceFirst(
+          body['target'] as String,
+          '${body['replacement']}\n<!-- litchi-entry-id:${body['entryId']} -->',
+        );
+      }
+      return _response('{"ok":true}', 200);
     }
     if (request.method == 'POST' && path == '/api/v1/diary/image/upload') {
       final bodyBytes = await request.finalize().fold<List<int>>(
@@ -449,10 +493,19 @@ class _TodayImageUploadHttpClient extends http.BaseClient {
       );
       final body = jsonDecode(utf8.decode(bodyBytes)) as Map<String, dynamic>;
       uploadOperationIds.add(body['operationId'] as String);
+      uploadEntryIds.add(body['entryId'] as String?);
       uploadCalls++;
-      return uploadCalls == 1
-          ? _response('{"error":"upload failed"}', 500)
-          : _response('{"ok":true}', 200);
+      if (failFirstUpload && uploadCalls == 1) {
+        return _response('{"error":"upload failed"}', 500);
+      }
+      final filename = 'today_$uploadCalls.jpg';
+      diaryRaw +=
+          '\n![[$filename]]\n'
+          '<!-- litchi-photo-of:${body['entryId']};op:${body['operationId']} -->\n';
+      return _response(
+        jsonEncode({'success': true, 'filename': filename}),
+        200,
+      );
     }
     return _response('{"ok":true}', 200);
   }
@@ -1512,12 +1565,12 @@ void main() {
       );
       expect(
         find.byKey(const Key('historical_quick_record_images')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.text('焦虑四问'), findsNothing);
     });
 
-    testWidgets('historical multi-image upload keeps partial success', (
+    testWidgets('historical backfill attaches photos to the text entry', (
       tester,
     ) async {
       FlutterSecureStorage.setMockInitialValues({});
@@ -1545,42 +1598,108 @@ void main() {
                 settings,
               ).compressToBase64(bytes);
             },
-            imagePicker: (_) async => [
+            imagePicker: (_, _) async => [
               XFile.fromData(bytes, name: 'first.jpg', mimeType: 'image/jpeg'),
               XFile.fromData(bytes, name: 'second.jpg', mimeType: 'image/jpeg'),
+              XFile.fromData(bytes, name: 'third.jpg', mimeType: 'image/jpeg'),
             ],
           ),
         ),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('historical_quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('historical_quick_record_quick_note')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '历史的一段记录');
       await tester.pump();
-      await tester.tap(find.byKey(const Key('historical_quick_record_images')));
+      await tester.tap(find.byKey(const Key('quick_capture_add_photo')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
       await tester.pumpAndSettle();
 
       expect(httpClient.createCalls, 1);
+      expect(httpClient.appendCalls, 2);
       expect(httpClient.uploadCalls, 2);
-      expect(find.textContaining('已成功 1 张，第 2 张失败'), findsOneWidget);
+      expect(find.text('文字已保存，部分照片操作未完成，请重试'), findsOneWidget);
       expect(find.text('上传失败\n点击重试'), findsOneWidget);
 
-      tester
-          .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
-          .hideCurrentSnackBar();
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('上传失败\n点击重试'));
       await tester.tap(find.text('上传失败\n点击重试'));
       await tester.pumpAndSettle();
 
       expect(httpClient.uploadCalls, 3);
       expect(
-        httpClient.uploadOperationIds[0],
-        isNot(httpClient.uploadOperationIds[1]),
-      );
-      expect(
         httpClient.uploadOperationIds[1],
         httpClient.uploadOperationIds[2],
       );
+      final appendBody =
+          jsonDecode(httpClient.lastAppendBody!) as Map<String, dynamic>;
+      expect(httpClient.uploadEntryIds, everyElement(appendBody['entryId']));
       expect(find.text('上传失败\n点击重试'), findsNothing);
+      expect(find.text('重试照片'), findsOneWidget);
+      await tester.tap(find.text('重试照片'));
+      await tester.pumpAndSettle();
+      expect(httpClient.uploadCalls, 4);
+      expect(
+        httpClient.uploadOperationIds[2],
+        isNot(httpClient.uploadOperationIds[3]),
+      );
+      expect(find.byType(QuickCaptureScreen), findsNothing);
+    });
+
+    testWidgets('历史补录部分保存后离开会重新读取目标日期', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final httpClient = _HistoricalBackfillHttpClient();
+      final image = img.Image(width: 8, height: 8);
+      _fillSolidImage(image);
+      final bytes = Uint8List.fromList(img.encodeJpg(image));
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+        httpClient: httpClient,
+        uploadBodyEncoder: _encodeUploadBodyForTest,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReadOnlyDiaryScreen(
+            date: DateTime(2026, 6, 8),
+            apiClient: client,
+            imageSettingsRepository: ImageSettingsRepository(
+              storage: _TestStorage(),
+            ),
+            imagePicker: (_, _) async => [
+              XFile.fromData(bytes, name: 'first.jpg', mimeType: 'image/jpeg'),
+              XFile.fromData(bytes, name: 'second.jpg', mimeType: 'image/jpeg'),
+            ],
+            imageCompressor: (bytes, settings) async =>
+                ImageCompressService.fromSettings(settings)
+                    .compressToBase64(bytes),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final initialGetCalls = httpClient.diaryGetCalls;
+      await tester.tap(find.byKey(const Key('historical_quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('historical_quick_record_quick_note')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '部分保存的历史记录');
+      await tester.tap(find.byKey(const Key('quick_capture_add_photo')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+      await tester.pumpAndSettle();
+      expect(httpClient.uploadCalls, 2);
+      expect(find.text('上传失败\n点击重试'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('放弃'));
+      await tester.pumpAndSettle();
+
+      expect(httpClient.diaryGetCalls, greaterThan(initialGetCalls));
+      expect(find.byType(QuickCaptureScreen), findsNothing);
     });
 
     testWidgets('historical text backfill creates diary only on save', (
@@ -1943,11 +2062,7 @@ void main() {
       );
     }
 
-    Widget buildHome({
-      ThemeData? theme,
-      Future<void> Function()? imageUploadHandler,
-      http.BaseClient? httpClient,
-    }) {
+    Widget buildHome({ThemeData? theme, http.BaseClient? httpClient}) {
       return MaterialApp(
         theme: theme,
         home: HomeScreen(
@@ -1955,7 +2070,6 @@ void main() {
             httpClient ?? _FakeHttpClient(body: todayDiaryBody()),
           ),
           habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
-          imageUploadHandler: imageUploadHandler,
         ),
       );
     }
@@ -2065,7 +2179,7 @@ void main() {
       expect(find.byKey(const Key('quick_record_fab')), findsNothing);
     });
 
-    testWidgets('FAB expands five quick record entries in fan layout', (
+    testWidgets('FAB expands four quick record entries in fan layout', (
       tester,
     ) async {
       await tester.pumpWidget(buildHome());
@@ -2080,12 +2194,11 @@ void main() {
       expect(find.byKey(const Key('quick_record_happiness')), findsOneWidget);
       expect(find.byKey(const Key('quick_record_reflection')), findsOneWidget);
       expect(find.byKey(const Key('quick_record_anxiety')), findsOneWidget);
-      expect(find.byKey(const Key('quick_record_image')), findsOneWidget);
+      expect(find.byKey(const Key('quick_record_image')), findsNothing);
       expect(find.text('随手记'), findsNothing);
       expect(find.text('小确幸'), findsNothing);
       expect(find.text('觉察'), findsNothing);
       expect(find.text('焦虑四问'), findsNothing);
-      expect(find.text('添加图片'), findsNothing);
 
       final noteButton = tester.widget<Material>(
         find.descendant(
@@ -2119,9 +2232,6 @@ void main() {
       final noteCenter = tester.getCenter(
         find.byKey(const Key('quick_record_quick_note')),
       );
-      final imageCenter = tester.getCenter(
-        find.byKey(const Key('quick_record_image')),
-      );
       final happinessCenter = tester.getCenter(
         find.byKey(const Key('quick_record_happiness')),
       );
@@ -2143,12 +2253,9 @@ void main() {
         happinessCenter,
         reflectionCenter,
         anxietyCenter,
-        imageCenter,
       ].map(distanceFromMain);
 
       expect(noteCenter.dx, lessThan(mainCenter.dx));
-      expect(imageCenter.dy, lessThan(mainCenter.dy));
-      expect(imageCenter.dy, lessThan(anxietyCenter.dy));
       expect(reflectionCenter.dy, lessThan(noteCenter.dy));
       expect(happinessCenter.dy, lessThan(noteCenter.dy));
       for (final distance in distances) {
@@ -2156,25 +2263,7 @@ void main() {
       }
     });
 
-    testWidgets('image entry calls existing image upload handler', (
-      tester,
-    ) async {
-      var called = false;
-      await tester.pumpWidget(
-        buildHome(imageUploadHandler: () async => called = true),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('quick_record_fab')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('quick_record_image')));
-      await tester.pumpAndSettle();
-
-      expect(called, isTrue);
-      expect(find.byKey(const Key('quick_record_image')), findsNothing);
-    });
-
-    testWidgets('today image appears locally before upload and can retry', (
+    testWidgets('today quick note adds a photo inside capture and retries it', (
       tester,
     ) async {
       FlutterSecureStorage.setMockInitialValues({});
@@ -2191,11 +2280,9 @@ void main() {
               uploadBodyEncoder: _encodeUploadBodyForTest,
             ),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
-            imagePicker: (_) async => XFile.fromData(
-              bytes,
-              name: 'today.jpg',
-              mimeType: 'image/jpeg',
-            ),
+            imagePicker: (_, _) async => [
+              XFile.fromData(bytes, name: 'today.jpg', mimeType: 'image/jpeg'),
+            ],
             imageCompressor: (bytes, settings) async {
               return ImageCompressService.fromSettings(
                 settings,
@@ -2207,28 +2294,133 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_record_quick_note')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '今天的一段记录');
       await tester.pump();
-      await tester.tap(find.byKey(const Key('quick_record_image')));
+      await tester.tap(find.byKey(const Key('quick_capture_add_photo')));
+      await tester.pumpAndSettle();
+      expect(find.byType(Image), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
       await tester.pumpAndSettle();
       expect(find.text('上传失败\n点击重试'), findsOneWidget);
-      expect(find.byType(Image), findsOneWidget);
+      expect(find.text('文字已保存，部分照片操作未完成，请重试'), findsOneWidget);
 
       final retry = find.byWidgetPredicate(
         (widget) =>
             widget.key is ValueKey<String> &&
             (widget.key! as ValueKey<String>).value.startsWith('retry_image_'),
       );
-      ScaffoldMessenger.of(
-        tester.element(find.byType(HomeScreen)),
-      ).removeCurrentSnackBar();
-      await tester.pumpAndSettle();
-      await Scrollable.ensureVisible(tester.element(retry), alignment: 0.5);
-      await tester.pumpAndSettle();
       await tester.tap(retry);
       await tester.pumpAndSettle();
       expect(httpClient.uploadCalls, 2);
       expect(httpClient.uploadOperationIds.toSet(), hasLength(1));
       expect(find.text('上传失败\n点击重试'), findsNothing);
+      final appendBody =
+          jsonDecode(httpClient.lastAppendBody!) as Map<String, dynamic>;
+      expect(httpClient.uploadEntryIds, everyElement(appendBody['entryId']));
+      expect(find.text('完成'), findsOneWidget);
+    });
+
+    testWidgets('已保存文字但照片失败后离开仍刷新今天页', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final httpClient = _TodayImageUploadHttpClient();
+      final image = img.Image(width: 8, height: 8);
+      _fillSolidImage(image);
+      final bytes = Uint8List.fromList(img.encodeJpg(image));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            apiClient: homeClient(
+              httpClient,
+              uploadBodyEncoder: _encodeUploadBodyForTest,
+            ),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+            imagePicker: (_, _) async => [
+              XFile.fromData(bytes, name: 'today.jpg', mimeType: 'image/jpeg'),
+            ],
+            imageCompressor: (bytes, settings) async =>
+                ImageCompressService.fromSettings(
+                  settings,
+                ).compressToBase64(bytes),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final initialGetCalls = httpClient.diaryGetCalls;
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_record_quick_note')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '已保存的正文');
+      await tester.tap(find.byKey(const Key('quick_capture_add_photo')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+      await tester.pumpAndSettle();
+      expect(find.text('上传失败\n点击重试'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('放弃'));
+      await tester.pumpAndSettle();
+
+      expect(httpClient.diaryGetCalls, greaterThan(initialGetCalls));
+      expect(find.text('已保存的正文'), findsOneWidget);
+    });
+
+    testWidgets('编辑记录添加照片后刷新今天页', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      const entryId = '11111111-1111-4111-8111-111111111111';
+      final httpClient = _TodayImageUploadHttpClient(
+        failFirstUpload: false,
+        diaryRaw:
+            '''
+# 今天
+
+## ✍️ 随手记 & 灵感
+- **08:00** 原文
+<!-- litchi-entry-id:$entryId -->
+
+## 📸 影像记录
+''',
+      );
+      final image = img.Image(width: 8, height: 8);
+      _fillSolidImage(image);
+      final bytes = Uint8List.fromList(img.encodeJpg(image));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            apiClient: homeClient(
+              httpClient,
+              uploadBodyEncoder: _encodeUploadBodyForTest,
+            ),
+            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+            imagePicker: (_, _) async => [
+              XFile.fromData(bytes, name: 'today.jpg', mimeType: 'image/jpeg'),
+            ],
+            imageCompressor: (bytes, settings) async =>
+                ImageCompressService.fromSettings(
+                  settings,
+                ).compressToBase64(bytes),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('更多操作').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('编辑'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_capture_add_photo')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QuickCaptureScreen), findsNothing);
+      expect(find.byType(DiaryImageThumbnail), findsOneWidget);
     });
 
     testWidgets('quick note entry opens QuickCaptureScreen', (tester) async {
@@ -2411,7 +2603,7 @@ void main() {
       Future<PolishResult> Function(String content, EntryType entryType)?
       onPolish,
       Future<TimeOfDay?> Function(BuildContext, TimeOfDay)? timePicker,
-      Future<void> Function(String, List<String>, String)? onSave,
+      Future<void> Function(QuickCaptureSubmission submission)? onSave,
     }) {
       return MaterialApp(
         home: QuickCaptureScreen(
@@ -2420,7 +2612,7 @@ void main() {
           tagConfig: tagConfig,
           onPolish: onPolish,
           timePicker: timePicker,
-          onSave: onSave ?? (_, _, _) async {},
+          onSave: onSave ?? (_) async {},
         ),
       );
     }
@@ -2448,7 +2640,7 @@ void main() {
             entryType: EntryType.quickNote,
             openedAt: DateTime(2026, 7, 31, 8, 5),
             recordDate: DateTime(2026, 7, 10),
-            onSave: (_, _, _) async {},
+            onSave: (_) async {},
           ),
         ),
       );
@@ -2462,7 +2654,7 @@ void main() {
       await tester.pumpWidget(
         buildCapture(
           openedAt: DateTime(2026, 6, 17, 8, 5),
-          onSave: (_, _, time) async => savedTime = time,
+          onSave: (submission) async => savedTime = submission.time,
         ),
       );
 
@@ -2479,7 +2671,7 @@ void main() {
       await tester.pumpWidget(
         buildCapture(
           timePicker: (_, _) async => const TimeOfDay(hour: 22, minute: 10),
-          onSave: (_, _, time) async => savedTime = time,
+          onSave: (submission) async => savedTime = submission.time,
         ),
       );
 
@@ -2500,7 +2692,7 @@ void main() {
       await tester.pumpWidget(
         buildCapture(
           tagConfig: _testTagConfig(),
-          onSave: (_, tags, _) async => savedTags = tags,
+          onSave: (submission) async => savedTags = submission.tags,
         ),
       );
 
@@ -2579,7 +2771,7 @@ void main() {
       await tester.pumpWidget(
         buildCapture(
           tagConfig: _testTagConfig(),
-          onSave: (_, _, _) async => throw Exception('fail'),
+          onSave: (_) async => throw Exception('fail'),
         ),
       );
 
@@ -2621,7 +2813,7 @@ void main() {
             openedAt: DateTime(2026, 9, 11, 21, 18),
             initialContent: '已有内容',
             initialTime: '09:30',
-            onSave: (_, _, _) async {},
+            onSave: (_) async {},
           ),
         ),
       );
@@ -2655,7 +2847,7 @@ void main() {
             initialContent: '已有记录',
             initialTime: '09:30',
             draftRepository: repository,
-            onSave: (_, _, _) async {},
+            onSave: (_) async {},
           ),
         ),
       );
@@ -2825,6 +3017,84 @@ tags:
     expect(second.time, '14:00');
     expect(second.text, '发现一只可爱的小猫');
     expect(second.tags, ['#生活']);
+  });
+
+  test('MarkdownParser links photo blocks to note and happiness entries', () {
+    const noteId = '11111111-1111-4111-8111-111111111111';
+    const happinessId = '22222222-2222-4222-8222-222222222222';
+    const markdown =
+        '''
+## ✍️ 随手记 & 灵感
+- **08:00** 随手记第一段。
+
+随手记最后一段。 #记录
+<!-- litchi-entry-id:$noteId -->
+
+## ✨ 每日小确幸
+> **09:00** 小确幸正文。
+<!-- litchi-entry-id:$happinessId -->
+
+## 📸 影像记录
+![[note.jpg]]
+<!-- litchi-photo-of:$noteId;op:33333333-3333-4333-8333-333333333333 -->
+![[happiness.jpg]]
+<!-- litchi-photo-of:$happinessId;op:44444444-4444-4444-8444-444444444444 -->
+![[orphan.jpg]]
+''';
+
+    final document = const MarkdownParser().parse(markdown);
+    final note = document.sections
+        .whereType<QuickNoteSection>()
+        .single
+        .contents
+        .whereType<TimelineContent>()
+        .single;
+    final happiness = document.sections
+        .whereType<HappinessSection>()
+        .single
+        .contents
+        .whereType<TimelineContent>()
+        .single;
+    final media = document.sections.whereType<MediaSection>().single;
+
+    expect(note.entryId, noteId);
+    expect(note.text, '随手记第一段。\n\n随手记最后一段。');
+    expect(note.rawLine, contains('<!-- litchi-entry-id:$noteId -->'));
+    expect(note.photos.single.filename, 'note.jpg');
+    expect(note.photos.single.rawLine, contains('litchi-photo-of:$noteId'));
+    expect(happiness.entryId, happinessId);
+    expect(happiness.photos.single.filename, 'happiness.jpg');
+    expect(media.photos.map((photo) => photo.filename), [
+      'note.jpg',
+      'happiness.jpg',
+      'orphan.jpg',
+    ]);
+  });
+
+  test('Parser only uses the trailing entry id and keeps invalid photo links', () {
+    const copiedId = '11111111-1111-4111-8111-111111111111';
+    const actualId = '22222222-2222-4222-8222-222222222222';
+    const markdown = '''
+## ✍️ 随手记 & 灵感
+- **08:00** 正文
+  <!-- litchi-entry-id:$copiedId -->
+<!-- litchi-entry-id:$actualId -->
+
+## 📸 影像记录
+![[linked.jpg]]
+<!-- litchi-photo-of:$actualId;op:33333333-3333-4333-8333-333333333333 -->
+![[orphan.jpg]]
+<!-- litchi-photo-of:$actualId;op:------------------------------------ -->
+''';
+
+    final document = const MarkdownParser().parse(markdown);
+    final note = document.sections.whereType<QuickNoteSection>().single.notes.single;
+    final media = document.sections.whereType<MediaSection>().single;
+    expect(note.entryId, actualId);
+    expect(note.photos.single.filename, 'linked.jpg');
+    expect(note.content, contains('litchi-entry-id:$copiedId'));
+    expect(media.photos.map((photo) => photo.entryId), [actualId, null]);
+    expect(media.photos.last.rawLine, contains('op:------------------------------------'));
   });
 
   test('MarkdownParser separates happiness slogan from timeline entries', () {
@@ -8294,6 +8564,42 @@ tags:
       expect(find.text('确定删除这条记录吗？'), findsOneWidget);
     });
 
+    testWidgets('QuickNoteTimeline delete confirmation reports linked photos', (
+      tester,
+    ) async {
+      final section = QuickNoteSection(
+        title: '随手记',
+        contents: [],
+        notes: [
+          QuickNoteItem(
+            time: '09:30',
+            content: '图文记录',
+            tags: [],
+            rawLine: '- **09:30** 图文记录',
+            photos: const [
+              DiaryPhoto(filename: 'one.jpg', rawLine: '![[one.jpg]]'),
+              DiaryPhoto(filename: 'two.jpg', rawLine: '![[two.jpg]]'),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: QuickNoteTimeline(section: section, onDelete: (_) async {}),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('同时删除关联的 2 张照片，确定继续吗？'), findsOneWidget);
+    });
+
     testWidgets(
       'QuickNoteTimeline confirm delete calls onDelete with rawLine',
       (tester) async {
@@ -8993,8 +9299,8 @@ tags:
             initialTime: '09:30',
             initialTags: const ['#亲子', '#亲子沟通'],
             tagConfig: tagConfig,
-            onSave: (_, tags, _) async {
-              savedTags = tags;
+            onSave: (submission) async {
+              savedTags = submission.tags;
             },
           ),
         ),
@@ -9026,7 +9332,7 @@ tags:
             initialTags: const ['#亲子', '#陪伴互动'],
             tagConfig: tagConfig,
             tagSettings: tagSettings,
-            onSave: (_, tags, _) async => savedTags = tags,
+            onSave: (submission) async => savedTags = submission.tags,
           ),
         ),
       );
@@ -9064,7 +9370,7 @@ tags:
             tagSettings: tagSettings,
             onPolish: (_, _) async =>
                 const PolishResult(content: '润色内容', tags: ['工作', '任务执行']),
-            onSave: (_, tags, _) async => savedTags = tags,
+            onSave: (submission) async => savedTags = submission.tags,
           ),
         ),
       );
@@ -9500,66 +9806,57 @@ tags:
   });
 
   group('ImageSectionCard', () {
-    test('parseWikiLinks extracts single WikiLink', () {
-      final section = MediaSection(
-        title: '## 📸 影像记录',
-        contents: [MarkdownContent('![[Image-20260608-001.jpg]]')],
+    MediaSection mediaFromText(String text) => const MarkdownParser()
+        .parse('## 📸 影像记录\n$text')
+        .sections
+        .whereType<MediaSection>()
+        .single;
+
+    List<String> imageNames(MediaSection section) =>
+        section.photos.map((photo) => photo.filename).toList();
+
+    test('Parser extracts single WikiLink', () {
+      final filenames = imageNames(
+        mediaFromText('![[Image-20260608-001.jpg]]'),
       );
-      final filenames = ImageSectionCard.parseWikiLinks(section);
       expect(filenames, ['Image-20260608-001.jpg']);
     });
 
-    test('parseWikiLinks extracts multiple WikiLinks', () {
-      final section = MediaSection(
-        title: '## 📸 影像记录',
-        contents: [
-          MarkdownContent(
-            '![[Image-20260608-001.jpg]]\n![[Image-20260608-002.jpg]]',
-          ),
-        ],
+    test('Parser extracts multiple WikiLinks', () {
+      final filenames = imageNames(
+        mediaFromText(
+          '![[Image-20260608-001.jpg]]\n![[Image-20260608-002.jpg]]',
+        ),
       );
-      final filenames = ImageSectionCard.parseWikiLinks(section);
       expect(filenames, ['Image-20260608-001.jpg', 'Image-20260608-002.jpg']);
     });
 
-    test('parseWikiLinks ignores non-wiki Markdown image format', () {
-      final section = MediaSection(
-        title: '## 📸 影像记录',
-        contents: [MarkdownContent('![](path/to/image.jpg)')],
-      );
-      final filenames = ImageSectionCard.parseWikiLinks(section);
+    test('Parser ignores non-wiki Markdown image format', () {
+      final filenames = imageNames(mediaFromText('![](path/to/image.jpg)'));
       expect(filenames, isEmpty);
     });
 
-    test('parseWikiLinks only allows safe image extensions', () {
-      final section = MediaSection(
-        title: '## 📸 影像记录',
-        contents: [
-          MarkdownContent(
-            '![[safe.jpg]]\n![[unsafe.exe]]\n![[safe.png]]\n![[no-ext]]',
-          ),
-        ],
+    test('Parser only allows safe image extensions', () {
+      final filenames = imageNames(
+        mediaFromText(
+          '![[safe.jpg]]\n![[unsafe.exe]]\n![[safe.png]]\n![[no-ext]]',
+        ),
       );
-      final filenames = ImageSectionCard.parseWikiLinks(section);
       expect(filenames, ['safe.jpg', 'safe.png']);
     });
 
-    test('parseWikiLinks handles PNG, GIF, WebP, HEIC extensions', () {
-      final section = MediaSection(
-        title: '## 📸 影像记录',
-        contents: [
-          MarkdownContent(
-            '![[a.png]] ![[b.gif]] ![[c.webp]] ![[d.heic]] ![[e.heif]]',
-          ),
-        ],
+    test('Parser handles PNG, GIF, WebP, HEIC extensions', () {
+      final filenames = imageNames(
+        mediaFromText(
+          '![[a.png]] ![[b.gif]] ![[c.webp]] ![[d.heic]] ![[e.heif]]',
+        ),
       );
-      final filenames = ImageSectionCard.parseWikiLinks(section);
       expect(filenames, ['a.png', 'b.gif', 'c.webp', 'd.heic', 'e.heif']);
     });
 
-    test('parseWikiLinks returns empty for empty MediaSection', () {
+    test('Parser returns empty for empty MediaSection', () {
       final section = MediaSection(title: '## 📸 影像记录', contents: []);
-      final filenames = ImageSectionCard.parseWikiLinks(section);
+      final filenames = imageNames(section);
       expect(filenames, isEmpty);
     });
 
@@ -9587,6 +9884,39 @@ tags:
       expect(find.byType(SectionCard), findsNothing);
     });
 
+    testWidgets(
+      'hides media section when every photo is attached to an entry',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ImageSectionCard(
+                section: const MarkdownParser()
+                    .parse('''
+## ✍️ 随手记 & 灵感
+- **08:00** 正文
+<!-- litchi-entry-id:11111111-1111-4111-8111-111111111111 -->
+## 📸 影像记录
+![[attached.jpg]]
+<!-- litchi-photo-of:11111111-1111-4111-8111-111111111111;op:22222222-2222-4222-8222-222222222222 -->
+''')
+                    .sections
+                    .whereType<MediaSection>()
+                    .single,
+                apiClient: ApiClient(
+                  ApiConfig(baseUrl: 'https://test.local', token: 'x'),
+                ),
+                date: DateTime(2026, 6, 8),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.byType(JournalSection), findsNothing);
+        expect(find.text('暂无影像记录'), findsNothing);
+      },
+    );
+
     ApiClient imageTestApiClient() {
       final response =
           '{"data":"data:image/jpeg;base64,/9j/4AAQ","mimeType":"image/jpeg"}';
@@ -9596,12 +9926,73 @@ tags:
       );
     }
 
+    testWidgets('同名的独立照片仍显示在影像记录', (tester) async {
+      const entryId = '11111111-1111-4111-8111-111111111111';
+      const markdown =
+          '''
+## ✍️ 随手记 & 灵感
+- **08:00** 一条记录
+<!-- litchi-entry-id:$entryId -->
+
+## 📸 影像记录
+![[same.jpg]]
+<!-- litchi-photo-of:$entryId;op:22222222-2222-4222-8222-222222222222 -->
+![[same.jpg]]
+''';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DiaryMarkdownView(
+                markdown: markdown,
+                readOnly: true,
+                date: DateTime(2026, 6, 8),
+                apiClient: imageTestApiClient(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DiaryImageThumbnail), findsNWidgets(2));
+    });
+
+    testWidgets('小确幸关联照片可在阅读布局中显示', (tester) async {
+      const entryId = '11111111-1111-4111-8111-111111111111';
+      const markdown = '''
+## ✨ 每日小确幸
+> **09:00** 小确幸正文
+<!-- litchi-entry-id:$entryId -->
+
+## 📸 影像记录
+![[joy.jpg]]
+<!-- litchi-photo-of:$entryId;op:22222222-2222-4222-8222-222222222222 -->
+''';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DiaryMarkdownView(
+                markdown: markdown,
+                readOnly: true,
+                date: DateTime(2026, 6, 8),
+                apiClient: imageTestApiClient(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DiaryImageThumbnail), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     MediaSection imageSection(List<String> filenames) {
       final links = filenames.map((f) => '![[$f]]').join('\n');
-      return MediaSection(
-        title: '## 📸 影像记录',
-        contents: [MarkdownContent(links)],
-      );
+      return mediaFromText(links);
     }
 
     testWidgets('uses a two-column square image grid', (tester) async {
@@ -9862,51 +10253,6 @@ tags:
   });
 
   group('Image upload status', () {
-    testWidgets('pending image preview stays inside media section', (
-      tester,
-    ) async {
-      final image = img.Image(width: 8, height: 8);
-      _fillSolidImage(image);
-      final item = ImageUploadItem(
-        id: 'media-section-preview',
-        file: XFile.fromData(
-          Uint8List.fromList(img.encodeJpg(image)),
-          name: 'preview.jpg',
-          mimeType: 'image/jpeg',
-        ),
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: DiaryMarkdownView(
-              markdown: '',
-              apiClient: ApiClient(
-                ApiConfig(baseUrl: 'https://test.local', token: 'x'),
-              ),
-              date: DateTime(2026, 6, 8),
-              imageUploads: [item],
-              onImageUploadRetry: (_) {},
-              onImageUploadRemove: (_) {},
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      expect(find.text('影像记录'), findsOneWidget);
-      expect(find.text('📸 影像记录'), findsNothing);
-      expect(find.byType(ImageUploadStrip), findsOneWidget);
-      expect(
-        find.ancestor(
-          of: find.byType(ImageUploadStrip),
-          matching: find.byType(JournalSection),
-        ),
-        findsOneWidget,
-      );
-      expect(find.byType(SectionCard), findsNothing);
-    });
-
     testWidgets('preview distinguishes preparing, real progress, and failure', (
       tester,
     ) async {

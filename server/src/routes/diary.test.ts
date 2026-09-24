@@ -33,6 +33,12 @@ function imageHandler(): Handler {
   return layer.route.stack[0].handle as Handler;
 }
 
+function uploadImageHandler(): Handler {
+  const stack = (diaryRoutes as any).stack as any[];
+  const layer = stack.find(item => item.route?.path === '/image/upload');
+  return layer.route.stack[0].handle as Handler;
+}
+
 function habitDurationHandler(): Handler {
   const stack = (diaryRoutes as any).stack as any[];
   const layer = stack.find(item => item.route?.path === '/habit/duration');
@@ -458,5 +464,332 @@ describe('multiline timeline entry routes', () => {
 
     expect(res.statusCode).toBe(404);
     expect(readDiary(date)).toBe(before);
+  });
+});
+
+describe('entry photo associations', () => {
+  const date = new Date('2024-03-12T12:00:00+08:00');
+  const entryId = '11111111-1111-4111-8111-111111111111';
+  const operationId = '22222222-2222-4222-8222-222222222222';
+  const source = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64',
+  );
+
+  beforeEach(() => {
+    rmSync(testConfig.vaultPath, { recursive: true, force: true });
+    writeDiary(
+      date,
+      [
+        '# 今天',
+        '',
+        '## ✍️ 随手记 & 灵感',
+        '- **08:00** 正文第一段。',
+        '',
+        '正文最后一段。 #育儿',
+        `<!-- litchi-entry-id:${entryId} -->`,
+        '',
+        '## 📸 影像记录',
+      ].join('\n'),
+    );
+    mkdirSync(assetsDir(2024, 3), { recursive: true });
+  });
+
+  afterAll(() => {
+    rmSync(testConfig.vaultPath, { recursive: true, force: true });
+  });
+
+  it('appends a same-minute multiline record with its hidden id intact', async () => {
+    const addedEntryId = '77777777-7777-4777-8777-777777777777';
+    const appendOperationId = '88888888-8888-4888-8888-888888888888';
+    const res = response();
+    await diaryEntryHandler('/quick-note')(
+      {
+        body: {
+          date: '2024-03-12',
+          time: '08:00',
+          content: '新增记录第一段。\n\n新增记录末段。',
+          tags: ['记录'],
+          entryId: addedEntryId,
+          operationId: appendOperationId,
+        },
+      },
+      res,
+    );
+
+    const updated = readDiary(date);
+    expect(res.statusCode).toBe(200);
+    expect(updated.indexOf(`<!-- litchi-entry-id:${entryId} -->`)).toBeLessThan(
+      updated.indexOf('- **08:00** 新增记录第一段。'),
+    );
+    expect(updated).toContain(
+      `新增记录末段。 #记录\n<!-- litchi-entry-id:${addedEntryId} -->`,
+    );
+    expect(updated.match(/<!-- litchi-entry-id:/g)).toHaveLength(2);
+  });
+
+  it('keeps a multiline entry id with its record when edited and time-sorted', async () => {
+    const secondEntryId = '55555555-5555-4555-8555-555555555555';
+    const photoOperationId = '66666666-6666-4666-8666-666666666666';
+    const rawLine = [
+      '- **08:00** 正文第一段。',
+      '',
+      '正文最后一段。 #育儿',
+      `<!-- litchi-entry-id:${entryId} -->`,
+    ].join('\n');
+    writeDiary(
+      date,
+      [
+        '# 今天',
+        '',
+        '## ✍️ 随手记 & 灵感',
+        rawLine,
+        '- **09:00** 后续记录。',
+        `<!-- litchi-entry-id:${secondEntryId} -->`,
+        '',
+        '## 📸 影像记录',
+        '![[attached.jpg]]',
+        `<!-- litchi-photo-of:${entryId};op:${photoOperationId} -->`,
+      ].join('\n'),
+    );
+
+    const res = response();
+    await diaryEntryHandler('/edit-entry')(
+      {
+        body: {
+          date: '2024-03-12',
+          section: 'quick_notes',
+          target: rawLine,
+          replacement: '- **10:00** 更新后的第一段。\n\n更新后的末段。 #家庭',
+          entryId,
+        },
+      },
+      res,
+    );
+
+    const updated = readDiary(date);
+    expect(res.statusCode).toBe(200);
+    expect(updated.indexOf('- **09:00** 后续记录。')).toBeLessThan(
+      updated.indexOf('- **10:00** 更新后的第一段。'),
+    );
+    expect(updated).toContain(
+      `更新后的末段。 #家庭\n<!-- litchi-entry-id:${entryId} -->`,
+    );
+    expect(updated).toContain(
+      `<!-- litchi-photo-of:${entryId};op:${photoOperationId} -->`,
+    );
+  });
+
+  it('attaches uploads to an entry and deduplicates retries by upload id', async () => {
+    const req = {
+      body: {
+        date: '2024-03-12',
+        imageData: source.toString('base64'),
+        imagePrefix: 'Litchi_Img',
+        operationId,
+        entryId,
+      },
+    };
+    const first = response();
+    await uploadImageHandler()(req, first);
+
+    expect(first.statusCode).toBe(200);
+    const filename = (first.body as { filename: string }).filename;
+    expect(readDiary(date)).toContain(`![[${filename}]]`);
+    expect(readDiary(date)).toContain(
+      `<!-- litchi-photo-of:${entryId};op:${operationId} -->`,
+    );
+
+    const second = response();
+    await uploadImageHandler()(req, second);
+    expect(second.body).toMatchObject({ dedup: true, filename });
+    expect(readDiary(date).match(new RegExp(`!\\[\\[${filename}\\]\\]`, 'g')))
+      .toHaveLength(1);
+  });
+
+  it('deletes only photos linked to the deleted entry and keeps referenced files', async () => {
+    const linkedName = 'linked.jpg';
+    const sharedName = 'shared.jpg';
+    const linkedOperation = '33333333-3333-4333-8333-333333333333';
+    const otherEntryId = '44444444-4444-4444-8444-444444444444';
+    writeFileSync(join(assetsDir(2024, 3), linkedName), source);
+    writeFileSync(join(assetsDir(2024, 3), sharedName), source);
+    writeDiary(
+      date,
+      [
+        '# 今天',
+        '',
+        '## ✍️ 随手记 & 灵感',
+        '- **08:00** 正文第一段。',
+        '',
+        '正文最后一段。 #育儿',
+        `<!-- litchi-entry-id:${entryId} -->`,
+        '- **09:00** 另一条记录。',
+        `<!-- litchi-entry-id:${otherEntryId} -->`,
+        '',
+        '## 📸 影像记录',
+        `![[${linkedName}]]`,
+        `<!-- litchi-photo-of:${entryId};op:${linkedOperation} -->`,
+        `![[${sharedName}]]`,
+        `<!-- litchi-photo-of:${otherEntryId};op:${operationId} -->`,
+      ].join('\n'),
+    );
+
+    const res = response();
+    await diaryEntryHandler('/delete-entry')(
+      {
+        body: {
+          date: '2024-03-12',
+          section: 'quick_notes',
+          line: [
+            '- **08:00** 正文第一段。',
+            '',
+            '正文最后一段。 #育儿',
+            `<!-- litchi-entry-id:${entryId} -->`,
+          ].join('\n'),
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ deletedPhotoCount: 1 });
+    expect(existsSync(join(assetsDir(2024, 3), linkedName))).toBe(false);
+    expect(existsSync(join(assetsDir(2024, 3), sharedName))).toBe(true);
+    expect(readDiary(date)).toContain(`![[${sharedName}]]`);
+    expect(readDiary(date)).not.toContain(`![[${linkedName}]]`);
+  });
+
+  it('keeps a linked file referenced by another diary in the same month', async () => {
+    const filename = 'shared-across-days.jpg';
+    const nextDate = new Date('2024-03-13T12:00:00+08:00');
+    writeFileSync(join(assetsDir(2024, 3), filename), source);
+    writeDiary(
+      date,
+      `# 今天\n\n## ✍️ 随手记 & 灵感\n- **08:00** 正文\n<!-- litchi-entry-id:${entryId} -->\n\n## 📸 影像记录\n![[${filename}]]\n<!-- litchi-photo-of:${entryId};op:${operationId} -->`,
+    );
+    writeDiary(nextDate, `# 明天\n\n## 📸 影像记录\n![[${filename}]]`);
+
+    const res = response();
+    await diaryEntryHandler('/delete-entry')(
+      {
+        body: {
+          date: '2024-03-12',
+          section: 'quick_notes',
+          line: `- **08:00** 正文\n<!-- litchi-entry-id:${entryId} -->`,
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(existsSync(join(assetsDir(2024, 3), filename))).toBe(true);
+    expect(readDiary(nextDate)).toContain(`![[${filename}]]`);
+  });
+
+  it('does not cascade-delete a photo with an invalid association marker', async () => {
+    const filename = 'orphan-invalid-op.jpg';
+    writeFileSync(join(assetsDir(2024, 3), filename), source);
+    writeDiary(
+      date,
+      `# 今天\n\n## ✍️ 随手记 & 灵感\n- **08:00** 正文\n<!-- litchi-entry-id:${entryId} -->\n\n## 📸 影像记录\n![[${filename}]]\n<!-- litchi-photo-of:${entryId};op:------------------------------------ -->`,
+    );
+
+    const res = response();
+    await diaryEntryHandler('/delete-entry')(
+      {
+        body: {
+          date: '2024-03-12',
+          section: 'quick_notes',
+          line: `- **08:00** 正文\n<!-- litchi-entry-id:${entryId} -->`,
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(readDiary(date)).toContain(`![[${filename}]]`);
+    expect(existsSync(join(assetsDir(2024, 3), filename))).toBe(true);
+  });
+
+  it('rejects a tenth photo attached to one entry', async () => {
+    const photos = Array.from({ length: 9 }, (_, index) => {
+      const photoOpId = `33333333-3333-4333-8333-${String(index).padStart(12, '0')}`;
+      return `![[existing-${index}.jpg]]\n<!-- litchi-photo-of:${entryId};op:${photoOpId} -->`;
+    });
+    writeDiary(date, `${readDiary(date)}\n${photos.join('\n')}`);
+
+    const res = response();
+    await uploadImageHandler()(
+      {
+        body: {
+          date: '2024-03-12',
+          imageData: source.toString('base64'),
+          operationId,
+          entryId,
+        },
+      },
+      res,
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(readDiary(date).match(/litchi-photo-of:/g)).toHaveLength(9);
+  });
+
+  it('does not treat a pasted entry marker in body text as the new entry id', async () => {
+    const addedEntryId = '77777777-7777-4777-8777-777777777777';
+    const res = response();
+    await diaryEntryHandler('/quick-note')(
+      {
+        body: {
+          date: '2024-03-12',
+          time: '09:00',
+          content: `正文\n<!-- litchi-entry-id:${entryId} -->`,
+          tags: [],
+          entryId: addedEntryId,
+        },
+      },
+      res,
+    );
+    expect(res.statusCode).toBe(200);
+
+    const upload = response();
+    await uploadImageHandler()(
+      {
+        body: {
+          date: '2024-03-12',
+          imageData: source.toString('base64'),
+          operationId,
+          entryId: addedEntryId,
+        },
+      },
+      upload,
+    );
+    expect(upload.statusCode).toBe(200);
+    expect(readDiary(date)).toContain(`<!-- litchi-photo-of:${addedEntryId};op:${operationId} -->`);
+  });
+
+  it('preserves a pasted marker in edited body without changing its linked id', async () => {
+    const copiedId = '77777777-7777-4777-8777-777777777777';
+    const target = '- **08:00** 正文第一段。\n\n正文最后一段。 #育儿\n'
+      + `<!-- litchi-entry-id:${entryId} -->`;
+    const res = response();
+    await diaryEntryHandler('/edit-entry')(
+      {
+        body: {
+          date: '2024-03-12',
+          section: 'quick_notes',
+          target,
+          replacement: `- **08:00** 新正文\n  <!-- litchi-entry-id:${copiedId} -->`,
+          entryId,
+        },
+      },
+      res,
+    );
+
+    const updated = readDiary(date);
+    expect(res.statusCode).toBe(200);
+    expect(updated).toContain(`  <!-- litchi-entry-id:${copiedId} -->`);
+    expect(updated).toContain(`<!-- litchi-entry-id:${entryId} -->`);
   });
 });

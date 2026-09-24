@@ -5,7 +5,6 @@ import 'flora_icon.dart';
 import '../models/diary_document.dart';
 import '../models/focus_timer.dart';
 import '../models/habit_settings.dart';
-import '../models/image_upload_item.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
@@ -22,6 +21,7 @@ import 'journal_section.dart';
 import 'quick_note_timeline.dart';
 import 'review_card.dart';
 import 'tag_color_helper.dart';
+import '../screens/quick_capture_screen.dart';
 
 class DiaryMarkdownView extends StatelessWidget {
   final String markdown;
@@ -35,6 +35,16 @@ class DiaryMarkdownView extends StatelessWidget {
     String time,
   )?
   onEntryEdit;
+  final Future<void> Function(
+    String sectionKey,
+    String rawLine,
+    String content,
+    List<String> tags,
+    String time,
+    String? entryId,
+  )?
+  onEntryEditWithEntryId;
+  final Future<void> Function()? onEntryEditCompleted;
   final Future<PolishResult> Function(String content, EntryType entryType)?
   onEntryPolish;
   final TagConfig? tagConfig;
@@ -72,10 +82,8 @@ class DiaryMarkdownView extends StatelessWidget {
     Map<String, int> durationStates,
   )?
   onCustomDurationUpdate;
-  final List<ImageUploadItem> imageUploads;
-  final ValueChanged<ImageUploadItem>? onImageUploadRetry;
-  final ValueChanged<ImageUploadItem>? onImageUploadRemove;
-  final bool Function(ImageUploadItem item)? canRemoveImageUpload;
+  final QuickCaptureImagePicker? imagePicker;
+  final QuickCaptureImageCompressor? imageCompressor;
 
   const DiaryMarkdownView({
     super.key,
@@ -83,6 +91,8 @@ class DiaryMarkdownView extends StatelessWidget {
     this.onHabitUpdate,
     this.onEntryDelete,
     this.onEntryEdit,
+    this.onEntryEditWithEntryId,
+    this.onEntryEditCompleted,
     this.onEntryPolish,
     this.tagConfig,
     this.tagSettings,
@@ -100,10 +110,8 @@ class DiaryMarkdownView extends StatelessWidget {
     this.onStartDuration,
     this.onDurationUpdate,
     this.onCustomDurationUpdate,
-    this.imageUploads = const [],
-    this.onImageUploadRetry,
-    this.onImageUploadRemove,
-    this.canRemoveImageUpload,
+    this.imagePicker,
+    this.imageCompressor,
   });
 
   @override
@@ -111,10 +119,7 @@ class DiaryMarkdownView extends StatelessWidget {
     final document = const MarkdownParser().parse(markdown);
     final canGenerateCoach = !readOnly && onGenerateCoach != null;
     final canShowHabitFallback = !readOnly && onHabitUpdate != null;
-    if (document.isEmpty &&
-        !canGenerateCoach &&
-        !canShowHabitFallback &&
-        imageUploads.isEmpty) {
+    if (document.isEmpty && !canGenerateCoach && !canShowHabitFallback) {
       return const SizedBox.shrink();
     }
 
@@ -137,16 +142,11 @@ class DiaryMarkdownView extends StatelessWidget {
 
     var hasCoachSection = false;
     var hasHabitSection = false;
-    var hasMediaSection = false;
     for (final section in document.sections) {
       if (section is HabitSection) hasHabitSection = true;
-      if (section is MediaSection) hasMediaSection = true;
       if (_isHiddenSection(section)) continue;
       if (section is CoachSection) hasCoachSection = true;
-      final shouldShowEmptyMedia =
-          section is MediaSection && imageUploads.isNotEmpty;
       if (section.isEmpty &&
-          !shouldShowEmptyMedia &&
           (section is! CoachSection || readOnly || onGenerateCoach == null)) {
         continue;
       }
@@ -164,18 +164,6 @@ class DiaryMarkdownView extends StatelessWidget {
       widgets.add(
         _buildCoachCard(
           const CoachSection(title: '今日回顾', contents: []),
-          context,
-        ),
-      );
-    }
-
-    if (imageUploads.isNotEmpty &&
-        !hasMediaSection &&
-        apiClient != null &&
-        date != null) {
-      widgets.add(
-        _buildMediaSection(
-          const MediaSection(title: '影像记录', contents: []),
           context,
         ),
       );
@@ -244,10 +232,25 @@ class DiaryMarkdownView extends StatelessWidget {
                     time,
                   )
                 : null,
+            onEditWithEntryId: onEntryEditWithEntryId != null
+                ? (note, content, tags, time, entryId) =>
+                      onEntryEditWithEntryId!(
+                        'quick_notes',
+                        note.rawLine,
+                        content,
+                        tags,
+                        time,
+                        entryId,
+                      )
+                : null,
+            onEditCompleted: onEntryEditCompleted,
             tagConfig: tagConfig,
             tagSettings: tagSettings,
             recordDate: date,
             onPolish: onEntryPolish,
+            apiClient: apiClient,
+            imagePicker: imagePicker,
+            imageCompressor: imageCompressor,
           ),
         );
       case AnxietySection():
@@ -266,10 +269,25 @@ class DiaryMarkdownView extends StatelessWidget {
               ? (rawLine, content, tags, time) =>
                     onEntryEdit!('happiness', rawLine, content, tags, time)
               : null,
+          onTimelineEditWithEntryId: onEntryEditWithEntryId != null
+              ? (rawLine, content, tags, time, entryId) =>
+                    onEntryEditWithEntryId!(
+                      'happiness',
+                      rawLine,
+                      content,
+                      tags,
+                      time,
+                      entryId,
+                    )
+              : null,
+          onTimelineEditCompleted: onEntryEditCompleted,
           tagConfig: tagConfig,
           tagSettings: tagSettings,
           recordDate: date,
           onPolish: onEntryPolish,
+          apiClient: apiClient,
+          imagePicker: imagePicker,
+          imageCompressor: imageCompressor,
         );
       case ReviewSection():
         return ReviewCard(
@@ -316,10 +334,6 @@ class DiaryMarkdownView extends StatelessWidget {
         onDeleteImage: onEntryDelete != null
             ? (rawLine) => onEntryDelete!('images', rawLine)
             : null,
-        imageUploads: imageUploads,
-        onRetryImageUpload: onImageUploadRetry,
-        onRemoveImageUpload: onImageUploadRemove,
-        canRemoveImageUpload: canRemoveImageUpload,
       );
     }
     return GenericSectionCard(

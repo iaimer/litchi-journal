@@ -4,10 +4,12 @@ import '../models/diary_document.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
+import '../services/api_client.dart';
 import '../screens/quick_capture_screen.dart';
 import 'entry_type.dart';
 import 'journal_section.dart';
 import 'timeline_action_sheet.dart';
+import 'entry_photo_grid.dart';
 
 class QuickNoteTimeline extends StatelessWidget {
   final QuickNoteSection section;
@@ -20,11 +22,23 @@ class QuickNoteTimeline extends StatelessWidget {
     String time,
   )?
   onEdit;
+  final Future<void> Function(
+    QuickNoteItem note,
+    String content,
+    List<String> tags,
+    String time,
+    String? entryId,
+  )?
+  onEditWithEntryId;
+  final Future<void> Function()? onEditCompleted;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
   final DateTime? recordDate;
   final Future<PolishResult> Function(String content, EntryType entryType)?
   onPolish;
+  final ApiClient? apiClient;
+  final QuickCaptureImagePicker? imagePicker;
+  final QuickCaptureImageCompressor? imageCompressor;
 
   const QuickNoteTimeline({
     super.key,
@@ -32,10 +46,15 @@ class QuickNoteTimeline extends StatelessWidget {
     this.accentColor,
     this.onDelete,
     this.onEdit,
+    this.onEditWithEntryId,
+    this.onEditCompleted,
     this.tagConfig,
     this.tagSettings,
     this.recordDate,
     this.onPolish,
+    this.apiClient,
+    this.imagePicker,
+    this.imageCompressor,
   });
 
   @override
@@ -53,11 +72,16 @@ class QuickNoteTimeline extends StatelessWidget {
             isLast: index == section.notes.length - 1,
             onDelete: onDelete,
             onEdit: onEdit,
+            onEditWithEntryId: onEditWithEntryId,
+            onEditCompleted: onEditCompleted,
             tagConfig: tagConfig,
             tagSettings: tagSettings,
             accentColor: accentColor,
             recordDate: recordDate,
             onPolish: onPolish,
+            apiClient: apiClient,
+            imagePicker: imagePicker,
+            imageCompressor: imageCompressor,
           ),
       ],
     );
@@ -76,12 +100,24 @@ class _QuickNoteRow extends StatefulWidget {
     String time,
   )?
   onEdit;
+  final Future<void> Function(
+    QuickNoteItem note,
+    String content,
+    List<String> tags,
+    String time,
+    String? entryId,
+  )?
+  onEditWithEntryId;
+  final Future<void> Function()? onEditCompleted;
   final TagConfig? tagConfig;
   final TagSettings? tagSettings;
   final Color? accentColor;
   final DateTime? recordDate;
   final Future<PolishResult> Function(String content, EntryType entryType)?
   onPolish;
+  final ApiClient? apiClient;
+  final QuickCaptureImagePicker? imagePicker;
+  final QuickCaptureImageCompressor? imageCompressor;
 
   const _QuickNoteRow({
     required this.note,
@@ -89,11 +125,16 @@ class _QuickNoteRow extends StatefulWidget {
     required this.isLast,
     this.onDelete,
     this.onEdit,
+    this.onEditWithEntryId,
+    this.onEditCompleted,
     this.tagConfig,
     this.tagSettings,
     this.accentColor,
     this.recordDate,
     this.onPolish,
+    this.apiClient,
+    this.imagePicker,
+    this.imageCompressor,
   });
 
   @override
@@ -104,14 +145,21 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
   bool _busy = false;
 
   bool get _showActions =>
-      (widget.onEdit != null || widget.onDelete != null) && !_busy;
+      (widget.onEdit != null ||
+          widget.onEditWithEntryId != null ||
+          widget.onDelete != null) &&
+      !_busy;
 
   Future<void> _confirmDelete() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
-        content: const Text('确定删除这条记录吗？'),
+        content: Text(
+          widget.note.photos.isEmpty
+              ? '确定删除这条记录吗？'
+              : '同时删除关联的 ${widget.note.photos.length} 张照片，确定继续吗？',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -141,9 +189,9 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
     }
   }
 
-  void _openEdit() {
-    if (widget.onEdit == null) return;
-    Navigator.of(context).push<bool>(
+  Future<void> _openEdit() async {
+    if (widget.onEdit == null && widget.onEditWithEntryId == null) return;
+    final result = await Navigator.of(context).push<QuickCaptureResult>(
       MaterialPageRoute(
         builder: (_) => QuickCaptureScreen(
           entryType: EntryType.quickNote,
@@ -152,21 +200,47 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
           initialContent: widget.note.content,
           initialTime: widget.note.time,
           initialTags: widget.note.tags,
+          initialEntryId: widget.note.entryId,
+          initialPhotos: widget.note.photos,
+          apiClient: widget.apiClient,
+          photoDate: widget.recordDate,
+          imagePicker: widget.imagePicker,
+          imageCompressor: widget.imageCompressor,
           tagConfig: widget.tagConfig,
           tagSettings: widget.tagSettings,
           onPolish: widget.onPolish,
-          onSave: (content, tags, time) =>
-              widget.onEdit!(widget.note, content, tags, time),
+          onSave: (submission) {
+            final save = widget.onEditWithEntryId;
+            if (save != null) {
+              return save(
+                widget.note,
+                submission.content,
+                submission.tags,
+                submission.time,
+                submission.entryId,
+              );
+            }
+            return widget.onEdit!(
+              widget.note,
+              submission.content,
+              submission.tags,
+              submission.time,
+            );
+          },
         ),
       ),
     );
+    if (!mounted || result == null || result == QuickCaptureResult.discarded) {
+      return;
+    }
+    await widget.onEditCompleted?.call();
   }
 
   Future<void> _openActions() async {
     if (!_showActions) return;
     final action = await showTimelineActionSheet(
       context,
-      showEdit: widget.onEdit != null,
+      showEdit: widget.onEdit != null || widget.onEditWithEntryId != null,
       showDelete: widget.onDelete != null,
     );
     if (!mounted) return;
@@ -198,6 +272,18 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
               alignToTags: widget.note.tags.isNotEmpty,
               busy: _busy,
               onPressed: _showActions ? _openActions : null,
+            )
+          : null,
+      attachment:
+          widget.note.photos.isNotEmpty &&
+              widget.apiClient != null &&
+              widget.recordDate != null
+          ? EntryPhotoGrid(
+              photos: widget.note.photos,
+              uploads: const [],
+              removedPhotoNames: const {},
+              apiClient: widget.apiClient!,
+              date: widget.recordDate!,
             )
           : null,
     );

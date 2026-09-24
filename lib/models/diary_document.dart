@@ -138,6 +138,11 @@ class TomorrowSection extends DiarySection {
 class MediaSection extends DiarySection {
   const MediaSection({required super.title, required super.contents});
 
+  List<DiaryPhoto> get photos => contents
+      .whereType<MediaPhotoContent>()
+      .map((content) => content.photo)
+      .toList(growable: false);
+
   @override
   String get sectionType => 'media';
 }
@@ -190,16 +195,41 @@ class TimelineContent extends DiaryContent {
   final String text;
   final List<String> tags;
   final String rawLine;
+  final String? entryId;
+  final List<DiaryPhoto> photos;
 
   const TimelineContent({
     required this.time,
     required this.text,
     required this.tags,
     required this.rawLine,
+    this.entryId,
+    this.photos = const [],
   });
 
   @override
   bool get hasRealContent => text.trim().isNotEmpty;
+}
+
+class DiaryPhoto {
+  final String filename;
+  final String? entryId;
+  final String rawLine;
+
+  const DiaryPhoto({
+    required this.filename,
+    required this.rawLine,
+    this.entryId,
+  });
+}
+
+class MediaPhotoContent extends DiaryContent {
+  final DiaryPhoto photo;
+
+  const MediaPhotoContent(this.photo);
+
+  @override
+  bool get hasRealContent => true;
 }
 
 class MarkdownContent extends DiaryContent {
@@ -369,12 +399,16 @@ class QuickNoteItem {
   final String content;
   final List<String> tags;
   final String rawLine;
+  final String? entryId;
+  final List<DiaryPhoto> photos;
 
   const QuickNoteItem({
     required this.time,
     required this.content,
     required this.tags,
     required this.rawLine,
+    this.entryId,
+    this.photos = const [],
   });
 }
 

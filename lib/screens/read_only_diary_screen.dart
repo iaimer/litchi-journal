@@ -1,19 +1,14 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../models/default_tag_config.dart';
 import '../models/diary_entry.dart';
-import '../models/image_settings.dart';
-import '../models/image_upload_item.dart';
 import '../models/polish_result.dart';
+import '../models/quick_capture_submission.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
 import '../services/draft_repository.dart';
-import '../services/image_compress_service.dart';
 import '../services/image_settings_repository.dart';
 import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
@@ -30,16 +25,12 @@ import '../widgets/historical_quick_record_fab.dart';
 import '../widgets/flora_skeleton.dart';
 import 'quick_capture_screen.dart';
 
-typedef HistoricalImagePicker =
-    Future<List<XFile>> Function(ImageSettings settings);
-typedef HistoricalImageCompressor =
-    Future<String> Function(Uint8List bytes, ImageSettings settings);
+typedef HistoricalImagePicker = QuickCaptureImagePicker;
+typedef HistoricalImageCompressor = QuickCaptureImageCompressor;
 
 /// 历史日记详情页。
-/// 已有内容保持只读，只允许新增相片、随手记、觉察和小确幸。
+/// 已有内容保持只读，只允许补录随手记、觉察和小确幸。
 class ReadOnlyDiaryScreen extends StatefulWidget {
-  static const maxImageUploadPayloadChars = 9 * 1024 * 1024;
-
   final DateTime date;
   final ApiClient apiClient;
   final HistoricalImagePicker? imagePicker;
@@ -62,7 +53,6 @@ class ReadOnlyDiaryScreen extends StatefulWidget {
 }
 
 class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
-  final _systemImagePicker = ImagePicker();
   late final DraftRepository _draftRepository;
   late final ImageSettingsRepository _imageSettingsRepository;
 
@@ -72,8 +62,6 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   bool _loading = true;
   bool _refreshing = false;
   bool _quickRecordExpanded = false;
-  final List<ImageUploadItem> _imageUploads = [];
-  bool _diaryReadyForImageUpload = false;
   String? _error;
 
   TagConfig get _effectiveTagConfig {
@@ -95,7 +83,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   }
 
   Future<void> _loadDiary() async {
-    final hasVisibleContent = _diary != null || _imageUploads.isNotEmpty;
+    final hasVisibleContent = _diary != null;
     setState(() {
       _loading = !hasVisibleContent;
       _refreshing = hasVisibleContent;
@@ -110,7 +98,6 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
       if (!mounted) return;
       setState(() {
         _diary = diary?.raw.isNotEmpty == true ? diary : null;
-        _diaryReadyForImageUpload = diary != null;
         _loading = false;
         _refreshing = false;
       });
@@ -138,29 +125,31 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
 
   Future<bool> _appendEntry(
     EntryType type,
-    String content,
-    List<String> tags,
-    String time,
+    QuickCaptureSubmission submission,
   ) async {
     Future<bool> append() {
       return switch (type) {
         EntryType.quickNote => widget.apiClient.appendQuickNote(
           widget.date,
-          content,
-          tags: tags,
-          time: time,
+          submission.content,
+          tags: submission.tags,
+          time: submission.time,
+          entryId: submission.entryId,
+          operationId: submission.operationId,
         ),
         EntryType.reflection => widget.apiClient.appendReflection(
           widget.date,
-          content,
-          tags: tags,
-          time: time,
+          submission.content,
+          tags: submission.tags,
+          time: submission.time,
         ),
         EntryType.happiness => widget.apiClient.appendHappiness(
           widget.date,
-          content,
-          tags: tags,
-          time: time,
+          submission.content,
+          tags: submission.tags,
+          time: submission.time,
+          entryId: submission.entryId,
+          operationId: submission.operationId,
         ),
         EntryType.anxiety => Future.value(false),
       };
@@ -196,205 +185,34 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
 
   Future<void> _openQuickCapture(EntryType type) async {
     setState(() => _quickRecordExpanded = false);
-    final saved = await Navigator.of(context).push<bool>(
+    final result = await Navigator.of(context).push<QuickCaptureResult>(
       MaterialPageRoute(
         builder: (_) => QuickCaptureScreen(
           entryType: type,
           openedAt: DateTime.now(),
           recordDate: widget.date,
           draftRepository: _draftRepository,
+          apiClient: widget.apiClient,
+          photoDate: widget.date,
+          imageSettingsRepository: _imageSettingsRepository,
+          imagePicker: widget.imagePicker,
+          imageCompressor: widget.imageCompressor,
           tagConfig: _effectiveTagConfig,
           onPolish: _polish,
-          onSave: (content, tags, time) async {
-            final success = await _appendEntry(type, content, tags, time);
+          onSave: (submission) async {
+            final success = await _appendEntry(type, submission);
             if (!success) throw Exception('保存失败');
           },
         ),
       ),
     );
-    if (!mounted || saved != true) return;
-    showFloraSuccessSnackBar(context, '已补录');
+    if (!mounted || result == null || result == QuickCaptureResult.discarded) {
+      return;
+    }
+    if (result == QuickCaptureResult.saved) {
+      showFloraSuccessSnackBar(context, '已补录');
+    }
     await _loadDiary();
-  }
-
-  Future<ImageSettings> _loadImageSettings() async {
-    try {
-      return await _imageSettingsRepository.load();
-    } catch (_) {
-      return ImageSettings.defaults();
-    }
-  }
-
-  Future<List<XFile>> _pickImages(ImageSettings settings) {
-    final picker = widget.imagePicker;
-    if (picker != null) return picker(settings);
-    return _systemImagePicker.pickMultiImage(
-      maxWidth: settings.maxLongSidePx.toDouble(),
-      maxHeight: settings.maxLongSidePx.toDouble(),
-      imageQuality: settings.initialQuality,
-      limit: 9,
-    );
-  }
-
-  Future<void> _uploadImages() async {
-    if (_hasActiveImageUpload) return;
-    setState(() => _quickRecordExpanded = false);
-    final settings = await _loadImageSettings();
-    final images = await _pickImages(settings);
-    if (images.isEmpty || !mounted) return;
-
-    final newItems = images
-        .map(
-          (image) =>
-              ImageUploadItem(id: ApiClient.generateUuidV4(), file: image),
-        )
-        .toList();
-    setState(() => _imageUploads.addAll(newItems));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _uploadImageQueue(newItems, settings);
-    });
-  }
-
-  bool get _hasActiveImageUpload => _imageUploads.any(
-    (item) =>
-        item.status == ImageUploadStatus.preparing ||
-        item.status == ImageUploadStatus.uploading,
-  );
-
-  Future<void> _uploadImageQueue(
-    List<ImageUploadItem> items,
-    ImageSettings settings,
-  ) async {
-    var uploadedImages = 0;
-    Object? uploadError;
-
-    for (final item in items) {
-      if (!mounted || !_imageUploads.contains(item)) continue;
-      try {
-        await _uploadImage(item, settings);
-        uploadedImages++;
-      } catch (error) {
-        uploadError = error;
-        break;
-      }
-    }
-
-    if (!mounted) return;
-    if (uploadedImages > 0) {
-      await _loadDiary();
-      if (!mounted) return;
-      setState(
-        () => _imageUploads.removeWhere(
-          (item) => item.status == ImageUploadStatus.success,
-        ),
-      );
-    }
-
-    final message = uploadError == null
-        ? '已补录 $uploadedImages 张相片'
-        : '已成功 $uploadedImages 张，第 ${uploadedImages + 1} 张失败：'
-              '${_uploadErrorMessage(uploadError)}';
-    if (uploadError == null) {
-      showFloraSuccessSnackBar(context, message);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  Future<void> _uploadImage(
-    ImageUploadItem item,
-    ImageSettings settings,
-  ) async {
-    setState(() {
-      item.status = ImageUploadStatus.preparing;
-      item.sentBytes = 0;
-      item.totalBytes = 0;
-      item.errorMessage = null;
-    });
-
-    try {
-      final bytes = await item.file.readAsBytes();
-      final compressor = ImageCompressService.fromSettings(settings);
-      final base64 =
-          await (widget.imageCompressor?.call(bytes, settings) ??
-              compressor.compressToBase64InBackground(bytes));
-      if (base64.length > ReadOnlyDiaryScreen.maxImageUploadPayloadChars) {
-        throw Exception('图片压缩后仍过大，请在图片设置中降低尺寸或质量');
-      }
-      if (!_diaryReadyForImageUpload) {
-        _diaryReadyForImageUpload = await widget.apiClient.ensureDiary(
-          widget.date,
-        );
-        if (!_diaryReadyForImageUpload) {
-          throw Exception('无法创建这一天的日记');
-        }
-      }
-      await widget.apiClient.uploadImage(
-        widget.date,
-        base64,
-        operationId: item.id,
-        imagePrefix: settings.filenamePrefix,
-        onProgress: (sentBytes, totalBytes) {
-          if (!mounted || !_imageUploads.contains(item)) return;
-          setState(() {
-            item.status = ImageUploadStatus.uploading;
-            item.sentBytes = sentBytes;
-            item.totalBytes = totalBytes;
-          });
-        },
-      );
-      if (mounted) setState(() => item.status = ImageUploadStatus.success);
-    } catch (error) {
-      if (mounted) {
-        setState(() {
-          item.status = ImageUploadStatus.failed;
-          item.errorMessage = _uploadErrorMessage(error);
-        });
-      }
-      rethrow;
-    }
-  }
-
-  Future<void> _retryImageUpload(ImageUploadItem item) async {
-    if (_hasActiveImageUpload || item.status != ImageUploadStatus.failed) {
-      return;
-    }
-    final startIndex = _imageUploads.indexOf(item);
-    if (startIndex < 0) return;
-    final pendingItems = _imageUploads
-        .skip(startIndex)
-        .where(
-          (candidate) =>
-              candidate.status == ImageUploadStatus.selected ||
-              candidate.status == ImageUploadStatus.failed,
-        )
-        .toList();
-    await _uploadImageQueue(pendingItems, await _loadImageSettings());
-  }
-
-  void _removeImageUpload(ImageUploadItem item) {
-    if (item.status != ImageUploadStatus.selected &&
-        item.status != ImageUploadStatus.failed) {
-      return;
-    }
-    setState(() => _imageUploads.remove(item));
-  }
-
-  bool _canRemoveImageUpload(ImageUploadItem item) {
-    if (item.status != ImageUploadStatus.failed) return true;
-    final itemIndex = _imageUploads.indexOf(item);
-    if (itemIndex < 0) return false;
-    return !_imageUploads
-        .skip(itemIndex + 1)
-        .any((item) => item.status == ImageUploadStatus.selected);
-  }
-
-  String _uploadErrorMessage(Object error) {
-    final message = error.toString().replaceFirst('Exception: ', '').trim();
-    return message.isEmpty ? '请重试' : message;
   }
 
   Widget _buildBody(ThemeData theme) {
@@ -426,9 +244,9 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
               child: LinearProgressIndicator(minHeight: 2),
             ),
           const SizedBox(height: 16),
-          if (_error != null && _diary == null && _imageUploads.isEmpty)
+          if (_error != null && _diary == null)
             _buildError()
-          else if (_diary == null && _imageUploads.isEmpty)
+          else if (_diary == null)
             _buildEmpty(theme)
           else ...[
             if (_error != null) _buildInlineError(theme),
@@ -442,10 +260,6 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
               date: widget.date,
               readOnly: true,
               hiddenSections: const {'tomorrow', 'habits'},
-              imageUploads: _imageUploads,
-              onImageUploadRetry: _retryImageUpload,
-              onImageUploadRemove: _removeImageUpload,
-              canRemoveImageUpload: _canRemoveImageUpload,
             ),
           ],
           const SizedBox(height: 96),
@@ -516,7 +330,6 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
           setState(() => _quickRecordExpanded = !_quickRecordExpanded);
         },
         onEntrySelected: _openQuickCapture,
-        onImagesSelected: _uploadImages,
       ),
     );
   }

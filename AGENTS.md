@@ -64,7 +64,7 @@ Flutter 端已建立的领域组件：
 - 专注计时 → `FocusTimerController` + `FocusTimerScreen`（单会话时间戳计时与保存确认）
 - 随手记 → `QuickNoteTimeline`（条目渲染 + 编辑/删除）
 - 焦虑时刻 → `AnxietyCard` / `AnxietyComposer`
-- 快速记录入口 → 今日页右下角 FAB 扇形菜单，统一进入 `QuickCaptureScreen`、`AnxietyScreen` 或图片上传
+- 快速记录入口 → 今日页右下角 FAB 扇形菜单进入 `QuickCaptureScreen` 或 `AnxietyScreen`；图片随手记与小确幸从 `QuickCaptureScreen` 添加
 - 觉察 → `ReviewCard` → `GenericSectionCard`（含 `_TimelineDeleteRow`）
 - 小确幸 → `GenericSectionCard`（含 `_TimelineDeleteRow`）
 - Callout → `_buildCallout`（在 `GenericSectionCard` 内）
@@ -75,12 +75,18 @@ Flutter 端已建立的领域组件：
 
 - 今天页只保留日记内容展示和右下角快速记录 FAB，不再放置首页内联快速记录输入区。
 - FAB 子入口只负责路由或调用已有处理函数，不重写保存逻辑。
-- 随手记、觉察、小确幸统一进入 `QuickCaptureScreen`。
+- 随手记、觉察、小确幸统一进入 `QuickCaptureScreen`；只有随手记和小确幸支持每条最多 9 张关联照片，觉察不支持照片。
 - 焦虑四问进入 `AnxietyScreen`，继续复用 `AnxietyComposer` 的逐问润色与保存逻辑。
-- 图片入口直接调用现有图片选择、压缩、上传、刷新流程。
+- 今天页 FAB 仅保留随手记、觉察、小确幸、焦虑四问；照片选择入口位于随手记与小确幸记录页，不单独占用 FAB 子入口。
+- 随手记与小确幸的关联照片保存在「影像记录」Markdown 区域，阅读界面显示在正文之后、标签和条目菜单之前；影像区域不得重复显示有效关联照片。
+- 图文条目使用隐藏 UUID 注释关联照片；Parser 将有效关联解析为领域模型，页面不得自行解析注释或 WikiLink。无效/失效关联和旧式独立图片继续留在「影像记录」。
+- 影像区域按 Parser 产出的逐条图片对象判断关联，不按文件名集合过滤；同名的独立 WikiLink 仍须显示。条目 ID 只识别记录块末尾的系统注释，照片关联标记的 UUID 格式在 Flutter 与服务端保持一致。
+- 选择照片后立即显示本地缩略图；每条最多 9 张，记录页、编辑页和历史补录统一使用 3 列方形单元，1–2 张不拉伸铺满。
+- 编辑页移除已有照片时先暂存，点击保存后再精确删除对应 `rawLine`；删除图文条目时一并删除其关联 Markdown 链接，只在附件不再被引用时删除文件。
+- 部分照片操作失败后离开时，新增、编辑和历史补录的父页都要刷新已落盘内容；不能把部分成功当作完全保存显示成功提示。
 - FAB 扇形菜单使用极坐标计算位置；避免回退到手写固定 x/y 坐标。
 - 过往页本身不显示补录 FAB；只有进入某一天的历史详情后才显示历史补录入口。
-- 历史补录仅支持随手记、觉察、小确幸和相片；已有历史内容继续保持只读。
+- 历史补录仅支持随手记、觉察、小确幸；照片只能附加在随手记或小确幸补录中，已有历史内容继续保持只读。
 
 ## 过往画廊规则
 
@@ -251,7 +257,8 @@ flutter test
 - **### 独立 section**：`###` 标题中觉察/人生教练/荔枝喵说/明日寄语/影像 应作为独立 DiarySection，不能作为 SubSectionContent 嵌套在父 section 中。
 - **跨日自动创建**：`_loadDiary()` 中如果 `getDiary(date)` 返回 null，须调用 `ensureDiary(date)` 后再重新读取。提交记录时首次失败须 ensureDiary 并重试。
 - **历史补录延迟创建**：选择或打开无日记的历史日期不能创建空文件；只有文字或相片真正保存时才允许 `ensureDiary(date)`，并且所有写入必须使用用户选择的目标日期。
-- **历史相片批量上传**：一次最多选择 9 张，按选择顺序逐张压缩和上传；失败时停止后续上传，保留已成功图片并报告成功数量。
+- **图文记录照片批量上传**：每条随手记或小确幸最多 9 张，按选择顺序逐张压缩和上传；失败时暂停后续图片，保留已成功图片，重试复用条目 ID 与逐图操作 ID。
+- **图文附件删除与数量约束**：每条最多 9 张须由服务端再次校验；级联删除只识别严格有效的关联注释，并在删除实体附件前检查 Vault 内其他 Markdown 是否仍引用该文件。无法确认引用状态时保留文件，避免误删。
 - **草稿 TTL 2 分钟**：草稿目的是短时保护（刷新/切换入口/短暂离开），不是长期草稿箱。过期自动清除。
 - **AI 润色分场景**：普通入口（quickNote/reflection/happiness）走 `polish()`，返回 tags；焦虑走 `polishPlainText()`，不含标签。
 - **标签配置兜底**：`TagRepository.loadTagConfig()` 失败时必须返回 `DefaultTagConfig.value`；缓存读写失败不能让标签功能不可用。

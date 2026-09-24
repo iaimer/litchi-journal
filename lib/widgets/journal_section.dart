@@ -138,6 +138,7 @@ class JournalTimelineRow extends StatelessWidget {
   /// Retained for source compatibility; the rail now always reaches row end.
   final bool isLast;
   final Widget? trailing;
+  final Widget? attachment;
 
   const JournalTimelineRow({
     super.key,
@@ -149,6 +150,7 @@ class JournalTimelineRow extends StatelessWidget {
     this.isFirst = false,
     this.isLast = false,
     this.trailing,
+    this.attachment,
   });
 
   @override
@@ -156,59 +158,72 @@ class JournalTimelineRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: EdgeInsets.only(left: 4, right: journalFabSafetyInset(context)),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: 48,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  time,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: accentColor,
-                    fontWeight: FontWeight.w600,
-                    height: 1.4,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 48,
+            top: 0,
+            bottom: 0,
+            width: 8,
+            child: _JournalTimelineRail(color: accentColor, isFirst: isFirst),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 48,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    time,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: accentColor,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ),
-            ),
-            _JournalTimelineRail(color: accentColor, isFirst: isFirst),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(content, style: theme.textTheme.bodyMedium),
-                    if (tags.isNotEmpty || trailing != null)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (tags.isNotEmpty)
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: TagChipList(
-                                  tags: tags,
-                                  tagConfig: tagConfig,
-                                  moduleAccentColor: accentColor,
+              const SizedBox(width: 8),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(content, style: theme.textTheme.bodyMedium),
+                      if (attachment != null) ...[
+                        const SizedBox(height: FloraSpacing.sm),
+                        attachment!,
+                      ],
+                      if (tags.isNotEmpty || trailing != null)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (tags.isNotEmpty)
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: TagChipList(
+                                    tags: tags,
+                                    tagConfig: tagConfig,
+                                    moduleAccentColor: accentColor,
+                                  ),
                                 ),
-                              ),
-                            )
-                          else
-                            const Spacer(),
-                          ?trailing,
-                        ],
-                      ),
-                  ],
+                              )
+                            else
+                              const Spacer(),
+                            ?trailing,
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -221,6 +236,7 @@ class JournalListEntryRow extends StatelessWidget {
   final TagConfig? tagConfig;
   final bool showBullet;
   final Widget? trailing;
+  final Widget? attachment;
 
   const JournalListEntryRow({
     super.key,
@@ -230,6 +246,7 @@ class JournalListEntryRow extends StatelessWidget {
     required this.tagConfig,
     this.showBullet = false,
     this.trailing,
+    this.attachment,
   });
 
   @override
@@ -264,6 +281,10 @@ class JournalListEntryRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(content, style: theme.textTheme.bodyMedium),
+                if (attachment != null) ...[
+                  const SizedBox(height: FloraSpacing.sm),
+                  attachment!,
+                ],
                 if (tags.isNotEmpty || trailing != null)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,

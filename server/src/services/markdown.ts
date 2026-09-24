@@ -12,6 +12,7 @@ export const sectionHeaders: Record<string, string> = {
 // 旧版标题（向后兼容）
 const LEGACY_LIZHI_SAYS = '### 🧠 荔枝喵说';
 const TIMELINE_ENTRY_PATTERN = /^(?:-\s*|>\s*)\*\*((?:[01]\d|2[0-3]):[0-5]\d)\*\*/;
+const ENTRY_ID_MARKER_PATTERN = /^<!-- litchi-entry-id:[0-9a-f-]{36} -->$/i;
 
 interface TimelineEntryBlock {
   originalIndex: number;
@@ -31,6 +32,7 @@ export function isTimelineEntryStart(line: string): boolean {
 function isTimelineBlockBoundary(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed) return false;
+  if (ENTRY_ID_MARKER_PATTERN.test(trimmed)) return false;
   return isTimelineEntryStart(trimmed) ||
     trimmed.startsWith('##') ||
     trimmed.startsWith('###') ||

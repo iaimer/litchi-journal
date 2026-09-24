@@ -109,7 +109,7 @@ class PastMemoryService {
     for (final section in document.sections) {
       switch (section) {
         case MediaSection():
-          imageNames.addAll(_parseWikiLinks(section));
+          imageNames.addAll(section.photos.map((photo) => photo.filename));
         case HappinessSection():
           joyText ??= _firstTimelineText(section);
         case ReviewSection():
@@ -222,23 +222,6 @@ class PastMemoryService {
       }
     }
     return null;
-  }
-
-  static List<String> _parseWikiLinks(MediaSection section) {
-    final names = <String>[];
-    final pattern = RegExp(
-      r'!\[\[([^\]\\]+\.(?:jpg|jpeg|png|gif|webp|heic|heif))\]\]',
-      caseSensitive: false,
-    );
-    for (final content in section.contents) {
-      if (content is MarkdownContent) {
-        for (final match in pattern.allMatches(content.text)) {
-          final name = match.group(1);
-          if (name != null) names.add(name);
-        }
-      }
-    }
-    return names;
   }
 
   static bool _isRealContent(String text) {

@@ -25,6 +25,8 @@ import { createObsidianDiaryContent } from '../services/template.js';
 import { parseShanghaiDate } from '../utils/date.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ENTRY_ID_MARKER_PATTERN = /^<!-- litchi-entry-id:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) -->$/i;
+const PHOTO_ASSOCIATION_PATTERN = /^<!-- litchi-photo-of:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:;op:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))? -->$/i;
 const OLD_OP_MARKER_PATTERN = /^<!-- diary-op:[0-9a-f-]+ -->$/i;
 const SAFE_IMAGE_NAME_PATTERN = /^[^/\\\u0000-\u001F\u007F]+\.(jpg|jpeg|png|gif|webp|heic|heif)$/i;
 const OP_INDEX_FILE = '.diary-ops.json';
@@ -84,6 +86,7 @@ function formatTimelineEntry(
   time: string,
   content: unknown,
   tags: unknown,
+  entryId?: string,
 ): string {
   const body = typeof content === 'string' ? content.trim() : '';
   const bodyLines = body.split(/\r?\n/);
@@ -96,7 +99,58 @@ function formatTimelineEntry(
   const tagStr = Array.isArray(tags) && tags.length > 0
     ? ` ${tags.map((tag) => `#${tag}`).join(' ')}`
     : '';
-  return `${formattedLines.join('\n')}${tagStr}`;
+  const entryMarker = entryId ? `\n<!-- litchi-entry-id:${entryId} -->` : '';
+  return `${formattedLines.join('\n')}${tagStr}${entryMarker}`;
+}
+
+function entryIdFromLines(lines: string[]): string | null {
+  const match = ENTRY_ID_MARKER_PATTERN.exec(lines[lines.length - 1]?.trim() ?? '');
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+function findTimelineEntryById(
+  content: string,
+  entryId: string,
+): { section: 'quick_notes' | 'happiness'; start: number; end: number } | null {
+  const lines = content.split('\n');
+  for (const section of ['quick_notes', 'happiness'] as const) {
+    const bounds = findSectionBounds(lines, sectionHeaders[section]);
+    if (!bounds) continue;
+    for (let index = bounds.start + 1; index < bounds.end; index++) {
+      if (!isTimelineEntryStart(lines[index].trim())) continue;
+      const end = findTimelineEntryBlockEnd(lines, index, bounds.end);
+      if (entryIdFromLines(lines.slice(index, end)) === entryId.toLowerCase()) {
+        return { section, start: index, end };
+      }
+      index = end - 1;
+    }
+  }
+  return null;
+}
+
+function filenameForUploadOperation(content: string, operationId: string): string | null {
+  const lines = content.split('\n');
+  for (let index = 0; index < lines.length - 1; index++) {
+    const association = PHOTO_ASSOCIATION_PATTERN.exec(lines[index + 1].trim());
+    if (association?.[2]?.toLowerCase() !== operationId.toLowerCase()) continue;
+    const match = /^!\[\[([^/\\\]]+\.(?:jpg|jpeg|png|gif|webp|heic|heif))\]\]$/i.exec(lines[index].trim());
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function countPhotosForEntry(content: string, entryId: string): number {
+  const lines = content.split('\n');
+  const bounds = findSectionBounds(lines, sectionHeaders.images);
+  if (!bounds) return 0;
+
+  let count = 0;
+  for (let index = bounds.start + 1; index + 1 < bounds.end; index++) {
+    if (!extractImageName(lines[index].trim())) continue;
+    const association = PHOTO_ASSOCIATION_PATTERN.exec(lines[index + 1].trim());
+    if (association?.[1]?.toLowerCase() === entryId.toLowerCase()) count++;
+  }
+  return count;
 }
 
 function hasOwn(body: Record<string, unknown>, key: string): boolean {
@@ -133,7 +187,9 @@ function readOpIndex(date: Date): Set<string> {
 }
 
 function hasOpRecord(date: Date, content: string, operationId: string): boolean {
-  return readOpIndex(date).has(operationId) || content.includes(`<!-- diary-op:${operationId} -->`);
+  return readOpIndex(date).has(operationId) ||
+    content.includes(`<!-- diary-op:${operationId} -->`) ||
+    filenameForUploadOperation(content, operationId) !== null;
 }
 
 function recordOperation(date: Date, operationId: string): void {
@@ -228,10 +284,15 @@ router.get('/:date', async (req, res) => {
 router.post('/quick-note', async (req, res) => {
   try {
     const { content, tags, operationId } = req.body;
+    const requestedEntryId = req.body.entryId == null ? null : validateOperationId(req.body.entryId);
+    if (req.body.entryId != null && !requestedEntryId) {
+      return res.status(400).json({ error: '记录关联标识无效' });
+    }
+    const entryId = requestedEntryId ?? undefined;
     const date = getRequestDate(req.body.date);
     const time = getRequestTime(req.body.time, date);
 
-    const formatted = formatTimelineEntry('-', time, content, tags);
+    const formatted = formatTimelineEntry('-', time, content, tags, entryId);
 
     let originalContent: string;
     try {
@@ -252,7 +313,7 @@ router.post('/quick-note', async (req, res) => {
       recordOperation(date, operationId);
     }
 
-    res.json({ success: true, content: formatted });
+    res.json({ success: true, content: formatted, entryId });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
@@ -505,6 +566,11 @@ router.post('/habit/duration', async (req, res) => {
 router.post('/happiness', async (req, res) => {
   try {
     const { content, tags, operationId } = req.body;
+    const requestedEntryId = req.body.entryId == null ? null : validateOperationId(req.body.entryId);
+    if (req.body.entryId != null && !requestedEntryId) {
+      return res.status(400).json({ error: '记录关联标识无效' });
+    }
+    const entryId = requestedEntryId ?? undefined;
     const date = getRequestDate(req.body.date);
     const time = getRequestTime(req.body.time, date);
 
@@ -521,7 +587,7 @@ router.post('/happiness', async (req, res) => {
       }
     }
 
-    const formattedContent = formatTimelineEntry('>', time, content, tags);
+    const formattedContent = formatTimelineEntry('>', time, content, tags, entryId);
     const updated = stripOldOpMarkers(appendToSection(originalContent, 'happiness', formattedContent));
     writeDiary(date, updated);
     if (operationId && validateOperationId(operationId)) {
@@ -697,6 +763,10 @@ router.post('/tomorrow', async (req, res) => {
 router.post('/image/upload', async (req, res) => {
   try {
     const { date: dateStr, imageData, operationId, imagePrefix } = req.body;
+    const entryId = req.body.entryId == null ? undefined : validateOperationId(req.body.entryId);
+    if (req.body.entryId != null && !entryId) {
+      return res.status(400).json({ error: '记录关联标识无效' });
+    }
     const uploadDate = parseShanghaiDate(dateStr);
     const [year, monthNum, day] = dateStr.split('-').map(Number);
 
@@ -709,8 +779,22 @@ router.post('/image/upload', async (req, res) => {
 
     if (operationId && validateOperationId(operationId)) {
       if (hasOpRecord(uploadDate, originalContent, operationId)) {
-        return res.json({ success: true, dedup: true });
+        return res.json({
+          success: true,
+          dedup: true,
+          filename: filenameForUploadOperation(originalContent, operationId),
+        });
       }
+    }
+
+    if (entryId && !findTimelineEntryById(originalContent, entryId)) {
+      return res.status(404).json({ error: '关联记录不存在，请刷新后重试' });
+    }
+    if (entryId && !validateOperationId(operationId)) {
+      return res.status(400).json({ error: '照片上传操作标识无效' });
+    }
+    if (entryId && countPhotosForEntry(originalContent, entryId) >= 9) {
+      return res.status(409).json({ error: '每条记录最多添加 9 张照片' });
     }
 
     const assetsDir = getAssetsDir(uploadDate);
@@ -761,10 +845,13 @@ router.post('/image/upload', async (req, res) => {
     const imagePath = join(assetsDir, filename);
     writeFileSync(imagePath, buffer);
 
-    // 追加 WikiLink；幂等索引写入旁路文件，避免污染日记正文
+    // WikiLink 保持在影像记录章节，隐藏注释只记录所属条目和重试标识。
     const wikiLink = `![[${filename}]]`;
+    const photoBlock = entryId
+      ? `${wikiLink}\n<!-- litchi-photo-of:${entryId};op:${validateOperationId(operationId)} -->`
+      : wikiLink;
     const contentWithImages = ensureImagesSection(originalContent);
-    const updated = stripOldOpMarkers(appendToSection(contentWithImages, 'images', wikiLink));
+    const updated = stripOldOpMarkers(appendToSection(contentWithImages, 'images', photoBlock));
     try {
       writeDiary(uploadDate, updated);
       if (operationId && validateOperationId(operationId)) {
@@ -1107,6 +1194,55 @@ function findSectionBounds(lines: string[], header: string): { start: number; en
   return { start, end };
 }
 
+function detachPhotosForEntry(lines: string[], entryId: string): string[] {
+  const bounds = findSectionBounds(lines, sectionHeaders.images);
+  if (!bounds) return [];
+
+  const removed: string[] = [];
+  for (let index = bounds.end - 1; index > bounds.start; index--) {
+    const association = PHOTO_ASSOCIATION_PATTERN.exec(lines[index].trim());
+    if (association?.[1]?.toLowerCase() !== entryId.toLowerCase()) continue;
+    const filename = extractImageName(lines[index - 1]?.trim() ?? '');
+    if (!filename) continue;
+    removed.push(filename);
+    lines.splice(index - 1, 2);
+    index--;
+  }
+  return removed;
+}
+
+function isImageReferencedInVault(filename: string): boolean {
+  const wikiLink = `![[${filename}]]`;
+  const pendingDirs = [config.vaultPath];
+  while (pendingDirs.length > 0) {
+    const dir = pendingDirs.pop()!;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      // 无法证明符号链接目标未引用图片时，保留附件比误删更安全。
+      if (entry.isSymbolicLink()) return true;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        pendingDirs.push(path);
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        if (readFileSync(path, 'utf8').includes(wikiLink)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function deleteUnreferencedImageFiles(date: Date, filenames: string[], content: string): void {
+  for (const filename of new Set(filenames)) {
+    if (!isSafeImageName(filename) || content.includes(`![[${filename}]]`)) continue;
+    try {
+      if (isImageReferencedInVault(filename)) continue;
+      const imagePath = getSafeAssetPath(getAssetsDir(date), filename);
+      if (existsSync(imagePath)) unlinkSync(imagePath);
+    } catch {
+      // 图片路径异常或清理失败时保留文件，不能回滚已完成的日记写入。
+    }
+  }
+}
+
 function findEntryRangeInSection(
   lines: string[], _startIdx: number, endIdx: number,
   targetLine: string, matches: number[]
@@ -1174,19 +1310,16 @@ router.post('/delete-entry', async (req, res) => {
     const range = findEntryRangeInSection(lines, bounds.start + 1, bounds.end, line, matches);
     if (!range) return res.status(404).json({ error: '条目未找到' });
 
+    const entryId = section === 'quick_notes' || section === 'happiness'
+      ? entryIdFromLines(lines.slice(range.startIndex, range.endIndexExclusive))
+      : null;
     const imageName = section === 'images' ? extractImageName(firstLine) : null;
     lines.splice(range.startIndex, range.endIndexExclusive - range.startIndex);
+    const removedPhotos = entryId ? detachPhotosForEntry(lines, entryId) : [];
     const updatedContent = lines.join('\n');
     writeDiary(date, updatedContent);
-    if (imageName && isSafeImageName(imageName) && !updatedContent.includes(`![[${imageName}]]`)) {
-      try {
-        const imagePath = getSafeAssetPath(getAssetsDir(date), imageName);
-        if (existsSync(imagePath)) unlinkSync(imagePath);
-      } catch {
-        // 图片路径异常时保留文件，不能让已完成的日记删除操作返回失败。
-      }
-    }
-    res.json({ success: true });
+    deleteUnreferencedImageFiles(date, [...removedPhotos, ...(imageName ? [imageName] : [])], updatedContent);
+    res.json({ success: true, deletedPhotoCount: removedPhotos.length });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
@@ -1196,6 +1329,13 @@ router.post('/edit-entry', async (req, res) => {
   try {
     const { date: dateStr, section, target, replacement } = req.body;
     if (!dateStr || !section || !target || !replacement) return res.status(400).json({ error: '缺少参数' });
+    const requestedEntryId = req.body.entryId == null ? undefined : validateOperationId(req.body.entryId);
+    if (req.body.entryId != null && !requestedEntryId) {
+      return res.status(400).json({ error: '记录关联标识无效' });
+    }
+    if (requestedEntryId && section !== 'quick_notes' && section !== 'happiness') {
+      return res.status(400).json({ error: '该区块不支持照片关联' });
+    }
     const date = getRequestDate(dateStr);
     const content = readDiary(date);
     const lines = content.split('\n');
@@ -1211,7 +1351,19 @@ router.post('/edit-entry', async (req, res) => {
     const range = findEntryRangeInSection(lines, bounds.start + 1, bounds.end, target, matches);
     if (!range) return res.status(404).json({ error: '条目未找到' });
 
-    const newLines = replacement.split('\n');
+    const existingEntryId = section === 'quick_notes' || section === 'happiness'
+      ? entryIdFromLines(lines.slice(range.startIndex, range.endIndexExclusive))
+      : null;
+    const suppliedEntryId = requestedEntryId;
+    if (existingEntryId && suppliedEntryId && existingEntryId !== suppliedEntryId.toLowerCase()) {
+      return res.status(409).json({ error: '记录关联标识已变化，请刷新后重试' });
+    }
+    const entryId = existingEntryId ?? suppliedEntryId;
+    const newLines = (replacement as string).split('\n');
+    if (!entryId && newLines.some(line => ENTRY_ID_MARKER_PATTERN.test(line.trim()))) {
+      return res.status(400).json({ error: '正文包含系统保留标记，请移除后重试' });
+    }
+    if (entryId) newLines.push(`<!-- litchi-entry-id:${entryId} -->`);
     lines.splice(range.startIndex, range.endIndexExclusive - range.startIndex, ...newLines);
     writeDiary(date, sortTimelineEntriesInSection(lines.join('\n'), section));
     res.json({ success: true });

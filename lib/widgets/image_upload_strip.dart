@@ -35,12 +35,14 @@ class ImageUploadStrip extends StatelessWidget {
           separatorBuilder: (_, _) => const SizedBox(width: FloraSpacing.sm),
           itemBuilder: (context, index) {
             final item = items[index];
-            return _ImageUploadTile(
+            return ImageUploadTile(
               key: ValueKey('image_upload_${item.id}'),
               item: item,
               onRetry: () => onRetry(item),
               onRemove: () => onRemove(item),
               canRemove: canRemove?.call(item) ?? true,
+              size: 104,
+              height: 112,
             );
           },
         ),
@@ -49,25 +51,72 @@ class ImageUploadStrip extends StatelessWidget {
   }
 }
 
-class _ImageUploadTile extends StatefulWidget {
+class ImageUploadGrid extends StatelessWidget {
+  final List<ImageUploadItem> items;
+  final ValueChanged<ImageUploadItem> onRetry;
+  final ValueChanged<ImageUploadItem> onRemove;
+  final bool Function(ImageUploadItem item)? canRemove;
+
+  const ImageUploadGrid({
+    super.key,
+    required this.items,
+    required this.onRetry,
+    required this.onRemove,
+    this.canRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = FloraSpacing.sm;
+        final size = (constraints.maxWidth - spacing * 2) / 3;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: items
+              .map(
+                (item) => ImageUploadTile(
+                  key: ValueKey('image_upload_${item.id}'),
+                  item: item,
+                  onRetry: () => onRetry(item),
+                  onRemove: () => onRemove(item),
+                  canRemove: canRemove?.call(item) ?? true,
+                  size: size,
+                  height: size,
+                ),
+              )
+              .toList(growable: false),
+        );
+      },
+    );
+  }
+}
+
+class ImageUploadTile extends StatefulWidget {
   final ImageUploadItem item;
   final VoidCallback onRetry;
   final VoidCallback onRemove;
   final bool canRemove;
+  final double size;
+  final double height;
 
-  const _ImageUploadTile({
+  const ImageUploadTile({
     super.key,
     required this.item,
     required this.onRetry,
     required this.onRemove,
     required this.canRemove,
+    required this.size,
+    required this.height,
   });
 
   @override
-  State<_ImageUploadTile> createState() => _ImageUploadTileState();
+  State<ImageUploadTile> createState() => _ImageUploadTileState();
 }
 
-class _ImageUploadTileState extends State<_ImageUploadTile> {
+class _ImageUploadTileState extends State<ImageUploadTile> {
   late Future<Uint8List> _previewBytes;
 
   @override
@@ -77,7 +126,7 @@ class _ImageUploadTileState extends State<_ImageUploadTile> {
   }
 
   @override
-  void didUpdateWidget(covariant _ImageUploadTile oldWidget) {
+  void didUpdateWidget(covariant ImageUploadTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.file != widget.item.file) {
       _previewBytes = widget.item.file.readAsBytes();
@@ -95,7 +144,8 @@ class _ImageUploadTileState extends State<_ImageUploadTile> {
       label: _semanticLabel(item),
       button: item.status == ImageUploadStatus.failed,
       child: SizedBox(
-        width: 104,
+        width: widget.size,
+        height: widget.height,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(FloraRadius.sm),
           child: Stack(

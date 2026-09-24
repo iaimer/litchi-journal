@@ -4,9 +4,9 @@
 
 ## 当前目标与上下文
 
-随手记与小确幸图文记录已 squash 合并并推送到 `main`（`6b9f77c`）：新增/编辑/历史补录共用记录页内照片入口，照片以隐藏 UUID 标记关联到「影像记录」，正文下方使用 3 列等尺寸网格；历史与今天的独立相片 FAB 已移除。审查修复覆盖跨日引用时保留附件、严格关联标记、服务端 9 张上限、同名独立照片展示，以及部分成功和编辑结束后的父页刷新；同时修复了关联照片嵌入随手记时间轴时的 Flutter 固有高度布局异常。Flutter 550 项测试、服务端 61 项测试、`flutter analyze`、TypeScript 构建和 `git diff --check` 均通过。版本保持 `1.7.6+32`。Mac mini 健康检查返回 200，但 SSH 端口拒绝连接，尚未部署本次服务端代码；真机视觉截图也待设备连接后验收。
+当前版本为 `1.8.0+33`。随手记与小确幸图文记录已 squash 合并并推送到 `main`（`6b9f77c`）：新增/编辑/历史补录共用记录页内照片入口，照片以隐藏 UUID 标记关联到「影像记录」，正文下方使用 3 列等尺寸网格；历史与今天的独立相片 FAB 已移除。审查修复覆盖跨日引用时保留附件、严格关联标记、服务端 9 张上限、同名独立照片展示，以及部分成功和编辑结束后的父页刷新；同时修复了关联照片嵌入随手记时间轴时的 Flutter 固有高度布局异常。Flutter 550 项测试、服务端 61 项测试、`flutter analyze`、TypeScript 构建和 `git diff --check` 均通过。Release APK 已按新版本构建，真机安装和视觉验收由用户执行；Mac mini 服务端部署由用户自行完成。
 
-`1.7.6+32` 是当前版本：修复随手记、觉察和小确幸的多自然段布局、完整条目解析和 Markdown 排序边界。完整 Flutter 测试 541 项、服务端 52 项测试、`flutter analyze` 和 TypeScript 构建通过；Release APK 清单版本为 `1.7.6` / versionCode `32`，`apksigner verify` 通过。APK 使用 debug 签名，未安装到真机；真机安装与视觉验收由用户执行。项目流程采用 Project Docs Workflow；旧的 `SESSION_LOG.md` 保留为历史档案，不再追加。
+`1.8.0+33` 是当前版本：新增随手记与小确幸的图文记录能力，并保留 `1.7.6+32` 的多自然段展示、完整条目解析和 Markdown 排序修复。完整 Flutter 测试 550 项、服务端 61 项测试、`flutter analyze` 和 TypeScript 构建通过；Release APK 清单版本为 `1.8.0` / versionCode `33`，签名校验通过。APK 使用 debug 签名，未安装到真机；真机安装与视觉验收由用户执行。项目流程采用 Project Docs Workflow；旧的 `SESSION_LOG.md` 保留为历史档案，不再追加。
 
 多自然段记录修复已 squash 合并并推送到 `main`。展示层把标签与三点菜单放在末段下方；Parser 聚合完整正文与 `rawLine`；服务端使用稳定续行前缀并按完整记录块排序。多行 `rawLine` 精确匹配，注释、Callout、图片和 checkbox 等非记录结构保持原位。Release APK 输出路径为 `build/app/outputs/flutter-apk/app-release.apk`；本次未安装到真机。
 

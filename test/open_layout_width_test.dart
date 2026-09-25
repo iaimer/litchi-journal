@@ -1,15 +1,30 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:litchi_journal_flutter/models/diary_document.dart';
+import 'package:litchi_journal_flutter/services/api_client.dart';
+import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
 import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
+import 'package:litchi_journal_flutter/widgets/entry_photo_grid.dart';
 import 'package:litchi_journal_flutter/widgets/generic_section_card.dart';
 import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
 import 'package:litchi_journal_flutter/widgets/journal_section.dart';
 import 'package:litchi_journal_flutter/widgets/quick_note_timeline.dart';
+import 'package:litchi_journal_flutter/widgets/tag_color_helper.dart';
+
+void _emptyCallback() {}
+
+class _UnavailablePhotoClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(Stream.value(utf8.encode('{}')), 404);
+  }
+}
 
 void main() {
   const viewportWidth = 393.0;
@@ -454,7 +469,7 @@ void main() {
       );
     }
 
-    testWidgets('时间轴覆盖每条记录并在末条底部结束', (tester) async {
+    testWidgets('前三条时间轴连续，末条在换行标签底部结束', (tester) async {
       await tester.binding.setSurfaceSize(const Size(viewportWidth, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -477,8 +492,8 @@ void main() {
           QuickNoteItem(
             time: '21:26',
             content: '最后一条记录',
-            tags: ['#末条'],
-            rawLine: '- **21:26** 最后一条记录 #末条',
+            tags: ['#第一行较长标签内容', '#第二行较长标签触发行换行'],
+            rawLine: '- **21:26** 最后一条记录 #第一行较长标签内容 #第二行较长标签触发行换行',
           ),
         ],
       );
@@ -505,15 +520,18 @@ void main() {
       final secondRail = tester.getRect(timelineRailAt(1));
       final lastRail = tester.getRect(timelineRailAt(2));
       final firstNode = tester.getRect(timelineNodeAt(0));
-      final lastTag = tester.getRect(find.text('#末条'));
+      final firstLastTag = tester.getRect(find.text('#第一行较长标签内容'));
+      final secondLastTag = tester.getRect(find.text('#第二行较长标签触发行换行'));
+      final lastTagList = tester.getRect(find.byType(TagChipList).last);
 
       expect(firstRail.top, closeTo(firstNode.center.dy, 0.5));
       expect(firstRail.bottom, closeTo(secondRail.top, 0.5));
       expect(secondRail.top, closeTo(secondRow.top, 0.5));
       expect(secondRail.bottom, closeTo(lastRail.top, 0.5));
       expect(lastRail.top, closeTo(lastRow.top, 0.5));
-      expect(lastRail.bottom, closeTo(lastRow.bottom, 0.5));
-      expect(lastRail.bottom, greaterThan(lastTag.bottom));
+      expect(secondLastTag.top, greaterThan(firstLastTag.top));
+      expect(lastRail.bottom, closeTo(lastTagList.bottom, 0.5));
+      expect(lastRail.bottom, lessThan(lastRow.bottom));
       expect(firstRail.bottom, closeTo(firstRow.bottom, 0.5));
       expect(tester.getSize(timelineRailAt(0)).width, closeTo(1, 0.001));
       expect(tester.getSize(timelineRailAt(1)).width, closeTo(1, 0.001));
@@ -560,15 +578,16 @@ void main() {
       final firstRail = tester.getRect(timelineRailAt(0));
       final lastRail = tester.getRect(timelineRailAt(1));
       final firstNode = tester.getRect(timelineNodeAt(0));
+      final lastTagList = tester.getRect(find.byType(TagChipList).last);
 
       expect(firstRail.top, closeTo(firstNode.center.dy, 0.5));
       expect(firstRail.bottom, closeTo(firstRow.bottom, 0.5));
       expect(lastRail.top, closeTo(lastRow.top, 0.5));
-      expect(lastRail.bottom, closeTo(lastRow.bottom, 0.5));
+      expect(lastRail.bottom, closeTo(lastTagList.bottom, 0.5));
       expect(firstRail.bottom, closeTo(lastRail.top, 0.5));
     });
 
-    testWidgets('单条记录的时间轴从圆点延伸到条目底部', (tester) async {
+    testWidgets('单条记录的时间轴从圆点延伸到标签底部', (tester) async {
       await tester.binding.setSurfaceSize(const Size(viewportWidth, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -592,13 +611,345 @@ void main() {
           ),
         ),
       );
+      final firstFrameRail = tester.getRect(timelineRailAt(0));
+      final firstFrameTags = tester.getRect(find.byType(TagChipList));
+      expect(firstFrameRail.bottom, lessThanOrEqualTo(firstFrameTags.bottom));
       await tester.pumpAndSettle();
 
       final row = tester.getRect(timelineRows().at(0));
       final rail = tester.getRect(timelineRailAt(0));
       final node = tester.getRect(timelineNodeAt(0));
+      final tags = tester.getRect(find.byType(TagChipList));
       expect(rail.top, closeTo(node.center.dy, 0.5));
-      expect(rail.bottom, closeTo(row.bottom, 0.5));
+      expect(rail.bottom, closeTo(tags.bottom, 0.5));
+      expect(rail.bottom, lessThan(row.bottom));
+    });
+
+    testWidgets('字体放大后末条时间轴重新对齐标签底边', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(viewportWidth, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const row = JournalTimelineRow(
+        time: '08:25',
+        content: '字体放大时，时间轴应继续跟随标签的实际排版位置。',
+        tags: ['#第一条较长标签显示文本', '#第二条较长标签显示文本'],
+        accentColor: Colors.red,
+        tagConfig: null,
+        isFirst: true,
+        isLast: true,
+        trailing: JournalEntryActionSlot(
+          alignToTags: true,
+          busy: false,
+          onPressed: _emptyCallback,
+        ),
+      );
+
+      Widget appWithScale(double scale) {
+        return MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(viewportWidth, 720),
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: const Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(width: viewportWidth, child: row),
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(appWithScale(1));
+      await tester.pumpAndSettle();
+      final normalTags = tester.getRect(find.byType(TagChipList));
+      final normalRail = tester.getRect(timelineRailAt(0));
+      expect(normalRail.bottom, closeTo(normalTags.bottom, 0.5));
+
+      await tester.pumpWidget(appWithScale(1.6));
+      await tester.pumpAndSettle();
+      final largeTags = tester.getRect(find.byType(TagChipList));
+      final largeRail = tester.getRect(timelineRailAt(0));
+      expect(largeTags.height, greaterThan(normalTags.height));
+      expect(largeRail.bottom, closeTo(largeTags.bottom, 0.5));
+    });
+
+    testWidgets('末条无标签时照片优先作为时间轴终点', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(viewportWidth, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const photoKey = ValueKey('timeline-photo');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: viewportWidth,
+                child: JournalTimelineRow(
+                  time: '08:25',
+                  content: '带照片但没有标签',
+                  tags: const [],
+                  accentColor: Colors.red,
+                  tagConfig: null,
+                  isFirst: true,
+                  isLast: true,
+                  trailing: const JournalEntryActionSlot(
+                    alignToTags: false,
+                    busy: false,
+                    onPressed: _emptyCallback,
+                  ),
+                  attachment: const SizedBox(
+                    key: photoKey,
+                    width: 84,
+                    height: 84,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final rail = tester.getRect(timelineRailAt(0));
+      final photo = tester.getRect(find.byKey(photoKey));
+      final row = tester.getRect(timelineRows().at(0));
+      expect(rail.bottom, closeTo(photo.bottom, 0.5));
+      expect(rail.bottom, lessThan(row.bottom));
+    });
+
+    testWidgets('末条无标签和照片时正文作为时间轴终点', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(viewportWidth, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const content = '没有标签和照片的正文';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: viewportWidth,
+                child: JournalTimelineRow(
+                  time: '08:25',
+                  content: content,
+                  tags: const [],
+                  accentColor: Colors.red,
+                  tagConfig: null,
+                  isFirst: true,
+                  isLast: true,
+                  trailing: const JournalEntryActionSlot(
+                    alignToTags: false,
+                    busy: false,
+                    onPressed: _emptyCallback,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final rail = tester.getRect(timelineRailAt(0));
+      final body = tester.getRect(find.text(content));
+      final row = tester.getRect(timelineRows().at(0));
+      expect(rail.bottom, closeTo(body.bottom, 0.5));
+      expect(rail.bottom, lessThan(row.bottom));
+    });
+
+    testWidgets('随手记和小确幸照片与标签行相隔12dp', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(viewportWidth, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const notePhotoKey = ValueKey('note-photo');
+      const happinessPhotoKey = ValueKey('happiness-photo');
+      final noteRow = JournalTimelineRow(
+        time: '08:25',
+        content: '随手记正文',
+        tags: const ['#随手记'],
+        accentColor: Colors.red,
+        tagConfig: null,
+        isLast: true,
+        attachment: const SizedBox(key: notePhotoKey, width: 84, height: 84),
+        trailing: const JournalEntryActionSlot(
+          alignToTags: true,
+          attachmentAboveTags: true,
+          busy: false,
+          onPressed: _emptyCallback,
+        ),
+      );
+      final happinessRow = JournalListEntryRow(
+        content: '小确幸正文',
+        tags: const ['#小确幸'],
+        accentColor: Colors.orange,
+        tagConfig: null,
+        attachment: const SizedBox(
+          key: happinessPhotoKey,
+          width: 84,
+          height: 84,
+        ),
+        trailing: const JournalEntryActionSlot(
+          alignToTags: true,
+          attachmentAboveTags: true,
+          busy: false,
+          onPressed: _emptyCallback,
+        ),
+      );
+      final noteWithoutPhotoRow = JournalTimelineRow(
+        time: '08:26',
+        content: '无图随手记正文',
+        tags: const ['#无图随手记'],
+        accentColor: Colors.red,
+        tagConfig: null,
+        trailing: const JournalEntryActionSlot(
+          alignToTags: true,
+          busy: false,
+          onPressed: _emptyCallback,
+        ),
+      );
+      final happinessWithoutPhotoRow = JournalListEntryRow(
+        content: '无图小确幸正文',
+        tags: const ['#无图小确幸'],
+        accentColor: Colors.orange,
+        tagConfig: null,
+        trailing: const JournalEntryActionSlot(
+          alignToTags: true,
+          busy: false,
+          onPressed: _emptyCallback,
+        ),
+      );
+
+      for (final theme in [ThemeData.light(), ThemeData.dark()]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: SizedBox(
+                width: viewportWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    noteRow,
+                    happinessRow,
+                    noteWithoutPhotoRow,
+                    happinessWithoutPhotoRow,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final notePhoto = tester.getRect(find.byKey(notePhotoKey));
+        final noteTags = tester.getRect(find.byType(TagChipList).at(0));
+        final happinessPhoto = tester.getRect(find.byKey(happinessPhotoKey));
+        final happinessTags = tester.getRect(find.byType(TagChipList).at(1));
+        final noteBody = tester.getRect(find.text('无图随手记正文'));
+        final noteWithoutPhotoTags = tester.getRect(
+          find.byType(TagChipList).at(2),
+        );
+        final happinessBody = tester.getRect(find.text('无图小确幸正文'));
+        final happinessWithoutPhotoTags = tester.getRect(
+          find.byType(TagChipList).at(3),
+        );
+        expect(noteTags.top - notePhoto.bottom, closeTo(12, 0.5));
+        expect(happinessTags.top - happinessPhoto.bottom, closeTo(12, 0.5));
+        expect(noteWithoutPhotoTags.top - noteBody.bottom, closeTo(2, 0.5));
+        expect(
+          happinessWithoutPhotoTags.top - happinessBody.bottom,
+          closeTo(2, 0.5),
+        );
+
+        for (var index = 0; index < 4; index++) {
+          final tagsText = tester.getRect(
+            find.text(['#随手记', '#小确幸', '#无图随手记', '#无图小确幸'][index]),
+          );
+          final menuIcon = tester.getRect(moreIconFinder().at(index));
+          expect(
+            (tagsText.center.dy - menuIcon.center.dy).abs(),
+            lessThanOrEqualTo(2),
+          );
+        }
+      }
+    });
+
+    testWidgets('真实图文日记视图在今天与历史状态保留图片间距', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(viewportWidth, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const markdown = '''
+## ✍️ 随手记 & 灵感
+- **08:00** 今天的随手记 #生活
+<!-- litchi-entry-id:11111111-1111-4111-8111-111111111111 -->
+
+## ✨ 每日小确幸
+> **09:00** 今天的小确幸 #开心
+<!-- litchi-entry-id:33333333-3333-4333-8333-333333333333 -->
+
+## 📸 影像记录
+![[note.jpg]]
+<!-- litchi-photo-of:11111111-1111-4111-8111-111111111111;op:22222222-2222-4222-8222-222222222222 -->
+![[happiness.jpg]]
+<!-- litchi-photo-of:33333333-3333-4333-8333-333333333333;op:44444444-4444-4444-8444-444444444444 -->
+''';
+
+      Widget buildDiary({required bool readOnly}) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DiaryMarkdownView(
+                markdown: markdown,
+                readOnly: readOnly,
+                date: DateTime(2026, 9, 26),
+                apiClient: ApiClient(
+                  ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+                  httpClient: _UnavailablePhotoClient(),
+                ),
+                onEntryDelete: readOnly ? null : (_, _) async {},
+              ),
+            ),
+          ),
+        );
+      }
+
+      Future<void> expectPhotoGaps() async {
+        final grids = find.byType(EntryPhotoGrid);
+        expect(grids, findsNWidgets(2));
+        final noteGrid = tester.getRect(grids.at(0));
+        final happinessGrid = tester.getRect(grids.at(1));
+        final noteTags = tester.getRect(find.byType(TagChipList).at(0));
+        final happinessTags = tester.getRect(find.byType(TagChipList).at(1));
+        expect(noteTags.top - noteGrid.bottom, closeTo(12, 0.5));
+        expect(happinessTags.top - happinessGrid.bottom, closeTo(12, 0.5));
+      }
+
+      await tester.pumpWidget(buildDiary(readOnly: false));
+      await tester.pumpAndSettle();
+      await expectPhotoGaps();
+      expect(moreIconFinder(), findsNWidgets(2));
+
+      for (var index = 0; index < 2; index++) {
+        final tagText = tester.getRect(find.text(index == 0 ? '#生活' : '#开心'));
+        final menuIcon = tester.getRect(moreIconFinder().at(index));
+        expect(
+          (tagText.center.dy - menuIcon.center.dy).abs(),
+          lessThanOrEqualTo(2),
+        );
+        expect(
+          tester.getSize(find.byType(IconButton).at(index)),
+          const Size(48, 48),
+        );
+      }
+
+      await tester.pumpWidget(buildDiary(readOnly: true));
+      await tester.pumpAndSettle();
+      await expectPhotoGaps();
+      expect(moreIconFinder(), findsNothing);
     });
 
     testWidgets('随手记正文和三点操作贴近页面右侧', (tester) async {

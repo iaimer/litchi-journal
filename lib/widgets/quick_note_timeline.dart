@@ -270,6 +270,10 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
       trailing: (_showActions || _busy)
           ? JournalEntryActionSlot(
               alignToTags: widget.note.tags.isNotEmpty,
+              attachmentAboveTags:
+                  widget.note.photos.isNotEmpty &&
+                  widget.apiClient != null &&
+                  widget.recordDate != null,
               busy: _busy,
               onPressed: _showActions ? _openActions : null,
             )

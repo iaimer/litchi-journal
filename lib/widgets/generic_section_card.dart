@@ -745,6 +745,10 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
     if (!_showActions && !_busy) return null;
     return JournalEntryActionSlot(
       alignToTags: widget.content.tags.isNotEmpty,
+      attachmentAboveTags:
+          widget.content.photos.isNotEmpty &&
+          widget.apiClient != null &&
+          widget.recordDate != null,
       busy: _busy,
       onPressed: _showActions ? _openActions : null,
     );

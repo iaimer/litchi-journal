@@ -23,6 +23,7 @@ import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/entry_photo_grid.dart';
+import '../widgets/record_time_picker_sheet.dart';
 import '../widgets/tag_picker.dart';
 
 typedef QuickCaptureImagePicker =
@@ -286,7 +287,11 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     final picker = widget.timePicker;
     final picked = picker != null
         ? await picker(context, _selectedTime)
-        : await showTimePicker(context: context, initialTime: _selectedTime);
+        : await showRecordTimePickerSheet(
+            context,
+            targetDate: _photoDate,
+            initialTime: _selectedTime,
+          );
     if (picked == null || !mounted) return;
     setState(() => _selectedTime = picked);
   }

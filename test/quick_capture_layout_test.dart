@@ -67,13 +67,20 @@ void main() {
       expect(find.textContaining('今天'), findsOneWidget);
     });
 
-    testWidgets('正文编辑区占据页面主要空间', (tester) async {
+    testWidgets('正文编辑区随内容自然增高', (tester) async {
       await tester.binding.setSurfaceSize(const Size(420, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(_buildCapture());
 
-      expect(tester.getSize(find.byType(TextField)).height, greaterThan(300));
+      final initialHeight = tester.getSize(find.byType(TextField)).height;
+      await tester.enterText(find.byType(TextField), '第一段\n第二段\n第三段');
+      await tester.pump();
+      expect(
+        tester.getSize(find.byType(TextField)).height,
+        greaterThan(initialHeight),
+      );
+      expect(tester.widget<TextField>(find.byType(TextField)).expands, isFalse);
     });
 
     testWidgets('已选标签显示在工具栏上方，标签按钮只有一个展开箭头', (tester) async {

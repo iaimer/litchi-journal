@@ -11,6 +11,7 @@ import 'image_upload_strip.dart';
 class EntryPhotoGrid extends StatelessWidget {
   final List<DiaryPhoto> photos;
   final List<ImageUploadItem> uploads;
+  final Map<String, GlobalKey> uploadKeys;
   final Set<String> removedPhotoNames;
   final ApiClient apiClient;
   final DateTime date;
@@ -24,6 +25,7 @@ class EntryPhotoGrid extends StatelessWidget {
     super.key,
     required this.photos,
     required this.uploads,
+    this.uploadKeys = const {},
     required this.removedPhotoNames,
     required this.apiClient,
     required this.date,
@@ -67,7 +69,7 @@ class EntryPhotoGrid extends StatelessWidget {
         children.addAll(
           uploads.map(
             (item) => ImageUploadTile(
-              key: ValueKey('image_upload_${item.id}'),
+              key: uploadKeys[item.id] ?? ValueKey('image_upload_${item.id}'),
               item: item,
               onRetry: () => onRetryUpload?.call(item),
               onRemove: () => onRemoveUpload?.call(item),

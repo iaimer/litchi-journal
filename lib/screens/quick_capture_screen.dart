@@ -102,6 +102,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   final ImageSettingsRepository _defaultImageSettingsRepository =
       ImageSettingsRepository();
   final List<ImageUploadItem> _newPhotos = [];
+  final Map<String, GlobalKey> _photoKeys = {};
   final Set<String> _removedPhotoNames = {};
   final Set<String> _completedPhotoRemovals = {};
   bool _entrySaved = false;
@@ -444,22 +445,31 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
             limit: remaining,
           );
     if (!mounted || picked.isEmpty) return;
+    final addedPhotos = picked
+        .take(remaining)
+        .map(
+          (file) => ImageUploadItem(id: ApiClient.generateUuidV4(), file: file),
+        )
+        .toList(growable: false);
     setState(() {
-      _newPhotos.addAll(
-        picked
-            .take(remaining)
-            .map(
-              (file) =>
-                  ImageUploadItem(id: ApiClient.generateUuidV4(), file: file),
-            ),
-      );
+      _newPhotos.addAll(addedPhotos);
+      for (final photo in addedPhotos) {
+        _photoKeys[photo.id] = GlobalKey();
+      }
       _error = null;
     });
+    _revealPhoto(addedPhotos.first.id);
+  }
+
+  void _revealPhoto(String id) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_entryScrollController.hasClients) return;
+      if (!mounted) return;
+      final photoContext = _photoKeys[id]?.currentContext;
+      if (photoContext == null) return;
       unawaited(
-        _entryScrollController.animateTo(
-          _entryScrollController.position.maxScrollExtent,
+        Scrollable.ensureVisible(
+          photoContext,
+          alignment: 0,
           duration: FloraMotion.standardFor(MediaQuery.of(context)),
           curve: Curves.easeOut,
         ),
@@ -561,7 +571,10 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         item.status != ImageUploadStatus.failed) {
       return;
     }
-    setState(() => _newPhotos.remove(item));
+    setState(() {
+      _newPhotos.remove(item);
+      _photoKeys.remove(item.id);
+    });
   }
 
   void _toggleSavedPhotoRemoval(DiaryPhoto photo) {
@@ -619,14 +632,6 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
           _buildTimeMetadata(theme),
           const SizedBox(height: 8),
           Expanded(child: _buildScrollableEntry(theme)),
-          if (_selectedTags.isNotEmpty) ...[
-            TagSelectionSummary(
-              tagConfig: widget.tagConfig,
-              tags: _selectedTags,
-              hiddenTags: _retainedHiddenTags,
-            ),
-            const SizedBox(height: 8),
-          ],
           _buildToolbar(theme),
           _buildErrorMessage(theme),
           _buildExpandedTagPanel(theme, tagPanelMaxHeight),
@@ -636,37 +641,59 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   }
 
   Widget _buildScrollableEntry(ThemeData theme) {
-    return LayoutBuilder(
-      builder: (context, constraints) => ListView(
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: _saving || _polishing || _entrySaved
+          ? null
+          : () => _focusNode.requestFocus(),
+      child: SingleChildScrollView(
         key: const Key('quick_capture_entry_scroll'),
         controller: _entryScrollController,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.zero,
-        children: [
-          SizedBox(height: constraints.maxHeight, child: _buildEditor(theme)),
-          if (_supportsPhotos) ...[
-            const SizedBox(height: FloraSpacing.sm),
-            EntryPhotoGrid(
-              photos: widget.initialPhotos
-                  .where(
-                    (photo) =>
-                        !_completedPhotoRemovals.contains(photo.filename),
-                  )
-                  .toList(growable: false),
-              uploads: _newPhotos,
-              removedPhotoNames: _removedPhotoNames,
-              apiClient: widget.apiClient!,
-              date: _photoDate,
-              onAdd: !_entrySaved && _activePhotoCount < 9 ? _pickPhotos : null,
-              onTogglePhotoRemoval: _entrySaved
-                  ? null
-                  : _toggleSavedPhotoRemoval,
-              onRetryUpload: _retryPhoto,
-              onRemoveUpload: _entrySaved ? null : _removePhotoUpload,
-            ),
+        padding: const EdgeInsets.only(bottom: FloraSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildEditor(theme),
+            if (_hasVisiblePhotoTiles) ...[
+              const SizedBox(height: FloraSpacing.md),
+              _buildPhotoGrid(),
+            ],
+            if (_selectedTags.isNotEmpty) ...[
+              const SizedBox(height: FloraSpacing.md),
+              TagSelectionSummary(
+                tagConfig: widget.tagConfig,
+                tags: _selectedTags,
+                hiddenTags: _retainedHiddenTags,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
+    );
+  }
+
+  bool get _hasVisiblePhotoTiles =>
+      _supportsPhotos &&
+      (_newPhotos.isNotEmpty ||
+          widget.initialPhotos.any(
+            (photo) => !_completedPhotoRemovals.contains(photo.filename),
+          ));
+
+  Widget _buildPhotoGrid() {
+    return EntryPhotoGrid(
+      photos: widget.initialPhotos
+          .where((photo) => !_completedPhotoRemovals.contains(photo.filename))
+          .toList(growable: false),
+      uploads: _newPhotos,
+      uploadKeys: _photoKeys,
+      removedPhotoNames: _removedPhotoNames,
+      apiClient: widget.apiClient!,
+      date: _photoDate,
+      onAdd: !_entrySaved && _activePhotoCount < 9 ? _pickPhotos : null,
+      onTogglePhotoRemoval: _entrySaved ? null : _toggleSavedPhotoRemoval,
+      onRetryUpload: _retryPhoto,
+      onRemoveUpload: _entrySaved ? null : _removePhotoUpload,
     );
   }
 
@@ -740,8 +767,8 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       controller: _controller,
       focusNode: _focusNode,
       autofocus: _shouldAutofocus,
-      expands: true,
-      minLines: null,
+      expands: false,
+      minLines: 1,
       maxLines: null,
       enabled: !_saving && !_polishing && !_entrySaved,
       keyboardType: TextInputType.multiline,
@@ -759,7 +786,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
         disabledBorder: InputBorder.none,
-        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        contentPadding: const EdgeInsets.only(top: FloraSpacing.md),
       ),
     );
   }

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'flora_origin.dart';
+import 'flora_dialog.dart';
 
 import 'journal_section.dart';
 
@@ -155,7 +157,7 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
 
   void _openPreview() {
     if (_bytes == null) return;
-    showDialog(
+    showFloraDialog(
       context: context,
       barrierColor: Colors.black87,
       builder: (dialogContext) => Semantics(
@@ -217,7 +219,7 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
   }
 
   void _confirmDelete() {
-    showDialog(
+    showFloraDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('删除照片'),
@@ -330,15 +332,17 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
             child: SizedBox(
               width: 48,
               height: 48,
-              child: IconButton(
-                onPressed: _openActions,
-                tooltip: '更多操作',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: 48,
-                  height: 48,
+              child: FloraOriginIconButton(
+                button: IconButton(
+                  onPressed: _openActions,
+                  tooltip: '更多操作',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 48,
+                    height: 48,
+                  ),
+                  icon: const FloraIcon(FloraIcons.more, size: 18),
                 ),
-                icon: const FloraIcon(FloraIcons.more, size: 18),
               ),
             ),
           ),

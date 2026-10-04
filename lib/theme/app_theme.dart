@@ -156,6 +156,16 @@ class FloraRadius {
   static const pill = 9999.0;
 }
 
+/// 通透表面仅用于导航和操作浮层，不用于日记正文。
+class FloraGlass {
+  static const blurSigma = 18.0;
+  static const lightOpacity = 0.78;
+  static const darkOpacity = 0.82;
+  static const navigationLightOpacity = 0.42;
+  static const navigationDarkOpacity = 0.60;
+  static const borderWidth = 0.8;
+}
+
 /// 应用内自定义动效的统一时长。
 ///
 /// 统一时长让页面状态变化保持在用户注意力可以跟上的范围内；
@@ -175,8 +185,29 @@ class FloraMotion {
       mediaQuery.disableAnimations ? Duration.zero : slow;
 }
 
+/// 根页面保持静止，避免系统的次级位移改变操作入口的返回坐标。
+class FloraPaperPageTransitionsBuilder extends PageTransitionsBuilder {
+  const FloraPaperPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => route.isFirst ? child : FadeTransition(opacity: animation, child: child);
+}
+
 class AppTheme {
+  static final _pageTransitions = PageTransitionsTheme(
+    builders: {
+      for (final platform in TargetPlatform.values)
+        platform: const FloraPaperPageTransitionsBuilder(),
+    },
+  );
   static ThemeData get light => ThemeData(
+    pageTransitionsTheme: _pageTransitions,
     brightness: Brightness.light,
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.background,
@@ -298,6 +329,7 @@ class AppTheme {
   );
 
   static ThemeData get dark => ThemeData(
+    pageTransitionsTheme: _pageTransitions,
     brightness: Brightness.dark,
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.darkBackground,

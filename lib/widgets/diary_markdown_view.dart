@@ -117,8 +117,17 @@ class DiaryMarkdownView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final document = const MarkdownParser().parse(markdown);
-    final canGenerateCoach = !readOnly && onGenerateCoach != null;
     final canShowHabitFallback = !readOnly && onHabitUpdate != null;
+    final hasOnlyHabits =
+        !readOnly &&
+        (canShowHabitFallback ||
+            document.sections.any((section) => section is HabitSection)) &&
+        document.preamble.every((content) => !content.hasRealContent) &&
+        document.sections.every(
+          (section) => section is HabitSection || section.isEmpty,
+        );
+    final canGenerateCoach =
+        !readOnly && onGenerateCoach != null && !hasOnlyHabits;
     if (document.isEmpty && !canGenerateCoach && !canShowHabitFallback) {
       return const SizedBox.shrink();
     }
@@ -145,6 +154,7 @@ class DiaryMarkdownView extends StatelessWidget {
     for (final section in document.sections) {
       if (section is HabitSection) hasHabitSection = true;
       if (_isHiddenSection(section)) continue;
+      if (section is CoachSection && hasOnlyHabits) continue;
       if (section is CoachSection) hasCoachSection = true;
       if (section.isEmpty &&
           (section is! CoachSection || readOnly || onGenerateCoach == null)) {

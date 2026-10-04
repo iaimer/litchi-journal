@@ -3,6 +3,9 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../widgets/flora_dialog.dart';
+import '../widgets/flora_app_bar.dart';
+import '../widgets/flora_origin.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/draft_repository.dart';
@@ -303,7 +306,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     final message = _entrySaved
         ? '文字和部分照片已经保存。离开后，失败照片需要重新选择，确定离开吗？'
         : '当前内容或已选照片还没有保存，确定要离开吗？';
-    final result = await showDialog<bool>(
+    final result = await showFloraDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
@@ -598,7 +601,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         resizeToAvoidBottomInset: true,
-        appBar: AppBar(
+        appBar: FloraAppBar(
           leading: IconButton(
             icon: const FloraIcon(FloraIcons.back),
             onPressed: _handleBack,
@@ -914,7 +917,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     return Semantics(
       button: true,
       label: '记录时间，$value，点击修改',
-      child: InkWell(
+      child: FloraInkWell(
         key: const Key('quick_capture_time_metadata'),
         onTap: _saving || _entrySaved ? null : _pickTime,
         child: SizedBox(

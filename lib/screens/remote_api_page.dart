@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_dialog.dart';
 
 import '../services/api_client.dart';
 import '../services/api_config.dart';
@@ -81,7 +82,7 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
     _baseUrlEditController = controller;
     String? error;
 
-    final saved = await showDialog<bool>(
+    final saved = await showFloraDialog<bool>(
       context: context,
       builder: (context) {
         return StatefulBuilder(

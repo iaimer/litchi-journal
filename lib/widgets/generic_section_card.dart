@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'flora_dialog.dart';
+import 'flora_page_route.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../models/diary_document.dart';
@@ -545,7 +547,7 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
       !_busy;
 
   Future<void> _confirmDelete() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showFloraDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
@@ -590,7 +592,7 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
       return;
     }
     final result = await Navigator.of(context).push<QuickCaptureResult>(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => QuickCaptureScreen(
           entryType: entryType,
           openedAt: DateTime.now(),
@@ -674,53 +676,50 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
       padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
       child: IntrinsicHeight(
         child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 48,
-                child: Text(
-                  widget.content.time,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: accentColor,
-                    fontWeight: FontWeight.w600,
-                  ),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 48,
+              child: Text(
+                widget.content.time,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: accentColor,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              _TimelineMarker(color: accentColor),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.content.text,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    if (_buildPhotoGrid() case final attachment?) ...[
-                      const SizedBox(height: FloraSpacing.sm),
-                      attachment,
-                    ],
-                    if (widget.content.tags.isNotEmpty || trailing != null)
-                      Row(
-                        children: [
-                          if (widget.content.tags.isNotEmpty)
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: TagChipList(
-                                  tags: widget.content.tags,
-                                  tagConfig: widget.tagConfig,
-                                  moduleAccentColor: widget.accentColor,
-                                ),
+            ),
+            _TimelineMarker(color: accentColor),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.content.text, style: theme.textTheme.bodyMedium),
+                  if (_buildPhotoGrid() case final attachment?) ...[
+                    const SizedBox(height: FloraSpacing.sm),
+                    attachment,
+                  ],
+                  if (widget.content.tags.isNotEmpty || trailing != null)
+                    Row(
+                      children: [
+                        if (widget.content.tags.isNotEmpty)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: TagChipList(
+                                tags: widget.content.tags,
+                                tagConfig: widget.tagConfig,
+                                moduleAccentColor: widget.accentColor,
                               ),
                             ),
-                          ?trailing,
-                        ],
-                      ),
-                  ],
-                ),
+                          ),
+                        ?trailing,
+                      ],
+                    ),
+                ],
               ),
-            ],
+            ),
+          ],
         ),
       ),
     );

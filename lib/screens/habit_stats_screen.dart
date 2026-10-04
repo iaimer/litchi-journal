@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../widgets/flora_dock.dart';
+import '../widgets/flora_glass.dart';
 
 import '../models/habit_settings.dart';
 import '../models/habit_trend.dart';
@@ -57,6 +59,8 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   int _requestSerial = 0;
   DateTime _referenceDate = _dateOnly(DateTime.now());
   Timer? _dayBoundaryTimer;
+  final GlobalKey _headerKey = GlobalKey();
+  double _headerExtent = 0;
 
   HabitTrendPeriod get _period => HabitTrendPeriod.forAnchor(
     _range,
@@ -242,21 +246,34 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    _measureHeader();
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         top: false,
-        bottom: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(theme),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _pullRefresh,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: _pullRefresh,
+          edgeOffset: _headerExtent,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            // 指标先绘制，置顶头部才能采样已经滚入背后的真实内容。
+            paintOrder: SliverPaintOrder.firstIsTop,
+            slivers: [
+              PinnedHeaderSliver(
+                child: FloraGlassHeader(
+                  key: _headerKey,
+                  child: _buildHeader(theme),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  8,
+                  16,
+                  32 + (FloraDockScope.maybeOf(context)?.clearance ?? 0),
+                ),
+                sliver: SliverList.list(
                   children: [
                     _buildRangeSelector(theme),
                     const SizedBox(height: 8),
@@ -271,11 +288,20 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  void _measureHeader() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final header = _headerKey.currentContext?.findRenderObject();
+      if (header is! RenderBox || header.size.height == _headerExtent) return;
+      setState(() => _headerExtent = header.size.height);
+    });
   }
 
   Widget _buildHeader(ThemeData theme) {

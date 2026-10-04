@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_app_bar.dart';
 
 import '../services/api_config.dart';
 import '../services/api_client.dart';
@@ -68,7 +69,7 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('初始设置')),
+      appBar: FloraAppBar(title: const Text('初始设置')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

@@ -8,6 +8,9 @@ class FloraIcons {
   static const String diary = 'diary';
   static const String history = 'history';
   static const String habits = 'habits';
+  static const String dockDiarySelected = 'dock-diary-selected';
+  static const String dockHistorySelected = 'dock-history-selected';
+  static const String dockHabitsSelected = 'dock-habits-selected';
   static const String settings = 'settings';
   static const String coach = 'coach';
 
@@ -192,6 +195,13 @@ class FloraIcons {
     emptySearch: 'search',
   };
 
+  // 项目派生的实心版本只用于 Dock 选中态，不属于官方 Lucide 描边集。
+  static const Map<String, String> _navigationFiles = {
+    dockDiarySelected: 'notebook-pen-filled.svg',
+    dockHistorySelected: 'images-filled.svg',
+    dockHabitsSelected: 'sprout-filled.svg',
+  };
+
   static const Map<String, String> _lordiconSvgFiles = {
     emptyPast: 'system-outline-4092-book.svg',
     successCheck: 'system-outline-37-check.svg',
@@ -207,6 +217,11 @@ class FloraIcons {
     final lucideFile = _lucideFiles[name];
     if (lucideFile != null) return 'assets/icons/lucide/$lucideFile.svg';
 
+    final navigationFile = _navigationFiles[name];
+    if (navigationFile != null) {
+      return 'assets/icons/navigation/$navigationFile';
+    }
+
     final lordiconFile = _lordiconSvgFiles[name];
     if (lordiconFile != null) return 'assets/icons/lordicon/$lordiconFile';
 
@@ -221,6 +236,7 @@ class FloraIcons {
 
   static List<String> get all => [
     ..._lucideFiles.keys,
+    ..._navigationFiles.keys,
     ..._lordiconSvgFiles.keys,
     ..._pngFiles.keys,
   ];

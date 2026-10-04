@@ -9,6 +9,18 @@
 - 资源形式：官方 SVG，随 App 本地打包。
 - 许可：ISC License；其中列出的 Feather 派生图标同时附带 MIT License。
 
+### Dock 实心派生资源
+
+`assets/icons/navigation/` 中的以下文件于 2026-10-04 由项目基于已打包的 Lucide
+`1.47.0` 轮廓制作，仅用于 Dock 当前页面的选中态，不是 Lucide 官方发布的实心图标。
+原官方 SVG 未修改，派生文件继续遵守下方 ISC 许可并保留来源说明。
+
+| 项目派生文件 | 上游图标 |
+|---|---|
+| `notebook-pen-filled.svg` | `notebook-pen.svg` |
+| `images-filled.svg` | `images.svg` |
+| `sprout-filled.svg` | `sprout.svg` |
+
 以下文本摘自上游 `lucide-static@1.47.0/LICENSE`：
 
 ```text

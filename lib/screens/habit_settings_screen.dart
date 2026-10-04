@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_page_route.dart';
+import '../widgets/flora_origin.dart';
 
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
@@ -50,7 +52,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
 
   Future<void> _openEdit(String key) async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => HabitEditScreen(habitKey: key)),
+      FloraPageRoute(builder: (_) => HabitEditScreen(habitKey: key)),
     );
     if (result == true) {
       // 编辑页保存成功，重载设置
@@ -60,7 +62,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
 
   Future<void> _openDashboardSettings() async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => HabitDashboardSettingsScreen(repository: _repo),
       ),
     );
@@ -93,10 +95,13 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
                   // 新增习惯入口
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _addNewHabit,
-                      icon: const FloraIcon(FloraIcons.add, size: 18),
-                      label: const Text('新增习惯'),
+                    child: Builder(
+                      builder: (anchorContext) => OutlinedButton.icon(
+                        onPressed: () =>
+                            FloraOrigin.run(anchorContext, _addNewHabit),
+                        icon: const FloraIcon(FloraIcons.add, size: 18),
+                        label: const Text('新增习惯'),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -112,17 +117,19 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
         .join('、');
     return Card(
       margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: const FloraIcon(FloraIcons.habits, size: 22),
-        title: const Text('仪表盘显示'),
-        subtitle: Text(
-          names.isEmpty ? '暂无启用习惯' : names,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall,
+      child: Builder(
+        builder: (anchorContext) => ListTile(
+          leading: const FloraIcon(FloraIcons.habits, size: 22),
+          title: const Text('仪表盘显示'),
+          subtitle: Text(
+            names.isEmpty ? '暂无启用习惯' : names,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall,
+          ),
+          trailing: const FloraIcon(FloraIcons.chevronRight),
+          onTap: () => FloraOrigin.run(anchorContext, _openDashboardSettings),
         ),
-        trailing: const FloraIcon(FloraIcons.chevronRight),
-        onTap: _openDashboardSettings,
       ),
     );
   }
@@ -130,7 +137,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
   Future<void> _addNewHabit() async {
     final key = 'custom_${DateTime.now().millisecondsSinceEpoch ~/ 1000}';
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => HabitEditScreen(habitKey: key, isCreateMode: true),
       ),
     );
@@ -176,7 +183,7 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
     final color = Color(_settings.colorFor(key));
     return Card(
       margin: const EdgeInsets.only(bottom: 4),
-      child: InkWell(
+      child: FloraInkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(FloraRadius.md),
         child: Padding(

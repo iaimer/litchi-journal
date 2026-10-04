@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_app_bar.dart';
 
 import '../services/draft_repository.dart';
 import '../widgets/anxiety_composer.dart';
@@ -24,26 +25,26 @@ class AnxietyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('焦虑四问')),
+      appBar: FloraAppBar(title: const Text('焦虑四问')),
       body: SafeArea(
         top: false,
         bottom: true,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          AnxietyComposer(
-            onSubmit: (content, tags) async {
-              await onSubmit(content, tags);
-              if (context.mounted) Navigator.of(context).pop(true);
-            },
-            onPolish: onPolish,
-            date: date,
-            draftRepository: draftRepository,
-            initialAnswers: initialAnswers,
-            isEdit: isEdit,
-          ),
-        ],
-      ),
+          children: [
+            AnxietyComposer(
+              onSubmit: (content, tags) async {
+                await onSubmit(content, tags);
+                if (context.mounted) Navigator.of(context).pop(true);
+              },
+              onPolish: onPolish,
+              date: date,
+              draftRepository: draftRepository,
+              initialAnswers: initialAnswers,
+              isEdit: isEdit,
+            ),
+          ],
+        ),
       ),
     );
   }

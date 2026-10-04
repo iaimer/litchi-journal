@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_sheet.dart';
+import '../widgets/flora_origin.dart';
 
 import '../widgets/flora_icon.dart';
 
@@ -114,7 +116,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     required String initialName,
     required String? editingKey,
   }) async {
-    return showModalBottomSheet<String>(
+    return showFloraSheet<String>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -259,7 +261,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
           (label: '永久删除', action: _TagEntryAction.delete, destructive: true),
         ];
 
-    return showModalBottomSheet<_TagEntryAction>(
+    return showFloraSheet<_TagEntryAction>(
       context: context,
       showDragHandle: true,
       backgroundColor: theme.colorScheme.surface,
@@ -359,7 +361,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     final detail = isDomain && topicCount > 0
         ? '它下面的 $topicCount 个主题也会从本机标签中移除。'
         : '已有日记中的标签不会被修改。';
-    final result = await showModalBottomSheet<bool>(
+    final result = await showFloraSheet<bool>(
       context: context,
       showDragHandle: true,
       backgroundColor: theme.colorScheme.surface,
@@ -530,7 +532,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
   }
 
   Future<void> _restoreAll() async {
-    final confirmed = await showModalBottomSheet<bool>(
+    final confirmed = await showFloraSheet<bool>(
       context: context,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -743,7 +745,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                   ),
                 ),
                 Expanded(
-                  child: InkWell(
+                  child: FloraInkWell(
                     onTap: () => _handleDomainAction(domain),
                     borderRadius: BorderRadius.circular(FloraRadius.sm),
                     child: Padding(
@@ -831,7 +833,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
   Widget _buildTopicRow(ThemeData theme, TopicSetting topic) {
     return Padding(
       padding: const EdgeInsets.only(bottom: FloraSpacing.xs),
-      child: InkWell(
+      child: FloraInkWell(
         onTap: () => _handleTopicAction(topic),
         borderRadius: BorderRadius.circular(FloraRadius.sm),
         child: Padding(
@@ -908,7 +910,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
   Widget _buildMethodCard(ThemeData theme, MethodSetting method) {
     return Card(
       margin: const EdgeInsets.only(bottom: FloraSpacing.sm),
-      child: InkWell(
+      child: FloraInkWell(
         onTap: () => _handleMethodAction(method),
         borderRadius: BorderRadius.circular(FloraRadius.md),
         child: Padding(
@@ -946,11 +948,13 @@ class _TagSettingsPageState extends State<TagSettingsPage>
 
   Widget _buildRestoreButton(ThemeData theme) {
     return Center(
-      child: TextButton.icon(
-        onPressed: _restoreAll,
-        icon: const FloraIcon(FloraIcons.restore, size: 20),
-        label: const Text('恢复全部默认'),
-        style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+      child: Builder(
+        builder: (anchorContext) => TextButton.icon(
+          onPressed: () => FloraOrigin.run(anchorContext, _restoreAll),
+          icon: const FloraIcon(FloraIcons.restore, size: 20),
+          label: const Text('恢复全部默认'),
+          style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+        ),
       ),
     );
   }
@@ -963,26 +967,28 @@ class _TagSettingsPageState extends State<TagSettingsPage>
   }) {
     return SizedBox(
       width: double.infinity,
-      child: TextButton(
-        onPressed: onTap,
-        style: TextButton.styleFrom(
-          padding: compact
-              ? const EdgeInsets.symmetric(vertical: FloraSpacing.xs)
-              : const EdgeInsets.symmetric(vertical: FloraSpacing.sm),
-          foregroundColor: theme.colorScheme.primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(FloraRadius.md),
-            side: BorderSide(
-              color: theme.colorScheme.primary.withAlpha(60),
-              width: 1,
+      child: Builder(
+        builder: (anchorContext) => TextButton(
+          onPressed: () => FloraOrigin.run(anchorContext, onTap),
+          style: TextButton.styleFrom(
+            padding: compact
+                ? const EdgeInsets.symmetric(vertical: FloraSpacing.xs)
+                : const EdgeInsets.symmetric(vertical: FloraSpacing.sm),
+            foregroundColor: theme.colorScheme.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(FloraRadius.md),
+              side: BorderSide(
+                color: theme.colorScheme.primary.withAlpha(60),
+                width: 1,
+              ),
             ),
+            backgroundColor: theme.colorScheme.primary.withAlpha(10),
           ),
-          backgroundColor: theme.colorScheme.primary.withAlpha(10),
-        ),
-        child: Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ),

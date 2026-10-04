@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'flora_app_bar.dart';
 
 /// 设置页统一页面骨架。
 ///
@@ -35,16 +36,12 @@ class FloraPageScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
+      appBar: FloraAppBar(
         title: Text(title),
         leading: leading,
         actions: actions,
       ),
-      body: SafeArea(
-        top: false,
-        bottom: true,
-        child: body,
-      ),
+      body: SafeArea(top: false, bottom: true, child: body),
       bottomNavigationBar: bottomNavigationBar,
     );
   }

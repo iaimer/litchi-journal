@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'flora_sheet.dart';
 
 import '../theme/app_theme.dart';
 
@@ -9,13 +10,13 @@ Future<TimeOfDay?> showRecordTimePickerSheet(
   required TimeOfDay initialTime,
 }) {
   final theme = Theme.of(context);
-  return showModalBottomSheet<TimeOfDay>(
+  return showFloraSheet<TimeOfDay>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: theme.colorScheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(FloraRadius.lg)),
+      borderRadius: BorderRadius.all(Radius.circular(FloraRadius.lg)),
     ),
     clipBehavior: Clip.antiAlias,
     builder: (sheetContext) {

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_page_route.dart';
+import '../widgets/flora_origin.dart';
 
 import '../widgets/flora_icon.dart';
 import '../widgets/flora_page_scaffold.dart';
@@ -41,7 +43,7 @@ class SettingsPage extends StatelessWidget {
       final tagSettings = await tagSettingsRepo.loadTagSettings(tagConfig);
       if (!context.mounted) return;
       await Navigator.of(context).push(
-        MaterialPageRoute(
+        FloraPageRoute(
           builder: (_) => TagSettingsPage(
             initialSettings: tagSettings,
             tagConfig: tagConfig,
@@ -133,7 +135,7 @@ class SettingsPage extends StatelessWidget {
   }
 
   Future<void> _push(BuildContext context, Widget page) {
-    return Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    return Navigator.of(context).push(FloraPageRoute(builder: (_) => page));
   }
 
   Widget _buildSectionHeader(ThemeData theme, String title) {
@@ -185,7 +187,7 @@ class SettingsPage extends StatelessWidget {
       child: SizedBox(
         key: ValueKey('settings-item-${item.title}'),
         height: 56,
-        child: InkWell(
+        child: FloraInkWell(
           onTap: item.onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),

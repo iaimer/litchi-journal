@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_page_route.dart';
+import '../widgets/flora_app_bar.dart';
 
 import '../models/default_tag_config.dart';
 import '../models/diary_entry.dart';
@@ -186,7 +188,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   Future<void> _openQuickCapture(EntryType type) async {
     setState(() => _quickRecordExpanded = false);
     final result = await Navigator.of(context).push<QuickCaptureResult>(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => QuickCaptureScreen(
           entryType: type,
           openedAt: DateTime.now(),
@@ -219,7 +221,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
     if (_loading) {
       return FloraSkeletonRegion(
         child: ListView(
-          padding: EdgeInsets.fromLTRB(16, 24, 16, 96),
+          padding: EdgeInsets.fromLTRB(16, _headerInset + 24, 16, 96),
           children: [
             FloraSkeletonBox(width: 220, height: 18),
             SizedBox(height: 20),
@@ -234,9 +236,10 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
     }
     return RefreshIndicator(
       onRefresh: _loadDiary,
+      edgeOffset: _headerInset,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.fromLTRB(16, _headerInset, 16, 0),
         children: [
           if (_refreshing)
             const SizedBox(
@@ -306,11 +309,17 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
     );
   }
 
+  double get _headerInset =>
+      DiaryDateTitle.preferredToolbarHeight(context) +
+      MediaQuery.paddingOf(context).top;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
+      extendBodyBehindAppBar: true,
+      appBar: FloraAppBar(
+        glassBackground: true,
         toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
         backgroundColor: theme.scaffoldBackgroundColor,
         surfaceTintColor: Colors.transparent,

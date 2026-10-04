@@ -716,6 +716,10 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     if (!_tagPickerExpanded || widget.tagConfig == null) {
       return const SizedBox.shrink();
     }
+    // 等键盘退出动画结束后再展开，避免小屏固定操作区瞬间挤满页面。
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       key: const Key('quick_capture_tag_panel'),
       padding: const EdgeInsets.only(top: 4),
@@ -794,62 +798,65 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   Widget _buildToolbar(ThemeData theme) {
     return SizedBox(
       key: const Key('quick_capture_toolbar'),
-      height: 48,
-      child: Row(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        spacing: FloraSpacing.sm,
+        runSpacing: FloraSpacing.xs,
         children: [
-          TextButton(
-            key: const Key('quick_capture_polish'),
-            onPressed: _canPolish ? _polish : null,
-            style: TextButton.styleFrom(
-              minimumSize: const Size(48, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              foregroundColor: theme.colorScheme.primary,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_polishing)
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  )
-                else
-                  const FloraIcon(FloraIcons.coach, size: 14),
-                const SizedBox(width: 6),
-                const Text('润色'),
-              ],
-            ),
-          ),
-          const Spacer(),
-          if (_supportsPhotos)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: TextButton(
-                key: const Key('quick_capture_add_photo'),
-                onPressed:
-                    !_entrySaved &&
-                        !_saving &&
-                        !_polishing &&
-                        _activePhotoCount < 9
-                    ? _pickPhotos
-                    : null,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  foregroundColor: theme.colorScheme.onSurfaceVariant,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const FloraIcon(FloraIcons.fabPhoto, size: 16),
-                    const SizedBox(width: 4),
-                    Text('照片 $_activePhotoCount/9'),
-                  ],
-                ),
-              ),
-            ),
+          _buildPolishButton(theme),
+          if (_supportsPhotos) _buildPhotoButton(theme),
           if (widget.tagConfig != null) _buildTagToggleButton(theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPolishButton(ThemeData theme) {
+    return TextButton(
+      key: const Key('quick_capture_polish'),
+      onPressed: _canPolish ? _polish : null,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        foregroundColor: theme.colorScheme.primary,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_polishing)
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            )
+          else
+            const FloraIcon(FloraIcons.coach, size: 14),
+          const SizedBox(width: 6),
+          const Text('润色'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoButton(ThemeData theme) {
+    return TextButton(
+      key: const Key('quick_capture_add_photo'),
+      onPressed:
+          !_entrySaved && !_saving && !_polishing && _activePhotoCount < 9
+          ? _pickPhotos
+          : null,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        foregroundColor: theme.colorScheme.onSurfaceVariant,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const FloraIcon(FloraIcons.fabPhoto, size: 16),
+          const SizedBox(width: 4),
+          Text('照片 $_activePhotoCount/9'),
         ],
       ),
     );

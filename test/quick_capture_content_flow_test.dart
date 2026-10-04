@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
+import 'package:litchi_journal_flutter/models/default_tag_config.dart';
 import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
 import 'package:litchi_journal_flutter/services/api_client.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
@@ -44,6 +45,7 @@ Widget _capture({
       recordDate: recordDate,
       initialContent: content,
       initialTags: tags,
+      tagConfig: DefaultTagConfig.value,
       initialPhotos: List.generate(
         photoCount,
         (index) => DiaryPhoto(
@@ -130,6 +132,32 @@ void main() {
     expect(focus.hasFocus, isFalse);
   });
 
+  testWidgets('窄屏大字体展开标签时正文照片可滚动，操作保持可见', (tester) async {
+    _setScreen(tester, const Size(320, 640));
+    await tester.pumpWidget(_capture(textScale: 1.6));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quick_capture_tag_toggle')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(_entry).height, greaterThan(48));
+    final panel = tester.getRect(
+      find.byKey(const Key('quick_capture_tag_panel')),
+    );
+    final toolbar = tester.getRect(_toolbar);
+    expect(panel.top, greaterThanOrEqualTo(toolbar.bottom));
+    expect(
+      tester.getRect(find.widgetWithText(ElevatedButton, '保存')).top,
+      greaterThanOrEqualTo(panel.bottom),
+    );
+    await tester.drag(_entry, const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(_summary).bottom,
+      lessThanOrEqualTo(toolbar.top - 16),
+    );
+  });
+
   testWidgets('长正文自然增高，正文和照片由同一列表滚动', (tester) async {
     _setScreen(tester, const Size(420, 800));
     await tester.pumpWidget(
@@ -155,6 +183,30 @@ void main() {
       tester.getRect(find.byType(EntryPhotoGrid)).bottom,
       lessThanOrEqualTo(tester.getRect(_toolbar).top - 16),
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('窄屏大字体打开标签时，键盘尚未收起的过渡帧不溢出', (tester) async {
+    _setScreen(tester, const Size(320, 640));
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(_capture(textScale: 1.6));
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.showKeyboard(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quick_capture_tag_toggle')));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+      isFalse,
+    );
+    final save = find.widgetWithText(ElevatedButton, '保存');
+    expect(tester.getRect(save).bottom, lessThanOrEqualTo(360));
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('quick_capture_tag_panel')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

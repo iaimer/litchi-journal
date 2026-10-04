@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
@@ -83,6 +84,39 @@ double _rotation(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('按下子入口后收回，松手不能再进入记录页', (tester) async {
+    final expanded = ValueNotifier(true);
+    addTearDown(expanded.dispose);
+    var selections = 0;
+    await tester.pumpWidget(_host(expanded, onSelect: () => selections++));
+    final gesture = await tester.startGesture(tester.getCenter(_note));
+    expanded.value = false;
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    expect(selections, 0);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('收回时撤销子入口键盘焦点，不能用回车激活', (tester) async {
+    final expanded = ValueNotifier(true);
+    addTearDown(expanded.dispose);
+    var selections = 0;
+    await tester.pumpWidget(_host(expanded, onSelect: () => selections++));
+    final innerGesture = find
+        .descendant(of: _note, matching: find.byType(GestureDetector))
+        .last;
+    Focus.of(tester.element(innerGesture)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selections, 1);
+    expanded.value = false;
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selections, 1);
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('同步展开的位移、透明度和加号旋转都有中间帧', (tester) async {
     final expanded = ValueNotifier(false);
     addTearDown(expanded.dispose);

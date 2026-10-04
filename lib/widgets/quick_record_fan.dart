@@ -173,6 +173,7 @@ class _QuickRecordFanState extends State<QuickRecordFan>
               child: _FanActionButton(
                 key: action.key,
                 action: action,
+                enabled: interactive,
                 visualScale: 0.85 + 0.15 * progress,
               ),
             ),
@@ -185,11 +186,13 @@ class _QuickRecordFanState extends State<QuickRecordFan>
 
 class _FanActionButton extends StatelessWidget {
   final QuickRecordFanAction action;
+  final bool enabled;
   final double visualScale;
 
   const _FanActionButton({
     super.key,
     required this.action,
+    required this.enabled,
     required this.visualScale,
   });
 
@@ -197,28 +200,31 @@ class _FanActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: action.title,
-      child: Semantics(
-        label: action.title,
-        button: true,
-        child: SizedBox.square(
-          dimension: 48,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTap: action.onTap,
-            child: Center(
-              child: Transform.scale(
-                scale: visualScale,
-                child: SizedBox.square(
-                  dimension: 42,
-                  child: Material(
-                    color: Theme.of(context).colorScheme.surface,
-                    elevation: 2,
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: action.onTap,
-                      child: Center(child: action.icon),
+      child: ExcludeFocus(
+        excluding: !enabled,
+        child: Semantics(
+          label: action.title,
+          button: true,
+          child: SizedBox.square(
+            dimension: 48,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTap: enabled ? action.onTap : null,
+              child: Center(
+                child: Transform.scale(
+                  scale: visualScale,
+                  child: SizedBox.square(
+                    dimension: 42,
+                    child: Material(
+                      color: Theme.of(context).colorScheme.surface,
+                      elevation: 2,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: enabled ? action.onTap : null,
+                        child: Center(child: action.icon),
+                      ),
                     ),
                   ),
                 ),

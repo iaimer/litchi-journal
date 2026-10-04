@@ -1725,7 +1725,7 @@ void main() {
 
       expect(httpClient.createCalls, 0);
       await tester.tap(find.byKey(const Key('historical_quick_record_fab')));
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const Key('historical_quick_record_quick_note')),
       );
@@ -2177,6 +2177,47 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const Key('quick_record_fab')), findsNothing);
+    });
+
+    testWidgets('今天页扇形入口有展开和收回的中间帧', (tester) async {
+      await tester.pumpWidget(buildHome());
+      await tester.pumpAndSettle();
+      final fab = find.byKey(const Key('quick_record_fab'));
+      final note = find.byKey(const Key('quick_record_quick_note'));
+      final center = tester.getCenter(fab);
+      await tester.tap(fab);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      final openingDistance = (tester.getCenter(note) - center).distance;
+      expect(openingDistance, greaterThan(0));
+      expect(openingDistance, lessThan(120));
+      await tester.pumpAndSettle();
+      expect((tester.getCenter(note) - center).distance, closeTo(120, 0.01));
+      await tester.tap(fab);
+      await tester.pump();
+      expect(note, findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 60));
+      final closingDistance = (tester.getCenter(note) - center).distance;
+      expect(closingDistance, greaterThan(0));
+      expect(closingDistance, lessThan(120));
+      await tester.pumpAndSettle();
+      expect(note, findsNothing);
+    });
+
+    testWidgets('展开中选择随手记，返回今天页后菜单保持关闭', (tester) async {
+      await tester.pumpWidget(buildHome());
+      await tester.pumpAndSettle();
+      final note = find.byKey(const Key('quick_record_quick_note'));
+      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.tap(note);
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickCaptureScreen), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(QuickCaptureScreen), findsNothing);
+      expect(note, findsNothing);
     });
 
     testWidgets('FAB expands four quick record entries in fan layout', (

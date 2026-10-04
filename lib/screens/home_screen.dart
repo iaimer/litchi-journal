@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -41,6 +40,7 @@ import '../widgets/diary_date_title.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/habit_icon.dart';
+import '../widgets/quick_record_fan.dart';
 
 typedef TodayImagePicker = QuickCaptureImagePicker;
 typedef TodayImageCompressor = QuickCaptureImageCompressor;
@@ -790,155 +790,43 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime get _activeDate => _diaryDate ?? DateTime.now();
 
   Widget _buildQuickRecordFab(ThemeData theme) {
-    const mainButtonSize = 56.0;
-    const childVisualSize = 42.0;
-    const childHitSize = 48.0;
-    const radius = 120.0;
-    final items = [
-      _QuickRecordAction(
-        icon: const FloraIcon(FloraIcons.fabWrite, size: 19),
-        title: '随手记',
-        key: const Key('quick_record_quick_note'),
-        angleDegrees: 180,
-        onTap: () => _selectQuickEntry(EntryType.quickNote),
-      ),
-      _QuickRecordAction(
-        icon: const FloraIcon(FloraIcons.fabInsight, size: 19),
-        title: '觉察',
-        key: const Key('quick_record_reflection'),
-        angleDegrees: 155,
-        onTap: () => _selectQuickEntry(EntryType.reflection),
-      ),
-      _QuickRecordAction(
-        icon: const FloraIcon(FloraIcons.fabHappy, size: 19),
-        title: '小确幸',
-        key: const Key('quick_record_happiness'),
-        angleDegrees: 130,
-        onTap: () => _selectQuickEntry(EntryType.happiness),
-      ),
-      _QuickRecordAction(
-        icon: const FloraIcon(FloraIcons.fabAnxiety, size: 19),
-        title: '焦虑四问',
-        key: const Key('quick_record_anxiety'),
-        angleDegrees: 105,
-        onTap: () => _selectQuickEntry(EntryType.anxiety),
-      ),
-    ];
-
-    return SizedBox(
-      width: 210,
-      height: 210,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomRight,
-        children: [
-          if (_quickRecordExpanded)
-            ..._buildQuickRecordFanItems(
-              items: items,
-              radius: radius,
-              mainButtonSize: mainButtonSize,
-              childVisualSize: childVisualSize,
-              childHitSize: childHitSize,
-            ),
-          FloatingActionButton(
-            key: const Key('quick_record_fab'),
-            tooltip: '快速记录',
-            backgroundColor: theme.colorScheme.primary,
-            foregroundColor: theme.colorScheme.onPrimary,
-            shape: const CircleBorder(),
-            onPressed: () {
-              setState(() => _quickRecordExpanded = !_quickRecordExpanded);
-            },
-            child: _quickRecordExpanded
-                ? const FloraIcon(FloraIcons.close, size: 24)
-                : const FloraIcon(FloraIcons.add, size: 24),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildQuickRecordFanItems({
-    required List<_QuickRecordAction> items,
-    required double radius,
-    required double mainButtonSize,
-    required double childVisualSize,
-    required double childHitSize,
-  }) {
-    final mainCenter = mainButtonSize / 2;
-
-    return [
-      for (var i = 0; i < items.length; i++)
-        _buildQuickRecordFanItem(
-          action: items[i],
-          radius: radius,
-          mainCenter: mainCenter,
-          childVisualSize: childVisualSize,
-          childHitSize: childHitSize,
+    return QuickRecordFan(
+      expanded: _quickRecordExpanded,
+      mainButtonKey: const Key('quick_record_fab'),
+      tooltip: '快速记录',
+      onToggle: () {
+        setState(() => _quickRecordExpanded = !_quickRecordExpanded);
+      },
+      actions: [
+        QuickRecordFanAction(
+          icon: const FloraIcon(FloraIcons.fabWrite, size: 19),
+          title: '随手记',
+          key: const Key('quick_record_quick_note'),
+          angleDegrees: 180,
+          onTap: () => _selectQuickEntry(EntryType.quickNote),
         ),
-    ];
-  }
-
-  Widget _buildQuickRecordFanItem({
-    required _QuickRecordAction action,
-    required double radius,
-    required double mainCenter,
-    required double childVisualSize,
-    required double childHitSize,
-  }) {
-    final angle = action.angleDegrees * math.pi / 180;
-    final dx = radius * math.cos(angle);
-    final dy = radius * math.sin(angle);
-    return Positioned(
-      right: mainCenter - dx - childHitSize / 2,
-      bottom: mainCenter + dy - childHitSize / 2,
-      child: _buildQuickRecordItem(
-        icon: action.icon,
-        title: action.title,
-        key: action.key,
-        onTap: action.onTap,
-        visualSize: childVisualSize,
-        hitSize: childHitSize,
-      ),
-    );
-  }
-
-  Widget _buildQuickRecordItem({
-    required Widget icon,
-    required String title,
-    required Key key,
-    required VoidCallback onTap,
-    required double visualSize,
-    required double hitSize,
-  }) {
-    final theme = Theme.of(context);
-    return Tooltip(
-      message: title,
-      child: Semantics(
-        label: title,
-        button: true,
-        child: SizedBox(
-          key: key,
-          width: hitSize,
-          height: hitSize,
-          child: Center(
-            child: SizedBox(
-              width: visualSize,
-              height: visualSize,
-              child: Material(
-                color: theme.colorScheme.surface,
-                elevation: 2,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: onTap,
-                  child: Center(child: icon),
-                ),
-              ),
-            ),
-          ),
+        QuickRecordFanAction(
+          icon: const FloraIcon(FloraIcons.fabInsight, size: 19),
+          title: '觉察',
+          key: const Key('quick_record_reflection'),
+          angleDegrees: 155,
+          onTap: () => _selectQuickEntry(EntryType.reflection),
         ),
-      ),
+        QuickRecordFanAction(
+          icon: const FloraIcon(FloraIcons.fabHappy, size: 19),
+          title: '小确幸',
+          key: const Key('quick_record_happiness'),
+          angleDegrees: 130,
+          onTap: () => _selectQuickEntry(EntryType.happiness),
+        ),
+        QuickRecordFanAction(
+          icon: const FloraIcon(FloraIcons.fabAnxiety, size: 19),
+          title: '焦虑四问',
+          key: const Key('quick_record_anxiety'),
+          angleDegrees: 105,
+          onTap: () => _selectQuickEntry(EntryType.anxiety),
+        ),
+      ],
     );
   }
 
@@ -1259,20 +1147,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-}
-
-class _QuickRecordAction {
-  final Widget icon;
-  final String title;
-  final Key key;
-  final double angleDegrees;
-  final VoidCallback onTap;
-
-  const _QuickRecordAction({
-    required this.icon,
-    required this.title,
-    required this.key,
-    required this.angleDegrees,
-    required this.onTap,
-  });
 }

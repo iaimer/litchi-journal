@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import 'flora_icon.dart';
 import 'image_section_card.dart';
 import 'image_upload_strip.dart';
+import 'photo_corner_button.dart';
 
 class EntryPhotoGrid extends StatelessWidget {
   final List<DiaryPhoto> photos;
@@ -132,22 +133,10 @@ class _SavedPhotoTile extends StatelessWidget {
             Positioned(
               top: 0,
               right: 0,
-              child: IconButton.filled(
-                onPressed: onToggleRemoval,
+              child: PhotoCornerButton(
+                onPressed: onToggleRemoval!,
                 tooltip: removed ? '恢复照片' : '保存时移除照片',
-                constraints: const BoxConstraints.tightFor(
-                  width: 48,
-                  height: 48,
-                ),
-                padding: EdgeInsets.zero,
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black54,
-                  foregroundColor: Colors.white,
-                ),
-                icon: FloraIcon(
-                  removed ? FloraIcons.restore : FloraIcons.close,
-                  size: 18,
-                ),
+                icon: removed ? FloraIcons.restore : FloraIcons.close,
               ),
             ),
         ],

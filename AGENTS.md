@@ -247,7 +247,7 @@ flutter test
 ```
 
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
-当前版本为 `1.8.1+34`。新增、编辑和历史补录的发生时间统一使用 24 小时双列滚轮；随手记和小确幸图文记录继续保留。Flutter 测试 565 项、服务端测试 61 项、`flutter analyze` 和 TypeScript 构建均通过；Release APK 已构建，真机安装与视觉验收由用户执行。Android Release 目前使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店正式签名包。
+当前版本为 `1.8.2+35`。记录页正文、照片与已选标签自然排布并共同滚动；照片移除／恢复角标使用 24dp 圆底与 14dp 图标，独立保留 48dp 热区。发生时间继续使用 24 小时双列滚轮，随手记和小确幸图文记录能力不变。Flutter 测试 587 项与 `flutter analyze` 通过；本次不修改服务端。真机安装与视觉验收由用户执行。Android Release 目前使用 debug 签名和 `com.example.litchi_journal_flutter` 包名，不能作为应用商店正式签名包。
 
 ## 数据完整性规则
 

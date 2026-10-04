@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/image_upload_item.dart';
 import '../theme/app_theme.dart';
 import 'flora_icon.dart';
+import 'photo_corner_button.dart';
 
 class ImageUploadStrip extends StatelessWidget {
   final List<ImageUploadItem> items;
@@ -169,20 +170,13 @@ class _ImageUploadTileState extends State<ImageUploadTile> {
               _buildStatusOverlay(context, item),
               if (canRemove)
                 Positioned(
-                  top: FloraSpacing.xs,
-                  right: FloraSpacing.xs,
-                  child: IconButton.filled(
+                  top: 0,
+                  right: 0,
+                  child: PhotoCornerButton(
                     key: ValueKey('remove_image_${item.id}'),
                     onPressed: widget.onRemove,
                     tooltip: '移除图片',
-                    visualDensity: VisualDensity.compact,
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.black54,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(48, 48),
-                      padding: EdgeInsets.zero,
-                    ),
-                    icon: const FloraIcon(FloraIcons.close, size: 18),
+                    icon: FloraIcons.close,
                   ),
                 ),
             ],

@@ -1137,7 +1137,7 @@ void main() {
         expect(find.byType(SafeArea), findsOneWidget);
         expect(find.text('过往'), findsOneWidget);
         expect(find.text('把值得记住的日子，慢慢翻出来'), findsNothing);
-        expect(find.byKey(const Key('gallery_month_picker')), findsOneWidget);
+        expect(find.byKey(const Key('gallery_month_picker')), findsNothing);
         expect(find.text('今天曾经发生过'), findsNothing);
         expect(find.text('随便走走'), findsNothing);
         expect(
@@ -1146,8 +1146,8 @@ void main() {
         );
         expect(
           find.ancestor(
-            of: find.byKey(const Key('gallery_month_picker')),
-            matching: find.byType(CustomScrollView),
+            of: find.byKey(const Key('history_calendar_toggle')),
+            matching: find.byType(PinnedHeaderSliver),
           ),
           findsOneWidget,
         );
@@ -1215,52 +1215,48 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(GalleryImageTile), findsOneWidget);
-      expect(find.text('2024年3月'), findsNWidgets(2));
+      expect(find.text('2024年3月'), findsOneWidget);
       expect(find.text('1天 · 2张'), findsOneWidget);
       expect(find.text('今天曾经发生过'), findsNothing);
       expect(find.text('随便走走'), findsNothing);
     });
 
-    testWidgets('calendar month navigation does not move the gallery picker', (
-      tester,
-    ) async {
-      final client = clientWithBody(
-        jsonEncode({
-          'year': DateTime.now().year,
-          'month': DateTime.now().month,
-          'diaries': [],
-          'raw': '',
-        }),
-      );
-      final now = DateTime.now();
-      final currentLabel = '${now.year}年${now.month}月';
-      final previous = DateTime(now.year, now.month - 1);
-      final previousLabel = '${previous.year}年${previous.month}月';
+    testWidgets(
+      'calendar month navigation does not create a gallery jump control',
+      (tester) async {
+        final client = clientWithBody(
+          jsonEncode({
+            'year': DateTime.now().year,
+            'month': DateTime.now().month,
+            'diaries': [],
+            'raw': '',
+          }),
+        );
+        final now = DateTime.now();
+        final previous = DateTime(now.year, now.month - 1);
+        final previousLabel = '${previous.year}年${previous.month}月';
 
-      await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('history_calendar_toggle')));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const Key('history_calendar_previous_month')),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          MaterialApp(home: PastScreen(apiClient: client)),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('history_calendar_previous_month')),
+        );
+        await tester.pumpAndSettle();
 
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('gallery_month_picker')),
-          matching: find.text(currentLabel),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('history_calendar')),
-          matching: find.text(previousLabel),
-        ),
-        findsOneWidget,
-      );
-    });
+        expect(find.byKey(const Key('gallery_month_picker')), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('history_calendar')),
+            matching: find.text(previousLabel),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('stale calendar requests cannot overwrite the latest state', (
       tester,
@@ -1579,6 +1575,14 @@ void main() {
         findsNothing,
       );
       expect(find.text('焦虑四问'), findsNothing);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('historical_quick_record_quick_note')),
+        findsNothing,
+      );
     });
 
     testWidgets('historical backfill attaches photos to the text entry', (

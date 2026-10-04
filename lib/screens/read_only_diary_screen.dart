@@ -25,6 +25,7 @@ import '../widgets/flora_icon.dart';
 import '../widgets/flora_success_snackbar.dart';
 import '../widgets/historical_quick_record_fab.dart';
 import '../widgets/flora_skeleton.dart';
+import '../widgets/quick_record_backdrop.dart';
 import 'quick_capture_screen.dart';
 
 typedef HistoricalImagePicker = QuickCaptureImagePicker;
@@ -217,6 +218,18 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
     await _loadDiary();
   }
 
+  void _handleBack() {
+    if (!_quickRecordExpanded) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    setState(() => _quickRecordExpanded = false);
+    // PopScope 会先拦住当前这一帧的返回；下一帧直接执行原有返回行为。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
+  }
+
   Widget _buildBody(ThemeData theme) {
     if (_loading) {
       return FloraSkeletonRegion(
@@ -316,29 +329,47 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: FloraAppBar(
-        glassBackground: true,
-        toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
+    return PopScope<void>(
+      canPop: !_quickRecordExpanded,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _quickRecordExpanded) {
+          setState(() => _quickRecordExpanded = false);
+        }
+      },
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        appBar: FloraAppBar(
+          glassBackground: true,
+          toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
+          backgroundColor: theme.scaffoldBackgroundColor,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          title: DiaryDateTitle(date: widget.date, showYear: true),
+          leading: IconButton(
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            icon: const FloraIcon(FloraIcons.back),
+            onPressed: _handleBack,
+          ),
+        ),
         backgroundColor: theme.scaffoldBackgroundColor,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: DiaryDateTitle(date: widget.date, showYear: true),
-      ),
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: Theme(
-        data: theme.copyWith(canvasColor: theme.scaffoldBackgroundColor),
-        child: _buildBody(theme),
-      ),
-      floatingActionButton: HistoricalQuickRecordFab(
-        expanded: _quickRecordExpanded,
-        onToggle: () {
-          setState(() => _quickRecordExpanded = !_quickRecordExpanded);
-        },
-        onEntrySelected: _openQuickCapture,
+        body: QuickRecordBackdrop(
+          expanded: _quickRecordExpanded,
+          bannerBottom: _headerInset,
+          onDismiss: () => setState(() => _quickRecordExpanded = false),
+          child: Theme(
+            data: theme.copyWith(canvasColor: theme.scaffoldBackgroundColor),
+            child: _buildBody(theme),
+          ),
+        ),
+        floatingActionButton: HistoricalQuickRecordFab(
+          expanded: _quickRecordExpanded,
+          onToggle: () {
+            setState(() => _quickRecordExpanded = !_quickRecordExpanded);
+          },
+          onEntrySelected: _openQuickCapture,
+        ),
       ),
     );
   }

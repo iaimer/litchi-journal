@@ -170,6 +170,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   int _habitRefreshToken = 0;
+  int _menuDismissRevision = 0;
 
   List<Widget> _buildScreens() {
     return [
@@ -200,6 +201,7 @@ class _MainScreenState extends State<MainScreen> {
       body: FloraDockScope(
         clearance: dockHeight + 8 + 12 + 56 + 16 + systemBottom,
         fabBottom: systemBottom + 8 + dockHeight + 12,
+        menuDismissRevision: _menuDismissRevision,
         child: MediaQuery.removePadding(
           context: context,
           removeBottom: true,
@@ -217,8 +219,9 @@ class _MainScreenState extends State<MainScreen> {
                   selectedIndex: _currentIndex,
                   height: dockHeight,
                   onSelected: (index) {
-                    if (index == _currentIndex && index != 2) return;
                     setState(() {
+                      _menuDismissRevision++;
+                      if (index == _currentIndex && index != 2) return;
                       _currentIndex = index;
                       if (index == 2) {
                         _habitRefreshToken++;

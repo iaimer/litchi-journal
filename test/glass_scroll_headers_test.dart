@@ -15,8 +15,37 @@ import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/services/habit_settings_repository.dart';
 import 'package:litchi_journal_flutter/services/habit_trend_cache_repository.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
+import 'package:litchi_journal_flutter/widgets/flora_skeleton.dart';
 
 void main() {
+  testWidgets('冷启动屏幕元信息未就绪时，图墙占位使用实际可用宽度', (tester) async {
+    final pending = Completer<http.Response>();
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(size: Size.zero),
+          child: child!,
+        ),
+        home: PastScreen(apiClient: _client(initialGallery: pending)),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final boxes = find.byType(FloraSkeletonBox);
+    expect(boxes, findsNWidgets(7));
+    final viewportWidth = tester.getSize(find.byType(CustomScrollView)).width;
+    expect(
+      tester.getSize(boxes.at(1)).width,
+      closeTo((viewportWidth - 44) / 3, 0.01),
+    );
+    for (final box in boxes.evaluate()) {
+      final size = tester.getSize(find.byWidget(box.widget));
+      expect(size.width, greaterThanOrEqualTo(0));
+      expect(size.height, greaterThanOrEqualTo(0));
+    }
+    pending.complete(_json({'months': [], 'nextCursor': null}));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('过往标题置顶，图墙进入同一视口的标题背后', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 720));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -152,38 +181,32 @@ void main() {
     }
   }
 
-  testWidgets('月份跳转定位在实际头部下方，展开日历后仍正确', (tester) async {
+  testWidgets('过往移除月份条，日历从当前可见图墙月份打开', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 720));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(_app(PastScreen(apiClient: _client())));
     await tester.pumpAndSettle();
 
-    for (final expanded in [false, true]) {
-      if (expanded) {
-        await tester.tap(find.byKey(const Key('history_calendar_toggle')));
-        await tester.pumpAndSettle();
-      }
-      await tester.tap(find.byKey(const Key('gallery_previous_month')));
-      await tester.pumpAndSettle();
-      final month = find.text('2024年2月').last;
-      expect(
-        tester.getRect(month).top,
-        greaterThanOrEqualTo(_headerRect(tester).bottom),
-      );
-      expect(
-        tester.getRect(month).top,
-        lessThan(_headerRect(tester).bottom + 40),
-      );
-      await tester.tap(find.byKey(const Key('gallery_next_month')));
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('gallery_month_picker')),
-          matching: find.text('2024年3月'),
-        ),
-        findsOneWidget,
-      );
-    }
+    expect(find.byKey(const Key('gallery_month_picker')), findsNothing);
+    expect(find.byKey(const Key('gallery_previous_month')), findsNothing);
+    expect(find.byKey(const Key('gallery_next_month')), findsNothing);
+
+    final month = find.text('2024年3月').last;
+    expect(
+      tester.getRect(month).top,
+      lessThanOrEqualTo(_headerRect(tester).bottom + 12),
+    );
+
+    await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('history_calendar')),
+        matching: find.text('2024年3月'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('记录标记暂未加载，仍可选择日期'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -235,6 +258,41 @@ void main() {
     await future;
     await tester.pumpAndSettle();
     expect(controller.offset, closeTo(offset, 0.5));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('顶部回忆先加载时，日历仍从可见相册月份打开', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final pending = Completer<http.Response>();
+    await tester.pumpWidget(
+      _app(
+        PastScreen(
+          apiClient: _client(todayMemory: true, initialGallery: pending),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    pending.complete(
+      _json({
+        'months': [_month(3)],
+        'nextCursor': null,
+      }),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.text('2024年3月').last).top,
+      greaterThan(_headerRect(tester).bottom + 40),
+    );
+    await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('history_calendar')),
+        matching: find.text('2024年3月'),
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 }
@@ -291,6 +349,8 @@ ApiClient _client({
   List<Uri>? requests,
   bool paginate = false,
   Completer<http.Response>? galleryRefresh,
+  Completer<http.Response>? initialGallery,
+  bool todayMemory = false,
 }) {
   final image = img.Image(width: 8, height: 8);
   img.fill(image, color: img.ColorRgb8(30, 120, 230));
@@ -311,6 +371,9 @@ ApiClient _client({
       if (request.url.path == '/api/v1/history/gallery') {
         galleryRequests++;
         final cursor = request.url.queryParameters['cursor'];
+        if (galleryRequests == 1 && initialGallery != null) {
+          return initialGallery.future;
+        }
         if (galleryRequests > 1 && cursor == null && galleryRefresh != null) {
           return galleryRefresh.future;
         }
@@ -340,6 +403,21 @@ ApiClient _client({
             'customDurations': {},
           },
         ]);
+      }
+      if (todayMemory && request.url.path.startsWith('/api/v1/diary/')) {
+        return _json({
+          'date': request.url.path.split('/').last,
+          'raw': '## 影像记录\n![[photo-1.png]]',
+          'sections': {},
+        });
+      }
+      if (request.url.path.startsWith('/api/v1/history/')) {
+        final parts = request.url.pathSegments;
+        return _json({
+          'year': int.parse(parts[parts.length - 2]),
+          'month': int.parse(parts.last),
+          'diaries': [],
+        });
       }
       return _json({'diaries': []});
     }),

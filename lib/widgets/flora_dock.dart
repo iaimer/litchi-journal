@@ -9,11 +9,13 @@ import 'flora_icon.dart';
 class FloraDockScope extends InheritedWidget {
   final double clearance;
   final double fabBottom;
+  final int menuDismissRevision;
 
   const FloraDockScope({
     super.key,
     required this.clearance,
     required this.fabBottom,
+    this.menuDismissRevision = 0,
     required super.child,
   });
 
@@ -22,7 +24,9 @@ class FloraDockScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(FloraDockScope oldWidget) =>
-      clearance != oldWidget.clearance || fabBottom != oldWidget.fabBottom;
+      clearance != oldWidget.clearance ||
+      fabBottom != oldWidget.fabBottom ||
+      menuDismissRevision != oldWidget.menuDismissRevision;
 }
 
 class FloraDockFabLocation extends FloatingActionButtonLocation {

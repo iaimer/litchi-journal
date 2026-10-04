@@ -44,6 +44,7 @@ import '../widgets/diary_date_title.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/habit_icon.dart';
+import '../widgets/quick_record_backdrop.dart';
 import '../widgets/quick_record_fan.dart';
 
 typedef TodayImagePicker = QuickCaptureImagePicker;
@@ -140,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final FocusTimerController _focusTimerController;
   bool _generatingCoach = false;
   bool _quickRecordExpanded = false;
+  int _menuDismissRevision = 0;
   HabitSettings? _habitSettings;
   Set<String> _activeHabitKeys = const {
     'water',
@@ -169,6 +171,16 @@ class _HomeScreenState extends State<HomeScreen> {
     _habitCompletionSound.preload();
     _loadDiary();
     _loadTagConfig();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final revision = FloraDockScope.maybeOf(context)?.menuDismissRevision ?? 0;
+    if (revision == _menuDismissRevision) return;
+    _menuDismissRevision = revision;
+    // Dock 已执行对应操作；这里只同步收起菜单，不重建首页。
+    _quickRecordExpanded = false;
   }
 
   @override
@@ -1012,157 +1024,169 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: FloraAppBar(
-        glassBackground: true,
-        toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
-        centerTitle: false,
-        backgroundColor: theme.scaffoldBackgroundColor,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: DiaryDateTitle(date: _activeDate),
-        actions: [
-          IconButton(
-            icon: const FloraIcon(FloraIcons.settings, size: 24),
-            onPressed: () async {
-              await Navigator.of(context).push(
-                FloraPageRoute(
-                  builder: (_) => SettingsPage(
-                    apiConfig: ApiConfig(
-                      baseUrl: widget.apiClient.baseUrl,
-                      token: '',
-                    ),
-                    apiClient: widget.apiClient,
-                    tokenConfigured: widget.apiClient.hasToken,
-                    onApiConfigChanged: widget.onApiConfigChanged,
-                  ),
-                ),
-              );
-              // 从设置页返回后，重新加载标签设置和习惯设置
-              await _loadTagConfig();
-              _reloadHabitSettings();
-            },
-          ),
-        ],
-      ),
-      backgroundColor: theme.scaffoldBackgroundColor,
-      floatingActionButton: _buildQuickRecordFab(theme),
-      floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
-      floatingActionButtonLocation: FloraDockScope.maybeOf(context) == null
-          ? FloatingActionButtonLocation.endFloat
-          : FloraDockFabLocation(FloraDockScope.maybeOf(context)!.fabBottom),
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () {
-            if (_quickRecordExpanded) {
-              setState(() => _quickRecordExpanded = false);
-            }
-          },
-          child: _loading
-              ? _buildHomeLoading()
-              : Theme(
-                  data: theme.copyWith(
-                    canvasColor: theme.scaffoldBackgroundColor,
-                  ),
-                  child: RefreshIndicator(
-                    onRefresh: _loadDiary,
-                    edgeOffset: _headerInset,
-                    child: ListView(
-                      controller: _scrollController,
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        _headerInset,
-                        16,
-                        FloraDockScope.maybeOf(context)?.clearance ?? 0,
+    return PopScope<void>(
+      canPop: !_quickRecordExpanded,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _quickRecordExpanded) {
+          setState(() => _quickRecordExpanded = false);
+        }
+      },
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        appBar: FloraAppBar(
+          glassBackground: true,
+          toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
+          centerTitle: false,
+          backgroundColor: theme.scaffoldBackgroundColor,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          title: DiaryDateTitle(date: _activeDate),
+          actions: [
+            IconButton(
+              icon: const FloraIcon(FloraIcons.settings, size: 24),
+              onPressed: () async {
+                if (_quickRecordExpanded) {
+                  setState(() => _quickRecordExpanded = false);
+                }
+                await Navigator.of(context).push(
+                  FloraPageRoute(
+                    builder: (_) => SettingsPage(
+                      apiConfig: ApiConfig(
+                        baseUrl: widget.apiClient.baseUrl,
+                        token: '',
                       ),
-                      children: [
-                        if (_refreshing)
-                          const SizedBox(
-                            height: 2,
-                            child: LinearProgressIndicator(minHeight: 2),
-                          ),
-                        const SizedBox(height: 16),
-                        _buildFocusTimerStrip(theme),
-                        if (_error != null) ...[
-                          Text(
-                            _error!,
-                            style: TextStyle(color: theme.colorScheme.error),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        if (_diary?.raw.isNotEmpty == true) ...[
-                          DiaryMarkdownView(
-                            markdown: _diary?.raw ?? '',
-                            onHabitUpdate: _handleHabitUpdate,
-                            onEntryDelete: _handleEntryDelete,
-                            onEntryEdit: _handleEntryEdit,
-                            onEntryEditWithEntryId:
-                                (section, rawLine, content, tags, time, id) =>
-                                    _handleEntryEdit(
-                                      section,
-                                      rawLine,
-                                      content,
-                                      tags,
-                                      time,
-                                      entryId: id,
-                                    ),
-                            onEntryEditCompleted: _loadDiarySilently,
-                            onEntryPolish: _handlePolish,
-                            tagConfig: _tagConfig,
-                            tagSettings: _tagSettings,
-                            apiClient: widget.apiClient,
-                            date: _activeDate,
-                            onGenerateCoach: _handleGenerateCoach,
-                            generatingCoach: _generatingCoach,
-                            activeHabitKeys: _activeHabitKeys,
-                            habitSettings:
-                                _habitSettings ?? HabitSettings.defaults,
-                            onCustomCheckboxToggle: _handleCustomCheckboxToggle,
-                            onPositiveFeedback: _habitCompletionSound.play,
-                            onWaterQuickAmountsChanged:
-                                _handleWaterQuickAmountsChanged,
-                            onStartDuration: _handleStartDuration,
-                            onDurationUpdate: _handleDurationUpdate,
-                            onCustomDurationUpdate: _handleCustomDurationUpdate,
-                            imagePicker: widget.imagePicker,
-                            imageCompressor: widget.imageCompressor,
-                          ),
-                        ] else ...[
-                          Text(
-                            '今日还没有日记内容',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          HabitCard(
-                            key: const ValueKey('habit_card'),
-                            section: HabitSection.empty(),
-                            onUpdate: _handleHabitUpdate,
-                            activeHabitKeys: _activeHabitKeys,
-                            habitSettings:
-                                _habitSettings ?? HabitSettings.defaults,
-                            onCustomCheckboxToggle: _handleCustomCheckboxToggle,
-                            onPositiveFeedback: _habitCompletionSound.play,
-                            onWaterQuickAmountsChanged:
-                                _handleWaterQuickAmountsChanged,
-                            onStartDuration: _handleStartDuration,
-                            onDurationUpdate: _handleDurationUpdate,
-                            onCustomDurationUpdate: _handleCustomDurationUpdate,
-                            diaryDate: _activeDate,
-                          ),
-                        ],
-                        const SizedBox(height: 96),
-                      ],
+                      apiClient: widget.apiClient,
+                      tokenConfigured: widget.apiClient.hasToken,
+                      onApiConfigChanged: widget.onApiConfigChanged,
                     ),
                   ),
-                ),
+                );
+                // 从设置页返回后，重新加载标签设置和习惯设置
+                await _loadTagConfig();
+                _reloadHabitSettings();
+              },
+            ),
+          ],
+        ),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        floatingActionButton: _buildQuickRecordFab(theme),
+        floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
+        floatingActionButtonLocation: FloraDockScope.maybeOf(context) == null
+            ? FloatingActionButtonLocation.endFloat
+            : FloraDockFabLocation(FloraDockScope.maybeOf(context)!.fabBottom),
+        body: SafeArea(
+          top: false,
+          bottom: false,
+          child: QuickRecordBackdrop(
+            expanded: _quickRecordExpanded,
+            bannerBottom: _headerInset,
+            onDismiss: () => setState(() => _quickRecordExpanded = false),
+            child: _loading
+                ? _buildHomeLoading()
+                : Theme(
+                    data: theme.copyWith(
+                      canvasColor: theme.scaffoldBackgroundColor,
+                    ),
+                    child: RefreshIndicator(
+                      onRefresh: _loadDiary,
+                      edgeOffset: _headerInset,
+                      child: ListView(
+                        controller: _scrollController,
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          _headerInset,
+                          16,
+                          FloraDockScope.maybeOf(context)?.clearance ?? 0,
+                        ),
+                        children: [
+                          if (_refreshing)
+                            const SizedBox(
+                              height: 2,
+                              child: LinearProgressIndicator(minHeight: 2),
+                            ),
+                          const SizedBox(height: 16),
+                          _buildFocusTimerStrip(theme),
+                          if (_error != null) ...[
+                            Text(
+                              _error!,
+                              style: TextStyle(color: theme.colorScheme.error),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          if (_diary?.raw.isNotEmpty == true) ...[
+                            DiaryMarkdownView(
+                              markdown: _diary?.raw ?? '',
+                              onHabitUpdate: _handleHabitUpdate,
+                              onEntryDelete: _handleEntryDelete,
+                              onEntryEdit: _handleEntryEdit,
+                              onEntryEditWithEntryId:
+                                  (section, rawLine, content, tags, time, id) =>
+                                      _handleEntryEdit(
+                                        section,
+                                        rawLine,
+                                        content,
+                                        tags,
+                                        time,
+                                        entryId: id,
+                                      ),
+                              onEntryEditCompleted: _loadDiarySilently,
+                              onEntryPolish: _handlePolish,
+                              tagConfig: _tagConfig,
+                              tagSettings: _tagSettings,
+                              apiClient: widget.apiClient,
+                              date: _activeDate,
+                              onGenerateCoach: _handleGenerateCoach,
+                              generatingCoach: _generatingCoach,
+                              activeHabitKeys: _activeHabitKeys,
+                              habitSettings:
+                                  _habitSettings ?? HabitSettings.defaults,
+                              onCustomCheckboxToggle:
+                                  _handleCustomCheckboxToggle,
+                              onPositiveFeedback: _habitCompletionSound.play,
+                              onWaterQuickAmountsChanged:
+                                  _handleWaterQuickAmountsChanged,
+                              onStartDuration: _handleStartDuration,
+                              onDurationUpdate: _handleDurationUpdate,
+                              onCustomDurationUpdate:
+                                  _handleCustomDurationUpdate,
+                              imagePicker: widget.imagePicker,
+                              imageCompressor: widget.imageCompressor,
+                            ),
+                          ] else ...[
+                            Text(
+                              '今日还没有日记内容',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            HabitCard(
+                              key: const ValueKey('habit_card'),
+                              section: HabitSection.empty(),
+                              onUpdate: _handleHabitUpdate,
+                              activeHabitKeys: _activeHabitKeys,
+                              habitSettings:
+                                  _habitSettings ?? HabitSettings.defaults,
+                              onCustomCheckboxToggle:
+                                  _handleCustomCheckboxToggle,
+                              onPositiveFeedback: _habitCompletionSound.play,
+                              onWaterQuickAmountsChanged:
+                                  _handleWaterQuickAmountsChanged,
+                              onStartDuration: _handleStartDuration,
+                              onDurationUpdate: _handleDurationUpdate,
+                              onCustomDurationUpdate:
+                                  _handleCustomDurationUpdate,
+                              diaryDate: _activeDate,
+                            ),
+                          ],
+                          const SizedBox(height: 96),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
         ),
       ),
     );

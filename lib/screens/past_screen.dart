@@ -2,7 +2,6 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import '../widgets/flora_dialog.dart';
 import '../widgets/flora_dock.dart';
 import '../widgets/flora_glass.dart';
 import '../widgets/flora_page_route.dart';
@@ -46,7 +45,6 @@ class _PastScreenState extends State<PastScreen> {
   List<GalleryMonth> _galleryMonths = [];
   String? _nextCursor;
   String? _galleryError;
-  String? _emptyMonthNotice;
   bool _galleryLoading = true;
   bool _galleryLoadingMore = false;
   bool _todayLoading = true;
@@ -57,7 +55,6 @@ class _PastScreenState extends State<PastScreen> {
   bool _monthSyncScheduled = false;
   int _galleryRequestGeneration = 0;
   int _todayRequestGeneration = 0;
-  int _monthJumpGeneration = 0;
   DateTime _displayedMonth = DateTime(
     DateTime.now().year,
     DateTime.now().month,
@@ -86,7 +83,6 @@ class _PastScreenState extends State<PastScreen> {
     _memoryService = PastMemoryService(widget.apiClient);
     _galleryService = GalleryService(widget.apiClient);
     _calendarRequestGeneration++;
-    _monthJumpGeneration++;
     setState(() {
       _todayMemory = null;
       _todayLoading = true;
@@ -144,7 +140,6 @@ class _PastScreenState extends State<PastScreen> {
         _galleryLoading = true;
         _galleryLoadingMore = false;
         _galleryError = null;
-        _emptyMonthNotice = null;
         if (!preserveVisibleContent) {
           _galleryMonths = [];
           _nextCursor = null;
@@ -176,10 +171,6 @@ class _PastScreenState extends State<PastScreen> {
         _galleryLoading = false;
         _galleryLoadingMore = false;
         _galleryError = null;
-        if (reset && cursor != null && page.months.isNotEmpty) {
-          final first = page.months.first;
-          if (first.days.isEmpty) _emptyMonthNotice = _monthKey(first);
-        }
       });
       _scheduleMonthSync();
     } catch (_) {
@@ -222,6 +213,8 @@ class _PastScreenState extends State<PastScreen> {
         header.localToGlobal(Offset.zero).dy + header.size.height;
     DateTime? visibleMonth;
     var visibleTop = double.negativeInfinity;
+    DateTime? upcomingMonth;
+    var upcomingTop = double.infinity;
 
     for (final month in _galleryMonths.where(
       (month) => month.days.isNotEmpty,
@@ -233,9 +226,14 @@ class _PastScreenState extends State<PastScreen> {
       if (top <= viewportTop + 40 && top > visibleTop) {
         visibleTop = top;
         visibleMonth = month.date;
+      } else if (top > viewportTop + 40 && top < upcomingTop) {
+        upcomingTop = top;
+        upcomingMonth = month.date;
       }
     }
 
+    // 顶部回忆卡片会把首个月份推离 Banner，仍应识别眼前的首组相册。
+    visibleMonth ??= upcomingMonth;
     if (visibleMonth != null && !_sameMonth(visibleMonth, _displayedMonth)) {
       setState(() => _displayedMonth = visibleMonth!);
     }
@@ -250,20 +248,27 @@ class _PastScreenState extends State<PastScreen> {
   bool _sameMonth(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month;
 
-  DateTime get _currentMonth =>
-      DateTime(DateTime.now().year, DateTime.now().month);
-
   Future<void> _toggleCalendar() async {
-    setState(() => _calendarExpanded = !_calendarExpanded);
     if (_calendarExpanded) {
-      await _loadCalendarMonth(_calendarDisplayedMonth);
+      setState(() => _calendarExpanded = false);
+      return;
     }
+    _syncDisplayedMonth();
+    final fallback = DateTime(DateTime.now().year, DateTime.now().month);
+    final displayedMonth = _galleryMonths.any((month) => month.days.isNotEmpty)
+        ? _displayedMonth
+        : fallback;
+    setState(() {
+      _calendarExpanded = true;
+      _calendarDisplayedMonth = displayedMonth;
+    });
+    await _loadCalendarMonth(displayedMonth);
   }
 
-  Future<void> _loadCalendarMonth(DateTime month, {bool force = false}) async {
+  Future<void> _loadCalendarMonth(DateTime month) async {
     final key = _monthKeyForDate(month);
     final requestGeneration = ++_calendarRequestGeneration;
-    if (!force && _recordedDatesByMonth.containsKey(key)) {
+    if (_recordedDatesByMonth.containsKey(key)) {
       if (!mounted || requestGeneration != _calendarRequestGeneration) return;
       setState(() {
         _calendarLoading = false;
@@ -312,9 +317,6 @@ class _PastScreenState extends State<PastScreen> {
       ),
     );
     _recordedDatesByMonth.remove(_monthKeyForDate(date));
-    if (_calendarExpanded) {
-      await _loadCalendarMonth(_displayedMonth, force: true);
-    }
   }
 
   Future<void> _openGalleryDay(GalleryDay day) async {
@@ -326,68 +328,6 @@ class _PastScreenState extends State<PastScreen> {
           apiClient: widget.apiClient,
         ),
       ),
-    );
-  }
-
-  Future<void> _pickMonth() async {
-    final now = DateTime.now();
-    final lastDate = DateTime(now.year, now.month, now.day - 1);
-    final requestedInitialDate = _displayedMonth.isAfter(_currentMonth)
-        ? _currentMonth
-        : _displayedMonth;
-    final initialDate = requestedInitialDate.isAfter(lastDate)
-        ? lastDate
-        : requestedInitialDate;
-    final selected = await showFloraDialog<DateTime>(
-      context: context,
-      builder: (_) => DatePickerDialog(
-        initialDate: initialDate,
-        firstDate: DateTime(2000),
-        lastDate: lastDate,
-        helpText: '选择画廊月份',
-      ),
-    );
-    if (selected == null) return;
-    await _jumpToMonth(DateTime(selected.year, selected.month));
-  }
-
-  Future<void> _changeGalleryMonth(int offset) async {
-    final next = DateTime(_displayedMonth.year, _displayedMonth.month + offset);
-    if (next.isAfter(_currentMonth)) return;
-    await _jumpToMonth(next);
-  }
-
-  Future<void> _jumpToMonth(DateTime month) async {
-    final normalized = DateTime(month.year, month.month);
-    if (normalized.isAfter(_currentMonth)) return;
-    final jumpGeneration = ++_monthJumpGeneration;
-    setState(() => _displayedMonth = normalized);
-
-    final monthKey = _monthKeyForDate(normalized);
-    final key = _monthKeys[monthKey];
-    if (key?.currentContext != null) {
-      await _scrollToMonth(monthKey, jumpGeneration);
-      return;
-    }
-
-    // 重载期间列表会变短；先回到顶部，避免旧滚动偏移把新月份夹在
-    // 不可见位置。请求完成后再等一帧，让新的 GlobalKey 建立完成。
-    if (_scrollController.hasClients) _scrollController.jumpTo(0);
-    await _loadGallery(cursor: _monthKeyForDate(normalized), reset: true);
-    if (!mounted || jumpGeneration != _monthJumpGeneration) return;
-    await WidgetsBinding.instance.endOfFrame;
-    await _scrollToMonth(monthKey, jumpGeneration);
-  }
-
-  Future<void> _scrollToMonth(String monthKey, int jumpGeneration) async {
-    if (!mounted || jumpGeneration != _monthJumpGeneration) return;
-    final key = _monthKeys[monthKey];
-    final monthContext = key?.currentContext;
-    if (monthContext == null) return;
-    await Scrollable.ensureVisible(
-      monthContext,
-      duration: FloraMotion.standardFor(MediaQuery.of(context)),
-      alignment: 0.05,
     );
   }
 
@@ -466,8 +406,6 @@ class _PastScreenState extends State<PastScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _buildMonthPicker(theme),
           if (_calendarExpanded) ...[
             const SizedBox(height: 16),
             HistoryCalendar(
@@ -496,47 +434,6 @@ class _PastScreenState extends State<PastScreen> {
         dimension: 48,
         child: FloraOriginIconButton(button: button),
       ),
-    );
-  }
-
-  Widget _buildMonthPicker(ThemeData theme) {
-    return Row(
-      children: [
-        IconButton(
-          key: const Key('gallery_previous_month'),
-          tooltip: '上个月',
-          onPressed: () => _changeGalleryMonth(-1),
-          icon: const FloraIcon(FloraIcons.chevronLeft),
-        ),
-        Expanded(
-          child: FloraInkWell(
-            key: const Key('gallery_month_picker'),
-            borderRadius: BorderRadius.circular(FloraRadius.pill),
-            onTap: _pickMonth,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 11),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(FloraRadius.pill),
-                border: Border.all(color: theme.dividerColor, width: 0.5),
-              ),
-              child: Text(
-                '${_displayedMonth.year}年${_displayedMonth.month}月',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleLarge,
-              ),
-            ),
-          ),
-        ),
-        IconButton(
-          key: const Key('gallery_next_month'),
-          tooltip: '下个月',
-          onPressed: _displayedMonth.isBefore(_currentMonth)
-              ? () => _changeGalleryMonth(1)
-              : null,
-          icon: const FloraIcon(FloraIcons.chevronRight),
-        ),
-      ],
     );
   }
 
@@ -576,25 +473,12 @@ class _PastScreenState extends State<PastScreen> {
               ),
             ),
           ),
-        if (_emptyMonthNotice != null)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: _buildEmptyMonthNotice(theme, _emptyMonthNotice!),
-            ),
-          ),
         if (_galleryLoading && _galleryMonths.isEmpty)
-          const SliverFillRemaining(
-            hasScrollBody: false,
-            child: _GalleryLoadingPlaceholder(),
-          )
+          const SliverToBoxAdapter(child: _GalleryLoadingPlaceholder())
         else if (_galleryError != null && _galleryMonths.isEmpty)
           SliverFillRemaining(hasScrollBody: false, child: _buildGalleryError())
         else if (!hasPhotos && _todayLoading)
-          const SliverFillRemaining(
-            hasScrollBody: false,
-            child: _GalleryLoadingPlaceholder(),
-          )
+          const SliverToBoxAdapter(child: _GalleryLoadingPlaceholder())
         else if (!hasPhotos && !_todayLoading)
           SliverFillRemaining(
             hasScrollBody: false,
@@ -726,22 +610,6 @@ class _PastScreenState extends State<PastScreen> {
       ],
     );
   }
-
-  Widget _buildEmptyMonthNotice(ThemeData theme, String monthKey) {
-    final parts = monthKey.split('-');
-    final label = parts.length == 2
-        ? '${parts[0]}年${int.parse(parts[1])}月'
-        : monthKey;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(FloraRadius.md),
-        border: Border.all(color: theme.dividerColor, width: 0.5),
-      ),
-      child: Text('$label 暂无照片，继续向下看看更早的记录', style: theme.textTheme.bodySmall),
-    );
-  }
 }
 
 class _GalleryLoadingPlaceholder extends StatelessWidget {
@@ -749,29 +617,32 @@ class _GalleryLoadingPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final availableWidth = MediaQuery.sizeOf(context).width - 32;
-    final cell = (availableWidth - 12) / 3;
     return FloraSkeletonRegion(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const FloraSkeletonBox(width: 150, height: 20),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final cell = max(0.0, (constraints.maxWidth - 12) / 3);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var index = 0; index < 6; index++)
-                  FloraSkeletonBox(
-                    width: cell,
-                    height: cell,
-                    radius: FloraRadius.sm,
-                  ),
+                const FloraSkeletonBox(width: 150, height: 20),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (var index = 0; index < 6; index++)
+                      FloraSkeletonBox(
+                        width: cell,
+                        height: cell,
+                        radius: FloraRadius.sm,
+                      ),
+                  ],
+                ),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

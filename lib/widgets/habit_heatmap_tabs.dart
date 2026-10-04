@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'flora_origin.dart';
 
 import '../models/habit_stats.dart';
 import '../theme/app_theme.dart';
@@ -341,7 +342,7 @@ class _HabitHeatmapTabButton extends StatelessWidget {
         button: true,
         selected: selected,
         label: item.displayName,
-        child: InkWell(
+        child: FloraInkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(FloraRadius.pill),
           child: SizedBox(

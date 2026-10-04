@@ -102,6 +102,15 @@ void main() {
       }
     });
 
+    test('Lordicon 静态回退资源能够被实际 SVG 渲染器解析', () async {
+      for (final name in [FloraIcons.emptyPast, FloraIcons.successCheck]) {
+        final bytes = await SvgAssetLoader(
+          FloraIcons.path(name),
+        ).loadBytes(null);
+        expect(bytes.lengthInBytes, greaterThan(0), reason: name);
+      }
+    });
+
     test('brand icon and splash assets remain unchanged', () {
       expect(FloraIcons.path(FloraIcons.brandIcon), 'assets/icon/app-icon.png');
       expect(

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_origin.dart';
+import '../widgets/flora_dialog.dart';
 import 'package:flutter/services.dart';
 
 import '../widgets/flora_icon.dart';
@@ -281,7 +283,7 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
 
   void _resetToDefault() {
     final name = _defaultDisplayName;
-    showDialog(
+    showFloraDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('恢复默认'),
@@ -612,14 +614,17 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
               // ── 5. 恢复默认 ──
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _resetToDefault,
-                  icon: const FloraIcon(FloraIcons.reset, size: 20),
-                  label: const Text('恢复默认'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: theme.colorScheme.onSurfaceVariant,
-                    side: BorderSide(color: theme.dividerColor),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Builder(
+                  builder: (anchorContext) => OutlinedButton.icon(
+                    onPressed: () =>
+                        FloraOrigin.run(anchorContext, _resetToDefault),
+                    icon: const FloraIcon(FloraIcons.reset, size: 20),
+                    label: const Text('恢复默认'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.colorScheme.onSurfaceVariant,
+                      side: BorderSide(color: theme.dividerColor),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
                 ),
               ),

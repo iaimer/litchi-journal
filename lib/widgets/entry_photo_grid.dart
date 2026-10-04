@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'flora_origin.dart';
 
 import '../models/diary_document.dart';
 import '../models/image_upload_item.dart';
@@ -160,7 +161,7 @@ class _AddPhotoTile extends StatelessWidget {
       child: Material(
         color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(FloraRadius.sm),
-        child: InkWell(
+        child: FloraInkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(FloraRadius.sm),
           child: Container(

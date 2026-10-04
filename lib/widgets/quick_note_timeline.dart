@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'flora_dialog.dart';
+import 'flora_page_route.dart';
 
 import '../models/diary_document.dart';
 import '../models/polish_result.dart';
@@ -151,7 +153,7 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
       !_busy;
 
   Future<void> _confirmDelete() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showFloraDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
@@ -192,7 +194,7 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
   Future<void> _openEdit() async {
     if (widget.onEdit == null && widget.onEditWithEntryId == null) return;
     final result = await Navigator.of(context).push<QuickCaptureResult>(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => QuickCaptureScreen(
           entryType: EntryType.quickNote,
           openedAt: DateTime.now(),

@@ -13,6 +13,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:litchi_journal_flutter/main.dart' as app;
 import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
+import 'package:litchi_journal_flutter/widgets/flora_glass.dart';
 
 import 'package:litchi_journal_flutter/models/ai_config.dart';
 import 'package:litchi_journal_flutter/models/default_tag_config.dart';
@@ -1116,43 +1117,53 @@ void main() {
       );
     });
 
-    testWidgets('PastScreen keeps header content inside SafeArea', (
-      tester,
-    ) async {
-      final client = clientWithBody(
-        jsonEncode({
-          'year': DateTime.now().year,
-          'month': DateTime.now().month,
-          'diaries': [],
-          'raw': '',
-        }),
-      );
+    testWidgets(
+      'PastScreen keeps a safe pinned header in the gallery viewport',
+      (tester) async {
+        final client = clientWithBody(
+          jsonEncode({
+            'year': DateTime.now().year,
+            'month': DateTime.now().month,
+            'diaries': [],
+            'raw': '',
+          }),
+        );
 
-      await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          MaterialApp(home: PastScreen(apiClient: client)),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.byType(SafeArea), findsOneWidget);
-      expect(find.text('过往'), findsOneWidget);
-      expect(find.text('把值得记住的日子，慢慢翻出来'), findsNothing);
-      expect(find.byKey(const Key('gallery_month_picker')), findsOneWidget);
-      expect(find.text('今天曾经发生过'), findsNothing);
-      expect(find.text('随便走走'), findsNothing);
-      expect(
-        find.ancestor(of: find.text('过往'), matching: find.byType(ListView)),
-        findsNothing,
-      );
-      expect(
-        find.ancestor(
-          of: find.byKey(const Key('gallery_month_picker')),
-          matching: find.byType(CustomScrollView),
-        ),
-        findsNothing,
-      );
-      final scrollView = tester.widget<CustomScrollView>(
-        find.byType(CustomScrollView),
-      );
-      expect(scrollView.physics, isA<AlwaysScrollableScrollPhysics>());
-    });
+        expect(find.byType(SafeArea), findsOneWidget);
+        expect(find.text('过往'), findsOneWidget);
+        expect(find.text('把值得记住的日子，慢慢翻出来'), findsNothing);
+        expect(find.byKey(const Key('gallery_month_picker')), findsOneWidget);
+        expect(find.text('今天曾经发生过'), findsNothing);
+        expect(find.text('随便走走'), findsNothing);
+        expect(
+          find.ancestor(of: find.text('过往'), matching: find.byType(ListView)),
+          findsNothing,
+        );
+        expect(
+          find.ancestor(
+            of: find.byKey(const Key('gallery_month_picker')),
+            matching: find.byType(CustomScrollView),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.ancestor(
+            of: find.text('过往'),
+            matching: find.byType(PinnedHeaderSliver),
+          ),
+          findsOneWidget,
+        );
+        final scrollView = tester.widget<CustomScrollView>(
+          find.byType(CustomScrollView),
+        );
+        expect(scrollView.physics, isA<AlwaysScrollableScrollPhysics>());
+      },
+    );
 
     testWidgets('PastScreen labels the memory capsule as 随机漫步', (tester) async {
       final image = img.Image(width: 2, height: 2);
@@ -1674,8 +1685,9 @@ void main() {
               XFile.fromData(bytes, name: 'second.jpg', mimeType: 'image/jpeg'),
             ],
             imageCompressor: (bytes, settings) async =>
-                ImageCompressService.fromSettings(settings)
-                    .compressToBase64(bytes),
+                ImageCompressService.fromSettings(
+                  settings,
+                ).compressToBase64(bytes),
           ),
         ),
       );
@@ -1683,7 +1695,9 @@ void main() {
       final initialGetCalls = httpClient.diaryGetCalls;
       await tester.tap(find.byKey(const Key('historical_quick_record_fab')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('historical_quick_record_quick_note')));
+      await tester.tap(
+        find.byKey(const Key('historical_quick_record_quick_note')),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '部分保存的历史记录');
       await tester.tap(find.byKey(const Key('quick_capture_add_photo')));
@@ -2242,10 +2256,12 @@ void main() {
       expect(find.text('焦虑四问'), findsNothing);
 
       final noteButton = tester.widget<Material>(
-        find.descendant(
-          of: find.byKey(const Key('quick_record_quick_note')),
-          matching: find.byType(Material),
-        ),
+        find
+            .descendant(
+              of: find.byKey(const Key('quick_record_quick_note')),
+              matching: find.byType(Material),
+            )
+            .first,
       );
       expect(noteButton.shape, isA<CircleBorder>());
       expect(
@@ -2254,10 +2270,12 @@ void main() {
       );
       expect(
         tester.getSize(
-          find.descendant(
-            of: find.byKey(const Key('quick_record_quick_note')),
-            matching: find.byType(Material),
-          ),
+          find
+              .descendant(
+                of: find.byKey(const Key('quick_record_quick_note')),
+                matching: find.byType(Material),
+              )
+              .first,
         ),
         const Size(42, 42),
       );
@@ -3112,10 +3130,13 @@ tags:
     ]);
   });
 
-  test('Parser only uses the trailing entry id and keeps invalid photo links', () {
-    const copiedId = '11111111-1111-4111-8111-111111111111';
-    const actualId = '22222222-2222-4222-8222-222222222222';
-    const markdown = '''
+  test(
+    'Parser only uses the trailing entry id and keeps invalid photo links',
+    () {
+      const copiedId = '11111111-1111-4111-8111-111111111111';
+      const actualId = '22222222-2222-4222-8222-222222222222';
+      const markdown =
+          '''
 ## ✍️ 随手记 & 灵感
 - **08:00** 正文
   <!-- litchi-entry-id:$copiedId -->
@@ -3128,15 +3149,23 @@ tags:
 <!-- litchi-photo-of:$actualId;op:------------------------------------ -->
 ''';
 
-    final document = const MarkdownParser().parse(markdown);
-    final note = document.sections.whereType<QuickNoteSection>().single.notes.single;
-    final media = document.sections.whereType<MediaSection>().single;
-    expect(note.entryId, actualId);
-    expect(note.photos.single.filename, 'linked.jpg');
-    expect(note.content, contains('litchi-entry-id:$copiedId'));
-    expect(media.photos.map((photo) => photo.entryId), [actualId, null]);
-    expect(media.photos.last.rawLine, contains('op:------------------------------------'));
-  });
+      final document = const MarkdownParser().parse(markdown);
+      final note = document.sections
+          .whereType<QuickNoteSection>()
+          .single
+          .notes
+          .single;
+      final media = document.sections.whereType<MediaSection>().single;
+      expect(note.entryId, actualId);
+      expect(note.photos.single.filename, 'linked.jpg');
+      expect(note.content, contains('litchi-entry-id:$copiedId'));
+      expect(media.photos.map((photo) => photo.entryId), [actualId, null]);
+      expect(
+        media.photos.last.rawLine,
+        contains('op:------------------------------------'),
+      );
+    },
+  );
 
   test('MarkdownParser separates happiness slogan from timeline entries', () {
     const markdown = '''
@@ -9275,10 +9304,13 @@ tags:
       await tester.tap(find.byTooltip("更多操作"));
       await tester.pumpAndSettle();
 
-      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byType(FloraGlassSurface), findsOneWidget);
       expect(find.text('编辑'), findsOneWidget);
       expect(find.text('删除'), findsOneWidget);
-      expect(tester.getSize(find.byType(BottomSheet)).height, lessThan(200));
+      expect(
+        tester.getSize(find.byType(FloraGlassSurface)).height,
+        lessThan(200),
+      );
     });
 
     testWidgets('edit reuses QuickCaptureScreen with pre-filled content', (
@@ -10002,7 +10034,8 @@ tags:
 
     testWidgets('小确幸关联照片可在阅读布局中显示', (tester) async {
       const entryId = '11111111-1111-4111-8111-111111111111';
-      const markdown = '''
+      const markdown =
+          '''
 ## ✨ 每日小确幸
 > **09:00** 小确幸正文
 <!-- litchi-entry-id:$entryId -->
@@ -10113,8 +10146,11 @@ tags:
 
       await tester.tap(find.byTooltip("更多操作"));
       await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsOneWidget);
-      expect(tester.getSize(find.byType(BottomSheet)).height, lessThan(140));
+      expect(find.byType(FloraGlassSurface), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(FloraGlassSurface)).height,
+        lessThan(140),
+      );
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
 

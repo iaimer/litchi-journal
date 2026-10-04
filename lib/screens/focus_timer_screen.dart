@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../widgets/flora_origin.dart';
+import '../widgets/flora_sheet.dart';
+import '../widgets/flora_app_bar.dart';
 
 import '../models/focus_timer.dart';
 import '../services/focus_timer_controller.dart';
@@ -41,7 +44,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
         final seconds = widget.controller.elapsedSeconds();
         final color = Color(session.colorArgb);
         return Scaffold(
-          appBar: AppBar(title: const Text('专注计时')),
+          appBar: FloraAppBar(title: const Text('专注计时')),
           body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
@@ -143,12 +146,17 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: FilledButton.icon(
-                          onPressed: widget.controller.isBusy || _saving
-                              ? null
-                              : () => _finish(session),
-                          icon: const FloraIcon(FloraIcons.check),
-                          label: const Text('完成'),
+                        child: Builder(
+                          builder: (anchorContext) => FilledButton.icon(
+                            onPressed: widget.controller.isBusy || _saving
+                                ? null
+                                : () => FloraOrigin.run(
+                                    anchorContext,
+                                    () => _finish(session),
+                                  ),
+                            icon: const FloraIcon(FloraIcons.check),
+                            label: const Text('完成'),
+                          ),
                         ),
                       ),
                     ],
@@ -165,7 +173,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
   Future<void> _finish(FocusTimerSession session) async {
     final seconds = widget.controller.elapsedSeconds();
     final minutes = seconds ~/ 60;
-    final action = await showModalBottomSheet<_FinishAction>(
+    final action = await showFloraSheet<_FinishAction>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) {

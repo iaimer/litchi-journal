@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'flora_origin.dart';
+import 'flora_glass.dart';
+import 'flora_dock.dart';
 
 import '../theme/app_theme.dart';
 import 'flora_icon.dart';
@@ -46,6 +49,7 @@ class _QuickRecordFanState extends State<QuickRecordFan>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   bool _skipMotion = false;
+  BuildContext? _mainButtonContext;
 
   @override
   void initState() {
@@ -126,12 +130,19 @@ class _QuickRecordFanState extends State<QuickRecordFan>
   }
 
   Widget _buildFan(double progress) {
+    final aboveDock = FloraDockScope.maybeOf(context) != null;
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.bottomRight,
       children: [
         if (widget.expanded || progress > 0)
-          for (final action in widget.actions) _buildAction(action, progress),
+          for (var index = 0; index < widget.actions.length; index++)
+            _buildAction(
+              widget.actions[index],
+              progress,
+              angleDegrees: widget.actions[index].angleDegrees,
+              radius: aboveDock ? 150 : 120,
+            ),
         _buildMainButton(progress),
       ],
     );
@@ -139,25 +150,36 @@ class _QuickRecordFanState extends State<QuickRecordFan>
 
   Widget _buildMainButton(double progress) {
     final theme = Theme.of(context);
-    return FloatingActionButton(
-      key: widget.mainButtonKey,
-      tooltip: widget.tooltip,
-      backgroundColor: theme.colorScheme.primary,
-      foregroundColor: theme.colorScheme.onPrimary,
-      shape: const CircleBorder(),
-      onPressed: widget.onToggle,
-      child: Transform.rotate(
-        angle: progress * math.pi / 4,
-        child: const FloraIcon(FloraIcons.add, size: 24),
-      ),
+    return Builder(
+      key: const ValueKey('quick_record_main_anchor'),
+      builder: (mainContext) {
+        _mainButtonContext = mainContext;
+        return FloatingActionButton(
+          key: widget.mainButtonKey,
+          tooltip: widget.tooltip,
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
+          shape: const CircleBorder(),
+          onPressed: widget.onToggle,
+          child: Transform.rotate(
+            angle: progress * math.pi / 4,
+            child: const FloraIcon(FloraIcons.add, size: 24),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildAction(QuickRecordFanAction action, double progress) {
+  Widget _buildAction(
+    QuickRecordFanAction action,
+    double progress, {
+    required double angleDegrees,
+    required double radius,
+  }) {
     const mainCenter = 28.0;
     const hitSize = 48.0;
-    final angle = action.angleDegrees * math.pi / 180;
-    final offset = Offset(120 * math.cos(angle), -120 * math.sin(angle));
+    final angle = angleDegrees * math.pi / 180;
+    final offset = Offset(radius * math.cos(angle), -radius * math.sin(angle));
     final interactive = widget.expanded && progress > 0;
     return Positioned(
       right: mainCenter - hitSize / 2,
@@ -175,6 +197,7 @@ class _QuickRecordFanState extends State<QuickRecordFan>
                 action: action,
                 enabled: interactive,
                 visualScale: 0.85 + 0.15 * progress,
+                returnContext: () => _mainButtonContext,
               ),
             ),
           ),
@@ -188,16 +211,25 @@ class _FanActionButton extends StatelessWidget {
   final QuickRecordFanAction action;
   final bool enabled;
   final double visualScale;
+  final BuildContext? Function() returnContext;
 
   const _FanActionButton({
     super.key,
     required this.action,
     required this.enabled,
     required this.visualScale,
+    required this.returnContext,
   });
 
   @override
   Widget build(BuildContext context) {
+    final onTap = enabled
+        ? () => FloraOrigin.run(
+            context,
+            action.onTap,
+            returnContext: returnContext(),
+          )
+        : null;
     return Tooltip(
       message: action.title,
       child: ExcludeFocus(
@@ -210,20 +242,22 @@ class _FanActionButton extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               excludeFromSemantics: true,
-              onTap: enabled ? action.onTap : null,
+              onTap: onTap,
               child: Center(
                 child: Transform.scale(
                   scale: visualScale,
                   child: SizedBox.square(
                     dimension: 42,
                     child: Material(
-                      color: Theme.of(context).colorScheme.surface,
-                      elevation: 2,
+                      color: Colors.transparent,
                       shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: enabled ? action.onTap : null,
-                        child: Center(child: action.icon),
+                      child: FloraGlassSurface(
+                        borderRadius: BorderRadius.circular(FloraRadius.pill),
+                        child: FloraInkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: onTap,
+                          child: Center(child: action.icon),
+                        ),
                       ),
                     ),
                   ),

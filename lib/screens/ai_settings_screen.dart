@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_origin.dart';
 
 import '../models/ai_config.dart';
 import '../services/ai_config_repository.dart';
@@ -156,7 +157,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            InkWell(
+            FloraInkWell(
               key: const ValueKey('ai_enabled_toggle'),
               onTap: () => setState(() => _enabled = !_enabled),
               borderRadius: BorderRadius.circular(FloraRadius.sm),

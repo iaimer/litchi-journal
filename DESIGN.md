@@ -91,7 +91,7 @@ components:
     rounded: "{rounded.md}"
     padding: "16px"
   navigation-selected:
-    backgroundColor: "{colors.paper-soft}"
+    backgroundColor: "transparent"
     textColor: "{colors.ink-primary}"
     typography: "{typography.label}"
     rounded: "{rounded.pill}"
@@ -178,6 +178,13 @@ Flutter 主题显式提供 `onSurfaceVariant`、`outline`、`outlineVariant`、
 Lucide SVG 保留官方 `24×24` 画板、`2px` 描边、`fill="none"`、
 `stroke="currentColor"`、圆形端点和圆形转角。现存习惯逻辑名及旧 emoji 配置
 继续兼容，不迁移用户数据。
+
+Dock 的三枚选中态图标为项目基于现有 Lucide 轮廓制作的实心派生版本，独立存放于
+`assets/icons/navigation/`，不冒充官方实心资源，不覆盖原空心 SVG。仅 Dock 根据当前
+页面使用这些资源；其他界面与习惯配置不变。派生版本保持 `24×24` 和 `currentColor`，
+照片细节和日记本纸页使用真实透明镂空，不使用白色填充，浅深色共享资源。
+日记本保留实心书脊、独立笔尖和纸页文字，不能把主体填成难以辨认的深色块。
+本子上沿和右沿保持完整闭合，不借笔的位置切断外轮廓，避免呈现缺页或破碎感。
 
 Lordicon 仅用于过往空状态的书本和明确成功后的 SnackBar 勾选反馈。资源从本地
 打包，动画只播放一次 `in-reveal`，不循环；系统减少动态效果时使用对应静态 SVG。
@@ -284,13 +291,29 @@ Lucide、Lordicon 图标 ID、下载日期和完整许可文本见 `docs/THIRD_P
 
 ### Navigation
 
-- 底部导航保留“今天、过往、习惯”三个核心工作区，使用 iOS 风格的稳定位置与轻量选中背景。
+- 底部导航保留“今天、过往、习惯”三个核心工作区，浮动玻璃 Dock 在三个页面同宽居中；今天页独立 FAB 位于 Dock 上方右侧。
+- 当前页面使用实心图标和加粗文字，其他项使用空心图标，不添加选中椭圆底色。Dock 局部同时关闭覆盖色和水波纹，按下、松开与选中切换都不得闪现椭圆背景，不影响其他按钮的反馈。图标均为 24dp，选中切换不增加缩放或位移；键盘焦点与页面选中状态独立，以图标下方短线表达。
+- 所有 AppBar 返回箭头保持透明，无常驻圆底、边框、阴影或局部模糊；保留 48×48dp 点击区域、原图标中心、短暂按下/焦点反馈和来源返回动效。整条玻璃头部、右侧操作及图片关闭按钮不变。
 - 一级页标题左对齐；日期或设置等辅助操作位于头部右侧。
 - 日期导航优先使用可理解的年月日文本、月历和左右切换，不发明陌生手势作为唯一入口。
 
+### Glass And Origin Motion
+
+- 玻璃是导航与操作层的明确例外，不是正文装饰：仅用于顶部背景、Dock、扇形子入口与操作面板。日记纸面、章节色标、正文、标签颜色不变；Banner 在本项目指顶部操作区域，不包括 SnackBar。内容滚入标题背后才形成实际背景模糊，标题和图标始终清晰；整条头部不重复叠加按钮玻璃。
+- `FloraGlassSurface` 在裁切后的局部区域模糊，`FloraGlass` 统一 sigma 18、边线 0.8dp；顶部与 Dock 浅色填充 0.42、深色 0.60，操作菜单继续使用浅色 0.78、深色 0.82，避免强化导航时一并削弱菜单可读性。高对比度模式取消模糊并使用不透明表面。圆形、pill 和浮层 16dp 按语义选择。
+- `FloraOrigin.run()` 从实际控件获取来源，在该操作的异步链内传递；不得用全局“最后点击位置”。路由进入从来源展开，普通返回或保存后收回仍存在的入口；来源卸载或离屏时退化为短淡出。
+- 从 FAB 子入口展开记录页，返回到稳定的主加号；条目编辑回到原条目的三点按钮，不回到已经关闭的菜单项。短编辑/删除菜单使用按钮附近的安全区域；时间、饮水和步数等大面板保持原有最终位置和操作语义。
+- 二级页面进入 320ms、退出 220ms；菜单、面板和确认弹窗进入 220ms、退出 160ms。根纸页不附加系统次级位移，避免返回目标漂移。
+- Android 左/右边缘预测返回分别朝同侧退出，取消后恢复可点击页面；提交与取消使用松手时的实际位置连续衔接。未提交记录继续由 `PopScope` 确认，不为了动画放宽退出条件。
+- 减少动画和停用 Ticker 同时结束控制器计时；即使设置在打开后才改变，后续退出也立即完成。拖动中禁用动画取消尚未提交的手势并释放导航锁。确认弹窗保持 Tab/Shift+Tab 闭环。
+- Dock 的底部安全区与阅读避让由 `FloraDockScope` 统一提供，页面末尾必须能滚到 Dock 与加号上方。三个主页面 Dock 始终同宽同位置；今天页加号在 Dock 上方右侧，相隔 12dp。展开入口使用 180/155/130/105 度极坐标与 150dp 半径，热区完整处于 Dock 上方且不互相重叠；历史补录无 Dock，保留原角度和 120dp 半径。
+- FAB 定位按值相等并关闭 Scaffold 的默认移动缩放，避免冷启动和重建导致整个菜单缩小后恢复。菜单自身的 220/160ms 径向动画不受影响。玻璃 AppBar 明确设置浅深色状态栏图标，过往与习惯的自然高度置顶头部最后绘制，确保真实背景采样。
+
+2026-10-04 真机反馈修正：此前终点布局检查遗漏了 Scaffold 中间帧缩放；本轮补齐逐帧、背景像素与前景清晰度对照，完整 Flutter 测试 659 项及静态检查通过。审查发现的重复玻璃和浅色状态栏白字均已修复并复核。`test_36` 使用临时数据检查浅深色、320dp/1.3 倍字体和关闭系统动画，执行 5 次冷启动、20 次 Dock 切换与 20 次菜单点击。实际截图存放于 `docs/design-reference/glass-origin-motion/`，仅作验收参考：[滚动首页](docs/design-reference/glass-origin-motion/litchi-glass-correction-scroll-light.png)、[过往玻璃](docs/design-reference/glass-origin-motion/litchi-glass-correction-past-light.png)、[菜单](docs/design-reference/glass-origin-motion/litchi-glass-correction-menu-light.png)、[窄屏深色](docs/design-reference/glass-origin-motion/litchi-glass-correction-narrow-dark.png)。正常入口 Release 测试包已构建；ColorOS 真机最终观感与 GPU 性能仍需用户装机验证，本轮未正式发布。
+
 ### Quick Record Fan
 
-- 今天与历史补录共用 `QuickRecordFan`，保留既有入口顺序、极坐标角度和 `120dp` 半径；主按钮 `56dp`、子按钮视觉 `42dp`、点击区域 `48dp`。
+- 今天与历史补录共用 `QuickRecordFan`，保留入口顺序与极坐标计算；今天按 Dock 避让规则展开，历史保留原角度和 `120dp` 半径。主按钮 `56dp`、子按钮视觉 `42dp`、点击区域 `48dp`。
 - 子按钮同步沿径向散开，叠加透明度和 `0.85 → 1` 的视觉缩放；展开使用 `FloraMotion.standard`（220ms），收回使用 `FloraMotion.fast`（160ms），曲线为 `easeOutQuart`，不弹跳、不错峰。加号随进度连续旋转 `45°` 成为关闭符号。
 - 关闭开始即禁用子按钮点击和无障碍入口，同时清空底层操作回调并排除焦点，阻止已按下的手势松开或键盘回车触发记录入口；收回结束后才移除绘制内容。反复点击从当前位置转向，按剩余距离计算时长，不重置进度；选择入口立即路由，不等待动画，返回后保持关闭。
 - 系统减少动态效果时立即完成；动画中启用该设置或路由停用 `TickerMode` 时同样直接到达目标，不留下半展开状态。动画仅改变绘制变换，不逐帧重新计算布局。
@@ -309,6 +332,8 @@ Lucide、Lordicon 图标 ID、下载日期和完整许可文本见 `docs/THIRD_P
 
 - 今天页日期使用“月日 + 星期”的两级标题，历史详情额外显示年份；日期层级应适配系统字体放大，不能依赖单行缩略。
 - 今日回顾使用中性开放式阅读区：与页面共享底色，不使用内层纸面填充、圆角或长左线；通过 Flora 小标题、正文层级和段落留白建立阅读结构，不使用完整彩色标题卡或常驻重阴影。
+- 今天仅有习惯记录或默认习惯卡时，不显示空的今日回顾和生成入口；空标题、未填写模板不算其他内容。新增非习惯内容后恢复入口，已保存的回顾与历史只读展示保持可读，不删除存储内容。
+- 服务端的 `HH:MM 内容 #标签` 示例由 Parser 识别为占位，不参与真实内容判断；验证回顾可见性必须覆盖完整服务端模板、习惯更新以及新增和移除正文，不能只使用简化空模板。
 - 今日回顾的五个内部模块在展示层使用 Flora 图标和纯文本标题；Markdown 中的旧 emoji 标题只作为兼容输入，不直接成为界面主视觉。
 
 ### Anxiety, Tomorrow, And Media
@@ -359,6 +384,8 @@ Lucide、Lordicon 图标 ID、下载日期和完整许可文本见 `docs/THIRD_P
 | stroke-width | `2` |
 | stroke-linecap / linejoin | `round` |
 | 色彩 | `fill="none"` + `stroke="currentColor"`，单色、无渐变、无半透明 |
+
+以上描边基线适用于官方 Lucide 静态资源；Dock 三枚实心选中派生图标是单独记录的例外，不放宽原资源的规范测试。
 
 - 运行时颜色由 `FloraIcon(color: ...)` 或主题 `colorScheme` 注入：浅色注入 `AppColors.primary` / `textPrimary`，深色注入 `AppColors.darkPrimary` / `darkTextPrimary`；`currentColor` 天然适配深色，无需 dark 变体文件。
 - 双色例外仅两类：空状态插图（辅色 ≤20% 面积）、启动页品牌图（辅色 ≤30% 面积）。

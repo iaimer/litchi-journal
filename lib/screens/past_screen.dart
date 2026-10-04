@@ -2,6 +2,11 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../widgets/flora_dialog.dart';
+import '../widgets/flora_dock.dart';
+import '../widgets/flora_glass.dart';
+import '../widgets/flora_page_route.dart';
+import '../widgets/flora_origin.dart';
 
 import '../models/gallery_result.dart';
 import '../models/memory_entry.dart';
@@ -32,6 +37,8 @@ class _PastScreenState extends State<PastScreen> {
   late GalleryService _galleryService;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _galleryViewportKey = GlobalKey();
+  final GlobalKey _headerKey = GlobalKey();
+  double _headerExtent = 0;
   final Map<String, GlobalKey> _monthKeys = {};
   final Map<String, Set<String>> _recordedDatesByMonth = {};
 
@@ -209,9 +216,10 @@ class _PastScreenState extends State<PastScreen> {
   }
 
   void _syncDisplayedMonth() {
-    final viewport = _galleryViewportKey.currentContext?.findRenderObject();
-    if (viewport is! RenderBox) return;
-    final viewportTop = viewport.localToGlobal(Offset.zero).dy;
+    final header = _headerKey.currentContext?.findRenderObject();
+    if (header is! RenderBox) return;
+    final viewportTop =
+        header.localToGlobal(Offset.zero).dy + header.size.height;
     DateTime? visibleMonth;
     var visibleTop = double.negativeInfinity;
 
@@ -298,7 +306,7 @@ class _PastScreenState extends State<PastScreen> {
   Future<void> _openCalendarDate(DateTime date) async {
     setState(() => _calendarExpanded = false);
     await Navigator.of(context).push(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) =>
             ReadOnlyDiaryScreen(date: date, apiClient: widget.apiClient),
       ),
@@ -311,7 +319,7 @@ class _PastScreenState extends State<PastScreen> {
 
   Future<void> _openGalleryDay(GalleryDay day) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => GalleryImageViewerScreen(
           day: day,
           galleryService: _galleryService,
@@ -330,12 +338,14 @@ class _PastScreenState extends State<PastScreen> {
     final initialDate = requestedInitialDate.isAfter(lastDate)
         ? lastDate
         : requestedInitialDate;
-    final selected = await showDatePicker(
+    final selected = await showFloraDialog<DateTime>(
       context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2000),
-      lastDate: lastDate,
-      helpText: '选择画廊月份',
+      builder: (_) => DatePickerDialog(
+        initialDate: initialDate,
+        firstDate: DateTime(2000),
+        lastDate: lastDate,
+        helpText: '选择画廊月份',
+      ),
     );
     if (selected == null) return;
     await _jumpToMonth(DateTime(selected.year, selected.month));
@@ -393,25 +403,29 @@ class _PastScreenState extends State<PastScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    _measureHeader();
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         top: false,
-        bottom: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(theme),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _refresh,
-                child: _buildGalleryScroll(theme),
-              ),
-            ),
-          ],
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          edgeOffset: _headerExtent,
+          child: _buildGalleryScroll(theme),
         ),
       ),
     );
+  }
+
+  void _measureHeader() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final header = _headerKey.currentContext?.findRenderObject();
+      if (header is! RenderBox || header.size.height == _headerExtent) return;
+      setState(() => _headerExtent = header.size.height);
+      _scheduleMonthSync();
+    });
   }
 
   Widget _buildHeader(ThemeData theme) {
@@ -429,21 +443,25 @@ class _PastScreenState extends State<PastScreen> {
           Row(
             children: [
               Expanded(child: Text('过往', style: theme.textTheme.headlineLarge)),
-              IconButton(
-                key: const Key('gallery_random_button'),
-                tooltip: canRandom ? '随机回顾' : '暂无照片可回顾',
-                onPressed: canRandom ? _openRandomDay : null,
-                icon: const FloraIcon(FloraIcons.shuffle),
+              _buildHeaderButton(
+                IconButton(
+                  key: const Key('gallery_random_button'),
+                  tooltip: canRandom ? '随机回顾' : '暂无照片可回顾',
+                  onPressed: canRandom ? _openRandomDay : null,
+                  icon: const FloraIcon(FloraIcons.shuffle),
+                ),
               ),
-              IconButton(
-                key: const Key('history_calendar_toggle'),
-                tooltip: _calendarExpanded ? '收起日历' : '选择日期',
-                onPressed: _toggleCalendar,
-                icon: FloraIcon(
-                  _calendarExpanded
-                      ? FloraIcons.chevronUp
-                      : FloraIcons.calendar,
-                  size: 20,
+              _buildHeaderButton(
+                IconButton(
+                  key: const Key('history_calendar_toggle'),
+                  tooltip: _calendarExpanded ? '收起日历' : '选择日期',
+                  onPressed: _toggleCalendar,
+                  icon: FloraIcon(
+                    _calendarExpanded
+                        ? FloraIcons.chevronUp
+                        : FloraIcons.calendar,
+                    size: 20,
+                  ),
                 ),
               ),
             ],
@@ -471,6 +489,16 @@ class _PastScreenState extends State<PastScreen> {
     );
   }
 
+  Widget _buildHeaderButton(IconButton button) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: SizedBox.square(
+        dimension: 48,
+        child: FloraOriginIconButton(button: button),
+      ),
+    );
+  }
+
   Widget _buildMonthPicker(ThemeData theme) {
     return Row(
       children: [
@@ -481,7 +509,7 @@ class _PastScreenState extends State<PastScreen> {
           icon: const FloraIcon(FloraIcons.chevronLeft),
         ),
         Expanded(
-          child: InkWell(
+          child: FloraInkWell(
             key: const Key('gallery_month_picker'),
             borderRadius: BorderRadius.circular(FloraRadius.pill),
             onTap: _pickMonth,
@@ -521,7 +549,12 @@ class _PastScreenState extends State<PastScreen> {
       key: _galleryViewportKey,
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
+      // 图墙先绘制，置顶头部才能采样已经滚入背后的真实内容。
+      paintOrder: SliverPaintOrder.firstIsTop,
       slivers: [
+        PinnedHeaderSliver(
+          child: FloraGlassHeader(key: _headerKey, child: _buildHeader(theme)),
+        ),
         if (_galleryLoading && _galleryMonths.isNotEmpty)
           const SliverToBoxAdapter(
             child: LinearProgressIndicator(minHeight: 2),
@@ -611,7 +644,11 @@ class _PastScreenState extends State<PastScreen> {
               ),
             ),
         ],
-        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 32 + (FloraDockScope.maybeOf(context)?.clearance ?? 0),
+          ),
+        ),
       ],
     );
   }
@@ -797,7 +834,7 @@ class _MemoryCapsuleState extends State<_MemoryCapsule> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(FloraRadius.md),
       ),
-      child: InkWell(
+      child: FloraInkWell(
         onTap: widget.onTap,
         child: Padding(
           padding: const EdgeInsets.all(10),

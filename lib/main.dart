@@ -8,7 +8,7 @@ import 'screens/home_screen.dart';
 import 'screens/past_screen.dart';
 import 'screens/habit_stats_screen.dart';
 import 'theme/app_theme.dart';
-import 'widgets/flora_icon.dart';
+import 'widgets/flora_dock.dart';
 import 'widgets/flora_skeleton.dart';
 import 'widgets/flora_splash.dart';
 import 'screens/setup_screen.dart';
@@ -193,35 +193,43 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final screens = _buildScreens();
+    final dockHeight = FloraDock.heightFor(context);
+    final systemBottom = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-            if (index == 2) {
-              _habitRefreshToken++;
-            }
-          });
-        },
-        destinations: [
-          NavigationDestination(
-            icon: FloraIcon(FloraIcons.diary, size: 24),
-            selectedIcon: FloraIcon(FloraIcons.diary, size: 24),
-            label: '今天',
+      extendBody: true,
+      body: FloraDockScope(
+        clearance: dockHeight + 8 + 12 + 56 + 16 + systemBottom,
+        fabBottom: systemBottom + 8 + dockHeight + 12,
+        child: MediaQuery.removePadding(
+          context: context,
+          removeBottom: true,
+          child: IndexedStack(index: _currentIndex, children: screens),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: FloraDock(
+                  selectedIndex: _currentIndex,
+                  height: dockHeight,
+                  onSelected: (index) {
+                    if (index == _currentIndex && index != 2) return;
+                    setState(() {
+                      _currentIndex = index;
+                      if (index == 2) {
+                        _habitRefreshToken++;
+                      }
+                    });
+                  },
+                ),
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: FloraIcon(FloraIcons.history, size: 24),
-            selectedIcon: FloraIcon(FloraIcons.history, size: 24),
-            label: '过往',
-          ),
-          NavigationDestination(
-            icon: FloraIcon(FloraIcons.habits, size: 24),
-            selectedIcon: FloraIcon(FloraIcons.habits, size: 24),
-            label: '习惯',
-          ),
-        ],
+        ),
       ),
     );
   }

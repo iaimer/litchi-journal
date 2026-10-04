@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../widgets/flora_dock.dart';
+import '../widgets/flora_page_route.dart';
+import '../widgets/flora_app_bar.dart';
+import '../widgets/flora_origin.dart';
 
 import '../widgets/flora_icon.dart';
 import '../widgets/flora_success_snackbar.dart';
@@ -506,7 +510,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openFocusTimer() async {
     if (!mounted || _focusTimerController.session == null) return;
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => FocusTimerScreen(
           controller: _focusTimerController,
           onSave: _saveFocusDuration,
@@ -843,7 +847,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openAnxietyCapture() async {
     final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => AnxietyScreen(
           date: _activeDate,
           draftRepository: _draftRepository,
@@ -865,7 +869,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openQuickCapture(EntryType type) async {
     final result = await Navigator.of(context).push<QuickCaptureResult>(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => QuickCaptureScreen(
           entryType: type,
           openedAt: DateTime.now(),
@@ -914,7 +918,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Material(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(FloraRadius.md),
-              child: InkWell(
+              child: FloraInkWell(
                 onTap: _openFocusTimer,
                 borderRadius: BorderRadius.circular(FloraRadius.md),
                 child: Padding(
@@ -963,7 +967,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHomeLoading() {
     return FloraSkeletonRegion(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        padding: EdgeInsets.fromLTRB(16, _headerInset + 16, 16, 96),
         children: [
           const FloraSkeletonBox(width: 180, height: 16),
           const SizedBox(height: 24),
@@ -1001,11 +1005,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  double get _headerInset =>
+      DiaryDateTitle.preferredToolbarHeight(context) +
+      MediaQuery.paddingOf(context).top;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
+      extendBodyBehindAppBar: true,
+      appBar: FloraAppBar(
+        glassBackground: true,
         toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
         centerTitle: false,
         backgroundColor: theme.scaffoldBackgroundColor,
@@ -1019,7 +1029,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const FloraIcon(FloraIcons.settings, size: 24),
             onPressed: () async {
               await Navigator.of(context).push(
-                MaterialPageRoute(
+                FloraPageRoute(
                   builder: (_) => SettingsPage(
                     apiConfig: ApiConfig(
                       baseUrl: widget.apiClient.baseUrl,
@@ -1040,9 +1050,13 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: _buildQuickRecordFab(theme),
+      floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
+      floatingActionButtonLocation: FloraDockScope.maybeOf(context) == null
+          ? FloatingActionButtonLocation.endFloat
+          : FloraDockFabLocation(FloraDockScope.maybeOf(context)!.fabBottom),
       body: SafeArea(
         top: false,
-        bottom: true,
+        bottom: false,
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: () {
@@ -1058,9 +1072,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: RefreshIndicator(
                     onRefresh: _loadDiary,
+                    edgeOffset: _headerInset,
                     child: ListView(
                       controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        _headerInset,
+                        16,
+                        FloraDockScope.maybeOf(context)?.clearance ?? 0,
+                      ),
                       children: [
                         if (_refreshing)
                           const SizedBox(

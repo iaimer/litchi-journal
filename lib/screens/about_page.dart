@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_origin.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -202,7 +203,7 @@ class _AboutPageState extends State<AboutPage> {
         Semantics(
           button: true,
           label: 'Animated icons by Lordicon.com',
-          child: InkWell(
+          child: FloraInkWell(
             onTap: _openLordiconAttribution,
             borderRadius: BorderRadius.circular(FloraRadius.sm),
             child: SizedBox(

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'flora_origin.dart';
 
 import '../models/gallery_result.dart';
 import '../services/api_client.dart';
@@ -64,7 +65,7 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return GestureDetector(
-      onTap: widget.onTap,
+      onTap: () => FloraOrigin.run(context, widget.onTap),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(FloraRadius.sm),
         child: AspectRatio(
@@ -146,7 +147,7 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
     final unavailable = error is ApiException && error.statusCode == 404;
     return Material(
       color: theme.colorScheme.surfaceContainerHighest,
-      child: InkWell(
+      child: FloraInkWell(
         onTap: unavailable ? null : _retry,
         child: Center(
           child: Column(

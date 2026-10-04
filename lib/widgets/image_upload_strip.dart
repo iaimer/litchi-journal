@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'flora_origin.dart';
 
 import '../models/image_upload_item.dart';
 import '../theme/app_theme.dart';
@@ -216,7 +217,7 @@ class _ImageUploadTileState extends State<ImageUploadTile> {
       case ImageUploadStatus.failed:
         return Material(
           color: Colors.black.withValues(alpha: 0.62),
-          child: InkWell(
+          child: FloraInkWell(
             key: ValueKey('retry_image_${item.id}'),
             onTap: widget.onRetry,
             child: const Center(

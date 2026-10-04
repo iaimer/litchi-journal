@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../widgets/flora_origin.dart';
+import '../widgets/flora_page_route.dart';
+import '../widgets/flora_app_bar.dart';
 import 'package:flutter/services.dart';
 
 import '../models/gallery_result.dart';
@@ -63,7 +66,7 @@ class _GalleryImageViewerScreenState extends State<GalleryImageViewerScreen> {
       ),
       child: Scaffold(
         backgroundColor: Colors.black,
-        appBar: AppBar(
+        appBar: FloraAppBar(
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -112,12 +115,15 @@ class _GalleryImageViewerScreenState extends State<GalleryImageViewerScreen> {
                             ),
                           ),
                         ),
-                        TextButton.icon(
-                          onPressed: _openDiary,
-                          icon: const FloraIcon(FloraIcons.habitRead),
-                          label: const Text('查看当天日记'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.white,
+                        Builder(
+                          builder: (anchorContext) => TextButton.icon(
+                            onPressed: () =>
+                                FloraOrigin.run(anchorContext, _openDiary),
+                            icon: const FloraIcon(FloraIcons.habitRead),
+                            label: const Text('查看当天日记'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white,
+                            ),
                           ),
                         ),
                       ],
@@ -134,7 +140,7 @@ class _GalleryImageViewerScreenState extends State<GalleryImageViewerScreen> {
 
   Future<void> _openDiary() async {
     await Navigator.of(context).push(
-      MaterialPageRoute(
+      FloraPageRoute(
         builder: (_) => ReadOnlyDiaryScreen(
           date: widget.day.dateTime,
           apiClient: widget.apiClient,

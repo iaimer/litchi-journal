@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'flora_origin.dart';
 
 import '../models/tag_config.dart';
 import '../theme/app_theme.dart';
@@ -125,7 +126,9 @@ class JournalEntryActionSlot extends StatelessWidget {
         iconSize: 16,
         tooltip: '更多操作',
         icon: const FloraIcon(FloraIcons.more, size: 18),
-        onPressed: onPressed,
+        onPressed: onPressed == null
+            ? null
+            : () => FloraOrigin.run(context, onPressed!),
       ),
     );
   }

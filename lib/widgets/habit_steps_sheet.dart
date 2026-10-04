@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'flora_sheet.dart';
 import 'package:flutter/services.dart';
 
 import '../models/habit_settings.dart';
@@ -6,13 +7,13 @@ import '../theme/app_theme.dart';
 
 Future<int?> showHabitStepsSheet(BuildContext context, {required int current}) {
   final theme = Theme.of(context);
-  return showModalBottomSheet<int>(
+  return showFloraSheet<int>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: theme.colorScheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(FloraRadius.lg)),
+      borderRadius: BorderRadius.all(Radius.circular(FloraRadius.lg)),
     ),
     builder: (sheetContext) => _HabitStepsSheet(current: current),
   );

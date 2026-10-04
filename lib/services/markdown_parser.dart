@@ -3,6 +3,7 @@ import '../models/diary_document.dart';
 final _calloutStart = RegExp(r'^>\s*\[!(\w+)\]\s*(.*)$');
 final _checkboxLine = RegExp(r'^-\s*\[([ xX])\]\s*(.*)$');
 final _timelineLine = RegExp(r'^(?:>\s*|-\s*)\*\*(\d{2}:\d{2})\*\*\s*(.*)$');
+final _templateTimeLine = RegExp(r'^(?:>\s*|-\s*)\*\*(HH:MM)\*\*\s*(.*)$');
 final _sectionHeader = RegExp(r'^#{2,3}\s+(.*)$');
 final _mainTitle = RegExp(r'^#\s+(.*)$');
 final _htmlComment = RegExp(r'^<!--.*-->$');
@@ -344,7 +345,10 @@ class MarkdownParser {
       return true;
     }
 
-    final timelineMatch = _timelineLine.firstMatch(trimmed);
+    // 服务端空模板用 HH:MM；仅数字时间匹配会把示例误算为真实正文。
+    final timelineMatch =
+        _timelineLine.firstMatch(trimmed) ??
+        _templateTimeLine.firstMatch(trimmed);
     return timelineMatch != null &&
         timelineMatch.group(2)!.trim() == _templateTimelineText;
   }

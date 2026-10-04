@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'flora_sheet.dart';
+import 'flora_origin.dart';
 
 import '../models/diary_document.dart';
 import '../models/focus_timer.dart';
@@ -762,7 +764,7 @@ class _HabitCardState extends State<HabitCard> {
     int currentMinutes,
   ) async {
     final controller = TextEditingController();
-    final result = await showModalBottomSheet<_DurationEditResult>(
+    final result = await showFloraSheet<_DurationEditResult>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -976,7 +978,7 @@ class _CompactHabitRow extends StatelessWidget {
         );
 
         final rowInteractive = onTap != null || onLongPress != null;
-        final content = InkWell(
+        final content = FloraInkWell(
           onTap: enabled ? onTap : null,
           onLongPress: enabled ? onLongPress : null,
           borderRadius: BorderRadius.circular(FloraRadius.sm),
@@ -1000,8 +1002,12 @@ class _CompactHabitRow extends StatelessWidget {
             hint: semanticHint,
             onTapHint: onTapHint,
             onLongPressHint: onLongPressHint,
-            onTap: enabled ? onTap : null,
-            onLongPress: enabled ? onLongPress : null,
+            onTap: enabled && onTap != null
+                ? () => FloraOrigin.run(context, onTap!)
+                : null,
+            onLongPress: enabled && onLongPress != null
+                ? () => FloraOrigin.run(context, onLongPress!)
+                : null,
             child: content,
           );
         }
@@ -1403,7 +1409,7 @@ class _HabitProgressBar extends StatelessWidget {
     );
     final content = !hasTapTarget
         ? progressContent
-        : InkWell(
+        : FloraInkWell(
             onTap: onTap,
             excludeFromSemantics: true,
             borderRadius: BorderRadius.circular(FloraRadius.sm),
@@ -1421,7 +1427,7 @@ class _HabitProgressBar extends StatelessWidget {
       hint: hasTapTarget ? tapHint : null,
       button: hasTapTarget ? true : null,
       enabled: hasTapTarget ? true : null,
-      onTap: hasTapTarget ? onTap : null,
+      onTap: hasTapTarget ? () => FloraOrigin.run(context, onTap!) : null,
       excludeSemantics: true,
       child: content,
     );

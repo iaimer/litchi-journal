@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'flora_sheet.dart';
+import 'flora_origin.dart';
 import 'package:flutter/services.dart';
 
 import '../models/habit_settings.dart';
@@ -24,13 +26,13 @@ Future<HabitWaterAction?> showHabitWaterSheet(
   Future<bool> Function(List<int> amounts)? onQuickAmountsChanged,
 }) {
   final theme = Theme.of(context);
-  return showModalBottomSheet<HabitWaterAction>(
+  return showFloraSheet<HabitWaterAction>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: theme.colorScheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(FloraRadius.lg)),
+      borderRadius: BorderRadius.all(Radius.circular(FloraRadius.lg)),
     ),
     builder: (sheetContext) => _HabitWaterSheet(
       current: current,
@@ -407,7 +409,7 @@ class _ActionTile extends StatelessWidget {
       child: Material(
         color: tileColor,
         borderRadius: BorderRadius.circular(FloraRadius.lg),
-        child: InkWell(
+        child: FloraInkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(FloraRadius.lg),
           child: SizedBox(

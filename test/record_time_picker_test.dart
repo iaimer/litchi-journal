@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:litchi_journal_flutter/widgets/flora_glass.dart';
 import 'package:litchi_journal_flutter/models/quick_capture_submission.dart';
 import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
@@ -98,6 +99,17 @@ void main() {
     expect(find.byKey(const Key('record_time_confirm')), findsOneWidget);
     final sheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
     expect(sheet.showDragHandle, isTrue);
+    expect(
+      tester
+          .widget<FloraGlassSurface>(
+            find.ancestor(
+              of: find.byType(BottomSheet),
+              matching: find.byType(FloraGlassSurface),
+            ),
+          )
+          .borderRadius,
+      const BorderRadius.all(Radius.circular(FloraRadius.lg)),
+    );
     expect(
       tester.getCenter(find.text('选择发生时间')).dx,
       closeTo(tester.getCenter(find.text('2026年7月10日')).dx, 1),
@@ -264,7 +276,28 @@ void main() {
       await _openPicker(tester);
 
       final sheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
-      expect(sheet.backgroundColor, AppColors.darkSurface);
+      expect(sheet.backgroundColor, Colors.transparent);
+      final glassFinder = find.ancestor(
+        of: find.byType(BottomSheet),
+        matching: find.byType(FloraGlassSurface),
+      );
+      final glass = tester.widget<FloraGlassSurface>(glassFinder);
+      expect(glass.tint, AppColors.darkSurface);
+      final surface = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: find.descendant(
+                of: glassFinder,
+                matching: find.byType(BackdropFilter),
+              ),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      expect(
+        (surface.decoration as BoxDecoration).color,
+        AppColors.darkSurface.withValues(alpha: 0.82),
+      );
       expect(tester.getSize(find.byType(BottomSheet)).height, greaterThan(500));
       expect(find.byKey(const Key('record_time_cancel')), findsOneWidget);
       expect(find.byKey(const Key('record_time_confirm')), findsOneWidget);

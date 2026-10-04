@@ -4,11 +4,11 @@
 
 ## 当前目标与上下文
 
-当前功能分支为 `codex/fan-menu-motion-20261004`，已实现并复审今天页与历史补录菜单动效，版本更新为 `1.8.3+36` 供用户真机验收，尚未合并或推送。`QuickRecordFan` 保留既有入口位置和 48dp 点击热区；220ms 同步展开、160ms 收回，位移／透明度／视觉缩放及加号旋转共用进度。关闭即禁用子入口，结束后移除；连续点击从当前值反转，减少动态效果及隐藏路由立即完成，选择入口不等待动效，返回后关闭。
+本次交付版本为 `1.8.3+36`，用户已于 2026-10-04 确认真机验证完成并授权合并推送；源功能分支为 `codex/fan-menu-motion-20261004`。今天页与历史补录菜单动效已实现、复审并修复。`QuickRecordFan` 保留既有入口位置和 48dp 点击热区；220ms 同步展开、160ms 收回，位移／透明度／视觉缩放及加号旋转共用进度。关闭即禁用子入口，结束后移除；连续点击从当前值反转，减少动态效果及隐藏路由立即完成，选择入口不等待动效，返回后关闭。
 
 规范与需求双轴审查发现：仅靠 `IgnorePointer`／`ExcludeSemantics` 无法撤销已按下的手势和现有键盘焦点。两项新增回归测试先复现失败，再通过传递 `enabled` 清空内外回调、增加 `ExcludeFocus` 修复。累计新增 13 项测试，完整 Flutter 测试 600 项与 `flutter analyze` 通过；覆盖展开／收回中间帧、连续反转、关闭交互禁用、减少动态效果、隐藏路由、途中选择与返回、浅深色窄屏大字体及 48dp 热区。
 
-`1.8.3+36` Release APK 已构建，路径为 `build/app/outputs/flutter-apk/app-release.apk`，约 67.1MB；清单 versionName `1.8.3`／versionCode `36` 与签名校验通过，签名证书与上一版一致。`git diff --check` 通过。本轮更新版本号及面向用户的 CHANGELOG，不改服务端、签名或包名，不创建 tag／GitHub Release。真机覆盖安装与顺滑度录屏验收由用户执行，尚未安装设备。
+`1.8.3+36` Release APK 已构建，路径为 `build/app/outputs/flutter-apk/app-release.apk`，约 67.1MB；清单 versionName `1.8.3`／versionCode `36` 与签名校验通过，签名证书与上一版一致。`git diff --check` 通过。发布沿用用户已验收的版本与安装包，不重复升版或重新打包；CHANGELOG 仅含本次功能与修复，不改服务端、签名或包名，不创建 tag／GitHub Release。真机验证由用户自行完成，agent 未执行设备安装。
 
 构建有 `package_info_plus` 使用 Kotlin Gradle Plugin 的未来兼容性警告，但本次构建成功；本轮未为此升级或更换依赖。
 

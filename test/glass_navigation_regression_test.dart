@@ -11,7 +11,9 @@ import 'package:litchi_journal_flutter/services/api_client.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
 import 'package:litchi_journal_flutter/widgets/flora_dock.dart';
+import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
 import 'package:litchi_journal_flutter/widgets/quick_record_fan.dart';
+import 'package:litchi_journal_flutter/widgets/quick_record_backdrop.dart';
 
 const _fab = Key('quick_record_fab');
 
@@ -107,6 +109,71 @@ void main() {
     final initial = tester.getRect(find.byKey(_fab));
     await tester.tap(find.text('今天').last);
     await _expectStableFrames(tester, initial);
+  });
+
+  testWidgets('Dock 操作会直接执行并收起已展开的记录菜单', (tester) async {
+    await _mount(tester);
+    final initial = tester.getRect(find.byKey(_fab));
+
+    await tester.tap(find.byKey(_fab));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('quick_record_quick_note')), findsOneWidget);
+
+    await tester.tap(find.text('过往').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('history_calendar_toggle')), findsOneWidget);
+
+    await tester.tap(find.text('今天').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('quick_record_quick_note')), findsNothing);
+    _expectSameRect(tester.getRect(find.byKey(_fab)), initial);
+
+    await tester.tap(find.byKey(_fab));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('今天').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('quick_record_quick_note')), findsNothing);
+    expect(find.bySemanticsLabel('关闭记录菜单'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(QuickRecordBackdrop, skipOffstage: false),
+        matching: find.byType(BackdropFilter, skipOffstage: false),
+        skipOffstage: false,
+      ),
+      findsNothing,
+    );
+    _expectSameRect(tester.getRect(find.byKey(_fab)), initial);
+  });
+
+  testWidgets('菜单展开后设置一次打开，返回后不残留背景层', (tester) async {
+    await _mount(tester);
+    await tester.tap(find.byKey(_fab));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) => widget is FloraIcon && widget.name == FloraIcons.settings,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('外观'), findsOneWidget);
+    final context = tester.element(find.text('外观'));
+    Navigator.of(context).pop();
+    await tester.pumpAndSettle();
+    expect(find.byKey(_fab), findsOneWidget);
+    expect(find.bySemanticsLabel('关闭记录菜单'), findsNothing);
+    expect(find.byKey(const Key('quick_record_quick_note')), findsNothing);
+  });
+
+  testWidgets('今天页系统返回仅收起菜单并清除背景层', (tester) async {
+    await _mount(tester);
+    await tester.tap(find.byKey(_fab));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('加载后的正文'), findsOneWidget);
+    expect(find.byKey(_fab), findsOneWidget);
+    expect(find.bySemanticsLabel('关闭记录菜单'), findsNothing);
+    expect(find.byKey(const Key('quick_record_quick_note')), findsNothing);
   });
 
   for (final tab in ['过往', '习惯']) {

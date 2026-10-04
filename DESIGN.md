@@ -308,6 +308,9 @@ Lucide、Lordicon 图标 ID、下载日期和完整许可文本见 `docs/THIRD_P
 - 减少动画和停用 Ticker 同时结束控制器计时；即使设置在打开后才改变，后续退出也立即完成。拖动中禁用动画取消尚未提交的手势并释放导航锁。确认弹窗保持 Tab/Shift+Tab 闭环。
 - Dock 的底部安全区与阅读避让由 `FloraDockScope` 统一提供，页面末尾必须能滚到 Dock 与加号上方。三个主页面 Dock 始终同宽同位置；今天页加号在 Dock 上方右侧，相隔 12dp。展开入口使用 180/155/130/105 度极坐标与 150dp 半径，热区完整处于 Dock 上方且不互相重叠；历史补录无 Dock，保留原角度和 120dp 半径。
 - FAB 定位按值相等并关闭 Scaffold 的默认移动缩放，避免冷启动和重建导致整个菜单缩小后恢复。菜单自身的 220/160ms 径向动画不受影响。玻璃 AppBar 明确设置浅深色状态栏图标，过往与习惯的自然高度置顶头部最后绘制，确保真实背景采样。
+- 记录扇形菜单展开时，`QuickRecordBackdrop` 只覆盖 Banner 下方的阅读区域：以 `sigma 12` 模糊正文，并在浅色叠加 8%、深色叠加 12% 的 scrim；Banner、Dock、主按钮和子入口保持清晰。高对比度模式改用不透明页面表面。背景在展开期间拦截滚动、点击和无障碍焦点，点击背景只收起菜单；Dock、设置和历史返回可直接执行各自操作并同步收起菜单。
+- 展开菜单须撤销正文已有按压并停止惯性滚动，收回后保留原滚动位置。相册顶部有回忆卡片时，右上角日历仍按首组可见相册初始化；加载占位依照实际可用宽度绘制，首帧屏幕信息未就绪时不得产生负尺寸。
+- 过往页的连续图墙本身承担月份浏览，不再在 Banner 下方放常驻月份选择条。右上角月历打开时默认定位当前可见图墙月份；在月历内切换月份只更新日期选择，不跳转或重载图墙。
 
 2026-10-04 真机反馈修正：此前终点布局检查遗漏了 Scaffold 中间帧缩放；本轮补齐逐帧、背景像素与前景清晰度对照，完整 Flutter 测试 659 项及静态检查通过。审查发现的重复玻璃和浅色状态栏白字均已修复并复核。`test_36` 使用临时数据检查浅深色、320dp/1.3 倍字体和关闭系统动画，执行 5 次冷启动、20 次 Dock 切换与 20 次菜单点击。实际截图存放于 `docs/design-reference/glass-origin-motion/`，仅作验收参考：[滚动首页](docs/design-reference/glass-origin-motion/litchi-glass-correction-scroll-light.png)、[过往玻璃](docs/design-reference/glass-origin-motion/litchi-glass-correction-past-light.png)、[菜单](docs/design-reference/glass-origin-motion/litchi-glass-correction-menu-light.png)、[窄屏深色](docs/design-reference/glass-origin-motion/litchi-glass-correction-narrow-dark.png)。正常入口 Release 测试包已构建；ColorOS 真机最终观感与 GPU 性能仍需用户装机验证，本轮未正式发布。
 
@@ -357,6 +360,7 @@ Lucide、Lordicon 图标 ID、下载日期和完整许可文本见 `docs/THIRD_P
 - 月历遵循 iOS 式清晰日期网格与触控尺寸；有记录日期使用小圆点，并配合选中态区分。
 - 小圆点只表示当天包含真实条目或相片，只有空模板的日期不显示。
 - 今天和未来日期的可用状态必须清楚；加载、空月份和请求失败均需有稳定反馈。
+- 过往页只保留 Banner 右上角这一处日历入口；连续图墙无需重复的月份胶囊、前后切换或月份弹窗。
 
 ### 习惯趋势
 

@@ -4,6 +4,14 @@
 
 ## 当前目标与上下文
 
+2026-10-05 已按用户要求构建复审修正后的真机测试包：正常 `lib/main.dart` 入口 Release 位于 `build/app/outputs/flutter-apk/litchi-journal-1.8.4-backdrop-review-release.apk`，与 `app-release.apk` 内容相同。包体为 `1.8.4+37`、`com.example.litchi_journal_flutter`，APK v2 签名校验通过，SHA-256 为 `f8ab2fd66d8919fc155734c868c373507718f597f9c98aff69bc8b1f92bd522a`。仍使用现有 Android debug 证书，仅供覆盖安装测试，不是应用商店正式签名包；本次未提交、推送或递增版本。
+
+本轮正常 `lib/main.dart` 入口 Debug 包已重建，位于 `build/app/outputs/flutter-apk/app-debug.apk`，并在 `test_36` 覆盖临时演示包。演示入口只使用 `/tmp` 本地响应，不访问真实 Vault；验收进程已关闭，模拟器屏幕尺寸、字体倍率和明暗模式已恢复。
+
+2026-10-05 复审修正：已先用失败测试复现并修复正文旧按压在菜单展开后仍触发、背景惯性滚动未停止、顶部回忆卡片导致日历月份识别错误，以及模拟器冷启动时图墙占位负尺寸。`QuickRecordBackdrop` 仅在展开时取消阅读区指针并在帧结束后停止滚动；占位使用实际布局约束，两个加载分支均避免固有尺寸测量。补齐历史顶部返回、设置直接打开、系统返回、Dock 无残留滤镜、动画反转和动态停用测试。定向 30 项、完整 719 项测试、`flutter analyze` 均通过；`test_36` 使用本地临时响应复验浅色、深色、320dp/1.3 倍字体、Dock 切页和回忆卡片下日历月份，冷启动负尺寸另有明确回归测试。模拟器设置已恢复；PLG110 未连接，仍待真机复验。审查提示的既有刷新分页/图片缓存竞态尚未运行复现，留待专项检查，未扩大本轮修改范围。没有提交、推送、版本递增或 Release 构建。
+
+当前未提交工作位于 `codex/fan-backdrop-gallery-header-20261004`，基于 `main` 的 `1.8.4+37`。本轮新增 `QuickRecordBackdrop`：今天与历史详情展开记录菜单时，只将 Banner 下方阅读内容以局部模糊和轻 scrim 退到背景，Banner、Dock、主按钮和子菜单保持清晰；背景不允许点击穿透，系统返回仅收起菜单，Dock、设置和历史返回可直接执行原操作并同步关闭菜单。过往页已移除 Banner 下方重复的月份条，右上角日历默认打开当前可见图墙月份，日历翻月不再跳转图墙。新增像素级滤镜、直接 Dock、历史返回和过往页回归测试；`test_36` 临时数据已验证浅色、深色、320dp/1.3 倍字体。PLG110 尚未复验本轮，未提交、推送、合并、递增版本或构建 Release；不修改服务端、真实 Vault 或记录格式。确认草图已保存为 `docs/design-reference/quick-record-backdrop-gallery-plan.png`。
+
 当前交付版本为 `1.8.4+37`，源功能分支 `codex/glass-origin-motion-20261004`，基线 `e257c89141de4b9b83ec278c895436635171ba84`；用户已于 2026-10-04 授权更新版本、合并 main 并推送。包含玻璃导航、来源动效和后续真机反馈修正。三个主页面 Dock 同宽居中，今天加号在 Dock 上方右侧；顶部采样真实滚动内容，前景标题保持清晰。透明返回、实心 Dock 图标、无瞬时椭圆与完整日记本轮廓保留，今日仅有习惯时隐藏空回顾并排除 HH:MM 模板示例。不修改服务端、数据文件格式或真实 Vault。
 
 本次修正原因：每次 Home 重建创建不相等的 `FloraDockFabLocation`，Scaffold 因而对整个 FAB 宿主执行默认缩小恢复，即使最终位置不变也会弹跳。定位类现在按值相等，Home 使用 `FloatingActionButtonAnimator.noAnimation`，扇形自身 220/160ms 动画不变。过往与习惯使用自然高度的 `PinnedHeaderSliver`，`SliverPaintOrder.firstIsTop` 保证头部采样已经绘制的底层内容，刷新与月份定位按真实头部高度处理。审查另修复重复玻璃、浅色状态栏白字及前景清晰度测试缺口。

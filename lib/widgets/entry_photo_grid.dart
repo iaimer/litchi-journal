@@ -7,10 +7,12 @@ import '../theme/app_theme.dart';
 import 'flora_icon.dart';
 import 'image_section_card.dart';
 import 'image_upload_strip.dart';
+import 'photo_corner_button.dart';
 
 class EntryPhotoGrid extends StatelessWidget {
   final List<DiaryPhoto> photos;
   final List<ImageUploadItem> uploads;
+  final Map<String, GlobalKey> uploadKeys;
   final Set<String> removedPhotoNames;
   final ApiClient apiClient;
   final DateTime date;
@@ -24,6 +26,7 @@ class EntryPhotoGrid extends StatelessWidget {
     super.key,
     required this.photos,
     required this.uploads,
+    this.uploadKeys = const {},
     required this.removedPhotoNames,
     required this.apiClient,
     required this.date,
@@ -67,7 +70,7 @@ class EntryPhotoGrid extends StatelessWidget {
         children.addAll(
           uploads.map(
             (item) => ImageUploadTile(
-              key: ValueKey('image_upload_${item.id}'),
+              key: uploadKeys[item.id] ?? ValueKey('image_upload_${item.id}'),
               item: item,
               onRetry: () => onRetryUpload?.call(item),
               onRemove: () => onRemoveUpload?.call(item),
@@ -130,22 +133,10 @@ class _SavedPhotoTile extends StatelessWidget {
             Positioned(
               top: 0,
               right: 0,
-              child: IconButton.filled(
-                onPressed: onToggleRemoval,
+              child: PhotoCornerButton(
+                onPressed: onToggleRemoval!,
                 tooltip: removed ? '恢复照片' : '保存时移除照片',
-                constraints: const BoxConstraints.tightFor(
-                  width: 48,
-                  height: 48,
-                ),
-                padding: EdgeInsets.zero,
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black54,
-                  foregroundColor: Colors.white,
-                ),
-                icon: FloraIcon(
-                  removed ? FloraIcons.restore : FloraIcons.close,
-                  size: 18,
-                ),
+                icon: removed ? FloraIcons.restore : FloraIcons.close,
               ),
             ),
         ],

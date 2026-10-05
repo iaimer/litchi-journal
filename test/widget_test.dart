@@ -1107,7 +1107,11 @@ void main() {
       expect(find.text(weekday), findsOneWidget);
       final title = tester.widget<Text>(find.text(monthDay));
       expect(title.maxLines, 1);
-      expect(title.overflow, TextOverflow.fade);
+      expect(title.overflow, isNull);
+      expect(tester.widget<Text>(find.text(weekday)).overflow, isNull);
+      final titleRect = tester.getRect(find.text(monthDay));
+      final weekdayRect = tester.getRect(find.text(weekday));
+      expect(weekdayRect.top, lessThan(titleRect.bottom));
       expect(find.text('已连接服务器'), findsNothing);
       expect(
         find.byWidgetPredicate(

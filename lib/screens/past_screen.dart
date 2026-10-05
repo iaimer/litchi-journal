@@ -16,6 +16,7 @@ import '../theme/app_theme.dart';
 import '../widgets/flora_empty.dart';
 import '../widgets/flora_error_state.dart';
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_primary_header.dart';
 import '../widgets/flora_skeleton.dart';
 import '../widgets/gallery_image_tile.dart';
 import '../widgets/history_calendar.dart';
@@ -370,45 +371,9 @@ class _PastScreenState extends State<PastScreen> {
 
   Widget _buildHeader(ThemeData theme) {
     final canRandom = _galleryMonths.any((month) => month.days.isNotEmpty);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        16 + MediaQuery.of(context).padding.top,
-        16,
-        _calendarExpanded ? 12 : 20,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text('过往', style: theme.textTheme.headlineLarge)),
-              _buildHeaderButton(
-                IconButton(
-                  key: const Key('gallery_random_button'),
-                  tooltip: canRandom ? '随机回顾' : '暂无照片可回顾',
-                  onPressed: canRandom ? _openRandomDay : null,
-                  icon: const FloraIcon(FloraIcons.shuffle),
-                ),
-              ),
-              _buildHeaderButton(
-                IconButton(
-                  key: const Key('history_calendar_toggle'),
-                  tooltip: _calendarExpanded ? '收起日历' : '选择日期',
-                  onPressed: _toggleCalendar,
-                  icon: FloraIcon(
-                    _calendarExpanded
-                        ? FloraIcons.chevronUp
-                        : FloraIcons.calendar,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (_calendarExpanded) ...[
-            const SizedBox(height: 16),
-            HistoryCalendar(
+    return FloraPrimaryHeader(
+      expandedChild: _calendarExpanded
+          ? HistoryCalendar(
               displayedMonth: _calendarDisplayedMonth,
               recordedDateKeys:
                   _recordedDatesByMonth[_monthKeyForDate(
@@ -420,8 +385,30 @@ class _PastScreenState extends State<PastScreen> {
               today: DateTime.now(),
               onMonthChanged: _changeCalendarMonth,
               onDateSelected: _openCalendarDate,
+            )
+          : null,
+      child: Row(
+        children: [
+          Expanded(child: Text('过往', style: theme.textTheme.headlineLarge)),
+          _buildHeaderButton(
+            IconButton(
+              key: const Key('gallery_random_button'),
+              tooltip: canRandom ? '随机回顾' : '暂无照片可回顾',
+              onPressed: canRandom ? _openRandomDay : null,
+              icon: const FloraIcon(FloraIcons.shuffle),
             ),
-          ],
+          ),
+          _buildHeaderButton(
+            IconButton(
+              key: const Key('history_calendar_toggle'),
+              tooltip: _calendarExpanded ? '收起日历' : '选择日期',
+              onPressed: _toggleCalendar,
+              icon: FloraIcon(
+                _calendarExpanded ? FloraIcons.chevronUp : FloraIcons.calendar,
+                size: 20,
+              ),
+            ),
+          ),
         ],
       ),
     );

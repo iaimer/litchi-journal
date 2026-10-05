@@ -10,14 +10,149 @@ import 'package:image/image.dart' as img;
 
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
+import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:litchi_journal_flutter/services/api_client.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/services/habit_settings_repository.dart';
 import 'package:litchi_journal_flutter/services/habit_trend_cache_repository.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
+import 'package:litchi_journal_flutter/widgets/diary_date_title.dart';
+import 'package:litchi_journal_flutter/widgets/flora_app_bar.dart';
+import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
+import 'package:litchi_journal_flutter/widgets/flora_primary_header.dart';
 import 'package:litchi_journal_flutter/widgets/flora_skeleton.dart';
 
 void main() {
+  testWidgets('三个主页面收起 Banner 使用同一紧凑高度', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final scale in [1.0, 1.3]) {
+      await tester.pumpWidget(
+        _app(PastScreen(apiClient: _client()), textScale: scale),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        _headerRect(tester).height,
+        closeTo(24 + FloraPrimaryHeader.contentHeight, 0.5),
+      );
+
+      await tester.pumpWidget(
+        _app(
+          HabitStatsScreen(
+            apiClient: _client(),
+            habitSettingsRepo: HabitSettingsRepository(
+              storage: _MemoryStorage(),
+            ),
+            trendCacheRepo: HabitTrendCacheRepository(
+              storage: _MemoryStorage(),
+            ),
+          ),
+          textScale: scale,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        _headerRect(tester).height,
+        closeTo(24 + FloraPrimaryHeader.contentHeight, 0.5),
+      );
+
+      final date = DateTime.now();
+      final weekday = const [
+        '一',
+        '二',
+        '三',
+        '四',
+        '五',
+        '六',
+        '日',
+      ][date.weekday - 1];
+      await tester.pumpWidget(
+        _app(
+          HomeScreen(
+            apiClient: _client(),
+            habitSettingsRepo: HabitSettingsRepository(
+              storage: _MemoryStorage(),
+            ),
+          ),
+          textScale: scale,
+        ),
+      );
+      await tester.pump();
+      final appBar = find.byType(AppBar);
+      expect(
+        tester.getSize(appBar).height,
+        closeTo(24 + FloraPrimaryHeader.contentHeight, 0.5),
+      );
+      final dateRect = tester.getRect(find.text('${date.month}月${date.day}日'));
+      final weekdayRect = tester.getRect(find.text('星期$weekday'));
+      expect(weekdayRect.top, lessThan(dateRect.bottom));
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('窄屏长日期完整换行，短日期保持同行', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final shortDate = DateTime(2026, 1, 1);
+    final longDate = DateTime(2026, 12, 31);
+
+    await tester.pumpWidget(_compactHomeApp(shortDate, textScale: 1));
+    await tester.pumpAndSettle();
+    final dateRect = tester.getRect(find.text('1月1日'));
+    final weekdayRect = tester.getRect(find.text('星期四'));
+    expect(weekdayRect.top, lessThan(dateRect.bottom));
+    expect(
+      tester.getSize(find.byType(AppBar)).height,
+      closeTo(24 + FloraPrimaryHeader.contentHeight, 0.5),
+    );
+
+    await tester.pumpWidget(_compactHomeApp(longDate, textScale: 1.3));
+    await tester.pumpAndSettle();
+    final wrappedDateRect = tester.getRect(find.text('12月31日'));
+    final wrappedWeekdayRect = tester.getRect(find.text('星期四'));
+    expect(wrappedWeekdayRect.left, closeTo(wrappedDateRect.left, 0.5));
+    expect(
+      wrappedWeekdayRect.top,
+      greaterThanOrEqualTo(wrappedDateRect.bottom),
+    );
+    expect(tester.getSize(find.text('星期四')).width, greaterThanOrEqualTo(40));
+    expect(
+      tester.getSize(find.byType(AppBar)).height,
+      greaterThan(24 + FloraPrimaryHeader.contentHeight),
+    );
+  });
+
+  testWidgets('主页面标题在更大字体下自然增加 Banner 高度', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      _app(PastScreen(apiClient: _client()), textScale: 2),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      _headerRect(tester).height,
+      greaterThan(24 + FloraPrimaryHeader.contentHeight),
+    );
+
+    await tester.pumpWidget(
+      _app(
+        HabitStatsScreen(
+          apiClient: _client(),
+          habitSettingsRepo: HabitSettingsRepository(storage: _MemoryStorage()),
+          trendCacheRepo: HabitTrendCacheRepository(storage: _MemoryStorage()),
+        ),
+        textScale: 2,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      _headerRect(tester).height,
+      greaterThan(24 + FloraPrimaryHeader.contentHeight),
+    );
+  });
+
   testWidgets('冷启动屏幕元信息未就绪时，图墙占位使用实际可用宽度', (tester) async {
     final pending = Completer<http.Response>();
     await tester.pumpWidget(
@@ -297,21 +432,56 @@ void main() {
   });
 }
 
-Widget _app(Widget home, {bool dark = false, bool highContrast = false}) =>
+Widget _app(
+  Widget home, {
+  bool dark = false,
+  bool highContrast = false,
+  double textScale = 1.3,
+}) => MaterialApp(
+  theme: dark ? AppTheme.dark : AppTheme.light,
+  builder: (context, child) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(
+      padding: const EdgeInsets.only(top: 24),
+      textScaler: TextScaler.linear(textScale),
+      highContrast: highContrast,
+    ),
+    child: RepaintBoundary(
+      key: const Key('scroll_header_capture'),
+      child: child!,
+    ),
+  ),
+  home: home,
+);
+
+Widget _compactHomeApp(DateTime date, {required double textScale}) =>
     MaterialApp(
-      theme: dark ? AppTheme.dark : AppTheme.light,
+      theme: AppTheme.light,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
           padding: const EdgeInsets.only(top: 24),
-          textScaler: const TextScaler.linear(1.3),
-          highContrast: highContrast,
+          size: const Size(320, 720),
+          textScaler: TextScaler.linear(textScale),
         ),
-        child: RepaintBoundary(
-          key: const Key('scroll_header_capture'),
-          child: child!,
+        child: child!,
+      ),
+      home: Builder(
+        builder: (context) => Scaffold(
+          appBar: FloraAppBar(
+            toolbarHeight: CompactDiaryDateTitle.preferredToolbarHeight(
+              context,
+              date,
+            ),
+            centerTitle: false,
+            title: CompactDiaryDateTitle(date: date),
+            actions: [
+              IconButton(
+                onPressed: () {},
+                icon: const FloraIcon(FloraIcons.settings),
+              ),
+            ],
+          ),
         ),
       ),
-      home: home,
     );
 
 Future<Color> _pixelAt(WidgetTester tester, Offset point) async {

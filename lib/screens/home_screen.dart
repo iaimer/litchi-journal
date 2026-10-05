@@ -1018,7 +1018,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   double get _headerInset =>
-      DiaryDateTitle.preferredToolbarHeight(context) +
+      CompactDiaryDateTitle.preferredToolbarHeight(context, _activeDate) +
       MediaQuery.paddingOf(context).top;
 
   @override
@@ -1035,14 +1035,17 @@ class _HomeScreenState extends State<HomeScreen> {
         extendBodyBehindAppBar: true,
         appBar: FloraAppBar(
           glassBackground: true,
-          toolbarHeight: DiaryDateTitle.preferredToolbarHeight(context),
+          toolbarHeight: CompactDiaryDateTitle.preferredToolbarHeight(
+            context,
+            _activeDate,
+          ),
           centerTitle: false,
           backgroundColor: theme.scaffoldBackgroundColor,
           surfaceTintColor: Colors.transparent,
           shadowColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
-          title: DiaryDateTitle(date: _activeDate),
+          title: CompactDiaryDateTitle(date: _activeDate),
           actions: [
             IconButton(
               icon: const FloraIcon(FloraIcons.settings, size: 24),

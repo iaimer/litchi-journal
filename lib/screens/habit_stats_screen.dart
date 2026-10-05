@@ -15,6 +15,7 @@ import '../theme/app_theme.dart';
 import '../widgets/flora_error_state.dart';
 import '../widgets/flora_empty.dart';
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_primary_header.dart';
 import '../widgets/flora_skeleton.dart';
 import '../widgets/habit_trend_dashboard.dart';
 import '../widgets/habit_trend_heatmap.dart';
@@ -305,14 +306,11 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   }
 
   Widget _buildHeader(ThemeData theme) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        16 + MediaQuery.of(context).padding.top,
-        16,
-        16,
+    return FloraPrimaryHeader(
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text('习惯趋势', style: theme.textTheme.headlineLarge),
       ),
-      child: Text('习惯趋势', style: theme.textTheme.headlineLarge),
     );
   }
 

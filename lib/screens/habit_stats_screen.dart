@@ -178,6 +178,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
     final period = _period;
     final settings = _settings;
     final requestId = ++_requestSerial;
+    final cacheGeneration = widget.apiClient.readingCache.dataGeneration;
 
     if (mounted && (reset || _stats == null)) {
       setState(() {
@@ -188,7 +189,11 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
 
     if (useCache) {
       final cached = await _trendCacheRepo.load(period);
-      if (!mounted || requestId != _requestSerial) return;
+      if (!mounted ||
+          requestId != _requestSerial ||
+          cacheGeneration != widget.apiClient.readingCache.dataGeneration) {
+        return;
+      }
       if (cached != null &&
           cached.settingsSignature == _service.settingsSignature(settings)) {
         setState(() {
@@ -200,9 +205,17 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
 
     try {
       final fresh = await _service.load(period: period, settings: settings);
-      if (!mounted || requestId != _requestSerial) return;
+      if (!mounted ||
+          requestId != _requestSerial ||
+          cacheGeneration != widget.apiClient.readingCache.dataGeneration) {
+        return;
+      }
       await _trendCacheRepo.save(fresh);
-      if (!mounted || requestId != _requestSerial) return;
+      if (!mounted ||
+          requestId != _requestSerial ||
+          cacheGeneration != widget.apiClient.readingCache.dataGeneration) {
+        return;
+      }
       setState(() {
         _stats = fresh;
         _error = null;

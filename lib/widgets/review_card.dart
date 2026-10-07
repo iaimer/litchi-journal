@@ -8,6 +8,7 @@ import 'entry_type.dart';
 import 'generic_section_card.dart';
 
 class ReviewCard extends StatelessWidget {
+  final bool preserveActionSpace;
   final ReviewSection section;
   final Color? accentColor;
   final Future<void> Function(String rawLine)? onTimelineDelete;
@@ -27,6 +28,7 @@ class ReviewCard extends StatelessWidget {
   const ReviewCard({
     super.key,
     required this.section,
+    this.preserveActionSpace = false,
     this.accentColor,
     this.onTimelineDelete,
     this.onTimelineEdit,
@@ -39,6 +41,7 @@ class ReviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GenericSectionCard(
+      preserveActionSpace: preserveActionSpace,
       section: section,
       accentColor: accentColor,
       onTimelineDelete: onTimelineDelete,

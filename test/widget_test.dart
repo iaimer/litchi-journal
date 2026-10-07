@@ -26,6 +26,7 @@ import 'package:litchi_journal_flutter/models/tag_config.dart';
 import 'package:litchi_journal_flutter/services/ai_config_repository.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/services/api_client.dart';
+import 'package:litchi_journal_flutter/services/reading_cache_repository.dart';
 import 'package:litchi_journal_flutter/services/draft_repository.dart';
 import 'package:litchi_journal_flutter/services/entry_line_builder.dart';
 import 'package:litchi_journal_flutter/services/image_compress_service.dart';
@@ -1024,7 +1025,11 @@ void main() {
         'api_token': 'test-token',
       });
 
-      await tester.pumpWidget(const MaterialApp(home: app.AppEntry()));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: app.AppEntry(readingCache: ReadingCacheRepository.disabled),
+        ),
+      );
 
       final splashImage = tester.widget<Image>(find.byType(Image).first);
       expect(splashImage.image, isA<AssetImage>());
@@ -2148,8 +2153,8 @@ void main() {
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.text('加载失败'), findsOneWidget);
-      expect(find.byKey(const ValueKey('habit_card')), findsOneWidget);
+      expect(find.textContaining('此日记尚未缓存'), findsWidgets);
+      expect(find.byKey(const ValueKey('habit_card')), findsNothing);
     });
 
     testWidgets('PastScreen does not show quick record FAB', (tester) async {
@@ -9999,8 +10004,11 @@ tags:
     );
 
     ApiClient imageTestApiClient() {
-      final response =
-          '{"data":"data:image/jpeg;base64,/9j/4AAQ","mimeType":"image/jpeg"}';
+      final response = jsonEncode({
+        'data':
+            'data:image/png;base64,${base64Encode(img.encodePng(img.Image(width: 8, height: 8)))}',
+        'mimeType': 'image/png',
+      });
       return ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'x'),
         httpClient: _CapturingClient(responseBody: response),
@@ -10482,7 +10490,9 @@ tags:
     });
 
     test('fetchDiaryImage requests correct URL with month', () async {
-      final client = _CapturingClient();
+      final client = _CapturingClient(
+        responseBody: '{"data":"data:image/png;base64,aW1hZ2U="}',
+      );
       final api = makeImageClient(client);
 
       await api.fetchDiaryImage(

@@ -54,6 +54,9 @@ class DiaryMarkdownView extends StatelessWidget {
   final VoidCallback? onGenerateCoach;
   final bool generatingCoach;
   final bool readOnly;
+
+  /// 今天页更新期间保留原有占位布局，操作仍遵守只读状态。
+  final bool showTodayPlaceholders;
   final Set<String> hiddenSections;
 
   /// 活跃习惯 key 集合（null = 显示全部）
@@ -101,6 +104,7 @@ class DiaryMarkdownView extends StatelessWidget {
     this.onGenerateCoach,
     this.generatingCoach = false,
     this.readOnly = false,
+    this.showTodayPlaceholders = false,
     this.hiddenSections = const {},
     this.activeHabitKeys,
     this.habitSettings,
@@ -117,9 +121,10 @@ class DiaryMarkdownView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final document = const MarkdownParser().parse(markdown);
-    final canShowHabitFallback = !readOnly && onHabitUpdate != null;
+    final canShowHabitFallback =
+        (!readOnly || showTodayPlaceholders) && onHabitUpdate != null;
     final hasOnlyHabits =
-        !readOnly &&
+        (!readOnly || showTodayPlaceholders) &&
         (canShowHabitFallback ||
             document.sections.any((section) => section is HabitSection)) &&
         document.preamble.every((content) => !content.hasRealContent) &&
@@ -127,7 +132,9 @@ class DiaryMarkdownView extends StatelessWidget {
           (section) => section is HabitSection || section.isEmpty,
         );
     final canGenerateCoach =
-        !readOnly && onGenerateCoach != null && !hasOnlyHabits;
+        (!readOnly || showTodayPlaceholders) &&
+        onGenerateCoach != null &&
+        !hasOnlyHabits;
     if (document.isEmpty && !canGenerateCoach && !canShowHabitFallback) {
       return const SizedBox.shrink();
     }
@@ -157,7 +164,9 @@ class DiaryMarkdownView extends StatelessWidget {
       if (section is CoachSection && hasOnlyHabits) continue;
       if (section is CoachSection) hasCoachSection = true;
       if (section.isEmpty &&
-          (section is! CoachSection || readOnly || onGenerateCoach == null)) {
+          (section is! CoachSection ||
+              (readOnly && !showTodayPlaceholders) ||
+              onGenerateCoach == null)) {
         continue;
       }
       widgets.add(_buildSection(section, context));
@@ -213,6 +222,7 @@ class DiaryMarkdownView extends StatelessWidget {
           section: section,
           onUpdate: onHabitUpdate ?? (_) async => true,
           readOnly: readOnly,
+          preserveControlLayout: showTodayPlaceholders,
           activeHabitKeys: activeHabitKeys,
           habitSettings: habitSettings,
           onCustomCheckboxToggle: onCustomCheckboxToggle,
@@ -228,6 +238,7 @@ class DiaryMarkdownView extends StatelessWidget {
         return TagChipModuleAccent(
           accentColor: accentColor,
           child: QuickNoteTimeline(
+            preserveActionSpace: readOnly && showTodayPlaceholders,
             section: section,
             accentColor: accentColor,
             onDelete: onEntryDelete != null
@@ -270,6 +281,7 @@ class DiaryMarkdownView extends StatelessWidget {
         );
       case HappinessSection():
         return GenericSectionCard(
+          preserveActionSpace: readOnly && showTodayPlaceholders,
           section: section,
           accentColor: _accentColorFor(section),
           onTimelineDelete: onEntryDelete != null
@@ -301,6 +313,7 @@ class DiaryMarkdownView extends StatelessWidget {
         );
       case ReviewSection():
         return ReviewCard(
+          preserveActionSpace: readOnly && showTodayPlaceholders,
           section: section,
           accentColor: _accentColorFor(section),
           onTimelineDelete: onEntryDelete != null
@@ -385,7 +398,8 @@ class DiaryMarkdownView extends StatelessWidget {
     );
 
     final displayTitle = diarySectionDisplayTitle(section);
-    final showButton = !readOnly && onGenerateCoach != null;
+    final showButton =
+        (!readOnly || showTodayPlaceholders) && onGenerateCoach != null;
 
     final children = <Widget>[];
     for (final c in section.contents) {
@@ -404,7 +418,7 @@ class DiaryMarkdownView extends StatelessWidget {
       accentColor: accentColor,
       trailing: showButton
           ? TextButton.icon(
-              onPressed: generatingCoach ? null : onGenerateCoach,
+              onPressed: generatingCoach || readOnly ? null : onGenerateCoach,
               style: TextButton.styleFrom(
                 tapTargetSize: MaterialTapTargetSize.padded,
                 padding: const EdgeInsets.symmetric(horizontal: 8),

@@ -22,6 +22,7 @@ import 'entry_photo_grid.dart';
 final _questionHint = RegExp(r'[？?]$|吗[？?]?$');
 
 class GenericSectionCard extends StatelessWidget {
+  final bool preserveActionSpace;
   final DiarySection section;
   final Color? accentColor;
   final Future<void> Function(String rawLine)? onTimelineDelete;
@@ -53,6 +54,7 @@ class GenericSectionCard extends StatelessWidget {
   const GenericSectionCard({
     super.key,
     required this.section,
+    this.preserveActionSpace = false,
     this.accentColor,
     this.onTimelineDelete,
     this.onTimelineEdit,
@@ -159,6 +161,7 @@ class GenericSectionCard extends StatelessWidget {
         widgets.add(
           _EditableEntryRow(
             content: content,
+            preserveActionSpace: preserveActionSpace,
             onDelete: onTimelineDelete,
             onEdit: onTimelineEdit,
             onEditWithEntryId: onTimelineEditWithEntryId,
@@ -329,6 +332,7 @@ class GenericSectionCard extends StatelessWidget {
         for (final entry in entries)
           _EditableEntryRow(
             content: entry,
+            preserveActionSpace: preserveActionSpace,
             onDelete: onTimelineDelete,
             onEdit: onTimelineEdit,
             onEditWithEntryId: onTimelineEditWithEntryId,
@@ -483,6 +487,7 @@ class GenericSectionCard extends StatelessWidget {
 }
 
 class _EditableEntryRow extends StatefulWidget {
+  final bool preserveActionSpace;
   final TimelineContent content;
   final Future<void> Function(String rawLine)? onDelete;
   final Future<void> Function(
@@ -516,6 +521,7 @@ class _EditableEntryRow extends StatefulWidget {
 
   const _EditableEntryRow({
     required this.content,
+    this.preserveActionSpace = false,
     this.onDelete,
     this.onEdit,
     this.onEditWithEntryId,
@@ -547,6 +553,7 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
       !_busy;
 
   Future<void> _confirmDelete() async {
+    final source = widget;
     final confirmed = await showFloraDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -570,16 +577,18 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
     );
 
     if (confirmed != true) return;
-    if (widget.onDelete == null) return;
+    if (!mounted || source.onDelete == null) return;
 
     setState(() => _busy = true);
     try {
-      await widget.onDelete!(widget.content.rawLine);
-    } catch (_) {
+      await source.onDelete!(source.content.rawLine);
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error is ApiException ? error.message : '删除失败，请稍后重试'),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -587,6 +596,7 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
 
   Future<void> _openEdit() async {
     final entryType = widget.entryType;
+    final source = widget;
     if ((widget.onEdit == null && widget.onEditWithEntryId == null) ||
         entryType == null) {
       return;
@@ -610,18 +620,18 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
           tagSettings: widget.tagSettings,
           onPolish: widget.onPolish,
           onSave: (submission) {
-            final save = widget.onEditWithEntryId;
+            final save = source.onEditWithEntryId;
             if (save != null) {
               return save(
-                widget.content.rawLine,
+                source.content.rawLine,
                 submission.content,
                 submission.tags,
                 submission.time,
                 submission.entryId,
               );
             }
-            return widget.onEdit!(
-              widget.content.rawLine,
+            return source.onEdit!(
+              source.content.rawLine,
               submission.content,
               submission.tags,
               submission.time,
@@ -741,7 +751,11 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
   }
 
   Widget? _buildJournalTrailing() {
-    if (!_showActions && !_busy) return null;
+    if (!_showActions && !_busy) {
+      return widget.preserveActionSpace
+          ? const SizedBox.square(dimension: 48)
+          : null;
+    }
     return JournalEntryActionSlot(
       alignToTags: widget.content.tags.isNotEmpty,
       attachmentAboveTags:

@@ -12,16 +12,28 @@ import '../models/history_month_result.dart';
 import '../models/habit_stats.dart';
 import '../models/tag_config.dart';
 import 'api_config.dart';
+import 'reading_cache_repository.dart';
+import 'habit_stats_service.dart';
+import 'habit_stats_cache_repository.dart';
+import 'habit_trend_cache_repository.dart';
 
 typedef UploadProgressCallback = void Function(int sentBytes, int totalBytes);
 typedef UploadBodyEncoder =
     Future<Uint8List> Function(Map<String, dynamic> body);
+
+class ImageRevalidation {
+  final Uint8List? bytes;
+  final ApiException? error;
+  const ImageRevalidation.success(this.bytes) : error = null;
+  const ImageRevalidation.failure(this.error) : bytes = null;
+}
 
 class ApiClient {
   static const requestTimeout = Duration(seconds: 12);
   static const uploadTimeout = Duration(seconds: 30);
 
   final ApiConfig _config;
+  final ReadingCacheRepository readingCache;
   late final UploadBodyEncoder? _uploadBodyEncoder;
   late final http.Client _http;
   late final String _baseUrl;
@@ -29,6 +41,20 @@ class ApiClient {
 
   String get baseUrl => _baseUrl;
   String get cacheNamespace => _baseUrl;
+  String get readingCacheNamespace {
+    final uri = Uri.parse(_baseUrl).normalizePath();
+    final canonical = uri.replace(
+      scheme: uri.scheme.toLowerCase(),
+      host: uri.host.toLowerCase(),
+      port:
+          (uri.scheme == 'https' && uri.port == 443) ||
+              (uri.scheme == 'http' && uri.port == 80)
+          ? 0
+          : uri.port,
+    );
+    return ReadingCacheRepository.digest('$canonical\n${_config.token}');
+  }
+
   bool get hasToken => _config.token.trim().isNotEmpty;
 
   ApiConfig configWithBaseUrl(String baseUrl) {
@@ -39,7 +65,12 @@ class ApiClient {
     this._config, {
     http.Client? httpClient,
     UploadBodyEncoder? uploadBodyEncoder,
-  }) {
+    ReadingCacheRepository? readingCache,
+  }) : readingCache =
+           readingCache ??
+           (httpClient == null
+               ? ReadingCacheRepository.shared
+               : ReadingCacheRepository.disabled) {
     _uploadBodyEncoder = uploadBodyEncoder;
     _http = httpClient ?? http.Client();
     _baseUrl = _normalizeUrl(_config.baseUrl);
@@ -106,14 +137,159 @@ class ApiClient {
     }
   }
 
-  Future<DiaryEntry?> getDiary(DateTime date) async {
+  Future<DiaryEntry?> getDiary(
+    DateTime date, {
+    void Function(CachedReading<DiaryEntry>)? onCached,
+    bool allowCachedFallback = false,
+  }) async {
     final dateStr = formatDate(date);
-    final response = await _get('/api/v1/diary/$dateStr');
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return DiaryEntry.fromJson(json);
+    return _readJson(
+      '/api/v1/diary/$dateStr',
+      DiaryEntry.fromJson,
+      onCached: onCached,
+      allowCachedFallback: allowCachedFallback,
+      missingAllowed: true,
+    );
+  }
+
+  Future<T?> _readJson<T>(
+    String path,
+    T Function(Map<String, dynamic>) parse, {
+    void Function(CachedReading<T>)? onCached,
+    bool allowCachedFallback = false,
+    bool missingAllowed = false,
+    String? cacheKey,
+  }) async {
+    final key = cacheKey ?? path;
+    final namespace = path.startsWith('/api/v1/history/gallery')
+        ? '$readingCacheNamespace/gallery'
+        : readingCacheNamespace;
+    var ticket = readingCache.begin(ReadingCacheKind.data, namespace, key);
+    CachedReading<T>? cached;
+    if (readingCache.enabled && (onCached != null || allowCachedFallback)) {
+      final local = await _readStoredJson(namespace, key, parse);
+      cached = local.reading;
+      if (local.corrupted && ticket.generation == readingCache.dataGeneration) {
+        ticket = readingCache.begin(ReadingCacheKind.data, namespace, key);
+      }
+      if (cached != null) onCached?.call(cached);
     }
-    return null;
+    try {
+      return await _readRemoteJson(
+        path,
+        namespace,
+        key,
+        parse,
+        ticket,
+        missingAllowed: missingAllowed,
+      );
+    } on ApiException catch (error) {
+      if (allowCachedFallback &&
+          cached != null &&
+          error.canUseCachedReading &&
+          ticket.generation == readingCache.dataGeneration) {
+        return cached.value;
+      }
+      rethrow;
+    }
+  }
+
+  Future<({CachedReading<T>? reading, bool corrupted})> _readStoredJson<T>(
+    String namespace,
+    String key,
+    T Function(Map<String, dynamic>) parse,
+  ) async {
+    final stored = await readingCache.read(
+      ReadingCacheKind.data,
+      namespace,
+      key,
+    );
+    if (stored == null) return (reading: null, corrupted: false);
+    try {
+      return (
+        reading: CachedReading(
+          parse(jsonDecode(utf8.decode(stored.bytes)) as Map<String, dynamic>),
+          stored.updatedAt,
+        ),
+        corrupted: false,
+      );
+    } catch (_) {
+      await readingCache.remove(ReadingCacheKind.data, namespace, key);
+      return (reading: null, corrupted: true);
+    }
+  }
+
+  Future<T?> _readRemoteJson<T>(
+    String path,
+    String namespace,
+    String key,
+    T Function(Map<String, dynamic>) parse,
+    CacheWriteTicket ticket, {
+    required bool missingAllowed,
+  }) async {
+    final response = await _get(path);
+    if (ticket.generation != readingCache.dataGeneration) {
+      throw const ApiException('内容已更新，请重新读取');
+    }
+    if ((response.statusCode == 404 && missingAllowed) ||
+        response.statusCode == 401 ||
+        response.statusCode == 403) {
+      if (readingCache.isCurrent(ticket)) {
+        await readingCache.remove(ReadingCacheKind.data, namespace, key);
+      }
+      if (response.statusCode == 404) return null;
+    }
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _statusMessage('读取失败', response.statusCode),
+        statusCode: response.statusCode,
+      );
+    }
+    final value = parse(jsonDecode(response.body) as Map<String, dynamic>);
+    await readingCache.write(ticket, response.bodyBytes);
+    if (ticket.generation != readingCache.dataGeneration) {
+      throw const ApiException('内容已更新，请重新读取');
+    }
+    return value;
+  }
+
+  /// 最近七天只补充已经存在的日记，不创建文件，也不预下载大图。
+  Future<void> warmRecentDiaries(DateTime today) async {
+    final generation = readingCache.dataGeneration;
+    try {
+      final dates = List.generate(
+        7,
+        (index) => DateTime(today.year, today.month, today.day - index),
+      );
+      final existing = <String>{};
+      final months = dates.map((date) => '${date.year}-${date.month}').toSet();
+      for (final month in months) {
+        final parts = month.split('-');
+        final history = await fetchHistoryMonth(
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+          allowCachedFallback: false,
+        );
+        existing.addAll(
+          history.diaries.where((day) => day.exists).map((day) => day.date),
+        );
+      }
+      final pending = dates
+          .skip(1)
+          .where((date) => existing.contains(formatDate(date)))
+          .toList();
+      Future<void> worker() async {
+        while (pending.isNotEmpty &&
+            generation == readingCache.dataGeneration) {
+          final date = pending.removeLast();
+          await getDiary(date);
+        }
+      }
+
+      await Future.wait([worker(), worker()]);
+    } catch (_) {
+      /* 预热失败不打扰当前阅读，不自动循环重试。 */
+    }
   }
 
   Future<bool> ensureDiary(DateTime date) async {
@@ -257,6 +433,8 @@ class ApiClient {
     required int year,
     required String imageName,
     int? month,
+    bool forceRefresh = false,
+    void Function(ImageRevalidation)? onRevalidated,
   }) async {
     final encodedName = Uri.encodeComponent(imageName);
     final uri = month != null
@@ -265,14 +443,13 @@ class ApiClient {
           )
         : Uri.parse('$_baseUrl/api/v1/diary/image/$year/$encodedName');
 
-    final response = await _send(() => _http.get(uri, headers: _headers));
-    if (response.statusCode != 200) {
-      throw ApiException(
-        _statusMessage('图片加载失败', response.statusCode),
-        statusCode: response.statusCode,
-      );
-    }
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    final bytes = await _readImage(
+      uri,
+      forceRefresh: forceRefresh,
+      jsonImage: true,
+      onRevalidated: onRevalidated,
+    );
+    return jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
   }
 
   Future<Uint8List> fetchRenderedDiaryImage({
@@ -280,19 +457,115 @@ class ApiClient {
     required int month,
     required String imageName,
     required int maxWidth,
+    bool forceRefresh = false,
+    void Function(ImageRevalidation)? onRevalidated,
+    void Function(DateTime)? onCacheRead,
   }) async {
     final encodedName = Uri.encodeComponent(imageName);
     final uri = Uri.parse(
       '$_baseUrl/api/v1/diary/image/render/$year/$encodedName',
     ).replace(queryParameters: {'month': '$month', 'maxWidth': '$maxWidth'});
 
+    return _readImage(
+      uri,
+      forceRefresh: forceRefresh,
+      onRevalidated: onRevalidated,
+      onCacheRead: onCacheRead,
+    );
+  }
+
+  Future<Uint8List> _readImage(
+    Uri uri, {
+    bool forceRefresh = false,
+    bool jsonImage = false,
+    void Function(ImageRevalidation)? onRevalidated,
+    void Function(DateTime)? onCacheRead,
+  }) async {
+    final namespace = readingCacheNamespace;
+    final key = uri.toString();
+    final ticket = readingCache.begin(ReadingCacheKind.image, namespace, key);
+    final cached = forceRefresh
+        ? null
+        : await readingCache.read(ReadingCacheKind.image, namespace, key);
+    Future<Uint8List> download({bool background = false}) => _downloadImage(
+      uri,
+      ticket,
+      jsonImage,
+      invalidateOnFailure: !background,
+    );
+
+    if (cached != null) {
+      onCacheRead?.call(cached.updatedAt);
+      if (readingCache.now().difference(cached.updatedAt) >=
+          ReadingCacheRepository.imageFreshness) {
+        unawaited(
+          download(background: true).then<void>(
+            (bytes) {
+              if (readingCache.isCurrent(ticket)) {
+                onRevalidated?.call(ImageRevalidation.success(bytes));
+              }
+            },
+            onError: (Object error, StackTrace _) {
+              // 暂时不可连接仍保留旧图，但明确不存在或认证失败必须通知阅读层。
+              if (error is ApiException && readingCache.isCurrent(ticket)) {
+                if (error.statusCode == 404 || error.isAuthenticationFailure) {
+                  unawaited(
+                    readingCache.remove(ReadingCacheKind.image, namespace, key),
+                  );
+                }
+                onRevalidated?.call(ImageRevalidation.failure(error));
+              }
+            },
+          ),
+        );
+      }
+      return cached.bytes;
+    }
+    try {
+      final bytes = await download();
+      onCacheRead?.call(readingCache.now());
+      return bytes;
+    } on ApiException catch (error) {
+      if (error.isNetworkFailure) {
+        throw const ApiException('此图片尚未缓存，连接服务器后可查看', isNetworkFailure: true);
+      }
+      rethrow;
+    }
+  }
+
+  Future<Uint8List> _downloadImage(
+    Uri uri,
+    CacheWriteTicket ticket,
+    bool jsonImage, {
+    bool invalidateOnFailure = true,
+  }) async {
     final response = await _send(() => _http.get(uri, headers: _headers));
     if (response.statusCode != 200) {
+      if (invalidateOnFailure &&
+          (response.statusCode == 404 ||
+              response.statusCode == 401 ||
+              response.statusCode == 403) &&
+          readingCache.isCurrent(ticket)) {
+        await readingCache.remove(
+          ReadingCacheKind.image,
+          readingCacheNamespace,
+          uri.toString(),
+        );
+      }
       throw ApiException(
         _statusMessage('图片加载失败', response.statusCode),
         statusCode: response.statusCode,
       );
     }
+    if (response.bodyBytes.isEmpty) throw const ApiException('图片数据无效，请重试');
+    if (jsonImage) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = json['data'];
+      if (data is! String || data.isEmpty) {
+        throw const ApiException('图片数据无效，请重试');
+      }
+    }
+    await readingCache.write(ticket, response.bodyBytes);
     return response.bodyBytes;
   }
 
@@ -318,7 +591,9 @@ class ApiClient {
     required String target,
     required String replacement,
     String? entryId,
+    String? expectedRaw,
   }) async {
+    await _verifyEntryTarget(date, target, expectedRaw: expectedRaw);
     final response = await _post(
       '/api/v1/diary/edit-entry',
       body: {
@@ -336,12 +611,44 @@ class ApiClient {
     DateTime date, {
     required String section,
     required String line,
+    String? expectedRaw,
   }) async {
+    await _verifyEntryTarget(date, line, expectedRaw: expectedRaw);
     final response = await _post(
       '/api/v1/diary/delete-entry',
       body: {'date': formatDate(date), 'section': section, 'line': line},
     );
     return response.statusCode == 200;
+  }
+
+  Future<void> _verifyEntryTarget(
+    DateTime date,
+    String rawLine, {
+    String? expectedRaw,
+  }) async {
+    final stored = await readingCache.read(
+      ReadingCacheKind.data,
+      readingCacheNamespace,
+      '/api/v1/diary/${formatDate(date)}',
+    );
+    String? previousRaw;
+    if (stored != null) {
+      try {
+        previousRaw = DiaryEntry.fromJson(
+          jsonDecode(utf8.decode(stored.bytes)) as Map<String, dynamic>,
+        ).raw;
+      } catch (_) {
+        // 损坏副本不参与写入确认，仍必须重新读取服务端。
+      }
+    }
+    final latest = await getDiary(date);
+    if ((expectedRaw ?? previousRaw) != null &&
+        (expectedRaw ?? previousRaw) != latest?.raw) {
+      throw const ApiException('记录已发生变化，请刷新日记后重新确认');
+    }
+    if (latest == null || !('\n${latest.raw}\n').contains('\n$rawLine\n')) {
+      throw const ApiException('记录已发生变化，请刷新日记后重新确认');
+    }
   }
 
   Future<TagConfig> fetchTagConfig() async {
@@ -358,36 +665,139 @@ class ApiClient {
     return TagConfig.fromJson(json);
   }
 
-  Future<HistoryMonthResult> fetchHistoryMonth(int year, int month) async {
-    final response = await _get('/api/v1/history/$year/$month');
-
-    if (response.statusCode != 200) {
-      throw ApiException(
-        _statusMessage('获取历史日记列表失败', response.statusCode),
-        statusCode: response.statusCode,
-      );
-    }
-
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return HistoryMonthResult.fromJson(json);
+  Future<HistoryMonthResult> fetchHistoryMonth(
+    int year,
+    int month, {
+    void Function(CachedReading<HistoryMonthResult>)? onCached,
+    bool allowCachedFallback = true,
+  }) async {
+    return (await _readJson(
+      '/api/v1/history/$year/$month',
+      HistoryMonthResult.fromJson,
+      onCached: onCached,
+      allowCachedFallback: allowCachedFallback,
+    ))!;
   }
 
-  Future<GalleryPage> fetchGallery({String? cursor, int limit = 3}) async {
+  Future<GalleryPage> fetchGallery({
+    String? cursor,
+    int limit = 3,
+    void Function(CachedReading<GalleryPage>)? onCached,
+  }) async {
+    final path = _galleryPath(cursor, limit);
+    final key = _galleryCacheKey(path, cursor);
+    final generation = readingCache.dataGeneration;
+    final page = (await _readJson(
+      path,
+      GalleryPage.fromJson,
+      onCached: onCached,
+      cacheKey: key,
+    ))!;
+    if (limit == 3 && generation == readingCache.dataGeneration) {
+      await _rememberGalleryPage(key);
+    }
+    return page;
+  }
+
+  String _galleryPath(String? cursor, int limit) {
     final query = <String, String>{'limit': '$limit'};
-    if (cursor != null && cursor.isNotEmpty) query['cursor'] = cursor;
+    if (cursor?.isNotEmpty == true) query['cursor'] = cursor!;
     final uri = Uri.parse(
       '$_baseUrl/api/v1/history/gallery',
     ).replace(queryParameters: query);
-    final response = await _send(() => _http.get(uri, headers: _headers));
-    if (response.statusCode != 200) {
-      throw ApiException(
-        _statusMessage('获取画廊记录失败', response.statusCode),
-        statusCode: response.statusCode,
-      );
-    }
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return GalleryPage.fromJson(json);
+    return '${uri.path}?${uri.query}';
   }
+
+  String _galleryCacheKey(String path, String? cursor) {
+    if (cursor?.isNotEmpty == true) return path;
+    final today = readingCache.now();
+    return '$path|start=${today.year}-${today.month.toString().padLeft(2, '0')}';
+  }
+
+  static const _galleryManifestKey = 'visited-gallery-pages-v1';
+  Future<void> _galleryManifestQueue = Future.value();
+
+  Future<List<String>> _galleryManifest() async {
+    final stored = await readingCache.read(
+      ReadingCacheKind.data,
+      '$readingCacheNamespace/gallery',
+      _galleryManifestKey,
+    );
+    if (stored == null) return [];
+    try {
+      return (jsonDecode(utf8.decode(stored.bytes)) as List).cast<String>();
+    } catch (_) {
+      await readingCache.remove(
+        ReadingCacheKind.data,
+        '$readingCacheNamespace/gallery',
+        _galleryManifestKey,
+      );
+      return [];
+    }
+  }
+
+  Future<void> _rememberGalleryPage(String key) {
+    if (!readingCache.enabled) return Future.value();
+    final generation = readingCache.dataGeneration;
+    final result = _galleryManifestQueue.then((_) async {
+      if (generation != readingCache.dataGeneration) return;
+      await _writeGalleryManifest(key);
+    });
+    _galleryManifestQueue = result.catchError((Object _) {});
+    return result;
+  }
+
+  Future<void> _writeGalleryManifest(String key) async {
+    final ticket = readingCache.begin(
+      ReadingCacheKind.data,
+      '$readingCacheNamespace/gallery',
+      _galleryManifestKey,
+    );
+    final visited = await _galleryManifest();
+    // 描述符也有界；其引用的内容仍由统一容量上限淘汰。
+    final keys = {key, ...visited}.take(240).toList();
+    await readingCache.write(
+      ticket,
+      Uint8List.fromList(utf8.encode(jsonEncode(keys))),
+    );
+  }
+
+  /// 重启及跨月后恢复仍存在的已访问分页，首页淘汰不阻断较早月份。
+  Stream<CachedReading<GalleryPage>> cachedGalleryPages() async* {
+    if (!readingCache.enabled) return;
+    final generation = readingCache.dataGeneration;
+    final visited = <String>{};
+    final keys = [
+      _galleryCacheKey(_galleryPath(null, 3), null),
+      ...await _galleryManifest(),
+    ];
+    keys.sort((a, b) => _galleryKeyMonth(b).compareTo(_galleryKeyMonth(a)));
+    for (final key in keys) {
+      if (!visited.add(key)) continue;
+      final namespace = '$readingCacheNamespace/gallery';
+      final stored = await readingCache.read(
+        ReadingCacheKind.data,
+        namespace,
+        key,
+      );
+      if (generation != readingCache.dataGeneration) return;
+      if (stored == null) continue;
+      GalleryPage page;
+      try {
+        page = GalleryPage.fromJson(
+          jsonDecode(utf8.decode(stored.bytes)) as Map<String, dynamic>,
+        );
+      } catch (_) {
+        await readingCache.remove(ReadingCacheKind.data, namespace, key);
+        continue;
+      }
+      yield CachedReading(page, stored.updatedAt);
+    }
+  }
+
+  String _galleryKeyMonth(String key) =>
+      RegExp(r'(?:start=|cursor=)(\d{4}-\d{2})').firstMatch(key)?.group(1) ??
+      '';
 
   Future<bool> updateHabits(
     DateTime date, {
@@ -472,10 +882,14 @@ class ApiClient {
     required DateTime start,
     required DateTime end,
   }) async {
+    final generation = readingCache.dataGeneration;
     final uri = Uri.parse('$_baseUrl/api/v1/stats/habit').replace(
       queryParameters: {'from': formatDate(start), 'to': formatDate(end)},
     );
     final response = await _send(() => _http.get(uri, headers: _headers));
+    if (generation != readingCache.dataGeneration) {
+      throw const ApiException('内容已更新，请重新读取');
+    }
     if (response.statusCode != 200) {
       throw ApiException(
         _statusMessage('获取习惯趋势失败', response.statusCode),
@@ -500,8 +914,8 @@ class ApiClient {
     String path, {
     required Map<String, dynamic> body,
     Duration timeout = requestTimeout,
-  }) {
-    return _send(
+  }) async {
+    final response = await _send(
       () => _http.post(
         Uri.parse('$_baseUrl$path'),
         headers: _headers,
@@ -509,6 +923,58 @@ class ApiClient {
       ),
       timeout: timeout,
     );
+    if (response.statusCode == 200 && path.startsWith('/api/v1/diary/')) {
+      await _invalidateReading(body);
+      if (path.contains('delete')) {
+        await _invalidateImagesSafely();
+      }
+    }
+    return response;
+  }
+
+  Future<void> _invalidateImagesSafely() async {
+    try {
+      await readingCache.clear(imagesOnly: true);
+    } catch (_) {
+      /* 保留服务端操作结果。 */
+    }
+  }
+
+  Future<void> _invalidateReading(Map<String, dynamic> body) async {
+    // 先同步使在途读取失效，再等待磁盘清理。
+    final invalidations = <Future<void>>[
+      readingCache.invalidateData('$readingCacheNamespace/gallery'),
+    ];
+    HabitStatsService.clearDayCache();
+    invalidations.add(HabitStatsCacheRepository().clear());
+    invalidations.add(
+      HabitTrendCacheRepository.invalidateNamespace(cacheNamespace),
+    );
+    final date = body['date'];
+    if (date is String) {
+      invalidations.add(
+        readingCache.remove(
+          ReadingCacheKind.data,
+          readingCacheNamespace,
+          '/api/v1/diary/$date',
+        ),
+      );
+      final parsed = DateTime.tryParse(date);
+      if (parsed != null) {
+        invalidations.add(
+          readingCache.remove(
+            ReadingCacheKind.data,
+            readingCacheNamespace,
+            '/api/v1/history/${parsed.year}/${parsed.month}',
+          ),
+        );
+      }
+    }
+    try {
+      await Future.wait(invalidations).timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // 服务端保存成功，不因本地清理失败或延迟改变结果。
+    }
   }
 
   Future<http.Response> _postWithProgress(
@@ -527,10 +993,14 @@ class ApiClient {
       onProgress: onProgress,
     );
     request.headers.addAll(_headers);
-    return _send(
+    final response = await _send(
       () async => http.Response.fromStream(await _http.send(request)),
       timeout: timeout,
     );
+    if (response.statusCode == 200 && path.startsWith('/api/v1/diary/')) {
+      await _invalidateReading(body);
+    }
+    return response;
   }
 
   Future<http.Response> _send(
@@ -540,11 +1010,11 @@ class ApiClient {
     try {
       return await request().timeout(timeout);
     } on TimeoutException {
-      throw const ApiException('连接超时，请检查网络或服务器状态');
+      throw const ApiException('连接超时，请检查网络或服务器状态', isNetworkFailure: true);
     } on SocketException {
-      throw const ApiException('无法连接到服务器，请检查网络或服务器地址');
+      throw const ApiException('无法连接到服务器，请检查网络或服务器地址', isNetworkFailure: true);
     } on http.ClientException {
-      throw const ApiException('网络请求失败，请检查服务器地址');
+      throw const ApiException('网络请求失败，请检查服务器地址', isNetworkFailure: true);
     }
   }
 
@@ -605,8 +1075,16 @@ class _ProgressRequest extends http.BaseRequest {
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
+  final bool isNetworkFailure;
 
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.isNetworkFailure = false,
+  });
+  bool get canUseCachedReading =>
+      isNetworkFailure || (statusCode != null && statusCode! >= 500);
+  bool get isAuthenticationFailure => statusCode == 401 || statusCode == 403;
 
   @override
   String toString() => message;

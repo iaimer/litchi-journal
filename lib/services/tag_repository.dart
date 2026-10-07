@@ -20,6 +20,8 @@ class TagRepository {
        _storage = storage ?? const FlutterSecureStorage();
 
   static const _cacheKey = 'tag_config';
+  String get _scopedCacheKey =>
+      '$_cacheKey:${_apiClient.readingCacheNamespace}';
 
   Future<TagConfig> loadTagConfig() async {
     final cached = await _readCachedTagConfigSafely();
@@ -41,7 +43,7 @@ class TagRepository {
   }
 
   Future<TagConfig?> cachedTagConfig() async {
-    final json = await _storage.read(key: _cacheKey);
+    final json = await _storage.read(key: _scopedCacheKey);
     if (json == null || json.isEmpty) return null;
 
     try {
@@ -63,7 +65,7 @@ class TagRepository {
   Future<void> _cacheTagConfigSafely(TagConfig config) async {
     try {
       final json = jsonEncode(config.toJson());
-      await _storage.write(key: _cacheKey, value: json);
+      await _storage.write(key: _scopedCacheKey, value: json);
     } catch (_) {
       // 缓存失败不应影响本次标签配置可用性。
     }

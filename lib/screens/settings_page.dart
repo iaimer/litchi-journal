@@ -17,6 +17,7 @@ import 'tag_settings_page.dart';
 import 'image_compress_page.dart';
 import 'polish_prompt_page.dart';
 import 'remote_api_page.dart';
+import 'reading_cache_page.dart';
 
 /// 设置页主框架。
 class SettingsPage extends StatelessWidget {
@@ -122,6 +123,14 @@ class SettingsPage extends StatelessWidget {
               icon: const FloraIcon(FloraIcons.settingImage, size: 22),
               title: '图片设置',
               onTap: () => _push(context, const ImageCompressPage()),
+            ),
+            _SettingsMenuItem(
+              icon: const FloraIcon(FloraIcons.settingImage, size: 22),
+              title: '本地缓存',
+              onTap: () => _push(
+                context,
+                ReadingCachePage(repository: _apiClient.readingCache),
+              ),
             ),
             _SettingsMenuItem(
               icon: const FloraIcon(FloraIcons.settingAbout, size: 22),

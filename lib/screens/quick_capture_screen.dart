@@ -412,10 +412,12 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       }
       if (!mounted) return;
       await _pop(QuickCaptureResult.saved);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = _entrySaved
+        _error = error is ApiException && error.message == '记录已发生变化，请刷新日记后重新确认'
+            ? error.message
+            : _entrySaved
             ? '文字已保存，部分照片操作失败，请重试'
             : (_isEditing ? '更新失败，请重试' : '保存失败，请重试');
       });

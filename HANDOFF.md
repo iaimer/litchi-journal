@@ -4,6 +4,16 @@
 
 ## 当前目标与上下文
 
+2026-10-08 用户明确授权将「日记与图片缓存、离线阅读 v1」从 `codex/image-disk-cache-20261007` squash 合并至 `main` 并推送，发布版本为 `1.9.0+39`。仅修改 Flutter：统一持久阅读缓存（数据 50MB、图片 200MB）、本地先显示后台更新、离线只读、最近七天低并发预热、写入与清理竞态防护、设置缓存管理。已确认效果图保存在 `docs/design-reference/reading-cache-offline-plan.png`，实施及验收详情见 `docs/READING_CACHE_PLAN.md`。两轴审查及复核共修正 7 个独立问题，详见 `docs/CACHE_CODE_REVIEW.md`；新增 9 项回归，审查阶段总计 761 项 Flutter 测试、静态检查与差异检查通过，发布阶段再次验证。更新版本及 CHANGELOG，不修改服务端，不追加 `SESSION_LOG.md`。PLG110 在审查阶段设备检查中未连接，需开启无线调试并提供连接地址后才能完成真实断网重启与清理验收；合并推送授权不代表真机验收通过。
+
+本轮发布安装包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.0-release.apk`，使用正常 `lib/main.dart` 入口和 Release 模式。沿用原 debug 签名与 `com.example.litchi_journal_flutter` 包名，便于覆盖安装保留配置，不能作为应用商店正式签名包；未安装真机。此前 `litchi-journal-1.8.5-cache-review.apk` 是审查阶段测试包，`cache-test.apk` 不包含审查修正，旧 `1.8.5-release.apk` 不包含缓存功能。后续安装应使用新 `1.9.0` 包和 `adb install -r`，按计划完成真实网络、重启与清理验收。
+
+发布阶段再次通过完整 761 项 Flutter 测试、静态检查零问题及差异检查。`1.9.0+39` Release APK 约 67.3MB，版本及包名核验正确，APK v2 签名验证通过；SHA-256：`452435568ec4cb6feb733aebbcba6be15c9b4b88d2adb5f8cd9a74dd44f90e7f`。本轮设备复查仍无 PLG110，真实离线流程、内存和滚动流畅度待验收。
+
+本次关键修正：画廊分页清单保存已访问入口，恢复时逐月按 `updatedAt` 合并并保留空月份覆盖；刷新已加载旧分页，详情写入返回检查代次；编辑/删除固定发起时 `expectedRaw` 与条目回调；图片内存记录真实更新时间，过期后台更新将 401/403/404 回传到正文、缩略图与预览；统计缓存保存与失效按连接串行，清理期间读取不可复活旧结果，页面最终显示也核对代次。保持既有滚动控制器与 60 张缩略图内存上限。
+
+下文为之前版本的交付背景，旧分支及旧 APK 说明不代表本轮状态。
+
 `1.8.5+38` 发布内容：今天、过往与习惯趋势的收起 Banner 统一为状态栏下 `64dp` 最小内容区；今天将月日和星期优先同行，空间不足时星期完整换到第二行；过往与习惯趋势移除多余垂直留白并在文字放大时自然增高。今天的正文起点、刷新提示和记录菜单模糊边界同步使用实际高度；过往日历展开继续按实际头部高度测量。历史详情保持既有两行日期，不修改服务端、Vault 或记录格式。专项布局、导航和背景层回归、`flutter analyze` 与完整 722 项 Flutter 测试均已通过。`test_36` 使用临时内存数据验证浅色三页、深色和 1.3 倍字体，未见裁切或溢出；模拟器已恢复浅色和 1.0 倍字体。PLG110 未连接，仍待真机观感确认。正常入口 Release APK 为 `build/app/outputs/flutter-apk/litchi-journal-1.8.5-release.apk`，APK v2 签名校验通过，SHA-256 为 `ba67656913b88598c56ea9b4897bbc19daefdc804ff9a38f6e0c2e81e30905fb`；仍使用现有 Android debug 证书，仅供覆盖安装测试，不是应用商店正式签名包。
 
 2026-10-05 已按用户要求构建复审修正后的真机测试包：正常 `lib/main.dart` 入口 Release 位于 `build/app/outputs/flutter-apk/litchi-journal-1.8.4-backdrop-review-release.apk`，与 `app-release.apk` 内容相同。包体为 `1.8.4+37`、`com.example.litchi_journal_flutter`，APK v2 签名校验通过，SHA-256 为 `f8ab2fd66d8919fc155734c868c373507718f597f9c98aff69bc8b1f92bd522a`。仍使用现有 Android debug 证书，仅供覆盖安装测试，不是应用商店正式签名包；本次未提交、推送或递增版本。

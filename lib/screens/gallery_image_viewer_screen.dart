@@ -169,13 +169,32 @@ class _ViewerImage extends StatefulWidget {
   State<_ViewerImage> createState() => _ViewerImageState();
 }
 
-class _ViewerImageState extends State<_ViewerImage> {
+class _ViewerImageState extends State<_ViewerImage>
+    with WidgetsBindingObserver {
   late Future<Uint8List> _imageFuture;
+  int _requestSerial = 0;
+  ApiException? _revalidationError;
+  int? _cacheRevision;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _imageFuture = _loadImage();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        (ModalRoute.of(context)?.isCurrent ?? true)) {
+      setState(() => _imageFuture = _loadImage());
+    }
   }
 
   @override
@@ -183,17 +202,30 @@ class _ViewerImageState extends State<_ViewerImage> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.galleryService, widget.galleryService) ||
         oldWidget.imageName != widget.imageName ||
-        oldWidget.day.date != widget.day.date) {
+        oldWidget.day.date != widget.day.date ||
+        _cacheRevision != widget.galleryService.imageCache.revision) {
       _imageFuture = _loadImage();
     }
   }
 
   Future<Uint8List> _loadImage({bool forceRefresh = false}) {
+    final serial = ++_requestSerial;
+    _cacheRevision = widget.galleryService.imageCache.revision;
+    _revalidationError = null;
     return widget.galleryService.loadImage(
       day: widget.day,
       imageName: widget.imageName,
       maxWidth: 1600,
       forceRefresh: forceRefresh,
+      onRevalidated: (result) {
+        if (!mounted || serial != _requestSerial) return;
+        if (result.bytes != null) {
+          setState(() => _imageFuture = Future.value(result.bytes));
+        } else if (result.error?.statusCode == 404 ||
+            result.error?.isAuthenticationFailure == true) {
+          setState(() => _revalidationError = result.error);
+        }
+      },
     );
   }
 
@@ -202,6 +234,7 @@ class _ViewerImageState extends State<_ViewerImage> {
     return FutureBuilder<Uint8List>(
       future: _imageFuture,
       builder: (context, snapshot) {
+        if (_revalidationError != null) return _buildError(_revalidationError);
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(
             child: CircularProgressIndicator(color: Colors.white),
@@ -241,11 +274,19 @@ class _ViewerImageState extends State<_ViewerImage> {
       );
     }
     return TextButton.icon(
-      onPressed: () => setState(() {
-        _imageFuture = _loadImage(forceRefresh: true);
-      }),
+      onPressed: error is ApiException && error.isAuthenticationFailure
+          ? null
+          : () => setState(() {
+              _imageFuture = _loadImage(forceRefresh: true);
+            }),
       icon: const FloraIcon(FloraIcons.refresh),
-      label: const Text('图片无法显示，点击重试'),
+      label: Text(
+        error is ApiException && error.isAuthenticationFailure
+            ? '认证失败，请检查连接设置'
+            : error is ApiException && error.isNetworkFailure
+            ? '此图片尚未缓存，连接后重试'
+            : '图片无法显示，点击重试',
+      ),
       style: TextButton.styleFrom(foregroundColor: Colors.white),
     );
   }

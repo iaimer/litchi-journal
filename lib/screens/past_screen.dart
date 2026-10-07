@@ -22,17 +22,19 @@ import '../widgets/gallery_image_tile.dart';
 import '../widgets/history_calendar.dart';
 import 'gallery_image_viewer_screen.dart';
 import 'read_only_diary_screen.dart';
+import '../widgets/reading_cache_status.dart';
 
 class PastScreen extends StatefulWidget {
   final ApiClient apiClient;
+  final bool active;
 
-  const PastScreen({super.key, required this.apiClient});
+  const PastScreen({super.key, required this.apiClient, this.active = true});
 
   @override
   State<PastScreen> createState() => _PastScreenState();
 }
 
-class _PastScreenState extends State<PastScreen> {
+class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   late PastMemoryService _memoryService;
   late GalleryService _galleryService;
   final ScrollController _scrollController = ScrollController();
@@ -46,6 +48,14 @@ class _PastScreenState extends State<PastScreen> {
   List<GalleryMonth> _galleryMonths = [];
   String? _nextCursor;
   String? _galleryError;
+  DateTime? _cachedAt;
+  bool _galleryLocal = false;
+  DateTime? _calendarCachedAt;
+  bool _calendarRefreshing = false;
+  String? _calendarError;
+  final Set<String?> _failedCursors = {};
+  bool _restoredEarlierPages = false;
+  final Set<String> _loadedPageStarts = {};
   bool _galleryLoading = true;
   bool _galleryLoadingMore = false;
   bool _todayLoading = true;
@@ -68,6 +78,7 @@ class _PastScreenState extends State<PastScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _memoryService = PastMemoryService(widget.apiClient);
     _galleryService = GalleryService(widget.apiClient);
     _scrollController.addListener(_handleScroll);
@@ -77,7 +88,10 @@ class _PastScreenState extends State<PastScreen> {
   @override
   void didUpdateWidget(covariant PastScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (identical(oldWidget.apiClient, widget.apiClient)) return;
+    if (identical(oldWidget.apiClient, widget.apiClient)) {
+      if (widget.active && !oldWidget.active) _load();
+      return;
+    }
 
     // AppEntry 保存新地址后会复用 IndexedStack 中的页面 State；重建服务
     // 并让旧请求失效，确保画廊和「随机漫步」立即使用新客户端。
@@ -90,6 +104,11 @@ class _PastScreenState extends State<PastScreen> {
       _recordedDatesByMonth.clear();
       _calendarLoading = false;
       _calendarLoadFailed = false;
+      _galleryLocal = false;
+      _cachedAt = null;
+      _galleryMonths = [];
+      _loadedPageStarts.clear();
+      _restoredEarlierPages = false;
       _calendarDisplayedMonth = _displayedMonth;
     });
     _load();
@@ -100,13 +119,25 @@ class _PastScreenState extends State<PastScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        widget.active &&
+        (ModalRoute.of(context)?.isCurrent ?? true)) {
+      _load();
+      if (_calendarExpanded) _loadCalendarMonth(_calendarDisplayedMonth);
+    }
+  }
+
   Future<void> _load() async {
+    _memoryService = PastMemoryService(widget.apiClient);
     final todayRequestGeneration = ++_todayRequestGeneration;
     await Future.wait([
       _loadTodayHistory(todayRequestGeneration),
@@ -135,6 +166,7 @@ class _PastScreenState extends State<PastScreen> {
         ? ++_galleryRequestGeneration
         : _galleryRequestGeneration;
     if (reset) {
+      _failedCursors.clear();
       final preserveVisibleContent =
           _galleryMonths.isNotEmpty && cursor == null;
       setState(() {
@@ -154,33 +186,161 @@ class _PastScreenState extends State<PastScreen> {
     }
 
     try {
-      final page = await _galleryService.fetchPage(cursor: cursor);
+      if (reset &&
+          _galleryMonths.isEmpty &&
+          widget.apiClient.readingCache.enabled) {
+        await _restoreCachedGallery(requestGeneration);
+      }
+      final page = await _galleryService.fetchPage(
+        cursor: cursor,
+        onCached: (cached) {
+          if (!mounted || requestGeneration != _galleryRequestGeneration) {
+            return;
+          }
+          // 恢复链已按每月最新副本合并，旧首页不能再次覆盖它或当前正文。
+          if (reset && _galleryMonths.isNotEmpty) return;
+          setState(() {
+            _applyGalleryPage(
+              cached.value,
+              reset: reset,
+              requestedCursor: cursor,
+            );
+            _cachedAt = cached.updatedAt;
+            _galleryLocal = true;
+          });
+          _scheduleMonthSync();
+        },
+      );
       if (!mounted || requestGeneration != _galleryRequestGeneration) return;
       setState(() {
-        if (reset) {
-          _galleryMonths = page.months;
-        } else {
-          final existing = _galleryMonths.map(_monthKey).toSet();
-          _galleryMonths = [
-            ..._galleryMonths,
-            ...page.months.where(
-              (month) => !existing.contains(_monthKey(month)),
-            ),
-          ];
-        }
-        _nextCursor = page.nextCursor;
-        _galleryLoading = false;
+        _applyGalleryPage(page, reset: reset, requestedCursor: cursor);
+        _galleryLocal = reset;
+        _cachedAt = DateTime.now();
+        _galleryLoading = reset;
         _galleryLoadingMore = false;
         _galleryError = null;
       });
+      if (reset) {
+        await _refreshLoadedMonths(page, requestGeneration);
+        if (!mounted || requestGeneration != _galleryRequestGeneration) return;
+        setState(() {
+          _galleryLoading = false;
+          _galleryLocal = false;
+        });
+      }
       _scheduleMonthSync();
-    } catch (_) {
+    } catch (error) {
       if (!mounted || requestGeneration != _galleryRequestGeneration) return;
       setState(() {
+        _failedCursors.add(cursor);
+        if (error is ApiException && error.isAuthenticationFailure) {
+          _galleryMonths = [];
+          _cachedAt = null;
+          _galleryLocal = false;
+          _todayMemory = null;
+        }
         _galleryLoading = false;
         _galleryLoadingMore = false;
-        _galleryError = '画廊加载失败，请检查网络后重试';
+        _galleryError = error is ApiException && error.isAuthenticationFailure
+            ? '认证失败，请检查连接设置后重试'
+            : '暂时无法获取更多月份，连接服务器后重试';
       });
+    }
+  }
+
+  Future<void> _refreshLoadedMonths(
+    GalleryPage firstPage,
+    int generation,
+  ) async {
+    final firstStart = firstPage.months.isEmpty
+        ? null
+        : _monthKey(firstPage.months.first);
+    for (final cursor in _loadedPageStarts.toList()) {
+      if (cursor == firstStart) continue;
+      final page = await _galleryService.fetchPage(cursor: cursor);
+      if (!mounted || generation != _galleryRequestGeneration) return;
+      setState(
+        () => _applyGalleryPage(
+          page,
+          reset: false,
+          requestedCursor: cursor,
+          updateCursor: false,
+        ),
+      );
+    }
+  }
+
+  void _applyGalleryPage(
+    GalleryPage page, {
+    required bool reset,
+    String? requestedCursor,
+    bool updateCursor = true,
+    bool replaceCoveredMonths = true,
+    bool rememberStart = true,
+  }) {
+    final updated = page.months.map(_monthKey).toSet();
+    if (rememberStart && page.months.isNotEmpty) {
+      _loadedPageStarts.add(_monthKey(page.months.first));
+    }
+    final start = requestedCursor == null
+        ? DateTime(
+            widget.apiClient.readingCache.now().year,
+            widget.apiClient.readingCache.now().month,
+          )
+        : DateTime.parse('$requestedCursor-01');
+    final end = page.nextCursor == null
+        ? DateTime(1)
+        : DateTime.parse('${page.nextCursor}-01');
+    _galleryMonths = [
+      ...page.months,
+      ..._galleryMonths.where(
+        (month) =>
+            !updated.contains(_monthKey(month)) &&
+            (!replaceCoveredMonths ||
+                month.date.isAfter(start) ||
+                !month.date.isAfter(end)),
+      ),
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    // 顶部更新不覆盖已经浏览到的更早分页游标。
+    if (updateCursor &&
+        (!reset || (_nextCursor == null && !_restoredEarlierPages))) {
+      _nextCursor = page.nextCursor;
+    }
+  }
+
+  Future<void> _restoreCachedGallery(int generation) async {
+    var pages = 0;
+    final updatedAtByMonth = <String, DateTime>{};
+    await for (final cached in widget.apiClient.cachedGalleryPages()) {
+      if (!mounted || generation != _galleryRequestGeneration) return;
+      final original = cached.value;
+      final months = original.months.where((month) {
+        final key = _monthKey(month);
+        final previous = updatedAtByMonth[key];
+        if (previous != null && !cached.updatedAt.isAfter(previous)) {
+          return false;
+        }
+        updatedAtByMonth[key] = cached.updatedAt;
+        return true;
+      }).toList();
+      setState(() {
+        if (original.months.isNotEmpty) {
+          _loadedPageStarts.add(_monthKey(original.months.first));
+        }
+        _applyGalleryPage(
+          GalleryPage(months: months, nextCursor: original.nextCursor),
+          reset: false,
+          replaceCoveredMonths: false,
+          rememberStart: false,
+          requestedCursor: original.months.isEmpty
+              ? null
+              : _monthKey(original.months.first),
+        );
+        _cachedAt = cached.updatedAt;
+        _galleryLocal = true;
+        _restoredEarlierPages = ++pages > 1;
+      });
+      _scheduleMonthSync();
     }
   }
 
@@ -192,6 +352,8 @@ class _PastScreenState extends State<PastScreen> {
     if (_scrollController.hasClients &&
         _scrollController.position.extentAfter < 600 &&
         !_galleryLoadingMore &&
+        !_galleryLoading &&
+        !_failedCursors.contains(_nextCursor) &&
         _nextCursor != null) {
       _loadGallery(cursor: _nextCursor);
     }
@@ -269,22 +431,31 @@ class _PastScreenState extends State<PastScreen> {
   Future<void> _loadCalendarMonth(DateTime month) async {
     final key = _monthKeyForDate(month);
     final requestGeneration = ++_calendarRequestGeneration;
-    if (_recordedDatesByMonth.containsKey(key)) {
-      if (!mounted || requestGeneration != _calendarRequestGeneration) return;
-      setState(() {
-        _calendarLoading = false;
-        _calendarLoadFailed = false;
-      });
-      return;
-    }
+    _calendarCachedAt = null;
     setState(() {
       _calendarLoading = true;
+      _calendarRefreshing = true;
+      _calendarError = null;
       _calendarLoadFailed = false;
     });
     try {
       final result = await widget.apiClient.fetchHistoryMonth(
         month.year,
         month.month,
+        allowCachedFallback: false,
+        onCached: (cached) {
+          if (!mounted || requestGeneration != _calendarRequestGeneration) {
+            return;
+          }
+          setState(() {
+            _recordedDatesByMonth[key] = cached.value.diaries
+                .where((day) => day.hasContent || day.hasImages)
+                .map((day) => day.date)
+                .toSet();
+            _calendarCachedAt = cached.updatedAt;
+            _calendarLoading = false;
+          });
+        },
       );
       final dates = result.diaries
           .where((day) => day.hasContent || day.hasImages)
@@ -294,12 +465,20 @@ class _PastScreenState extends State<PastScreen> {
       setState(() {
         _recordedDatesByMonth[key] = dates;
         _calendarLoading = false;
+        _calendarCachedAt = null;
+        _calendarRefreshing = false;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted || requestGeneration != _calendarRequestGeneration) return;
       setState(() {
+        if (error is ApiException && error.isAuthenticationFailure) {
+          _recordedDatesByMonth.remove(key);
+          _calendarCachedAt = null;
+          _calendarError = '认证失败，请检查连接设置后重试';
+        }
         _calendarLoading = false;
         _calendarLoadFailed = true;
+        _calendarRefreshing = false;
       });
     }
   }
@@ -310,6 +489,7 @@ class _PastScreenState extends State<PastScreen> {
   }
 
   Future<void> _openCalendarDate(DateTime date) async {
+    final generation = widget.apiClient.readingCache.dataGeneration;
     setState(() => _calendarExpanded = false);
     await Navigator.of(context).push(
       FloraPageRoute(
@@ -318,9 +498,13 @@ class _PastScreenState extends State<PastScreen> {
       ),
     );
     _recordedDatesByMonth.remove(_monthKeyForDate(date));
+    if (mounted && generation != widget.apiClient.readingCache.dataGeneration) {
+      _load();
+    }
   }
 
   Future<void> _openGalleryDay(GalleryDay day) async {
+    final generation = widget.apiClient.readingCache.dataGeneration;
     await Navigator.of(context).push(
       FloraPageRoute(
         builder: (_) => GalleryImageViewerScreen(
@@ -330,6 +514,9 @@ class _PastScreenState extends State<PastScreen> {
         ),
       ),
     );
+    if (mounted && generation != widget.apiClient.readingCache.dataGeneration) {
+      _load();
+    }
   }
 
   Future<void> _openRandomDay() async {
@@ -373,18 +560,41 @@ class _PastScreenState extends State<PastScreen> {
     final canRandom = _galleryMonths.any((month) => month.days.isNotEmpty);
     return FloraPrimaryHeader(
       expandedChild: _calendarExpanded
-          ? HistoryCalendar(
-              displayedMonth: _calendarDisplayedMonth,
-              recordedDateKeys:
-                  _recordedDatesByMonth[_monthKeyForDate(
-                    _calendarDisplayedMonth,
-                  )] ??
-                  const {},
-              loading: _calendarLoading,
-              markerLoadFailed: _calendarLoadFailed,
-              today: DateTime.now(),
-              onMonthChanged: _changeCalendarMonth,
-              onDateSelected: _openCalendarDate,
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HistoryCalendar(
+                  displayedMonth: _calendarDisplayedMonth,
+                  recordedDateKeys:
+                      _recordedDatesByMonth[_monthKeyForDate(
+                        _calendarDisplayedMonth,
+                      )] ??
+                      const {},
+                  loading: _calendarLoading,
+                  markerLoadFailed: _calendarLoadFailed,
+                  today: DateTime.now(),
+                  onMonthChanged: _changeCalendarMonth,
+                  onDateSelected: _openCalendarDate,
+                ),
+                if (_calendarCachedAt != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ReadingCacheStatus(
+                      updatedAt: _calendarCachedAt,
+                      refreshing: _calendarRefreshing,
+                      onRetry: () =>
+                          _loadCalendarMonth(_calendarDisplayedMonth),
+                    ),
+                  ),
+                if (_calendarError != null)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      _calendarError!,
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  ),
+              ],
             )
           : null,
       child: Row(
@@ -442,6 +652,17 @@ class _PastScreenState extends State<PastScreen> {
         if (_galleryLoading && _galleryMonths.isNotEmpty)
           const SliverToBoxAdapter(
             child: LinearProgressIndicator(minHeight: 2),
+          ),
+        if (_galleryLocal && _galleryMonths.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: ReadingCacheStatus(
+                updatedAt: _cachedAt,
+                refreshing: _galleryLoading || _galleryLoadingMore,
+                onRetry: _load,
+              ),
+            ),
           ),
         if (_todayMemory != null)
           SliverToBoxAdapter(

@@ -27,6 +27,7 @@ import '../widgets/historical_quick_record_fab.dart';
 import '../widgets/flora_skeleton.dart';
 import '../widgets/quick_record_backdrop.dart';
 import 'quick_capture_screen.dart';
+import '../widgets/reading_cache_status.dart';
 
 typedef HistoricalImagePicker = QuickCaptureImagePicker;
 typedef HistoricalImageCompressor = QuickCaptureImageCompressor;
@@ -55,7 +56,8 @@ class ReadOnlyDiaryScreen extends StatefulWidget {
   State<ReadOnlyDiaryScreen> createState() => _ReadOnlyDiaryScreenState();
 }
 
-class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
+class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
+    with WidgetsBindingObserver {
   late final DraftRepository _draftRepository;
   late final ImageSettingsRepository _imageSettingsRepository;
 
@@ -66,6 +68,9 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   bool _refreshing = false;
   bool _quickRecordExpanded = false;
   String? _error;
+  DateTime? _cachedAt;
+  bool _verified = false;
+  int _requestSerial = 0;
 
   TagConfig get _effectiveTagConfig {
     final config = _tagConfig ?? DefaultTagConfig.value;
@@ -78,6 +83,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _draftRepository = widget.draftRepository ?? DraftRepository();
     _imageSettingsRepository =
         widget.imageSettingsRepository ?? ImageSettingsRepository();
@@ -86,40 +92,86 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
   }
 
   Future<void> _loadDiary() async {
+    final serial = ++_requestSerial;
     final hasVisibleContent = _diary != null;
     setState(() {
       _loading = !hasVisibleContent;
       _refreshing = hasVisibleContent;
       _error = null;
+      _verified = false;
+      _quickRecordExpanded = false;
     });
 
     try {
-      final diary = await widget.apiClient.getDiary(widget.date);
-      if (diary == null && hasVisibleContent) {
-        throw StateError('diary refresh failed');
-      }
-      if (!mounted) return;
+      final diary = await widget.apiClient.getDiary(
+        widget.date,
+        onCached: (cached) {
+          if (!mounted || serial != _requestSerial || hasVisibleContent) return;
+          setState(() {
+            _diary = cached.value;
+            _cachedAt = cached.updatedAt;
+            _loading = false;
+            _refreshing = true;
+          });
+        },
+      );
+      if (!mounted || serial != _requestSerial) return;
       setState(() {
         _diary = diary?.raw.isNotEmpty == true ? diary : null;
         _loading = false;
         _refreshing = false;
+        _verified = true;
+        _cachedAt = DateTime.now();
       });
-    } catch (_) {
-      if (!mounted) return;
+    } catch (error) {
+      if (!mounted || serial != _requestSerial) return;
       setState(() {
-        _error = '加载失败，请检查网络后重试';
+        if (error is ApiException && error.isAuthenticationFailure) {
+          _diary = null;
+          _cachedAt = null;
+          _error = '认证失败，请检查连接设置后重试';
+        } else {
+          _error = _diary == null ? '此日记尚未缓存，连接服务器后可查看' : null;
+        }
         _loading = false;
         _refreshing = false;
       });
     }
   }
 
+  @override
+  void didUpdateWidget(covariant ReadOnlyDiaryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.apiClient, widget.apiClient) ||
+        oldWidget.date != widget.date) {
+      _diary = null;
+      _cachedAt = null;
+      _loadDiary();
+      _loadTagConfig();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        (ModalRoute.of(context)?.isCurrent ?? true)) {
+      _loadDiary();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   Future<void> _loadTagConfig() async {
+    final client = widget.apiClient;
     final config = await TagRepository(
       apiClient: widget.apiClient,
     ).loadTagConfig();
     final settings = await TagSettingsRepository().loadTagSettings(config);
-    if (!mounted) return;
+    if (!mounted || !identical(client, widget.apiClient)) return;
     setState(() {
       _tagConfig = config;
       _tagSettings = settings;
@@ -265,6 +317,12 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
           else if (_diary == null)
             _buildEmpty(theme)
           else ...[
+            if (!_verified)
+              ReadingCacheStatus(
+                updatedAt: _cachedAt,
+                refreshing: _refreshing,
+                onRetry: _loadDiary,
+              ),
             if (_error != null) _buildInlineError(theme),
             DiaryMarkdownView(
               markdown: _diary?.raw ?? '',
@@ -363,12 +421,21 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen> {
             child: _buildBody(theme),
           ),
         ),
-        floatingActionButton: HistoricalQuickRecordFab(
-          expanded: _quickRecordExpanded,
-          onToggle: () {
-            setState(() => _quickRecordExpanded = !_quickRecordExpanded);
-          },
-          onEntrySelected: _openQuickCapture,
+        floatingActionButton: ExcludeSemantics(
+          excluding: !_verified,
+          child: IgnorePointer(
+            ignoring: !_verified,
+            child: Opacity(
+              opacity: _verified ? 1 : 0.4,
+              child: HistoricalQuickRecordFab(
+                expanded: _quickRecordExpanded,
+                onToggle: () {
+                  setState(() => _quickRecordExpanded = !_quickRecordExpanded);
+                },
+                onEntrySelected: _openQuickCapture,
+              ),
+            ),
+          ),
         ),
       ),
     );

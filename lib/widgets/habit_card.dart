@@ -17,6 +17,7 @@ class HabitCard extends StatefulWidget {
   final HabitSection section;
   final Future<bool> Function(HabitStatus) onUpdate;
   final bool readOnly;
+  final bool preserveControlLayout;
 
   /// 活跃习惯 key 集合（null 表示不过滤，显示全部）
   final Set<String>? activeHabitKeys;
@@ -63,6 +64,7 @@ class HabitCard extends StatefulWidget {
     required this.section,
     required this.onUpdate,
     this.readOnly = false,
+    this.preserveControlLayout = false,
     this.activeHabitKeys,
     this.habitSettings,
     this.onCustomCheckboxToggle,
@@ -342,24 +344,30 @@ class _HabitCardState extends State<HabitCard> {
       return const SizedBox.shrink();
     }
 
-    return SectionCard(
-      accentColor: _accentColor,
-      padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
-      children: [
-        Text(
-          diarySectionDisplayTitle(widget.section),
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+    return IgnorePointer(
+      ignoring: widget.readOnly && widget.preserveControlLayout,
+      child: ExcludeFocus(
+        excluding: widget.readOnly && widget.preserveControlLayout,
+        child: SectionCard(
+          accentColor: _accentColor,
+          padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+          children: [
+            Text(
+              diarySectionDisplayTitle(widget.section),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            ...children,
+          ],
         ),
-        const SizedBox(height: 8),
-        ...children,
-      ],
+      ),
     );
   }
 
   Widget _buildRow(HabitItem habit, HabitStatus status) {
-    if (widget.readOnly) {
+    if (widget.readOnly && !widget.preserveControlLayout) {
       return _buildReadOnlyRow(habit, status);
     }
     if (_isDurationHabit(habit)) {

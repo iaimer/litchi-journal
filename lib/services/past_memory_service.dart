@@ -89,7 +89,7 @@ class PastMemoryService {
 
   Future<MemoryEntry?> _loadMemoryEntry(DateTime date) async {
     try {
-      final diary = await _apiClient.getDiary(date);
+      final diary = await _apiClient.getDiary(date, allowCachedFallback: true);
       if (diary == null || diary.raw.isEmpty) return null;
       final document = const MarkdownParser().parse(diary.raw);
       final entry = _buildMemoryEntry(date, document);

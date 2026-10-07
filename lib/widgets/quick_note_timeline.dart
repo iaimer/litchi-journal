@@ -16,6 +16,7 @@ import 'entry_photo_grid.dart';
 class QuickNoteTimeline extends StatelessWidget {
   final QuickNoteSection section;
   final Color? accentColor;
+  final bool preserveActionSpace;
   final Future<void> Function(QuickNoteItem note)? onDelete;
   final Future<void> Function(
     QuickNoteItem note,
@@ -46,6 +47,7 @@ class QuickNoteTimeline extends StatelessWidget {
     super.key,
     required this.section,
     this.accentColor,
+    this.preserveActionSpace = false,
     this.onDelete,
     this.onEdit,
     this.onEditWithEntryId,
@@ -70,6 +72,7 @@ class QuickNoteTimeline extends StatelessWidget {
         for (var index = 0; index < section.notes.length; index++)
           _QuickNoteRow(
             note: section.notes[index],
+            preserveActionSpace: preserveActionSpace,
             isFirst: index == 0,
             isLast: index == section.notes.length - 1,
             onDelete: onDelete,
@@ -91,6 +94,7 @@ class QuickNoteTimeline extends StatelessWidget {
 }
 
 class _QuickNoteRow extends StatefulWidget {
+  final bool preserveActionSpace;
   final QuickNoteItem note;
   final bool isFirst;
   final bool isLast;
@@ -123,6 +127,7 @@ class _QuickNoteRow extends StatefulWidget {
 
   const _QuickNoteRow({
     required this.note,
+    this.preserveActionSpace = false,
     required this.isFirst,
     required this.isLast,
     this.onDelete,
@@ -153,6 +158,7 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
       !_busy;
 
   Future<void> _confirmDelete() async {
+    final source = widget;
     final confirmed = await showFloraDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -176,16 +182,18 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
     );
 
     if (confirmed != true) return;
-    if (widget.onDelete == null) return;
+    if (!mounted || source.onDelete == null) return;
 
     setState(() => _busy = true);
     try {
-      await widget.onDelete!(widget.note);
-    } catch (_) {
+      await source.onDelete!(source.note);
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error is ApiException ? error.message : '删除失败，请稍后重试'),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -193,6 +201,8 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
 
   Future<void> _openEdit() async {
     if (widget.onEdit == null && widget.onEditWithEntryId == null) return;
+    // 编辑期间父页可能刷新，保存必须继续核对打开时的条目及版本。
+    final source = widget;
     final result = await Navigator.of(context).push<QuickCaptureResult>(
       FloraPageRoute(
         builder: (_) => QuickCaptureScreen(
@@ -212,18 +222,18 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
           tagSettings: widget.tagSettings,
           onPolish: widget.onPolish,
           onSave: (submission) {
-            final save = widget.onEditWithEntryId;
+            final save = source.onEditWithEntryId;
             if (save != null) {
               return save(
-                widget.note,
+                source.note,
                 submission.content,
                 submission.tags,
                 submission.time,
                 submission.entryId,
               );
             }
-            return widget.onEdit!(
-              widget.note,
+            return source.onEdit!(
+              source.note,
               submission.content,
               submission.tags,
               submission.time,
@@ -279,6 +289,8 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
               busy: _busy,
               onPressed: _showActions ? _openActions : null,
             )
+          : widget.preserveActionSpace
+          ? const SizedBox.square(dimension: 48)
           : null,
       attachment:
           widget.note.photos.isNotEmpty &&

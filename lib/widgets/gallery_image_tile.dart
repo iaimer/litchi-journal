@@ -27,6 +27,9 @@ class GalleryImageTile extends StatefulWidget {
 
 class _GalleryImageTileState extends State<GalleryImageTile> {
   late Future<Uint8List> _imageFuture;
+  int _requestSerial = 0;
+  ApiException? _revalidationError;
+  int? _cacheRevision;
 
   @override
   void initState() {
@@ -39,12 +42,16 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.galleryService, widget.galleryService) ||
         oldWidget.day.date != widget.day.date ||
-        oldWidget.day.firstImage != widget.day.firstImage) {
+        oldWidget.day.firstImage != widget.day.firstImage ||
+        _cacheRevision != widget.galleryService.imageCache.revision) {
       _imageFuture = _loadImage();
     }
   }
 
   Future<Uint8List> _loadImage({bool forceRefresh = false}) {
+    final serial = ++_requestSerial;
+    _cacheRevision = widget.galleryService.imageCache.revision;
+    _revalidationError = null;
     final imageName = widget.day.firstImage;
     if (imageName == null) return Future.error('图片不存在');
     return widget.galleryService.loadImage(
@@ -52,6 +59,15 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
       imageName: imageName,
       maxWidth: 480,
       forceRefresh: forceRefresh,
+      onRevalidated: (result) {
+        if (!mounted || serial != _requestSerial) return;
+        if (result.bytes != null) {
+          setState(() => _imageFuture = Future.value(result.bytes));
+        } else if (result.error?.statusCode == 404 ||
+            result.error?.isAuthenticationFailure == true) {
+          setState(() => _revalidationError = result.error);
+        }
+      },
     );
   }
 
@@ -70,54 +86,63 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
         borderRadius: BorderRadius.circular(FloraRadius.sm),
         child: AspectRatio(
           aspectRatio: 1,
-          child: FutureBuilder<Uint8List>(
-            future: _imageFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return _buildPlaceholder(theme, loading: true);
-              }
-              if (snapshot.hasError || snapshot.data == null) {
-                return _buildError(theme, error: snapshot.error);
-              }
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.memory(
-                    snapshot.data!,
-                    fit: BoxFit.cover,
-                    cacheWidth: 480,
-                    errorBuilder: (_, error, _) =>
-                        _buildError(theme, error: error),
-                  ),
-                  Positioned(
-                    left: 8,
-                    bottom: 8,
-                    child: DecoratedBox(
-                      key: ValueKey('gallery_day_badge_${widget.day.date}'),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(FloraRadius.pill),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
+          child: LayoutBuilder(
+            builder: (context, constraints) => FutureBuilder<Uint8List>(
+              future: _imageFuture,
+              builder: (context, snapshot) {
+                if (_revalidationError != null) {
+                  return _buildError(theme, error: _revalidationError);
+                }
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return _buildPlaceholder(theme, loading: true);
+                }
+                if (snapshot.hasError || snapshot.data == null) {
+                  return _buildError(theme, error: snapshot.error);
+                }
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.memory(
+                      snapshot.data!,
+                      fit: BoxFit.cover,
+                      cacheWidth:
+                          (constraints.maxWidth *
+                                  MediaQuery.devicePixelRatioOf(context))
+                              .ceil()
+                              .clamp(1, 480),
+                      errorBuilder: (_, error, _) =>
+                          _buildError(theme, error: error),
+                    ),
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: DecoratedBox(
+                        key: ValueKey('gallery_day_badge_${widget.day.date}'),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(FloraRadius.pill),
                         ),
-                        child: Text(
-                          _dayNumber(widget.day.date),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            height: 1.15,
-                            fontWeight: FontWeight.w700,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          child: Text(
+                            _dayNumber(widget.day.date),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              height: 1.15,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -145,10 +170,11 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
 
   Widget _buildError(ThemeData theme, {Object? error}) {
     final unavailable = error is ApiException && error.statusCode == 404;
+    final authFailed = error is ApiException && error.isAuthenticationFailure;
     return Material(
       color: theme.colorScheme.surfaceContainerHighest,
       child: FloraInkWell(
-        onTap: unavailable ? null : _retry,
+        onTap: unavailable || authFailed ? null : _retry,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -160,7 +186,14 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
               ),
               const SizedBox(height: 4),
               Text(
-                unavailable ? '图片不可用' : '点击重试',
+                unavailable
+                    ? '图片不可用'
+                    : authFailed
+                    ? '认证失败，请检查连接'
+                    : error is ApiException && error.isNetworkFailure
+                    ? '此图片尚未缓存\n点击重试'
+                    : '点击重试',
+                textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall,
               ),
             ],

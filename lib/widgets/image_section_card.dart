@@ -118,6 +118,9 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
   Uint8List? _bytes;
   bool _loading = true;
   String? _error;
+  int _requestSerial = 0;
+  int? _imageGeneration;
+  DateTime? _lastLoadAttempt;
 
   @override
   void initState() {
@@ -125,12 +128,63 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
     _loadImage();
   }
 
-  Future<void> _loadImage() async {
+  @override
+  void didUpdateWidget(covariant DiaryImageThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.apiClient, widget.apiClient) ||
+        oldWidget.date != widget.date ||
+        oldWidget.filename != widget.filename ||
+        _imageGeneration != widget.apiClient.readingCache.imageGeneration ||
+        (!_loading &&
+            _lastLoadAttempt != null &&
+            widget.apiClient.readingCache.now().difference(_lastLoadAttempt!) >=
+                const Duration(days: 7))) {
+      _bytes = null;
+      _loadImage();
+    }
+  }
+
+  Future<void> _loadImage({bool forceRefresh = false}) async {
+    final serial = ++_requestSerial;
+    _imageGeneration = widget.apiClient.readingCache.imageGeneration;
+    _lastLoadAttempt = widget.apiClient.readingCache.now();
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final result = await widget.apiClient.fetchDiaryImage(
         year: widget.date.year,
         month: widget.date.month,
         imageName: widget.filename,
+        forceRefresh: forceRefresh,
+        onRevalidated: (result) {
+          if (!mounted || serial != _requestSerial) return;
+          if (result.bytes != null) {
+            try {
+              final json =
+                  jsonDecode(utf8.decode(result.bytes!))
+                      as Map<String, dynamic>;
+              final data = json['data'] as String;
+              final bytes = base64Decode(data.substring(data.indexOf(',') + 1));
+              _requestSerial++;
+              setState(() {
+                _bytes = bytes;
+                _loading = false;
+              });
+            } catch (_) {
+              // 无效更新不覆盖仍可阅读的本地图片。
+            }
+          } else if (result.error?.statusCode == 404 ||
+              result.error?.isAuthenticationFailure == true) {
+            _requestSerial++;
+            setState(() {
+              _bytes = null;
+              _error = result.error!.isAuthenticationFailure ? '认证失败' : '图片不可用';
+              _loading = false;
+            });
+          }
+        },
       );
       final dataUrl = result['data'] as String?;
       if (dataUrl == null) throw Exception('图片数据为空');
@@ -141,15 +195,23 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
           : dataUrl;
       final bytes = base64Decode(base64);
 
-      if (!mounted) return;
+      if (!mounted || serial != _requestSerial) return;
       setState(() {
         _bytes = bytes;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || serial != _requestSerial) return;
       setState(() {
-        _error = '图片加载失败';
+        _error = e is ApiException
+            ? (e.statusCode == 404
+                  ? '图片不可用'
+                  : e.isAuthenticationFailure
+                  ? '认证失败'
+                  : e.isNetworkFailure
+                  ? '此图片尚未缓存'
+                  : '图片加载失败')
+            : '图片加载失败';
         _loading = false;
       });
     }
@@ -279,12 +341,17 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
           borderRadius: BorderRadius.circular(FloraRadius.sm),
         ),
         child: Center(
-          child: Text(
-            _error ?? '图片加载失败',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
+          child: TextButton(
+            onPressed: _error == '图片不可用' || _error == '认证失败'
+                ? null
+                : () => _loadImage(forceRefresh: true),
+            child: Text(
+              _error ?? '图片加载失败',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
         ),
       );
@@ -312,12 +379,15 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
                     borderRadius: BorderRadius.circular(FloraRadius.sm),
                   ),
                   child: Center(
-                    child: Text(
-                      '图片加载失败',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.error,
+                    child: TextButton(
+                      onPressed: () => _loadImage(forceRefresh: true),
+                      child: Text(
+                        '图片加载失败',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),

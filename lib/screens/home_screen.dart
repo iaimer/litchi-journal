@@ -46,6 +46,8 @@ import '../widgets/habit_card.dart';
 import '../widgets/habit_icon.dart';
 import '../widgets/quick_record_backdrop.dart';
 import '../widgets/quick_record_fan.dart';
+import '../widgets/reading_cache_status.dart';
+import '../widgets/flora_error_state.dart';
 
 typedef TodayImagePicker = QuickCaptureImagePicker;
 typedef TodayImageCompressor = QuickCaptureImageCompressor;
@@ -56,6 +58,7 @@ class HomeScreen extends StatefulWidget {
   final TodayImagePicker? imagePicker;
   final TodayImageCompressor? imageCompressor;
   final ValueChanged<ApiConfig>? onApiConfigChanged;
+  final bool active;
 
   const HomeScreen({
     super.key,
@@ -64,6 +67,7 @@ class HomeScreen extends StatefulWidget {
     this.imagePicker,
     this.imageCompressor,
     this.onApiConfigChanged,
+    this.active = true,
   });
 
   @override
@@ -124,7 +128,7 @@ bool _isUsableContextLine(String line) {
       !trimmed.contains('<!--');
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _diaryLoadTimeout = Duration(seconds: 12);
 
   DiaryEntry? _diary;
@@ -133,6 +137,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   bool _refreshing = false;
   String? _error;
+  DateTime? _cachedAt;
+  bool _verified = false;
+  String? _warmedConnection;
   TagConfig? _tagConfig;
   TagSettings? _tagSettings;
   final _draftRepository = DraftRepository();
@@ -166,6 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _focusTimerController = FocusTimerController();
     unawaited(_focusTimerController.load());
     _habitCompletionSound.preload();
@@ -184,7 +192,32 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.apiClient, widget.apiClient)) {
+      _diaryRefreshSerial++;
+      _diary = null;
+      _cachedAt = null;
+      _verified = false;
+      _loadTagConfig();
+      _loadDiary();
+    } else if (widget.active && !oldWidget.active) {
+      _loadDiary();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        widget.active &&
+        (ModalRoute.of(context)?.isCurrent ?? true)) {
+      _loadDiary();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _focusTimerController.dispose();
     _scrollController.dispose();
     unawaited(_habitCompletionSound.dispose());
@@ -192,18 +225,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadTagConfig() async {
+    final client = widget.apiClient;
     try {
       final repo = TagRepository(apiClient: widget.apiClient);
       final tagSettingsRepo = TagSettingsRepository();
       final config = await repo.loadTagConfig();
       final settings = await tagSettingsRepo.loadTagSettings(config);
-      if (!mounted) return;
+      if (!mounted || !identical(client, widget.apiClient)) return;
       setState(() {
         _tagConfig = config;
         _tagSettings = settings;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || !identical(client, widget.apiClient)) return;
       setState(() {
         _tagConfig = DefaultTagConfig.value;
         _tagSettings = TagSettings.fromTagConfig(DefaultTagConfig.value);
@@ -213,53 +247,122 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadDiary() async {
     final requestId = ++_diaryRefreshSerial;
-    final hasVisibleContent = _diary != null;
+    final client = widget.apiClient;
+    final date = DateTime.now();
+    final hasVisibleContent =
+        _diary != null &&
+        _diaryDate != null &&
+        ApiClient.formatDate(_diaryDate!) == ApiClient.formatDate(date);
     setState(() {
+      if (!hasVisibleContent) _diary = null;
       _loading = !hasVisibleContent;
       _refreshing = hasVisibleContent;
       _error = null;
+      _verified = false;
+      _quickRecordExpanded = false;
     });
 
     try {
-      final date = DateTime.now();
-      var diary = await widget.apiClient
-          .getDiary(date)
+      final settingsRepo =
+          widget.habitSettingsRepo ?? HabitSettingsRepository();
+      final settings = await settingsRepo.load().timeout(
+        const Duration(seconds: 1),
+        onTimeout: () => HabitSettings.defaults,
+      );
+      var diary = await client
+          .getDiary(
+            date,
+            onCached: (cached) {
+              if (!mounted ||
+                  requestId != _diaryRefreshSerial ||
+                  hasVisibleContent) {
+                return;
+              }
+              _showDiary(
+                cached.value,
+                date,
+                settings,
+                verified: false,
+                updatedAt: cached.updatedAt,
+              );
+            },
+          )
           .timeout(_diaryLoadTimeout);
 
       if (diary == null) {
-        if (hasVisibleContent) {
-          throw StateError('diary refresh failed');
-        }
-        await widget.apiClient.ensureDiary(date).timeout(_diaryLoadTimeout);
-        diary = await widget.apiClient
-            .getDiary(date)
-            .timeout(_diaryLoadTimeout);
+        if (!mounted || requestId != _diaryRefreshSerial) return;
+        diary = await _createConfirmedMissingDiary(client, date);
       }
 
-      // 加载习惯设置
-      final settingsRepo =
-          widget.habitSettingsRepo ?? HabitSettingsRepository();
-      final settings = await settingsRepo.load();
-
       if (!mounted || requestId != _diaryRefreshSerial) return;
-      setState(() {
-        _diary = diary;
-        _diaryDate = date;
-        _loading = false;
-        _refreshing = false;
-        _habitSettings = settings;
-        _activeHabitKeys = settings.activeKeys.toSet();
-        _customCheckboxStates = _readCustomCheckboxStates(diary, settings);
-        _customDurationStates = _readCustomDurationStates(diary, settings);
-      });
+      _showDiary(
+        diary,
+        date,
+        settings,
+        verified: true,
+        updatedAt: DateTime.now(),
+      );
+      _warmReadingCache(client, date);
     } catch (e) {
       if (!mounted || requestId != _diaryRefreshSerial) return;
-      setState(() {
-        _error = '加载失败';
-        _loading = false;
-        _refreshing = false;
-      });
+      _showDiaryLoadFailure(e);
     }
+  }
+
+  Future<DiaryEntry> _createConfirmedMissingDiary(
+    ApiClient client,
+    DateTime date,
+  ) async {
+    final created = await client.ensureDiary(date).timeout(_diaryLoadTimeout);
+    if (!created) throw const ApiException('今日日记创建失败，请重试');
+    final diary = await client.getDiary(date).timeout(_diaryLoadTimeout);
+    if (diary == null) throw const ApiException('今日日记暂时无法读取，请重试');
+    return diary;
+  }
+
+  void _showDiary(
+    DiaryEntry? diary,
+    DateTime date,
+    HabitSettings settings, {
+    required bool verified,
+    required DateTime updatedAt,
+  }) {
+    setState(() {
+      _diary = diary;
+      _diaryDate = date;
+      _loading = false;
+      _refreshing = !verified;
+      _verified = verified && diary != null;
+      _cachedAt = updatedAt;
+      _habitSettings = settings;
+      _activeHabitKeys = settings.activeKeys.toSet();
+      _customCheckboxStates = _readCustomCheckboxStates(diary, settings);
+      _customDurationStates = _readCustomDurationStates(diary, settings);
+    });
+  }
+
+  void _showDiaryLoadFailure(Object error) {
+    setState(() {
+      if (error is ApiException && error.isAuthenticationFailure) {
+        _diary = null;
+        _cachedAt = null;
+        _error = '认证失败，请检查连接设置后重试';
+      } else {
+        _error = _diary == null ? '此日记尚未缓存，连接服务器后可查看' : null;
+      }
+      _loading = false;
+      _refreshing = false;
+    });
+  }
+
+  void _warmReadingCache(ApiClient client, DateTime date) {
+    if (_warmedConnection == client.readingCacheNamespace) return;
+    _warmedConnection = client.readingCacheNamespace;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && identical(client, widget.apiClient)) {
+        unawaited(client.warmRecentDiaries(date));
+      }
+    });
   }
 
   Future<void> _reloadHabitSettings() async {
@@ -328,9 +431,22 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted || requestId != _diaryRefreshSerial) return;
       // 日记内容更新后清除习惯统计日缓存，避免显示旧数据
       HabitStatsService.clearDayCache();
-      setState(() => _diary = diary);
-    } catch (_) {
+      setState(() {
+        _diary = diary;
+        _verified = diary != null;
+        _cachedAt = DateTime.now();
+        _error = null;
+      });
+    } catch (error) {
       if (!mounted || requestId != _diaryRefreshSerial) return;
+      setState(() {
+        _verified = false;
+        if (error is ApiException && error.isAuthenticationFailure) {
+          _diary = null;
+          _cachedAt = null;
+          _error = '认证失败，请检查连接设置后重试';
+        }
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('已保存，但刷新失败')));
@@ -429,6 +545,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, bool>? customStates,
     Map<String, int>? durationStates,
   }) async {
+    if (!_verified) return false;
     return widget.apiClient.updateHabits(
       _activeDate,
       water: status.water,
@@ -488,6 +605,7 @@ class _HomeScreenState extends State<HomeScreen> {
     int minutes,
     bool replace,
   ) async {
+    if (!_verified) return false;
     try {
       final result = await widget.apiClient.updateHabitDuration(
         target.diaryDate,
@@ -507,6 +625,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<bool> _handleStartDuration(HabitTimerTarget target) async {
+    if (!_verified) return false;
     final current = _focusTimerController.session;
     if (current != null) {
       if (current.habitKey != target.habitKey) return false;
@@ -536,6 +655,7 @@ class _HomeScreenState extends State<HomeScreen> {
     FocusTimerSession session,
     int minutes,
   ) async {
+    if (!_verified) return false;
     final result = await widget.apiClient.updateHabitDuration(
       session.diaryDate,
       habitKey: session.habitKey,
@@ -659,11 +779,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _handleEntryDelete(String sectionKey, String rawLine) async {
+  Future<void> _handleEntryDelete(
+    String sectionKey,
+    String rawLine, {
+    String? expectedRaw,
+  }) async {
     final ok = await widget.apiClient.deleteEntry(
       _activeDate,
       section: sectionKey,
       line: rawLine,
+      expectedRaw: expectedRaw,
     );
     if (!ok) throw Exception('删除失败');
     if (!mounted) return;
@@ -678,6 +803,7 @@ class _HomeScreenState extends State<HomeScreen> {
     List<String> tags,
     String time, {
     String? entryId,
+    String? expectedRaw,
   }) async {
     final replacement = rebuildTimelineLine(
       rawLine: rawLine,
@@ -691,6 +817,7 @@ class _HomeScreenState extends State<HomeScreen> {
       target: rawLine,
       replacement: replacement,
       entryId: entryId,
+      expectedRaw: expectedRaw,
     );
     if (!ok) throw Exception('更新失败');
     if (!mounted) return;
@@ -1024,6 +1151,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final sourceRaw = _diary?.raw;
     return PopScope<void>(
       canPop: !_quickRecordExpanded,
       onPopInvokedWithResult: (didPop, _) {
@@ -1069,12 +1197,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 // 从设置页返回后，重新加载标签设置和习惯设置
                 await _loadTagConfig();
                 _reloadHabitSettings();
+                if (mounted) _loadDiary();
               },
             ),
           ],
         ),
         backgroundColor: theme.scaffoldBackgroundColor,
-        floatingActionButton: _buildQuickRecordFab(theme),
+        floatingActionButton: ExcludeSemantics(
+          excluding: !_verified,
+          child: IgnorePointer(
+            ignoring: !_verified,
+            child: Opacity(
+              opacity: _verified ? 1 : 0.4,
+              child: _buildQuickRecordFab(theme),
+            ),
+          ),
+        ),
         floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
         floatingActionButtonLocation: FloraDockScope.maybeOf(context) == null
             ? FloatingActionButtonLocation.endFloat
@@ -1110,32 +1248,57 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: LinearProgressIndicator(minHeight: 2),
                             ),
                           const SizedBox(height: 16),
-                          _buildFocusTimerStrip(theme),
-                          if (_error != null) ...[
-                            Text(
-                              _error!,
-                              style: TextStyle(color: theme.colorScheme.error),
+                          if (!_verified && _diary != null)
+                            ReadingCacheStatus(
+                              updatedAt: _cachedAt,
+                              refreshing: _refreshing,
+                              onRetry: _loadDiary,
                             ),
-                            const SizedBox(height: 16),
-                          ],
+                          _buildFocusTimerStrip(theme),
                           if (_diary?.raw.isNotEmpty == true) ...[
                             DiaryMarkdownView(
+                              readOnly: !_verified,
+                              showTodayPlaceholders: true,
                               markdown: _diary?.raw ?? '',
                               onHabitUpdate: _handleHabitUpdate,
-                              onEntryDelete: _handleEntryDelete,
-                              onEntryEdit: _handleEntryEdit,
-                              onEntryEditWithEntryId:
-                                  (section, rawLine, content, tags, time, id) =>
-                                      _handleEntryEdit(
-                                        section,
-                                        rawLine,
-                                        content,
-                                        tags,
-                                        time,
-                                        entryId: id,
-                                      ),
+                              onEntryDelete: _verified
+                                  ? (section, line) => _handleEntryDelete(
+                                      section,
+                                      line,
+                                      expectedRaw: sourceRaw,
+                                    )
+                                  : null,
+                              onEntryEdit: !_verified
+                                  ? null
+                                  : (section, line, content, tags, time) =>
+                                        _handleEntryEdit(
+                                          section,
+                                          line,
+                                          content,
+                                          tags,
+                                          time,
+                                          expectedRaw: sourceRaw,
+                                        ),
+                              onEntryEditWithEntryId: !_verified
+                                  ? null
+                                  : (
+                                      section,
+                                      rawLine,
+                                      content,
+                                      tags,
+                                      time,
+                                      id,
+                                    ) => _handleEntryEdit(
+                                      section,
+                                      rawLine,
+                                      content,
+                                      tags,
+                                      time,
+                                      entryId: id,
+                                      expectedRaw: sourceRaw,
+                                    ),
                               onEntryEditCompleted: _loadDiarySilently,
-                              onEntryPolish: _handlePolish,
+                              onEntryPolish: _verified ? _handlePolish : null,
                               tagConfig: _tagConfig,
                               tagSettings: _tagSettings,
                               apiClient: widget.apiClient,
@@ -1157,6 +1320,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               imagePicker: widget.imagePicker,
                               imageCompressor: widget.imageCompressor,
                             ),
+                          ] else if (_error != null) ...[
+                            FloraErrorState(
+                              message: _error!,
+                              onRetry: _loadDiary,
+                            ),
                           ] else ...[
                             Text(
                               '今日还没有日记内容',
@@ -1166,6 +1334,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 16),
                             HabitCard(
+                              readOnly: !_verified,
                               key: const ValueKey('habit_card'),
                               section: HabitSection.empty(),
                               onUpdate: _handleHabitUpdate,

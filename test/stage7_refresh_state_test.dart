@@ -54,7 +54,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('旧内容'), findsOneWidget);
-    expect(find.text('加载失败'), findsOneWidget);
+    expect(find.textContaining('正在显示本地内容'), findsOneWidget);
   });
 
   testWidgets('过往画廊刷新期间保留旧照片日期', (tester) async {
@@ -159,7 +159,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('历史旧内容'), findsOneWidget);
-    expect(find.text('加载失败，请检查网络后重试'), findsOneWidget);
+    expect(find.textContaining('正在显示本地内容'), findsOneWidget);
   });
 }
 

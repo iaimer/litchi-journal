@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'services/api_config.dart';
 import 'services/api_client.dart';
+import 'services/reading_cache_repository.dart';
 import 'services/appearance_controller.dart';
 import 'screens/home_screen.dart';
 import 'screens/past_screen.dart';
@@ -62,7 +63,8 @@ class LitchiJournalApp extends StatelessWidget {
 }
 
 class AppEntry extends StatefulWidget {
-  const AppEntry({super.key});
+  final ReadingCacheRepository? readingCache;
+  const AppEntry({super.key, this.readingCache});
 
   @override
   State<AppEntry> createState() => _AppEntryState();
@@ -113,7 +115,7 @@ class _AppEntryState extends State<AppEntry> {
   void _setConfig(ApiConfig config) {
     _apiClient?.dispose();
     _config = config;
-    _apiClient = ApiClient(config);
+    _apiClient = ApiClient(config, readingCache: widget.readingCache);
   }
 
   void _onSplashDone() {
@@ -178,10 +180,12 @@ class _MainScreenState extends State<MainScreen> {
         key: const PageStorageKey('home'),
         apiClient: widget.apiClient,
         onApiConfigChanged: widget.onApiConfigChanged,
+        active: _currentIndex == 0,
       ),
       PastScreen(
         key: const PageStorageKey('past'),
         apiClient: widget.apiClient,
+        active: _currentIndex == 1,
       ),
       HabitStatsScreen(
         key: const PageStorageKey('habits'),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -336,6 +337,37 @@ void main() {
   });
 
   group('HabitTrend formatting and cache', () {
+    test('统计失效与旧缓存保存并发时，不回填旧统计', () async {
+      final storage = _DelayedTrendStorage();
+      const namespace = 'review-race';
+      final repo = HabitTrendCacheRepository(
+        storage: storage,
+        namespace: namespace,
+      );
+      final period = HabitTrendPeriod.forAnchor(
+        HabitTrendRange.month,
+        DateTime(2026, 9, 10),
+      );
+      final stats = HabitTrendStats(
+        period: period,
+        sourceDays: const [],
+        items: const [],
+        settingsSignature: 'old',
+        cachedAt: DateTime(2026, 9, 10),
+      );
+      final saving = repo.save(stats);
+      await storage.started.future;
+      final clearing = HabitTrendCacheRepository.invalidateNamespace(
+        namespace,
+        storage: storage,
+      );
+      expect(await repo.load(period), isNull);
+      storage.release.complete();
+      await Future.wait([saving, clearing]);
+      expect(await repo.load(period), isNull);
+      await repo.save(stats);
+      expect(await repo.load(period), isNotNull);
+    });
     test('uses compact Chinese duration and streak units', () {
       expect(formatDurationMinutes(0), '0.0 小时');
       expect(formatDurationMinutes(1), '<0.1 小时');
@@ -886,6 +918,17 @@ class _MemoryTrendStorage implements HabitTrendCacheStorage {
 
   @override
   Future<void> delete(String key) async => values.remove(key);
+}
+
+class _DelayedTrendStorage extends _MemoryTrendStorage {
+  final started = Completer<void>();
+  final release = Completer<void>();
+  @override
+  Future<void> write(String key, String value) async {
+    if (!started.isCompleted) started.complete();
+    await release.future;
+    await super.write(key, value);
+  }
 }
 
 class _MemorySettingsStorage implements HabitSettingsStorage {

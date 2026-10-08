@@ -814,6 +814,49 @@ void main() {
     expect(find.text('今日还没有日记内容'), findsNothing);
   });
 
+  testWidgets('今天有缓存时显示服务器错误，保留正文，重试后恢复联网', (tester) async {
+    final today = ApiClient.formatDate(DateTime.now());
+    final cache = _MemoryCache();
+    var online = false;
+    var creates = 0;
+    final client = _api(cache, (request) async {
+      if (request.method == 'POST') creates++;
+      if (request.url.path != '/api/v1/diary/$today') {
+        return http.Response('{}', 404);
+      }
+      return online
+          ? _jsonResponse(jsonEncode(_diary('联网新正文', date: today)), 200)
+          : http.Response('{}', 500);
+    });
+    addTearDown(client.dispose);
+    await cache.write(
+      cache.begin(
+        ReadingCacheKind.data,
+        client.readingCacheNamespace,
+        '/api/v1/diary/$today',
+      ),
+      _bytes(jsonEncode(_diary('缓存正文仍可读', date: today))),
+    );
+    await tester.pumpWidget(MaterialApp(home: HomeScreen(apiClient: client)));
+    await tester.pumpAndSettle();
+    expect(find.text('服务器错误（500），请稍后重试；正在显示本地内容'), findsOneWidget);
+    expect(find.textContaining('缓存正文仍可读'), findsOneWidget);
+    expect(
+      tester.widget<DiaryMarkdownView>(find.byType(DiaryMarkdownView)).readOnly,
+      isTrue,
+    );
+    online = true;
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('联网新正文'), findsOneWidget);
+    expect(find.textContaining('服务器错误'), findsNothing);
+    expect(
+      tester.widget<DiaryMarkdownView>(find.byType(DiaryMarkdownView)).readOnly,
+      isFalse,
+    );
+    expect(creates, 0);
+  });
+
   testWidgets('离线画廊恢复月份索引，保持首图与分页游标', (tester) async {
     final cache = _MemoryCache();
     final client = _api(

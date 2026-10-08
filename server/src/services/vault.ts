@@ -32,12 +32,23 @@ export function getDateString(date: Date): string {
   return getShanghaiDateString(date);
 }
 
-export function readDiary(date: Date): string {
-  const path = getDiaryPath(date);
-  if (!existsSync(path)) {
-    throw new Error('Diary not found');
+export class DiaryNotFoundError extends Error {
+  constructor() {
+    super('Diary not found');
+    this.name = 'DiaryNotFoundError';
   }
-  return readFileSync(path, 'utf-8');
+}
+
+export function readDiary(date: Date): string {
+  try {
+    return readFileSync(getDiaryPath(date), 'utf-8');
+  } catch (error) {
+    // 只将明确缺失转换为 404，权限及其他读取错误不能触发客户端创建。
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new DiaryNotFoundError();
+    }
+    throw error;
+  }
 }
 
 export function writeDiary(date: Date, content: string): void {

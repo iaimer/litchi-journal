@@ -6,7 +6,7 @@
 
 2026-10-08 最新任务为修复今天页一直加载失败、重试无效，工作分支 `codex/today-diary-read-fix-20261008`，基线 `2ed1690`。通过手机投屏确认按钮会重新加载；经用户允许，保持原服务器地址点击保存做连接检查，实际显示 HTTP 500，失败未保存配置。未取得线上错误正文；仓库最小测试确认缺失日记返回 500，阻断新版客户端只在 404 后创建的流程。当前修复将文件读取的 `ENOENT` 类型化为 `DiaryNotFoundError`，GET 返回 404；无效日期 400，权限/磁盘/解析错误 500。今天页区分真实错误，已有正文不清空；创建请求失败保留状态，401/403 不被误报为未缓存。
 
-本次不递增版本、不改 CHANGELOG、不追加 SESSION_LOG、不合并推送、不远程部署、不触碰真实 Vault。需用户确认推送后在 Mac mini 重新构建部署，才能验证真实手机恢复；旧 `litchi-journal-1.9.0-release.apk` 尚不包含客户端提示修复。后续验收不得将修复前投屏结果当作修复后成功；投屏不等于 ADB 已连接。
+用户已于 2026-10-08 明确确认将本修复从 `codex/today-diary-read-fix-20261008` squash 合并至 `main` 并推送。本次不递增版本、不改 CHANGELOG、不追加 SESSION_LOG、不远程部署、不触碰真实 Vault。推送后由用户在 Mac mini 拉取 `main`，在 `server/` 运行 `npm run build` 和 `npm run pm2:restart`，再验证真实手机恢复；本轮依赖未变。旧 `litchi-journal-1.9.0-release.apk` 尚不包含客户端提示修复，测试使用下段修复包。后续验收不得将修复前投屏结果当作修复后成功；投屏不等于 ADB 已连接。
 
 本次已先复现服务端 4 项及客户端 5 项失败，再完成修复；补充权限/磁盘错误分类、数据类型错误和缓存正文保留回归。完整 Flutter 772 项、`flutter analyze`、服务端 70 项、TypeScript 构建、`git diff --check` 均通过。正常 `lib/main.dart` Release 修复测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.0-today-read-fix.apk`，保持 `1.9.0+39`、原包名与 debug 签名；不是新发布或商店正式签名包，不覆盖已有命名发布包。复查 ADB 仍无设备，未安装、未完成修复后真机测试。
 

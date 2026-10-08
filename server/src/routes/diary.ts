@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   readDiary,
+  DiaryNotFoundError,
   writeDiary,
   getDateString,
   getDiaryPath,
@@ -267,17 +268,25 @@ router.post('/create', async (req, res) => {
 });
 
 router.get('/:date', async (req, res) => {
+  let date: Date;
+  const dateStr = req.params.date;
   try {
-    const dateStr = req.params.date;
-    const date = parseShanghaiDate(dateStr);
+    date = parseShanghaiDate(dateStr);
+  } catch {
+    return res.status(400).json({ error: '日期无效，请使用 YYYY-MM-DD' });
+  }
 
+  try {
     const content = readDiary(date);
     const entry = parseDiary(content);
     entry.date = dateStr;
 
     res.json(entry);
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    if (error instanceof DiaryNotFoundError) {
+      return res.status(404).json({ error: '日记不存在' });
+    }
+    res.status(500).json({ error: '日记读取失败，请检查服务器状态' });
   }
 });
 

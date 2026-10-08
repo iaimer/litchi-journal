@@ -348,11 +348,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _cachedAt = null;
         _error = '认证失败，请检查连接设置后重试';
       } else {
-        _error = _diary == null ? '此日记尚未缓存，连接服务器后可查看' : null;
+        _error = _diaryLoadFailureMessage(error);
       }
       _loading = false;
       _refreshing = false;
     });
+  }
+
+  String _diaryLoadFailureMessage(Object error) {
+    final hasLocalContent = _diary != null;
+    if (error is TimeoutException ||
+        (error is ApiException && error.isNetworkFailure)) {
+      return hasLocalContent ? '暂时无法连接，正在显示本地内容' : '无法连接服务器，此日记尚未缓存，连接后请重试';
+    }
+    final String message;
+    if (error is FormatException || error is TypeError) {
+      message = '服务器返回的日记数据无法解析，请重试或检查服务器版本';
+    } else if (error is ApiException && error.statusCode != null) {
+      message = error.statusCode! >= 500
+          ? '服务器错误（${error.statusCode}），请稍后重试'
+          : '日记请求失败（${error.statusCode}），请重试';
+    } else if (error is ApiException &&
+        const ['今日日记创建失败，请重试', '今日日记暂时无法读取，请重试'].contains(error.message)) {
+      message = error.message;
+    } else {
+      message = '今日日记加载失败，请重试';
+    }
+    return hasLocalContent ? '$message；正在显示本地内容' : message;
   }
 
   void _warmReadingCache(ApiClient client, DateTime date) {
@@ -1252,6 +1274,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             ReadingCacheStatus(
                               updatedAt: _cachedAt,
                               refreshing: _refreshing,
+                              message: _error,
                               onRetry: _loadDiary,
                             ),
                           _buildFocusTimerStrip(theme),

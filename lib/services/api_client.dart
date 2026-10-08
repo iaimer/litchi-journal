@@ -297,7 +297,13 @@ class ApiClient {
       '/api/v1/diary/create',
       body: {'date': formatDate(date)},
     );
-    return response.statusCode == 200;
+    if (response.statusCode != 200) {
+      throw ApiException(
+        _statusMessage('创建日记失败', response.statusCode),
+        statusCode: response.statusCode,
+      );
+    }
+    return true;
   }
 
   Future<bool> _appendToSection(

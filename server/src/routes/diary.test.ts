@@ -89,6 +89,53 @@ function assetsDir(year: number, month: number): string {
   );
 }
 
+describe('diary read route', () => {
+  const date = new Date('2024-08-12T12:00:00+08:00');
+
+  beforeEach(() => {
+    rmSync(testConfig.vaultPath, { recursive: true, force: true });
+  });
+
+  afterAll(() => {
+    rmSync(testConfig.vaultPath, { recursive: true, force: true });
+  });
+
+  it('returns 404 for a missing diary without creating the vault', async () => {
+    const res = response();
+    await diaryEntryHandler('/:date')({ params: { date: '2024-08-12' } }, res);
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toEqual({ error: '日记不存在' });
+    expect(existsSync(testConfig.vaultPath)).toBe(false);
+  });
+
+  it('reads an existing diary without modifying it', async () => {
+    const content = '# 今天\n\n## ✍️ 随手记 & 灵感\n- **08:00** 原始内容';
+    writeDiary(date, content);
+    const res = response();
+    await diaryEntryHandler('/:date')({ params: { date: '2024-08-12' } }, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ date: '2024-08-12', raw: content });
+    expect(readDiary(date)).toBe(content);
+  });
+
+  it.each(['invalid', '2024-02-30'])('rejects invalid date %s without writes', async value => {
+    const res = response();
+    await diaryEntryHandler('/:date')({ params: { date: value } }, res);
+    expect(res.statusCode).toBe(400);
+    expect(existsSync(testConfig.vaultPath)).toBe(false);
+  });
+
+  it('keeps a filesystem read failure as 500, not a missing diary', async () => {
+    const diaryPath = join(testConfig.vaultPath, '01.日记', '2024', '08.August', '2024-08-12.md');
+    mkdirSync(diaryPath, { recursive: true });
+    const res = response();
+    await diaryEntryHandler('/:date')({ params: { date: '2024-08-12' } }, res);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({ error: '日记读取失败，请检查服务器状态' });
+    expect(existsSync(diaryPath)).toBe(true);
+  });
+});
+
 describe('rendered diary image route', () => {
   beforeEach(() => {
     rmSync(testConfig.vaultPath, { recursive: true, force: true });

@@ -39,6 +39,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   String? _error;
   String? _testMessage;
   bool _testSucceeded = false;
+  int _connectionRevision = 0;
   late final PolisherService _polisherService;
 
   @override
@@ -63,6 +64,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
 
   void _applyPreset(AIPreset preset) {
     setState(() {
+      _connectionRevision++;
       _nameController.text = preset.name;
       _baseUrlController.text = preset.baseUrl;
       _modelController.text = preset.model;
@@ -72,8 +74,19 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   void _clearTestResult() {
+    // 字段改变时也要废弃尚未返回的测试，不能只清除已显示的结果。
+    _connectionRevision++;
     if (_testMessage == null) return;
     setState(() {
+      _testMessage = null;
+      _testSucceeded = false;
+    });
+  }
+
+  void _setEnabled(bool enabled) {
+    setState(() {
+      _enabled = enabled;
+      _connectionRevision++;
       _testMessage = null;
       _testSucceeded = false;
     });
@@ -88,6 +101,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       _testSucceeded = false;
     });
 
+    final testedRevision = _connectionRevision;
     final result = await _polisherService.testConnection(
       config: AIConfig(
         enabled: true,
@@ -100,8 +114,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     if (!mounted) return;
     setState(() {
       _testing = false;
-      _testMessage = result.message;
-      _testSucceeded = result.success;
+      if (_enabled && testedRevision == _connectionRevision) {
+        _testMessage = result.message;
+        _testSucceeded = result.success;
+      }
     });
   }
 
@@ -159,17 +175,14 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           children: [
             FloraInkWell(
               key: const ValueKey('ai_enabled_toggle'),
-              onTap: () => setState(() => _enabled = !_enabled),
+              onTap: () => _setEnabled(!_enabled),
               borderRadius: BorderRadius.circular(FloraRadius.sm),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
                   children: [
                     const Expanded(child: Text('启用 AI 润色')),
-                    FloraSwitch(
-                      value: _enabled,
-                      onChanged: (v) => setState(() => _enabled = v),
-                    ),
+                    FloraSwitch(value: _enabled, onChanged: _setEnabled),
                   ],
                 ),
               ),

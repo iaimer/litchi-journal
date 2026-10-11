@@ -83,8 +83,8 @@ const aiPresets = [
     model: 'moonshot-v1-8k',
   ),
   AIPreset(
-    name: '本地 Ollama',
-    baseUrl: 'http://localhost:11434',
-    model: 'qwen2.5:7b',
+    name: '阿里云百炼',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen3.7-flash',
   ),
 ];

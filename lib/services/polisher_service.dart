@@ -113,10 +113,10 @@ class PolisherService {
     }
     if (error is AIRequestException) {
       return switch (error.statusCode) {
-        401 || 403 => '连接失败：API Key 无效或没有 OpenCode Go 权限',
+        401 || 403 => '连接失败：API Key 无效或没有访问权限',
         404 => '连接失败：接口地址或 Model 不存在',
         429 => '连接失败：已达到限流或使用额度上限',
-        >= 500 => '连接失败：OpenCode 服务暂时不可用',
+        >= 500 => '连接失败：AI 服务暂时不可用，请稍后重试',
         _ => '连接失败：服务返回错误 (${error.statusCode})',
       };
     }
@@ -266,6 +266,9 @@ class PolisherService {
     };
     if (_usesOfficialDeepSeekApi(config.baseUrl)) {
       requestBody['thinking'] = {'type': 'disabled'};
+    }
+    if (_usesBeijingBailianFlash(chatUrl, config.model)) {
+      requestBody['enable_thinking'] = false;
     }
     late final http.Response response;
     try {
@@ -632,6 +635,20 @@ $methodsSection
   static bool _usesOfficialDeepSeekApi(String baseUrl) {
     return Uri.tryParse(baseUrl.trim())?.host.toLowerCase() ==
         'api.deepseek.com';
+  }
+
+  static bool _usesBeijingBailianFlash(String chatUrl, String model) {
+    final uri = Uri.tryParse(chatUrl);
+    // 百炼扩展参数仅用于确认过的官方端点与模型，不传给兼容网关。
+    return model == 'qwen3.7-flash' &&
+        uri != null &&
+        uri.scheme == 'https' &&
+        uri.host.toLowerCase() == 'dashscope.aliyuncs.com' &&
+        uri.port == 443 &&
+        uri.userInfo.isEmpty &&
+        uri.path == '/compatible-mode/v1/chat/completions' &&
+        !uri.hasQuery &&
+        !uri.hasFragment;
   }
 
   static bool _usesOpenCodeGoEndpoint(String baseUrl) {

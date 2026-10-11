@@ -4,6 +4,12 @@
 
 ## 当前目标与上下文
 
+2026-10-12 当前任务为百炼预设审查与交付。功能分支 `codex/aliyun-bailian-preset-20261012` 从已整合的本地 `main` 建立，初始实现提交 `92f50df`。本地 Ollama 预设改为阿里云百炼北京 `https://dashscope.aliyuncs.com/compatible-mode/v1` 与 `qwen3.7-flash`。仅 HTTPS、官方精确 Host、443 端口、标准兼容请求路径、无 URL 凭据/查询/片段且精确模型匹配时发送 `enable_thinking: false`；其他模型和网关不携带此参数。保留旧配置、其他预设、API Key、手动保存和提示词；通用连接错误去除 OpenCode 专属名称。
+
+用户随后明确授权「审查、修复、构建 APK、合并并推送」，取代上一轮不构建/不合并/不推送边界。两轴审查：规范轴 0 项，需求轴 1 项 P2（在途旧测试结果回填）已修正；配置变化递增修订号，旧成功/失败不能覆盖当前表单。新增 10 项先红后绿，专项共 35 项、完整 Flutter 822 项、静态检查、服务端 70 项、TypeScript 构建及差异检查通过。审查详情见 `docs/BAILIAN_CODE_REVIEW.md`。按受保护流程在功能分支完成修正与文档，再 squash 合并至 `main`，保留前一轮整合历史并正常推送；同步 origin 时远端主线无新增提交，不强推或改写历史。
+
+本轮正常 `lib/main.dart` 入口内部 Release APK 已构建：`build/app/outputs/flutter-apk/litchi-journal-1.9.0-bailian-review.apk`（约 67.3MB），SHA-256 `7d27b7c5dcb93c8247a543f32d062fde8d81ba9193909f58a233d49698bbf619`。APK v2 签名校验通过，包内确认包含百炼地址、`qwen3.7-flash` 和 `enable_thinking`；版本仍为 `1.9.0+39`、原包名及 debug 签名，不是商店正式包。独立命名副本与本轮 `app-release.apk` 完全一致。没有使用真实百炼凭据、没有本轮设备安装或线上调用验收；不新增发布、不改 CHANGELOG、不部署服务端、不触碰 Vault。以下此前版本及构建记录不代表本轮装机验收。
+
 2026-10-12 用户授权「合并所有分支，并提交」。本轮将习惯趋势页顶部接缝修复从 `codex/habit-header-seam-20261008` 提交并 squash 合并至本地 `main`；对已经 squash 交付的旧分支逐一核对文件树后补齐合并祖先记录，保留已撤回的备份功能删除结果。核对依据见 `docs/BRANCH_INTEGRATION_20261012.md`。版本保持 `1.9.0+39`，不新增发布、不更新 CHANGELOG；本轮未请求推送或远程部署，现有分支保留。
 
 习惯趋势页接缝修复基线为 `287e327`。真实渲染先复现浅深色边缘色差与中央模糊带；单独统一底色后中央仍异常，关闭静止模糊后采样与纸色全部一致。共享 `FloraGlassHeader` 增加可选 `tint` 与 `glassStrength`，默认保持旧行为；仅习惯页按滚动位置在 8dp 后的 16dp 内渐进玻璃，返回顶部与下拉时使用不透明纸色。高对比度不模糊，标题、周期按钮、布局及统计不变。新增 15 项回归；不修改服务端，不追加 SESSION_LOG。

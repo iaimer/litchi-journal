@@ -18,12 +18,128 @@ import 'package:litchi_journal_flutter/services/habit_trend_cache_repository.dar
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
 import 'package:litchi_journal_flutter/widgets/diary_date_title.dart';
 import 'package:litchi_journal_flutter/widgets/flora_app_bar.dart';
+import 'package:litchi_journal_flutter/widgets/flora_glass.dart';
 import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
 import 'package:litchi_journal_flutter/widgets/flora_primary_header.dart';
 import 'package:litchi_journal_flutter/widgets/flora_skeleton.dart';
 
 void main() {
-  testWidgets('三个主页面收起 Banner 使用同一紧凑高度', (tester) async {
+  for (final dark in [false, true]) {
+    for (final highContrast in [false, true]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets('习惯页顶部接缝：深色=$dark，高对比=$highContrast，字体=$scale', (
+          tester,
+        ) async {
+          await tester.binding.setSurfaceSize(const Size(320, 720));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final pending = Completer<http.Response>();
+          await _mountHabits(
+            tester,
+            dark: dark,
+            highContrast: highContrast,
+            textScale: scale,
+            initialStats: pending,
+          );
+          expect(find.byType(FloraSkeletonRegion), findsOneWidget);
+          await _expectPaperSeam(tester, dark: dark);
+          pending.complete(_json([]));
+          await tester.pumpAndSettle();
+          for (final range in ['周', '月', '年']) {
+            await tester.tap(find.text(range));
+            await tester.pumpAndSettle();
+            await _expectPaperSeam(tester, dark: dark);
+            expect(tester.takeException(), isNull);
+          }
+        });
+      }
+      testWidgets('习惯玻璃渐进滚动并恢复纸色：深色=$dark，高对比=$highContrast', (tester) async {
+        await _mountHabits(tester, dark: dark, highContrast: highContrast);
+        final theme = dark ? AppTheme.dark : AppTheme.light;
+        final titleRect = tester.getRect(find.text('习惯趋势'));
+        final ink = await _titleInk(tester, theme.colorScheme.onSurface);
+        expect(ink, isNotEmpty);
+        final controller = tester
+            .widget<CustomScrollView>(find.byType(CustomScrollView))
+            .controller!;
+        for (final offset in [
+          0.0,
+          8.0,
+          12.0,
+          16.0,
+          20.0,
+          24.0,
+          48.0,
+          -8.0,
+          0.0,
+        ]) {
+          controller.jumpTo(offset);
+          await tester.pumpAndSettle();
+          final strength = ((offset - 8) / 16).clamp(0.0, 1.0);
+          _expectGlassStrength(tester, theme, strength, highContrast);
+          expect(tester.getRect(find.text('习惯趋势')), titleRect);
+          expect(await _titleInk(tester, theme.colorScheme.onSurface), ink);
+        }
+        await _expectPaperSeam(tester, dark: dark);
+      });
+    }
+  }
+
+  testWidgets('周期切换与刷新不重置习惯页玻璃滚动位置', (tester) async {
+    await _mountHabits(tester);
+    final controller = tester
+        .widget<CustomScrollView>(find.byType(CustomScrollView))
+        .controller!;
+    controller.jumpTo(16);
+    await tester.pumpAndSettle();
+    for (final range in ['周', '年', '月']) {
+      await tester.tap(find.text(range));
+      await tester.pumpAndSettle();
+      expect(controller.offset, 16);
+      _expectGlassStrength(tester, AppTheme.light, 0.5, false);
+    }
+    await tester
+        .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+        .onRefresh();
+    await tester.pumpAndSettle();
+    expect(controller.offset, 16);
+    _expectGlassStrength(tester, AppTheme.light, 0.5, false);
+  });
+
+  for (final dark in [false, true]) {
+    testWidgets('习惯页真实指标背景被柔化且标题清晰：深色=$dark', (tester) async {
+      await _mountHabits(tester, dark: dark);
+      final theme = dark ? AppTheme.dark : AppTheme.light;
+      final metric = find.byKey(const ValueKey('habit_metric_reading'));
+      final title = tester.getRect(find.text('习惯趋势'));
+      final controller = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!;
+      controller.jumpTo(tester.getRect(metric).top - title.top);
+      await tester.pumpAndSettle();
+      final x = tester.getRect(metric).center.dx;
+      final filtered = await _verticalContrast(tester, x, title.top - 12, 24);
+      final ink = await _titleInk(tester, theme.colorScheme.onSurface);
+      final filter = tester.renderObject<RenderBackdropFilter>(
+        find.descendant(
+          of: find.byType(FloraGlassHeader),
+          matching: find.byType(BackdropFilter),
+        ),
+      );
+      // 单变量对照：保留同一底色、透明度和位置，仅移除背景模糊。
+      final original = filter.filterConfig;
+      filter.filterConfig = ImageFilterConfig(ui.ImageFilter.blur());
+      await tester.pump();
+      final plain = await _verticalContrast(tester, x, title.top - 12, 24);
+      expect(plain, greaterThan(0.01));
+      expect(filtered, lessThan(plain * 0.7));
+      expect(await _titleInk(tester, theme.colorScheme.onSurface), ink);
+      filter.filterConfig = original;
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('三个主页面收起 Banner 统一最小高度并支持日期换行', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 720));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -80,13 +196,21 @@ void main() {
       );
       await tester.pump();
       final appBar = find.byType(AppBar);
-      expect(
-        tester.getSize(appBar).height,
-        closeTo(24 + FloraPrimaryHeader.contentHeight, 0.5),
-      );
       final dateRect = tester.getRect(find.text('${date.month}月${date.day}日'));
       final weekdayRect = tester.getRect(find.text('星期$weekday'));
-      expect(weekdayRect.top, lessThan(dateRect.bottom));
+      if (weekdayRect.top >= dateRect.bottom) {
+        expect(weekdayRect.left, closeTo(dateRect.left, 0.5));
+        expect(
+          tester.getSize(appBar).height,
+          greaterThan(24 + FloraPrimaryHeader.contentHeight),
+        );
+      } else {
+        expect(
+          tester.getSize(appBar).height,
+          closeTo(24 + FloraPrimaryHeader.contentHeight, 0.5),
+        );
+      }
+      expect(weekdayRect.right, lessThanOrEqualTo(320 - 16 - 48));
       expect(tester.takeException(), isNull);
     }
   });
@@ -432,6 +556,128 @@ void main() {
   });
 }
 
+Future<void> _mountHabits(
+  WidgetTester tester, {
+  bool dark = false,
+  bool highContrast = false,
+  double textScale = 1,
+  Completer<http.Response>? initialStats,
+}) async {
+  await tester.binding.setSurfaceSize(const Size(320, 720));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  final storage = _MemoryStorage();
+  await tester.pumpWidget(
+    _app(
+      HabitStatsScreen(
+        apiClient: _client(initialStats: initialStats),
+        habitSettingsRepo: HabitSettingsRepository(storage: storage),
+        trendCacheRepo: HabitTrendCacheRepository(storage: storage),
+      ),
+      dark: dark,
+      highContrast: highContrast,
+      textScale: textScale,
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _expectPaperSeam(WidgetTester tester, {required bool dark}) async {
+  final bottom = _headerRect(tester).bottom;
+  final pixels = <Color>[];
+  for (final x in [4.0, 160.0, 316.0]) {
+    pixels.add(await _pixelAt(tester, Offset(x, bottom - 1)));
+    pixels.add(await _pixelAt(tester, Offset(x, bottom + 1)));
+  }
+  final paper = (dark ? AppTheme.dark : AppTheme.light).scaffoldBackgroundColor;
+  expect(pixels, List.filled(6, paper));
+}
+
+Future<double> _verticalContrast(
+  WidgetTester tester,
+  double x,
+  double top,
+  int height,
+) async {
+  var previous = await _pixelAt(tester, Offset(x, top));
+  var contrast = 0.0;
+  for (var y = 1; y <= height; y++) {
+    final current = await _pixelAt(tester, Offset(x, top + y));
+    contrast +=
+        (current.r - previous.r).abs() +
+        (current.g - previous.g).abs() +
+        (current.b - previous.b).abs();
+    previous = current;
+  }
+  return contrast;
+}
+
+void _expectGlassStrength(
+  WidgetTester tester,
+  ThemeData theme,
+  double strength,
+  bool highContrast,
+) {
+  final header = find.byType(FloraGlassHeader);
+  expect(tester.widget<FloraGlassHeader>(header).glassStrength, strength);
+  final filter = find.descendant(
+    of: header,
+    matching: find.byType(BackdropFilter),
+  );
+  if (highContrast || strength == 0) {
+    expect(filter, findsNothing);
+  } else {
+    expect(
+      tester.widget<BackdropFilter>(filter).filter,
+      ui.ImageFilter.blur(sigmaX: 18 * strength, sigmaY: 18 * strength),
+    );
+  }
+  final decoration =
+      tester
+              .widget<DecoratedBox>(
+                find
+                    .descendant(of: header, matching: find.byType(DecoratedBox))
+                    .first,
+              )
+              .decoration
+          as BoxDecoration;
+  final opacity = theme.brightness == Brightness.dark ? 0.60 : 0.42;
+  expect(
+    decoration.color,
+    theme.scaffoldBackgroundColor.withValues(
+      alpha: highContrast ? 1 : ui.lerpDouble(1, opacity, strength)!,
+    ),
+  );
+}
+
+Future<List<int>> _titleInk(WidgetTester tester, Color color) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(const Key('scroll_header_capture')),
+  );
+  final rect = tester.getRect(find.text('习惯趋势'));
+  return (await tester.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 1);
+    try {
+      final bytes = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      final offsets = <int>[];
+      for (var y = rect.top.ceil(); y < rect.bottom.floor(); y++) {
+        for (var x = rect.left.ceil(); x < rect.right.floor(); x++) {
+          final offset = (y * image.width + x) * 4;
+          if (bytes.getUint8(offset) == (color.r * 255).round() &&
+              bytes.getUint8(offset + 1) == (color.g * 255).round() &&
+              bytes.getUint8(offset + 2) == (color.b * 255).round()) {
+            offsets.add(offset);
+          }
+        }
+      }
+      return offsets;
+    } finally {
+      image.dispose();
+    }
+  }))!;
+}
+
 Widget _app(
   Widget home, {
   bool dark = false,
@@ -441,6 +687,7 @@ Widget _app(
   theme: dark ? AppTheme.dark : AppTheme.light,
   builder: (context, child) => MediaQuery(
     data: MediaQuery.of(context).copyWith(
+      size: const Size(320, 720),
       padding: const EdgeInsets.only(top: 24),
       textScaler: TextScaler.linear(textScale),
       highContrast: highContrast,
@@ -520,12 +767,14 @@ ApiClient _client({
   bool paginate = false,
   Completer<http.Response>? galleryRefresh,
   Completer<http.Response>? initialGallery,
+  Completer<http.Response>? initialStats,
   bool todayMemory = false,
 }) {
   final image = img.Image(width: 8, height: 8);
   img.fill(image, color: img.ColorRgb8(30, 120, 230));
   final imageBytes = img.encodePng(image);
   var galleryRequests = 0;
+  var statsRequests = 0;
   final client = ApiClient(
     ApiConfig(baseUrl: 'https://test.local', token: 'test'),
     httpClient: _HeaderHttpClient((request) async {
@@ -559,6 +808,10 @@ ApiClient _client({
         });
       }
       if (request.url.path == '/api/v1/stats/habit') {
+        statsRequests++;
+        if (statsRequests == 1 && initialStats != null) {
+          return initialStats.future;
+        }
         return _json([
           {
             'date': request.url.queryParameters['from'],

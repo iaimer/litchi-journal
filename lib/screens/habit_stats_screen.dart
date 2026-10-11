@@ -62,6 +62,8 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   Timer? _dayBoundaryTimer;
   final GlobalKey _headerKey = GlobalKey();
   double _headerExtent = 0;
+  final ScrollController _scrollController = ScrollController();
+  double _headerGlassStrength = 0;
 
   HabitTrendPeriod get _period => HabitTrendPeriod.forAnchor(
     _range,
@@ -72,6 +74,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_updateHeaderGlass);
     WidgetsBinding.instance.addObserver(this);
     _scheduleDayBoundaryRefresh();
     _configureRepositories();
@@ -81,8 +84,20 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   @override
   void dispose() {
     _dayBoundaryTimer?.cancel();
+    _scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _updateHeaderGlass() {
+    // 先走完内容的顶部留白，再渐进采样，避免静止时模糊到周期按钮。
+    final strength =
+        ((_scrollController.offset - FloraSpacing.sm) / FloraSpacing.lg).clamp(
+          0.0,
+          1.0,
+        );
+    if (strength == _headerGlassStrength) return;
+    setState(() => _headerGlassStrength = strength);
   }
 
   @override
@@ -270,6 +285,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
           onRefresh: _pullRefresh,
           edgeOffset: _headerExtent,
           child: CustomScrollView(
+            controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             // 指标先绘制，置顶头部才能采样已经滚入背后的真实内容。
             paintOrder: SliverPaintOrder.firstIsTop,
@@ -277,13 +293,15 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
               PinnedHeaderSliver(
                 child: FloraGlassHeader(
                   key: _headerKey,
+                  tint: theme.scaffoldBackgroundColor,
+                  glassStrength: _headerGlassStrength,
                   child: _buildHeader(theme),
                 ),
               ),
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(
                   16,
-                  8,
+                  FloraSpacing.sm,
                   16,
                   32 + (FloraDockScope.maybeOf(context)?.clearance ?? 0),
                 ),

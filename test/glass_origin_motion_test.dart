@@ -118,6 +118,7 @@ void main() {
         theme: AppTheme.light,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
+            size: const Size(320, 700),
             padding: const EdgeInsets.only(top: 24, bottom: 24),
             textScaler: const TextScaler.linear(1.3),
           ),

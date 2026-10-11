@@ -60,6 +60,7 @@ Future<void> _mount(
       theme: AppTheme.light,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
+          size: size,
           padding: EdgeInsets.only(top: 24, bottom: bottom),
           textScaler: TextScaler.linear(scale),
           disableAnimations: reduced,

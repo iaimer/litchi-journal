@@ -79,33 +79,43 @@ class FloraGlassSurface extends StatelessWidget {
 /// 全宽导航背景，前景标题保持清晰，背后滚动内容才参与模糊。
 class FloraGlassHeader extends StatelessWidget {
   final Widget child;
+  final Color? tint;
 
-  const FloraGlassHeader({super.key, required this.child});
+  /// 0 为不透明底色，1 为完整玻璃；仅改变背景，不影响前景。
+  final double glassStrength;
+
+  const FloraGlassHeader({
+    super.key,
+    required this.child,
+    this.tint,
+    this.glassStrength = 1,
+  }) : assert(glassStrength >= 0 && glassStrength <= 1);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final highContrast = MediaQuery.highContrastOf(context);
     final dark = theme.brightness == Brightness.dark;
+    final glassOpacity = dark
+        ? FloraGlass.navigationDarkOpacity
+        : FloraGlass.navigationLightOpacity;
     final foreground = DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(
+        color: (tint ?? theme.colorScheme.surface).withValues(
           alpha: highContrast
               ? 1
-              : dark
-              ? FloraGlass.navigationDarkOpacity
-              : FloraGlass.navigationLightOpacity,
+              : ui.lerpDouble(1, glassOpacity, glassStrength)!,
         ),
       ),
       child: child,
     );
     return ClipRect(
-      child: highContrast
+      child: highContrast || glassStrength == 0
           ? foreground
           : BackdropFilter(
               filter: ui.ImageFilter.blur(
-                sigmaX: FloraGlass.blurSigma,
-                sigmaY: FloraGlass.blurSigma,
+                sigmaX: FloraGlass.blurSigma * glassStrength,
+                sigmaY: FloraGlass.blurSigma * glassStrength,
               ),
               child: foreground,
             ),

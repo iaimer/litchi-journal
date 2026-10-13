@@ -165,11 +165,11 @@ Flutter 端已建立的领域组件：
 ## 品牌资源规则
 
 - `docs/design-reference/` 是荔枝日记品牌视觉源图目录。
-- 启动页必须从 `docs/design-reference/splash.png` 派生到 `assets/icon/brand-splash-reference.png`，不要重新绘制近似版本。
-- App 图标和关于页品牌图必须从 `docs/design-reference/icon.png` 派生到 `assets/icon/app-icon.png`、`assets/icon/app-launcher.png` 和 Android launcher mipmap 资源。
+- C 方案品牌母版为 `docs/design-reference/brand-c-master.png`：翻页日记本是主体，右页荔枝为品牌装饰，右上保留飞出的爱心；来自已确认的 `brand-c-approved.png`，不得重新绘制近似版本。
+- `tools/derive_brand_assets.cjs` 从同一透明母版派生 `icon.png`、`splash.png`、`assets/icon/` 品牌图、Android launcher 和 iOS AppIcon；桌面图标背景为 `#FAFAFA`，自适应图形完整落在中心安全圆内，外框由系统裁切。
+- 启动页与关于页使用透明底品牌图，保留浅色书页并融入页面纸色；`FloraBrandIdentity` 根据实际标题宽度显示 95% 宽的完整图形（包含爱心和轨迹），不再固定 168dp。
+- 启动页用原生组件组合图形、名称和标语，图文间距 24dp；关于页图文间距 20dp。浅深色共用母版，原生启动保持纸色空底，避免重复品牌闪现。
 - `docs/design-reference/reference.png` 仅作为整体视觉参考，不作为直接切图资源。
-- 深色启动页资源 `assets/icon/brand-splash-dark.png` 也必须从 `splash.png` 派生，保持原构图和品牌元素。
-- 关于页品牌图当前使用 168dp 展示尺寸；如需调整，先真机比对后再改。
 - 更新品牌资源时必须重新构建并重装 APK，系统桌面图标不会只靠 hot reload 更新。
 
 ## 开发约束
@@ -235,7 +235,7 @@ Flutter UI 应优先使用原生组件表达领域对象。
 - 普通圆角只按语义使用图片 `8dp`、内容 `12dp`、浮层 `16dp` 和紧凑操作 `pill`；时间轴节点、进度条、热力图点、开关滑块和圆形按钮保留自己的几何形状。
 - 首次加载优先显示内容形状占位；刷新不得清空已有内容。无数据错误应提供简短说明和重试操作，局部提交、删除、润色和上传继续显示各自的原位反馈。
 - 自定义动效使用 `FloraMotion.fast/standard/slow`，系统开启减少动态效果时必须直接完成，不等待淡入或位移动画。
-- 启动页浅色使用 `#F7F2EA`、深色使用 `#1F1B18`；深色品牌启动资源必须由 `docs/design-reference/splash.png` 派生，不能重新绘制近似品牌图。
+- 启动页浅色使用 `#F7F2EA`、深色使用 `#1F1B18`；浅深色品牌图共用 C 方案透明母版，不重新绘制近似品牌图。
 
 ## 编码准则
 

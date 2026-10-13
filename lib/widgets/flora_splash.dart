@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../theme/app_theme.dart';
-import 'flora_icon.dart';
+import 'flora_brand_identity.dart';
 
 /// Flora 品牌启动过渡页。
 class FloraSplash extends StatefulWidget {
@@ -99,10 +99,6 @@ class _FloraSplashState extends State<FloraSplash>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final splashAsset = isDark
-        ? FloraIcons.path(FloraIcons.brandSplashDark)
-        : FloraIcons.path(FloraIcons.brandSplash);
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
 
     return Scaffold(
@@ -110,7 +106,33 @@ class _FloraSplashState extends State<FloraSplash>
       body: SizedBox.expand(
         child: FadeTransition(
           opacity: reducedMotion ? const AlwaysStoppedAnimation(1) : _fadeIn,
-          child: Image.asset(splashAsset, fit: BoxFit.cover),
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FloraBrandIdentity(
+                      spacing: 24,
+                      titleStyle: theme.textTheme.headlineMedium!.copyWith(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '记录 · 成长 · 觉察',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

@@ -1005,7 +1005,7 @@ void main() {
       expect(splashImage.image, isA<AssetImage>());
       expect(
         (splashImage.image as AssetImage).assetName,
-        'assets/icon/brand-splash-reference.png',
+        'assets/icon/app-icon.png',
       );
       expect(find.text('Flora'), findsNothing);
       expect(find.text('初始设置'), findsNothing);
@@ -1035,7 +1035,7 @@ void main() {
       expect(splashImage.image, isA<AssetImage>());
       expect(
         (splashImage.image as AssetImage).assetName,
-        'assets/icon/brand-splash-reference.png',
+        'assets/icon/app-icon.png',
       );
       expect(find.text('Flora'), findsNothing);
       expect(find.byType(app.MainScreen), findsNothing);

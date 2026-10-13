@@ -4,6 +4,16 @@
 
 ## 当前目标与上下文
 
+2026-10-13 C 方案品牌替换审查交付分支为 `codex/brand-icon-c`，基线 `7bf3e03`。用户已授权审查、修复、构建正式入口 APK 并推送功能分支；本次不合并主分支、不新增发布。采用确认的翻页日记本、右页荔枝与飞出爱心，透明母版来自已确认 C 图，未采用后续光晕图。页面图形宽度为名称实测宽的 95%，图文间距为启动 24dp / 关于 20dp；解码前预留高度避免文字跳动。桌面使用 `#FAFAFA` 底，页面无白色底板，浅色书页保留，浅深色共用图形。Android 与 iOS 全尺寸资源由同一母版派生。
+
+本轮双轴审查：规范轴 0 项确定问题，需求轴 2 项 P3 已修复并独立复核。自适应前景 57dp 缩为 54dp，五种密度所有非透明像素均落在中心 66dp 安全圆内；清除书底外低透明阴影，实体像素变化为 0，保留邻近抗锯齿与原构图。先以回归复现失败，再修正并通过专项 43 项。最终完整 Flutter 838 项、`flutter analyze` 与差异检查通过，资源重复派生结果一致。审查证据见 `docs/BRAND_C_CODE_REVIEW.md`。
+
+修复后正常 `lib/main.dart` 入口 Release APK 为 `build/app/outputs/flutter-apk/litchi-journal-1.9.0-brand-c-review.apk`（约 65.5MB），与本轮 `app-release.apk` 相同；包内品牌资源与当前母版一致。版本仍为 `1.9.0+39`、原包名与 debug 签名，APK v2 签名验证通过；SHA-256：`23ff5b4cd50d47d792d6c4002b2704dbb3242eaeebb62037d0611ff7a66bdf93`。旧 `litchi-journal-1.9.0-brand-c.apk` 不包含本轮审查修正，装机应使用 review 包。
+
+修复后真实 Flutter 浅深色渲染图已重新采集到 `docs/design-reference/brand-c/`；截图临时注入本地中文字体，不打包，不代表真机。ADB 设备及无线调试服务发现均为空，未安装 PLG110，也未完成桌面、冷启动或关于页真机验收；连接后使用 `adb install -r` 覆盖安装 review 包。iOS 仅完成资源检查，未构建或装机。构建沿用现有 package_info_plus 插件，保留其 Kotlin Gradle Plugin 未来兼容提示，不影响本次构建。不修改服务端、Vault、用户配置、版本或 CHANGELOG。
+
+以下为此前交付背景，不代表本轮安装结果。
+
 2026-10-12 当前任务为百炼预设审查与交付。功能分支 `codex/aliyun-bailian-preset-20261012` 从已整合的本地 `main` 建立，初始实现提交 `92f50df`。本地 Ollama 预设改为阿里云百炼北京 `https://dashscope.aliyuncs.com/compatible-mode/v1` 与 `qwen3.7-flash`。仅 HTTPS、官方精确 Host、443 端口、标准兼容请求路径、无 URL 凭据/查询/片段且精确模型匹配时发送 `enable_thinking: false`；其他模型和网关不携带此参数。保留旧配置、其他预设、API Key、手动保存和提示词；通用连接错误去除 OpenCode 专属名称。
 
 用户随后明确授权「审查、修复、构建 APK、合并并推送」，取代上一轮不构建/不合并/不推送边界。两轴审查：规范轴 0 项，需求轴 1 项 P2（在途旧测试结果回填）已修正；配置变化递增修订号，旧成功/失败不能覆盖当前表单。新增 10 项先红后绿，专项共 35 项、完整 Flutter 822 项、静态检查、服务端 70 项、TypeScript 构建及差异检查通过。审查详情见 `docs/BAILIAN_CODE_REVIEW.md`。按受保护流程在功能分支完成修正与文档，再 squash 合并至 `main`，保留前一轮整合历史并正常推送；同步 origin 时远端主线无新增提交，不强推或改写历史。

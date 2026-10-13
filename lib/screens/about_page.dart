@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
 import '../widgets/flora_icon.dart';
+import '../widgets/flora_brand_identity.dart';
 import '../widgets/flora_page_scaffold.dart';
 
 /// 关于页。
@@ -90,7 +91,6 @@ class _AboutPageState extends State<AboutPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final brandAsset = FloraIcons.path(FloraIcons.brandIcon);
 
     return FloraPageScaffold(
       title: '关于',
@@ -100,16 +100,8 @@ class _AboutPageState extends State<AboutPage> {
           Center(
             child: Column(
               children: [
-                Image.asset(
-                  brandAsset,
-                  width: 168,
-                  height: 168,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  '荔枝日记',
-                  style: theme.textTheme.headlineMedium?.copyWith(
+                FloraBrandIdentity(
+                  titleStyle: theme.textTheme.headlineMedium!.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),

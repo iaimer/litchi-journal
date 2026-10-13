@@ -31,7 +31,7 @@ void main() {
         .onRefresh();
     await tester.pump();
     expect(find.textContaining('旧内容'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
 
     pending.complete(_RefreshHttpClient.jsonResponse(_diaryBody('新内容')));
     await refreshFuture;
@@ -75,7 +75,7 @@ void main() {
         .onRefresh();
     await tester.pump();
     expect(find.byType(GalleryImageTile), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
 
     pending.complete(
       _RefreshHttpClient.jsonResponse(_galleryBody('2026-09-13', 'new.jpg')),

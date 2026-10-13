@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
@@ -506,7 +508,7 @@ void main() {
     expect(find.text('2024年2月'), findsWidgets);
     expect(
       find.byType(LinearProgressIndicator, skipOffstage: false),
-      findsOneWidget,
+      findsNothing,
     );
     pending.complete(
       _json({
@@ -554,6 +556,60 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+  for (final past in [false, true]) {
+    testWidgets('${past ? '过往' : '今天'}保留下拉圆形反馈', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      _mockHeaderAudio(tester);
+      final pending = Completer<http.Response>();
+      final client = _client(
+        galleryRefresh: past ? pending : null,
+        diaryRefresh: past ? null : pending,
+      );
+      await tester.pumpWidget(
+        _app(
+          past
+              ? PastScreen(apiClient: client)
+              : HomeScreen(
+                  apiClient: client,
+                  habitSettingsRepo: HabitSettingsRepository(
+                    storage: _MemoryStorage(),
+                  ),
+                ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(past ? CustomScrollView : ListView).first,
+        const Offset(0, 400),
+      );
+      await tester.pump();
+      try {
+        expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+      } finally {
+        await _finishHeaderRefresh(tester, pending, past, null);
+      }
+    });
+  }
+
+  for (final past in [false, true]) {
+    for (final switchTab in [false, true]) {
+      for (final dark in [false, true]) {
+        for (final scale in [1.0, 1.3]) {
+          testWidgets(
+            '刷新无横线：${past ? '过往' : '今天'} '
+            '${switchTab ? '切回' : '刷新'} dark=$dark scale=$scale',
+            (tester) => _expectRefreshWithoutStripe(
+              tester,
+              past: past,
+              switchTab: switchTab,
+              dark: dark,
+              scale: scale,
+            ),
+          );
+        }
+      }
+    }
+  }
 }
 
 Future<void> _mountHabits(
@@ -769,12 +825,14 @@ ApiClient _client({
   Completer<http.Response>? initialGallery,
   Completer<http.Response>? initialStats,
   bool todayMemory = false,
+  Completer<http.Response>? diaryRefresh,
 }) {
   final image = img.Image(width: 8, height: 8);
   img.fill(image, color: img.ColorRgb8(30, 120, 230));
   final imageBytes = img.encodePng(image);
   var galleryRequests = 0;
   var statsRequests = 0;
+  var diaryRequests = 0;
   final client = ApiClient(
     ApiConfig(baseUrl: 'https://test.local', token: 'test'),
     httpClient: _HeaderHttpClient((request) async {
@@ -826,6 +884,12 @@ ApiClient _client({
             'customDurations': {},
           },
         ]);
+      }
+      if (diaryRefresh != null &&
+          request.url.path.startsWith('/api/v1/diary/')) {
+        diaryRequests++;
+        if (diaryRequests > 1) return diaryRefresh.future;
+        return _diaryResponse();
       }
       if (todayMemory && request.url.path.startsWith('/api/v1/diary/')) {
         return _json({
@@ -898,5 +962,128 @@ class _HeaderHttpClient extends http.BaseClient {
       response.statusCode,
       headers: response.headers,
     );
+  }
+}
+
+http.Response _diaryResponse() => _json({
+  'date': ApiClient.formatDate(DateTime.now()),
+  'raw':
+      '## 随手记\n${List.generate(20, (index) => '- **10:${index.toString().padLeft(2, '0')}** 测试正文 $index').join('\n')}',
+  'sections': {},
+});
+
+Future<void> _expectRefreshWithoutStripe(
+  WidgetTester tester, {
+  required bool past,
+  required bool switchTab,
+  required bool dark,
+  required double scale,
+}) async {
+  await tester.binding.setSurfaceSize(const Size(320, 720));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  FlutterSecureStorage.setMockInitialValues({});
+  _mockHeaderAudio(tester);
+  final pending = Completer<http.Response>();
+  final client = _client(
+    galleryRefresh: past ? pending : null,
+    diaryRefresh: past ? null : pending,
+  );
+  final repo = HabitSettingsRepository(storage: _MemoryStorage());
+  Widget app(bool active) => _app(
+    past
+        ? PastScreen(apiClient: client, active: active)
+        : HomeScreen(
+            apiClient: client,
+            habitSettingsRepo: repo,
+            active: active,
+          ),
+    dark: dark,
+    textScale: scale,
+  );
+  await tester.pumpWidget(app(true));
+  await tester.pumpAndSettle();
+  final header = past
+      ? _headerRect(tester)
+      : tester.getRect(find.byType(FloraAppBar));
+  Future<void>? refreshing;
+  if (switchTab) {
+    await tester.pumpWidget(app(false));
+    await tester.pumpWidget(app(true));
+  } else {
+    refreshing = tester
+        .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+        .onRefresh();
+  }
+  await tester.pump();
+  await tester.idle();
+  try {
+    await _expectRefreshFrames(tester, header: header, dark: dark);
+    expect(
+      past
+          ? find.text('2024年3月')
+          : find.textContaining('测试正文', findRichText: true),
+      findsWidgets,
+    );
+  } finally {
+    await _finishHeaderRefresh(tester, pending, past, refreshing);
+  }
+}
+
+Future<void> _finishHeaderRefresh(
+  WidgetTester tester,
+  Completer<http.Response> pending,
+  bool past,
+  Future<void>? refreshing,
+) async {
+  pending.complete(
+    past
+        ? _json({
+            'months': [_month(3), _month(2)],
+            'nextCursor': null,
+          })
+        : _diaryResponse(),
+  );
+  await tester.pumpAndSettle();
+  if (refreshing != null) await refreshing;
+  expect(find.byType(LinearProgressIndicator), findsNothing);
+  expect(tester.takeException(), isNull);
+  await tester.pumpWidget(const SizedBox.shrink());
+}
+
+void _mockHeaderAudio(WidgetTester tester) {
+  for (final name in [
+    'xyz.luan/audioplayers.global/events',
+    'xyz.luan/audioplayers.global',
+  ]) {
+    final channel = MethodChannel(name);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (_) async => null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+  }
+}
+
+Future<void> _expectRefreshFrames(
+  WidgetTester tester, {
+  required Rect header,
+  required bool dark,
+}) async {
+  final theme = dark ? AppTheme.dark : AppTheme.light;
+  for (final milliseconds in [16, 80, 160]) {
+    await tester.pump(Duration(milliseconds: milliseconds));
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    for (final x in [20.0, 80.0, 160.0, 240.0, 300.0]) {
+      expect(
+        await _pixelAt(tester, Offset(x, header.bottom + 0.5)),
+        theme.scaffoldBackgroundColor,
+        reason: '刷新中间帧的 Banner 下沿必须保留纸色，不能出现条带',
+      );
+    }
   }
 }

@@ -1264,19 +1264,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           FloraDockScope.maybeOf(context)?.clearance ?? 0,
                         ),
                         children: [
-                          if (_refreshing)
-                            const SizedBox(
-                              height: 2,
-                              child: LinearProgressIndicator(minHeight: 2),
-                            ),
                           const SizedBox(height: 16),
+                          // 固定缓存提示的子项位置，避免刷新时重新估算正文滚动偏移。
                           if (!_verified && _diary != null)
                             ReadingCacheStatus(
                               updatedAt: _cachedAt,
                               refreshing: _refreshing,
                               message: _error,
                               onRetry: _loadDiary,
-                            ),
+                            )
+                          else
+                            const SizedBox.shrink(),
                           _buildFocusTimerStrip(theme),
                           if (_diary?.raw.isNotEmpty == true) ...[
                             DiaryMarkdownView(

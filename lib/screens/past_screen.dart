@@ -649,10 +649,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
         PinnedHeaderSliver(
           child: FloraGlassHeader(key: _headerKey, child: _buildHeader(theme)),
         ),
-        if (_galleryLoading && _galleryMonths.isNotEmpty)
-          const SliverToBoxAdapter(
-            child: LinearProgressIndicator(minHeight: 2),
-          ),
         if (_galleryLocal && _galleryMonths.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(

@@ -29,7 +29,6 @@ import '../services/api_config.dart';
 import '../services/draft_repository.dart';
 import '../services/entry_line_builder.dart';
 import '../services/habit_settings_repository.dart';
-import '../services/habit_completion_sound.dart';
 import '../services/focus_timer_controller.dart';
 import '../services/habit_stats_service.dart';
 import '../services/markdown_parser.dart';
@@ -144,7 +143,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   TagSettings? _tagSettings;
   final _draftRepository = DraftRepository();
   final _scrollController = ScrollController();
-  final _habitCompletionSound = HabitCompletionSound();
   late final FocusTimerController _focusTimerController;
   bool _generatingCoach = false;
   bool _quickRecordExpanded = false;
@@ -176,7 +174,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _focusTimerController = FocusTimerController();
     unawaited(_focusTimerController.load());
-    _habitCompletionSound.preload();
     _loadDiary();
     _loadTagConfig();
   }
@@ -220,7 +217,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _focusTimerController.dispose();
     _scrollController.dispose();
-    unawaited(_habitCompletionSound.dispose());
     super.dispose();
   }
 
@@ -667,7 +663,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (_) => FocusTimerScreen(
           controller: _focusTimerController,
           onSave: _saveFocusDuration,
-          onPositiveFeedback: _habitCompletionSound.play,
         ),
       ),
     );
@@ -1331,7 +1326,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   _habitSettings ?? HabitSettings.defaults,
                               onCustomCheckboxToggle:
                                   _handleCustomCheckboxToggle,
-                              onPositiveFeedback: _habitCompletionSound.play,
                               onWaterQuickAmountsChanged:
                                   _handleWaterQuickAmountsChanged,
                               onStartDuration: _handleStartDuration,
@@ -1364,7 +1358,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   _habitSettings ?? HabitSettings.defaults,
                               onCustomCheckboxToggle:
                                   _handleCustomCheckboxToggle,
-                              onPositiveFeedback: _habitCompletionSound.play,
                               onWaterQuickAmountsChanged:
                                   _handleWaterQuickAmountsChanged,
                               onStartDuration: _handleStartDuration,

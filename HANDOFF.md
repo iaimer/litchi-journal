@@ -4,6 +4,18 @@
 
 ## 当前目标与上下文
 
+2026-10-17 当前任务为习惯静音与逐笔完成动效，分支 `codex/habit-silent-completion-20261017`。已移除首页和专注计时保存音效、音频服务与资源，以及仅供音效使用的 audioplayers 依赖；通用正向成功回调保持原语义。点击本地完成立即画 400ms 对勾（120ms 短笔、280ms 长笔），80ms 填色，不缩放；保存成功且画完后播放 220ms 六短线庆祝。范围不超过 28dp，不改变行高、列宽、颜色与操作入口。失败冻结当前笔画并淡出，普通增加/减少/清零不庆祝，刷新和计时返回不补播。减少动态效果、Ticker 停用、切日、归档、路由隐藏及后台丢弃待播效果。
+
+用户随后明确授权“升级版本构建 Release 推送”，取代实施阶段不升版、不构建、不推送的边界。本次清单升至 `1.9.1+40`，新增用户可感知的 CHANGELOG 条目；交付分支为 `codex/habit-silent-completion-20261017`，本次仅推送功能分支，不合并主分支、不安装真机、不部署服务端。
+
+发布阶段重新通过 `flutter analyze`、完整 Flutter 911 项与差异检查。正常 `lib/main.dart` 入口 Release APK 为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-release.apk`（65,232,514 字节，约 65.2MB），与本轮 `app-release.apk` 一致；SHA-256：`03467440c3209fe34bed23a4d8ad88519d0a0621112b7f5a7fbd42b87037008a`。包内确认版本 `1.9.1` / code `40`、名称“荔枝日记”、原包名 `com.example.litchi_journal_flutter`，无调试标记、包含 Release AOT 和新版 CHANGELOG、不含习惯提示音资源。APK v2 签名验证通过，仍沿用 debug 签名，不是应用商店正式签名包。保留 package_info_plus 的 KGP 未来兼容提示，未进行无关依赖升级；本轮 Release 未安装真机，不把前轮模拟器临时 Debug 验收当作本包实际安装验收。
+
+审查修复后，阅读/语言的动画完成判断与显示层共用当前分钟目标，避免提高目标后旧勾选跳过动画，降低目标后重复庆祝；纯 checkbox 与无分钟旧记录仍兼容。保留此前面板关闭后的可见性缓存及零长度路径白点修正。本功能累计新增 55 项回归，全量 Flutter 911 项、`flutter analyze` 和 `git diff --check` 通过。中断用例直接检查下一帧最终绘制状态和恢复后的多帧像素，覆盖画勾/庆祝阶段及恢复后请求才成功，不再先等待全部动画结束。
+
+已按用户要求在 Android 16 `test_36` 模拟器验收真实首页和面板，使用临时 Debug 入口及内存 API/设置，不连接真实服务端或写 Vault；阅读/语言重新跨目标、自定义时长、饮水/步数、checkbox、失败回滚、重复点击、减少动画和后台/路由恢复通过。浅深色、320dp/1.3 倍字体无溢出。实际截图、录屏裁出的 GIF 和范围说明见 `docs/design-reference/habit-completion-motion/emulator/README.md`；系统整窗过渡曾干扰后台像素比较，隔离后通过，显示密度和系统窗口/过渡动画已恢复。软件图形 Debug 验收不代表真机性能或正常入口 Release 包验收。
+
+原 Widget 浅深色循环预览和六帧对照仍在 `docs/design-reference/habit-completion-motion/`。重现命令：`flutter test --no-pub --dart-define=WRITE_HABIT_PREVIEW=true test/habit_completion_motion_test.dart --plain-name 导出`，默认导出到 `/tmp/litchi-habit-motion-preview/`；仅手动预览导出依赖 macOS 本地字体，正常回归不依赖该字体。实施与模拟器验收阶段保持 `1.9.0+39`，当时只使用 Debug 构建、未提交或推送；后续发布授权与当前清单见上文，不改服务端、Vault 或数据格式。模拟器验收后已用 `lib/main.dart` 重新构建正常入口 `app-debug.apk` 并覆盖恢复模拟器应用，未启动真实连接；临时控制服务及端口映射已清理，模拟器已关闭。以下为此前交付背景。
+
 2026-10-14 当前任务为今天与过往 Banner 下短暂横线修复，分支 `codex/banner-refresh-line-fix`，从已推送的品牌替换提交 `ef7a54a` 建立。用户已反馈「修复成功」，明确授权 squash 合并当前分支并推送 `main`。本次主线交付包含前置 C 方案品牌替换及横线修复，不递增 `1.9.0+39`，不改服务端或 CHANGELOG。用户侧确认与代理端验收分别记录：代理端未实际安装或录屏 PLG110。
 
 横线来源已通过延迟响应及单变量绘制对照确认：今天 `_refreshing` 和过往已有图墙时 `_galleryLoading` 会在 Banner 下插入 2dp `LinearProgressIndicator`；切回页面会触发重新读取，结束后移除。现已删除两处进度条及高度占位，保留手动下拉圆形反馈、首次骨架、缓存提示、失败重试与底部分页。未修改玻璃、头部高度、网络请求或缓存业务。

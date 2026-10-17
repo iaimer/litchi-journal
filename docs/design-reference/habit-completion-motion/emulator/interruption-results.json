@@ -1,0 +1,26 @@
+[
+  {
+    "scenario": "reduce",
+    "stable_pixels": true,
+    "saves": 1
+  },
+  {
+    "scenario": "ticker",
+    "stable_pixels": true,
+    "saves": 1
+  },
+  {
+    "scenario": "route",
+    "stable_pixels": true,
+    "saves": 1
+  },
+  {
+    "scenario": "background",
+    "stable_pixels": true,
+    "saves": 1
+  },
+  {
+    "scenario": "repeat_tap",
+    "saves": 1
+  }
+]

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/focus_timer.dart';
 import 'focus_timer_repository.dart';
+import 'operation_id.dart';
 
 /// App 内唯一的专注计时状态源。
 class FocusTimerController extends ChangeNotifier {
@@ -14,6 +15,8 @@ class FocusTimerController extends ChangeNotifier {
   Timer? _ticker;
   bool _busy = false;
   bool _disposed = false;
+  bool _saveCleanupFailed = false;
+  Object? _saveError;
   Future<void>? _loadFuture;
 
   FocusTimerController({
@@ -25,6 +28,8 @@ class FocusTimerController extends ChangeNotifier {
   FocusTimerSession? get session => _session;
   bool get hasSession => _session != null;
   bool get isBusy => _busy;
+  bool get saveCleanupFailed => _saveCleanupFailed;
+  Object? get saveError => _saveError;
 
   Future<void> load() {
     final pending = _loadFuture;
@@ -76,7 +81,12 @@ class FocusTimerController extends ChangeNotifier {
   Future<bool> resume() async {
     if (_disposed) return false;
     final current = _session;
-    if (current == null || !current.isPaused || _busy) return false;
+    if (current == null ||
+        !current.isPaused ||
+        current.hasPendingSave ||
+        _busy) {
+      return false;
+    }
     return _persist(current.resumeAt(_now()), startTicker: true);
   }
 
@@ -91,6 +101,50 @@ class FocusTimerController extends ChangeNotifier {
       _stopTicker();
       return true;
     } catch (_) {
+      return false;
+    } finally {
+      _busy = false;
+      _notify();
+    }
+  }
+
+  Future<bool> save(
+    Future<bool> Function(FocusTimerSession session, int minutes) onSave, {
+    int? minutes,
+  }) async {
+    final current = _session;
+    if (_disposed || current == null || _busy) return false;
+    final now = _now();
+    final elapsedMinutes = current.elapsedSeconds(now) ~/ 60;
+    if (minutes != null && (minutes < 1 || minutes > elapsedMinutes)) {
+      return false;
+    }
+    final frozen = current.hasPendingSave
+        ? current
+        : current
+              .pauseAt(now)
+              .copyWith(
+                saveOperationId: generateOperationId(),
+                pendingSaveMinutes: minutes ?? elapsedMinutes,
+              );
+    if ((frozen.pendingSaveMinutes ?? 0) < 1) return false;
+    _busy = true;
+    _saveCleanupFailed = false;
+    _saveError = null;
+    _notify();
+    try {
+      // 请求之前持久化完整意图；响应丢失或重启后仍只能重试同一笔分钟。
+      await _repository.save(frozen);
+      _session = frozen;
+      _stopTicker();
+      _notify();
+      if (!await onSave(frozen, frozen.pendingSaveMinutes!)) return false;
+      _saveCleanupFailed = !await _repository.clearAfterSave();
+      _session = null;
+      _stopTicker();
+      return true;
+    } catch (error) {
+      _saveError = error;
       return false;
     } finally {
       _busy = false;

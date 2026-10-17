@@ -7,6 +7,7 @@ import '../widgets/flora_app_bar.dart';
 
 import '../models/focus_timer.dart';
 import '../services/focus_timer_controller.dart';
+import '../services/failure_messages.dart';
 import '../widgets/habit_icon.dart';
 import '../widgets/flora_icon.dart';
 
@@ -46,123 +47,158 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
         return Scaffold(
           appBar: FloraAppBar(title: const Text('专注计时')),
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      HabitIcon(session.icon, size: 22, color: color),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          session.displayName,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
-                  Semantics(
-                    label:
-                        '${session.displayName}，已专注 ${_formatDuration(seconds)}',
-                    value: session.isRunning ? '专注中' : '已暂停',
-                    child: SizedBox(
-                      width: 292,
-                      height: 292,
-                      child: CustomPaint(
-                        painter: _FocusTimerRingPainter(
-                          progress:
-                              (seconds % const Duration(hours: 1).inSeconds) /
-                              const Duration(hours: 1).inSeconds,
-                          color: color,
-                          trackColor: Theme.of(context).dividerColor,
-                          strokeWidth: 12,
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _formatDuration(seconds),
-                                style: Theme.of(context).textTheme.displaySmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures(),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final diameter = math.min(292.0, constraints.maxWidth - 48);
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: math.max(0, constraints.maxHeight - 32),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                HabitIcon(session.icon, size: 22, color: color),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    session.displayName,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 28),
+                            Semantics(
+                              label:
+                                  '${session.displayName}，已专注 ${_formatDuration(seconds)}',
+                              value: session.isRunning ? '专注中' : '已暂停',
+                              child: SizedBox(
+                                width: diameter,
+                                height: diameter,
+                                child: CustomPaint(
+                                  painter: _FocusTimerRingPainter(
+                                    progress:
+                                        (seconds %
+                                            const Duration(
+                                              hours: 1,
+                                            ).inSeconds) /
+                                        const Duration(hours: 1).inSeconds,
+                                    color: color,
+                                    trackColor: Theme.of(context).dividerColor,
+                                    strokeWidth: 12,
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _formatDuration(seconds),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .displaySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                                fontFeatures: const [
+                                                  FontFeature.tabularFigures(),
+                                                ],
+                                              ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          session.isRunning ? '专注中' : '已暂停',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color: color,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '60 分钟循环',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
                                       ],
                                     ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                session.isRunning ? '专注中' : '已暂停',
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: color,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '60 分钟循环',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    session.dailyTargetMinutes == null
-                        ? '今天已记录 ${session.currentMinutes} 分钟'
-                        : '今天已记录 ${session.currentMinutes} / ${session.dailyTargetMinutes} 分钟',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: widget.controller.isBusy || _saving
-                              ? null
-                              : session.isRunning
-                              ? widget.controller.pause
-                              : widget.controller.resume,
-                          icon: FloraIcon(
-                            session.isRunning
-                                ? FloraIcons.pause
-                                : FloraIcons.play,
-                            size: 20,
-                          ),
-                          label: Text(session.isRunning ? '暂停' : '继续'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Builder(
-                          builder: (anchorContext) => FilledButton.icon(
-                            onPressed: widget.controller.isBusy || _saving
-                                ? null
-                                : () => FloraOrigin.run(
-                                    anchorContext,
-                                    () => _finish(session),
                                   ),
-                            icon: const FloraIcon(FloraIcons.check),
-                            label: const Text('完成'),
-                          ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              session.dailyTargetMinutes == null
+                                  ? '今天已记录 ${session.currentMinutes} 分钟'
+                                  : '今天已记录 ${session.currentMinutes} / ${session.dailyTargetMinutes} 分钟',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed:
+                                    widget.controller.isBusy ||
+                                        _saving ||
+                                        session.hasPendingSave
+                                    ? null
+                                    : session.isRunning
+                                    ? widget.controller.pause
+                                    : widget.controller.resume,
+                                icon: FloraIcon(
+                                  session.isRunning
+                                      ? FloraIcons.pause
+                                      : FloraIcons.play,
+                                  size: 20,
+                                ),
+                                label: Text(session.isRunning ? '暂停' : '继续'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Builder(
+                                builder: (anchorContext) => FilledButton.icon(
+                                  onPressed: widget.controller.isBusy || _saving
+                                      ? null
+                                      : () => FloraOrigin.run(
+                                          anchorContext,
+                                          () => _finish(session),
+                                        ),
+                                  icon: const FloraIcon(FloraIcons.check),
+                                  label: Text(
+                                    session.hasPendingSave ? '重试保存' : '完成',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         );
@@ -172,7 +208,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
 
   Future<void> _finish(FocusTimerSession session) async {
     final seconds = widget.controller.elapsedSeconds();
-    final minutes = seconds ~/ 60;
+    final minutes = session.pendingSaveMinutes ?? seconds ~/ 60;
     final action = await showFloraSheet<_FinishAction>(
       context: context,
       showDragHandle: true,
@@ -233,17 +269,23 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     }
 
     setState(() => _saving = true);
-    final ok = await widget.onSave(session, minutes);
+    final ok = await widget.controller.save(widget.onSave, minutes: minutes);
     if (!mounted) return;
     if (!ok) {
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('保存失败，计时仍保留')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            writeFailureMessage(
+              widget.controller.saveError,
+              fallback: '保存失败，计时仍保留',
+            ),
+          ),
+        ),
+      );
       return;
     }
-    final cleared = await widget.controller.clearAfterSave();
-    if (mounted && !cleared) {
+    if (widget.controller.saveCleanupFailed) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('已保存，但本地计时状态清理失败，本次不会重复保存')));

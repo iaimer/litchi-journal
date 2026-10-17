@@ -1,4 +1,6 @@
-import { Router } from 'express';
+import { Router, type Response } from 'express';
+import { DiaryWriteError } from '../services/diary-write-error.js';
+import { isWaterLine, isStepsLine, isReadingLine, isLanguageLine, isSupplementLine } from '../services/habit-identity.js';
 import {
   readDiary,
   DiaryNotFoundError,
@@ -28,7 +30,6 @@ import { parseShanghaiDate } from '../utils/date.js';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ENTRY_ID_MARKER_PATTERN = /^<!-- litchi-entry-id:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) -->$/i;
 const PHOTO_ASSOCIATION_PATTERN = /^<!-- litchi-photo-of:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:;op:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))? -->$/i;
-const OLD_OP_MARKER_PATTERN = /^<!-- diary-op:[0-9a-f-]+ -->$/i;
 const SAFE_IMAGE_NAME_PATTERN = /^[^/\\\u0000-\u001F\u007F]+\.(jpg|jpeg|png|gif|webp|heic|heif)$/i;
 const OP_INDEX_FILE = '.diary-ops.json';
 
@@ -75,11 +76,17 @@ function habitLabelFromLine(line: string): string {
     .trim();
 }
 
-function cleanHabitLabel(value: unknown): string | null {
+function singleLineHabitLabel(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const label = value.replace(/[\r\n]/g, ' ').trim();
+  if (/[\r\n]/.test(value)) return null;
+  const label = value.trim();
   if (!label || label.length > 120) return null;
-  return label.replace(/\s+\d+\s*(?:分钟|min)\s*$/i, '').trim() || null;
+  return label;
+}
+
+function cleanHabitLabel(value: unknown): string | null {
+  const label = singleLineHabitLabel(value);
+  return label?.replace(/\s+\d+\s*(?:分钟|min)\s*$/i, '').trim() || null;
 }
 
 function formatTimelineEntry(
@@ -105,7 +112,7 @@ function formatTimelineEntry(
 }
 
 function entryIdFromLines(lines: string[]): string | null {
-  const match = ENTRY_ID_MARKER_PATTERN.exec(lines[lines.length - 1]?.trim() ?? '');
+  const match = ENTRY_ID_MARKER_PATTERN.exec(lines[lines.length - 1]?.trimEnd() ?? '');
   return match?.[1]?.toLowerCase() ?? null;
 }
 
@@ -133,7 +140,8 @@ function filenameForUploadOperation(content: string, operationId: string): strin
   const lines = content.split('\n');
   for (let index = 0; index < lines.length - 1; index++) {
     const association = PHOTO_ASSOCIATION_PATTERN.exec(lines[index + 1].trim());
-    if (association?.[2]?.toLowerCase() !== operationId.toLowerCase()) continue;
+    const standalone = /^<!-- litchi-upload-op:([0-9a-f-]{36}) -->$/i.exec(lines[index + 1]);
+    if ((association?.[2] ?? standalone?.[1])?.toLowerCase() !== operationId.toLowerCase()) continue;
     const match = /^!\[\[([^/\\\]]+\.(?:jpg|jpeg|png|gif|webp|heic|heif))\]\]$/i.exec(lines[index].trim());
     if (match) return match[1];
   }
@@ -158,62 +166,90 @@ function hasOwn(body: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(body, key);
 }
 
-function stripOldOpMarkers(content: string): string {
-  return content
-    .split('\n')
-    .filter(line => !OLD_OP_MARKER_PATTERN.test(line.trim()))
-    .join('\n');
-}
-
-function getOpIndexPath(date: Date): string {
-  const assetsDir = getAssetsDir(date);
-  if (!existsSync(assetsDir)) {
-    mkdirSync(assetsDir, { recursive: true });
-  }
-  return join(assetsDir, OP_INDEX_FILE);
-}
-
 function readOpIndex(date: Date): Set<string> {
-  const indexPath = getOpIndexPath(date);
+  const indexPath = join(getAssetsDir(date), OP_INDEX_FILE);
   if (!existsSync(indexPath)) return new Set();
-
   try {
-    const raw = readFileSync(indexPath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed.operations)) return new Set();
-    return new Set(parsed.operations.filter((id: unknown) => validateOperationId(id)));
+    const parsed = JSON.parse(readFileSync(indexPath, 'utf8'));
+    if (!Array.isArray(parsed.operations) ||
+        parsed.operations.some((id: unknown) => !validateOperationId(id))) {
+      throw new Error('invalid operation index');
+    }
+    return new Set(parsed.operations.map((id: string) => id.toLowerCase()));
   } catch {
-    return new Set();
+    throw new DiaryWriteError('旧操作记录无法读取，请检查服务器操作索引后重试');
   }
 }
 
 function hasOpRecord(date: Date, content: string, operationId: string): boolean {
-  return readOpIndex(date).has(operationId) ||
-    content.includes(`<!-- diary-op:${operationId} -->`) ||
-    filenameForUploadOperation(content, operationId) !== null;
+  const normalized = operationId.toLowerCase();
+  const committed = content.split('\n').some(line =>
+    line.trimEnd().toLowerCase() === `<!-- diary-op:${normalized} -->`);
+  return committed || filenameForUploadOperation(content, normalized) !== null ||
+    readOpIndex(date).has(normalized);
 }
 
-function recordOperation(date: Date, operationId: string): void {
-  const operations = readOpIndex(date);
-  operations.add(operationId);
-  writeFileSync(
-    getOpIndexPath(date),
-    JSON.stringify({ operations: [...operations].sort() }, null, 2)
-  );
+function commitDiary(date: Date, content: string, operationId?: unknown): void {
+  const validId = validateOperationId(operationId);
+  if (!validId) {
+    writeDiary(date, content);
+    return;
+  }
+  const lines = content.split('\n');
+  // 标记放在 frontmatter 之后、正文之前，章节替换不会删掉已提交历史。
+  const yamlEnd = lines[0] === '---' ? lines.indexOf('---', 1) : -1;
+  lines.splice(yamlEnd < 0 ? 0 : yamlEnd + 1, 0, `<!-- diary-op:${validId.toLowerCase()} -->`);
+  writeDiary(date, lines.join('\n'));
+}
+
+function sendWriteError(res: Response, error: unknown): void {
+  if (error instanceof DiaryNotFoundError) {
+    res.status(404).json({ error: '日记文件不存在，请先创建' });
+    return;
+  }
+  if (error instanceof DiaryWriteError) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
+  res.status(500).json({ error: '日记保存失败，请检查服务器状态后重试' });
 }
 
 function getRequestDate(date: unknown): Date {
-  return typeof date === 'string' ? parseShanghaiDate(date) : new Date();
+  if (date === undefined) return new Date();
+  try {
+    if (typeof date === 'string') return parseShanghaiDate(date);
+  } catch {
+    // 输入错误与磁盘错误分开，不能把无效日期写到今天。
+  }
+  throw new DiaryWriteError('日期无效，请使用 YYYY-MM-DD', 400);
 }
 
-function getRequestTime(time: unknown, date: Date): string {
-  if (typeof time === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return time;
-  return date.toLocaleTimeString('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
+function getRequestTime(time: unknown, _date: Date): string {
+  if (time !== undefined) {
+    if (typeof time === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return time;
+    throw new DiaryWriteError('时间无效，请使用 HH:mm', 400);
+  }
+  return new Date().toLocaleTimeString('zh-CN', {
+    timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false,
   });
+}
+
+function assertWriteInput(body: Record<string, unknown>): void {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new DiaryWriteError('请求内容无效', 400);
+  }
+  getRequestDate(body.date);
+  if (body.time !== undefined) getRequestTime(body.time, new Date());
+  if (body.operationId !== undefined && !validateOperationId(body.operationId)) {
+    throw new DiaryWriteError('操作标识无效，请重新打开记录页后重试', 400);
+  }
+  if (body.tags !== undefined && (!Array.isArray(body.tags) || body.tags.length > 64 ||
+      body.tags.some(tag => typeof tag !== 'string' || !tag.trim() || tag.length > 120 || /[\r\n]/.test(tag)))) {
+    throw new DiaryWriteError('标签无效，请使用单行标签', 400);
+  }
+  if (body.content !== undefined && (typeof body.content !== 'string' || !body.content.trim())) {
+    throw new DiaryWriteError('内容不能为空', 400);
+  }
 }
 
 const router = Router();
@@ -222,26 +258,21 @@ const router = Router();
 router.get('/exists/:date', async (req, res) => {
   try {
     const dateStr = req.params.date;
-    const date = parseShanghaiDate(dateStr);
+    const date = getRequestDate(dateStr);
 
     const exists = existsDiary(date);
     res.json({ exists });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 // 创建日记（幂等：已存在也返回成功）
 router.post('/create', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { date, operationId } = req.body;
-    let diaryDate: Date;
-
-    if (date) {
-      diaryDate = parseShanghaiDate(date);
-    } else {
-      diaryDate = new Date();
-    }
+    const diaryDate = getRequestDate(date);
 
     if (existsDiary(diaryDate)) {
       if (operationId && validateOperationId(operationId)) {
@@ -256,14 +287,11 @@ router.post('/create', async (req, res) => {
     }
 
     const content = createObsidianDiaryContent(diaryDate);
-    writeDiary(diaryDate, content);
-    if (operationId && validateOperationId(operationId)) {
-      recordOperation(diaryDate, operationId);
-    }
+    commitDiary(diaryDate, content, operationId);
 
     res.json({ success: true, exists: false, date: getDateString(diaryDate) });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
@@ -292,6 +320,7 @@ router.get('/:date', async (req, res) => {
 
 router.post('/quick-note', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { content, tags, operationId } = req.body;
     const requestedEntryId = req.body.entryId == null ? null : validateOperationId(req.body.entryId);
     if (req.body.entryId != null && !requestedEntryId) {
@@ -303,12 +332,7 @@ router.post('/quick-note', async (req, res) => {
 
     const formatted = formatTimelineEntry('-', time, content, tags, entryId);
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(date);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(date);
 
     if (operationId && validateOperationId(operationId)) {
       if (hasOpRecord(date, originalContent, operationId)) {
@@ -316,20 +340,18 @@ router.post('/quick-note', async (req, res) => {
       }
     }
 
-    const updated = stripOldOpMarkers(appendToSection(originalContent, 'quick_notes', formatted));
-    writeDiary(date, updated);
-    if (operationId && validateOperationId(operationId)) {
-      recordOperation(date, operationId);
-    }
+    const updated = appendToSection(originalContent, 'quick_notes', formatted);
+    commitDiary(date, updated, operationId);
 
     res.json({ success: true, content: formatted, entryId });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 router.post('/habit', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const {
       water,
       steps,
@@ -354,12 +376,7 @@ router.post('/habit', async (req, res) => {
       return res.status(400).json({ error: '学语言时长无效' });
     }
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(date);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(date);
 
     if (operationId && validateOperationId(operationId)) {
       if (hasOpRecord(date, originalContent, operationId)) {
@@ -367,11 +384,11 @@ router.post('/habit', async (req, res) => {
       }
     }
 
-    const existingHabitLines = parseDiary(originalContent).sections.habits;
+    const existingHabitLines = readHabitLines(originalContent);
     const existingReadingLine = existingHabitLines.find(line =>
-      line.includes('📖') || line.includes('阅读/亲子共读'));
+      isReadingLine(line));
     const existingLanguageLine = existingHabitLines.find(line =>
-      line.includes('🇬🇧') || line.includes('学语言'));
+      isLanguageLine(line));
     const existingReadingMinutes = existingReadingLine == null
       ? null
       : durationFromHabitLine(existingReadingLine);
@@ -402,6 +419,7 @@ router.post('/habit', async (req, res) => {
         : `- [${language ? 'x' : ' '}] 🇬🇧 学语言`,
       `- [${supplements ? 'x' : ' '}] 💊 鱼油/植物甾醇`
     ];
+    const sourceLines = new Map<string, string>();
 
     // 追加自定义 checkbox 习惯行
     if (extraCheckboxes && typeof extraCheckboxes === 'object') {
@@ -412,15 +430,13 @@ router.post('/habit', async (req, res) => {
           continue;
         }
         const mark = item.checked ? 'x' : ' ';
-        const label = typeof item.label === 'string' && item.label.trim()
-          ? item.label.trim()
-          : '?';
+        const label = singleLineHabitLabel(item.label);
+        if (!label) return res.status(400).json({ error: '自定义习惯名称无效' });
+        if (typeof item.rawLine === 'string' && item.rawLine) sourceLines.set(label, item.rawLine);
         habits.push(`- [${mark}] ${label}`);
       }
     }
 
-    const durationLabels = new Set<string>();
-    const durationRawLines = new Set<string>();
     if (extraDurations && typeof extraDurations === 'object') {
       for (const [key, info] of Object.entries(extraDurations)) {
         const item = info as any;
@@ -429,42 +445,26 @@ router.post('/habit', async (req, res) => {
         }
         const label = cleanHabitLabel(item.label);
         if (!label) return res.status(400).json({ error: '自定义习惯名称无效' });
-        durationLabels.add(label);
         if (typeof item.rawLine === 'string' && item.rawLine.trim()) {
-          durationRawLines.add(item.rawLine);
+          sourceLines.set(label, item.rawLine);
         }
         const mark = item.checked ? 'x' : ' ';
         habits.push(`- [${mark}] ${label} ${item.minutes} 分钟`);
       }
     }
 
-    // 旧客户端没有 duration 字段时，保留日记中已经存在的自定义计时行。
-    for (const line of existingHabitLines) {
-      if (durationFromHabitLine(line) === null) continue;
-      if (durationRawLines.has(line)) continue;
-      const label = habitLabelFromLine(line);
-      if (label.includes('📖') || label.includes('阅读/亲子共读') ||
-          label.includes('🇬🇧') || label.includes('学语言') ||
-          durationLabels.has(label)) {
-        continue;
-      }
-      habits.push(line);
-    }
-
-    const updated = stripOldOpMarkers(updateHabitsSection(originalContent, habits));
-    writeDiary(date, updated);
-    if (operationId && validateOperationId(operationId)) {
-      recordOperation(date, operationId);
-    }
+    const updated = updateHabitsSection(originalContent, habits, sourceLines);
+    commitDiary(date, updated, operationId);
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 router.post('/habit/duration', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const {
       date: rawDate,
       habitKey,
@@ -492,20 +492,15 @@ router.post('/habit/duration', async (req, res) => {
       return res.status(400).json({ error: '习惯原始行无效' });
     }
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(date);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(date);
 
-    const existingLines = parseDiary(originalContent).sections.habits;
+    const existingLines = readHabitLines(originalContent);
     const findExistingLine = (): string | null => {
       const exactIndex = rawLine ? existingLines.indexOf(rawLine) : -1;
       if (exactIndex !== -1) return existingLines[exactIndex];
       return existingLines.find(line => {
         const label = habitLabelFromLine(line);
-        return label === fallbackLabel || label.includes(fallbackLabel);
+        return label === fallbackLabel;
       }) ?? null;
     };
 
@@ -557,10 +552,7 @@ router.post('/habit/duration', async (req, res) => {
       return res.status(400).json({ error: '日记缺少习惯区块' });
     }
 
-    writeDiary(date, stripOldOpMarkers(updated));
-    if (operationId && validateOperationId(operationId)) {
-      recordOperation(date, operationId);
-    }
+    commitDiary(date, updated, operationId);
     return res.json({
       success: true,
       minutes: nextMinutes,
@@ -568,12 +560,13 @@ router.post('/habit/duration', async (req, res) => {
       rawLine: nextLine,
     });
   } catch (error) {
-    return res.status(500).json({ error: (error as Error).message });
+    return sendWriteError(res, error);
   }
 });
 
 router.post('/happiness', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { content, tags, operationId } = req.body;
     const requestedEntryId = req.body.entryId == null ? null : validateOperationId(req.body.entryId);
     if (req.body.entryId != null && !requestedEntryId) {
@@ -583,12 +576,7 @@ router.post('/happiness', async (req, res) => {
     const date = getRequestDate(req.body.date);
     const time = getRequestTime(req.body.time, date);
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(date);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(date);
 
     if (operationId && validateOperationId(operationId)) {
       if (hasOpRecord(date, originalContent, operationId)) {
@@ -597,30 +585,23 @@ router.post('/happiness', async (req, res) => {
     }
 
     const formattedContent = formatTimelineEntry('>', time, content, tags, entryId);
-    const updated = stripOldOpMarkers(appendToSection(originalContent, 'happiness', formattedContent));
-    writeDiary(date, updated);
-    if (operationId && validateOperationId(operationId)) {
-      recordOperation(date, operationId);
-    }
+    const updated = appendToSection(originalContent, 'happiness', formattedContent);
+    commitDiary(date, updated, operationId);
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 router.post('/reflection', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { content, tags, operationId } = req.body;
     const date = getRequestDate(req.body.date);
     const time = getRequestTime(req.body.time, date);
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(date);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(date);
 
     if (operationId && validateOperationId(operationId)) {
       if (hasOpRecord(date, originalContent, operationId)) {
@@ -633,37 +614,27 @@ router.post('/reflection', async (req, res) => {
     // Replace template placeholder "- " bullet on first write, else fall through to append
     const replaced = replaceEmptyBulletInSection(originalContent, 'reflection', formattedContent);
     if (replaced) {
-      const updated = stripOldOpMarkers(replaced);
-      writeDiary(date, updated);
-      if (operationId && validateOperationId(operationId)) {
-        recordOperation(date, operationId);
-      }
+      const updated = replaced;
+      commitDiary(date, updated, operationId);
       return res.json({ success: true });
     }
 
-    const updated = stripOldOpMarkers(appendToSection(originalContent, 'reflection', formattedContent));
-    writeDiary(date, updated);
-    if (operationId && validateOperationId(operationId)) {
-      recordOperation(date, operationId);
-    }
+    const updated = appendToSection(originalContent, 'reflection', formattedContent);
+    commitDiary(date, updated, operationId);
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 router.post('/anxiety', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { content, tags, operationId } = req.body;
     const date = getRequestDate(req.body.date);
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(date);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(date);
 
     if (operationId && validateOperationId(operationId)) {
       if (hasOpRecord(date, originalContent, operationId)) {
@@ -673,21 +644,19 @@ router.post('/anxiety', async (req, res) => {
 
     const tagStr = tags?.length > 0 ? ' ' + tags.map((t: string) => `#${t}`).join(' ') : '';
     const formattedContent = `${content}${tagStr}`;
-    const updated = stripOldOpMarkers(appendToSection(originalContent, 'anxiety', formattedContent));
-    writeDiary(date, updated);
-    if (operationId && validateOperationId(operationId)) {
-      recordOperation(date, operationId);
-    }
+    const updated = appendToSection(originalContent, 'anxiety', formattedContent);
+    commitDiary(date, updated, operationId);
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 // 替换焦虑四问区块
 router.post('/anxiety/replace', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { content, operationId } = req.body;
     const date = getRequestDate(req.body.date);
 
@@ -695,12 +664,7 @@ router.post('/anxiety/replace', async (req, res) => {
       return res.status(400).json({ error: '内容不能为空' });
     }
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(date);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(date);
 
     if (operationId && validateOperationId(operationId)) {
       if (hasOpRecord(date, originalContent, operationId)) {
@@ -709,82 +673,66 @@ router.post('/anxiety/replace', async (req, res) => {
     }
 
     const updated = replaceAnxietySection(originalContent, content);
-    writeDiary(date, updated);
-    if (operationId && validateOperationId(operationId)) {
-      recordOperation(date, operationId);
-    }
+    commitDiary(date, updated, operationId);
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 // 替换荔枝喵说区块
 router.post('/lizhi-says', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { date, content } = req.body;
-    const diaryDate = date
-      ? parseShanghaiDate(date)
-      : new Date();
+    const diaryDate = getRequestDate(date);
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(diaryDate);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(diaryDate);
 
     const updated = replaceLizhiSaysSection(originalContent, content);
     writeDiary(diaryDate, updated);
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 // 追加明日寄语
 router.post('/tomorrow', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { date, content } = req.body;
-    const diaryDate = date
-      ? parseShanghaiDate(date)
-      : new Date();
+    const diaryDate = getRequestDate(date);
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(diaryDate);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(diaryDate);
 
     const updated = replaceTomorrowSection(originalContent, content);
     writeDiary(diaryDate, updated);
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 // 上传图片（远程模式）：接收 base64 压缩图片，保存到 assets 并追加 WikiLink
 router.post('/image/upload', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { date: dateStr, imageData, operationId, imagePrefix } = req.body;
+    if (dateStr === undefined) {
+      throw new DiaryWriteError('缺少上传日期，请使用 YYYY-MM-DD', 400);
+    }
     const entryId = req.body.entryId == null ? undefined : validateOperationId(req.body.entryId);
     if (req.body.entryId != null && !entryId) {
       return res.status(400).json({ error: '记录关联标识无效' });
     }
-    const uploadDate = parseShanghaiDate(dateStr);
+    const uploadDate = getRequestDate(dateStr);
     const [year, monthNum, day] = dateStr.split('-').map(Number);
 
-    let originalContent: string;
-    try {
-      originalContent = readDiary(uploadDate);
-    } catch {
-      return res.status(404).json({ error: '日记文件不存在，请先创建' });
-    }
+    const originalContent = readDiary(uploadDate);
 
     if (operationId && validateOperationId(operationId)) {
       if (hasOpRecord(uploadDate, originalContent, operationId)) {
@@ -852,20 +800,17 @@ router.post('/image/upload', async (req, res) => {
 
     // 写入图片文件
     const imagePath = join(assetsDir, filename);
-    writeFileSync(imagePath, buffer);
+    writeFileSync(imagePath, buffer, { flag: 'wx' });
 
     // WikiLink 保持在影像记录章节，隐藏注释只记录所属条目和重试标识。
     const wikiLink = `![[${filename}]]`;
     const photoBlock = entryId
       ? `${wikiLink}\n<!-- litchi-photo-of:${entryId};op:${validateOperationId(operationId)} -->`
-      : wikiLink;
+      : operationId ? `${wikiLink}\n<!-- litchi-upload-op:${operationId} -->` : wikiLink;
     const contentWithImages = ensureImagesSection(originalContent);
-    const updated = stripOldOpMarkers(appendToSection(contentWithImages, 'images', photoBlock));
+    const updated = appendToSection(contentWithImages, 'images', photoBlock);
     try {
-      writeDiary(uploadDate, updated);
-      if (operationId && validateOperationId(operationId)) {
-        recordOperation(uploadDate, operationId);
-      }
+      commitDiary(uploadDate, updated, operationId);
     } catch (error) {
       unlinkSync(imagePath);
       throw error;
@@ -873,7 +818,7 @@ router.post('/image/upload', async (req, res) => {
 
     res.json({ success: true, filename });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
@@ -892,12 +837,10 @@ function replaceLizhiSaysSection(content: string, newText: string): string {
     }
   }
 
-  if (startIndex === -1) return content;
+  if (startIndex === -1) throw new DiaryWriteError('日记缺少目标区块，请检查模板后重试');
 
-  const allHeaders = ['## 🏃 习惯打卡', '## ✍️ 随手记', '## ✨ 每日小确幸',
-    '## 😰 焦虑时刻', '### 💡 觉察与迭代', newHeader, oldHeader, '### 🌙 明日寄语', '## 📸 影像记录'];
   for (let i = startIndex + 1; i < lines.length; i++) {
-    if (allHeaders.some(h => lines[i].startsWith(h))) {
+    if (/^#{1,6}\s/.test(lines[i])) {
       endIndex = i;
       break;
     }
@@ -926,13 +869,10 @@ function replaceTomorrowSection(content: string, newText: string): string {
     }
   }
 
-  if (startIndex === -1) return content;
+  if (startIndex === -1) throw new DiaryWriteError('日记缺少目标区块，请检查模板后重试');
 
-  const allHeaders = ['## 🏃 习惯打卡', '## ✍️ 随手记', '## ✨ 每日小确幸',
-    '## 😰 焦虑时刻', '### 💡 觉察与迭代', '### 🧠 人生教练',
-    '### 🧠 荔枝喵说', '### 🌙 明日寄语', '## 📸 影像记录'];
   for (let i = startIndex + 1; i < lines.length; i++) {
-    if (allHeaders.some(h => lines[i].startsWith(h))) {
+    if (/^#{1,6}\s/.test(lines[i])) {
       endIndex = i;
       break;
     }
@@ -947,36 +887,42 @@ function replaceTomorrowSection(content: string, newText: string): string {
   return [...before, header, ...newLines, '', ...after].join('\n');
 }
 
-function updateHabitsSection(content: string, habits: string[]): string {
+function builtInHabitKind(line: string): string | null {
+  if (isWaterLine(line)) return 'water';
+  if (isStepsLine(line)) return 'steps';
+  if (isReadingLine(line)) return 'reading';
+  if (isLanguageLine(line)) return 'language';
+  if (isSupplementLine(line)) return 'supplements';
+  return null;
+}
+
+function readHabitLines(content: string): string[] {
   const lines = content.split('\n');
-  const header = '## 🏃 习惯打卡';
+  const bounds = findSectionBounds(lines, sectionHeaders.habits);
+  if (!bounds) throw new DiaryWriteError('日记缺少习惯区块，请检查模板后重试');
+  return lines.slice(bounds.start + 1, bounds.end);
+}
 
-  let startIndex = -1;
-  let endIndex = -1;
-
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith(header)) {
-      startIndex = i;
-      break;
+function updateHabitsSection(content: string, habits: string[], sourceLines: Map<string, string>): string {
+  let updated = content;
+  for (const nextLine of habits) {
+    const lines = updated.split('\n');
+    const bounds = findSectionBounds(lines, sectionHeaders.habits);
+    if (!bounds) throw new DiaryWriteError('日记缺少习惯区块，请检查模板后重试');
+    const kind = builtInHabitKind(nextLine);
+    const label = habitLabelFromLine(nextLine);
+    const source = sourceLines.get(label);
+    const candidates = lines.slice(bounds.start + 1, bounds.end).filter(line =>
+      source !== undefined ? line === source : kind !== null ? builtInHabitKind(line) === kind :
+        (/^\s*-\s*\[[ xX]\]/.test(line) || durationFromHabitLine(line) !== null) &&
+          habitLabelFromLine(line) === label);
+    if (source !== undefined && candidates.length === 0) {
+      throw new DiaryWriteError('习惯原始内容已变化，请刷新后重试');
     }
+    if (candidates.length > 1) throw new DiaryWriteError('习惯存在重复记录，请整理后重试');
+    updated = replaceHabitLineInSection(updated, candidates[0] ?? null, nextLine)!;
   }
-
-  if (startIndex === -1) return content;
-
-  const allHeaders = ['## 🏃 习惯打卡', '## ✍️ 随手记', '## ✨ 每日小确幸', '## 😰 焦虑时刻', '### 💡 觉察与迭代'];
-  for (let i = startIndex + 1; i < lines.length; i++) {
-    if (allHeaders.some(h => lines[i].startsWith(h))) {
-      endIndex = i;
-      break;
-    }
-  }
-
-  if (endIndex === -1) endIndex = lines.length;
-
-  const before = lines.slice(0, startIndex + 1);
-  const after = lines.slice(endIndex);
-
-  return [...before, ...habits, '', ...after].join('\n');
+  return updated;
 }
 
 function replaceHabitLineInSection(
@@ -991,7 +937,7 @@ function replaceHabitLineInSection(
 
   let endIndex = lines.length;
   for (let i = startIndex + 1; i < lines.length; i++) {
-    if (/^(?:##|###)\s/.test(lines[i])) {
+    if (/^#{1,6}\s/.test(lines[i])) {
       endIndex = i;
       break;
     }
@@ -1046,10 +992,8 @@ function replaceAnxietySection(content: string, newText: string): string {
     return [...before, header, ...newLines, '', ...after].join('\n');
   }
 
-  const allHeaders = ['## 🏃 习惯打卡', '## ✍️ 随手记', '## ✨ 每日小确幸',
-    '## 😰 焦虑时刻', '### 💡 觉察与迭代', '### 🧠 人生教练', '### 🌙 明日寄语', '## 📸 影像记录'];
   for (let i = startIndex + 1; i < lines.length; i++) {
-    if (allHeaders.some(h => lines[i].startsWith(h))) {
+    if (/^#{1,6}\s/.test(lines[i])) {
       endIndex = i;
       break;
     }
@@ -1117,7 +1061,7 @@ router.get('/image/render/:year/:imageName', async (req, res) => {
         .send(imageBuffer);
     }
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json({ error: '图片读取失败，请检查服务器状态' });
   }
 });
 
@@ -1157,7 +1101,7 @@ router.get('/image/:year/:imageName', async (req, res) => {
       mimeType
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json({ error: '图片读取失败，请检查服务器状态' });
   }
 });
 
@@ -1178,19 +1122,7 @@ function findAllMatches(lines: string[], startIdx: number, endIdx: number, targe
   return matches;
 }
 
-function isEntryOrBoundary(line: string): boolean {
-  const t = line.trim();
-  if (t.startsWith('- ') || t.startsWith('> ')) return true;
-  if (t.startsWith('##') || t.startsWith('###')) return true;
-  if (t.startsWith('---')) return true;
-  if (t.startsWith('![[')) return true;
-  if (/^- \[[ x]\]/.test(t)) return true;
-  return false;
-}
-
 function findSectionBounds(lines: string[], header: string): { start: number; end: number } | null {
-  const LEGACY_LIZHI_SAYS = '### 🧠 荔枝喵说';
-  const allHeaders = [...Object.values(sectionHeaders), LEGACY_LIZHI_SAYS, '## 📈 每日复盘'];
   let start = -1;
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].startsWith(header)) { start = i; break; }
@@ -1198,7 +1130,7 @@ function findSectionBounds(lines: string[], header: string): { start: number; en
   if (start === -1) return null;
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i++) {
-    if (allHeaders.some(h => lines[i].startsWith(h))) { end = i; break; }
+    if (/^#{1,6}\s/.test(lines[i])) { end = i; break; }
   }
   return { start, end };
 }
@@ -1221,7 +1153,7 @@ function detachPhotosForEntry(lines: string[], entryId: string): string[] {
 }
 
 function isImageReferencedInVault(filename: string): boolean {
-  const wikiLink = `![[${filename}]]`;
+  const needles = [filename.toLowerCase(), encodeURIComponent(filename).toLowerCase()];
   const pendingDirs = [config.vaultPath];
   while (pendingDirs.length > 0) {
     const dir = pendingDirs.pop()!;
@@ -1231,8 +1163,9 @@ function isImageReferencedInVault(filename: string): boolean {
       const path = join(dir, entry.name);
       if (entry.isDirectory()) {
         pendingDirs.push(path);
-      } else if (entry.isFile() && entry.name.endsWith('.md')) {
-        if (readFileSync(path, 'utf8').includes(wikiLink)) return true;
+      } else if (entry.isFile() && /\.(md|canvas)$/i.test(entry.name)) {
+        const text = readFileSync(path, 'utf8').toLowerCase();
+        if (needles.some(needle => text.includes(needle))) return true;
       }
     }
   }
@@ -1266,42 +1199,23 @@ function findEntryRangeInSection(
       const block = lines.slice(matchIndex, blockEnd).join('\n');
       return normalize(block) === normalize(targetLine);
     });
-    if (exactMatch === undefined && targetLine.includes('\n')) return null;
-    const matchedIndex = exactMatch ?? firstMatch;
+    if (exactMatch === undefined) return null;
+    const matchedIndex = exactMatch;
     const blockEnd = findTimelineEntryBlockEnd(lines, matchedIndex, endIdx);
-    if (exactMatch === undefined && matches.length > 1) {
-      console.warn(`Duplicate entry first line at indices ${matches.join(', ')}; using first`);
-    }
     return { startIndex: matchedIndex, endIndexExclusive: blockEnd };
   }
 
-  const targetLines = targetLine.split(/\n\n|\n/).filter(l => l.trim());
-  if (targetLines.length > 1) {
-    const exactMatch = matches.find(matchIndex =>
-      targetLines.every((target, offset) =>
-        matchIndex + offset < endIdx && lines[matchIndex + offset].trim() === target.trim()
-      )
-    );
-    if (exactMatch !== undefined) {
-      return { startIndex: exactMatch, endIndexExclusive: exactMatch + targetLines.length };
-    }
-  }
-
-  if (matches.length > 1) {
-    console.warn(`Duplicate entry first line at indices ${matches.join(', ')}; using first`);
-  }
-  const i = matches[0];
-  let end = i + 1;
-  while (end < endIdx) {
-    if (isEntryOrBoundary(lines[end].trim())) break;
-    end++;
-  }
-  while (end > i + 1 && lines[end - 1].trim() === '') end--;
-  return { startIndex: i, endIndexExclusive: end };
+  const normalized = targetLine.replace(/\r\n/g, '\n').trimEnd();
+  const length = normalized.split('\n').length;
+  const matchedIndex = matches.find(index => index + length <= endIdx &&
+    lines.slice(index, index + length).join('\n').replace(/\r\n/g, '\n').trimEnd() === normalized);
+  if (matchedIndex === undefined) return null;
+  return { startIndex: matchedIndex, endIndexExclusive: matchedIndex + length };
 }
 
 router.post('/delete-entry', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { date: dateStr, section, line } = req.body;
     if (!dateStr || !section || !line) return res.status(400).json({ error: '缺少 date, section 或 line' });
     const date = getRequestDate(dateStr);
@@ -1330,12 +1244,13 @@ router.post('/delete-entry', async (req, res) => {
     deleteUnreferencedImageFiles(date, [...removedPhotos, ...(imageName ? [imageName] : [])], updatedContent);
     res.json({ success: true, deletedPhotoCount: removedPhotos.length });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 
 router.post('/edit-entry', async (req, res) => {
   try {
+    assertWriteInput(req.body);
     const { date: dateStr, section, target, replacement } = req.body;
     if (!dateStr || !section || !target || !replacement) return res.status(400).json({ error: '缺少参数' });
     const requestedEntryId = req.body.entryId == null ? undefined : validateOperationId(req.body.entryId);
@@ -1377,7 +1292,7 @@ router.post('/edit-entry', async (req, res) => {
     writeDiary(date, sortTimelineEntriesInSection(lines.join('\n'), section));
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    sendWriteError(res, error);
   }
 });
 

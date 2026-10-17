@@ -137,7 +137,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _load() async {
-    _memoryService = PastMemoryService(widget.apiClient);
     final todayRequestGeneration = ++_todayRequestGeneration;
     await Future.wait([
       _loadTodayHistory(todayRequestGeneration),
@@ -179,7 +178,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
           _monthKeys.clear();
         }
       });
-      _galleryService.clearImageCache();
     } else {
       if (_galleryLoadingMore || _nextCursor == null) return;
       setState(() => _galleryLoadingMore = true);
@@ -255,18 +253,29 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
     final firstStart = firstPage.months.isEmpty
         ? null
         : _monthKey(firstPage.months.first);
-    for (final cursor in _loadedPageStarts.toList()) {
+    final starts = _loadedPageStarts.toList()..sort((a, b) => b.compareTo(a));
+    for (final cursor in starts) {
       if (cursor == firstStart) continue;
-      final page = await _galleryService.fetchPage(cursor: cursor);
-      if (!mounted || generation != _galleryRequestGeneration) return;
-      setState(
-        () => _applyGalleryPage(
-          page,
-          reset: false,
-          requestedCursor: cursor,
-          updateCursor: false,
-        ),
-      );
+      try {
+        final page = await _galleryService.fetchPage(cursor: cursor);
+        if (!mounted || generation != _galleryRequestGeneration) return;
+        setState(() {
+          _applyGalleryPage(
+            page,
+            reset: false,
+            requestedCursor: cursor,
+            updateCursor: false,
+          );
+          if (cursor == starts.last) _nextCursor = page.nextCursor;
+        });
+      } on ApiException catch (error) {
+        if (error.isAuthenticationFailure) rethrow;
+        if (!mounted || generation != _galleryRequestGeneration) return;
+        setState(() {
+          _failedCursors.add(cursor);
+          _galleryError = '部分过往内容更新失败，请重试';
+        });
+      }
     }
   }
 
@@ -309,6 +318,9 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _restoreCachedGallery(int generation) async {
+    final starts = await widget.apiClient.visitedGalleryPageStarts();
+    if (!mounted || generation != _galleryRequestGeneration) return;
+    _loadedPageStarts.addAll(starts);
     var pages = 0;
     final updatedAtByMonth = <String, DateTime>{};
     await for (final cached in widget.apiClient.cachedGalleryPages()) {

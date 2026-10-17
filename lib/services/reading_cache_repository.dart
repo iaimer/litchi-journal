@@ -241,13 +241,26 @@ class ReadingCacheRepository {
     }
   }
 
-  Future<void> invalidateData(String namespace) async {
+  Future<void> invalidateData(
+    String namespace, {
+    Set<String> preserveKeys = const {},
+  }) async {
     dataGeneration++;
     final prefix = 'data/${digest(namespace)}-';
     _invalidatedPrefixes.add(prefix);
-    _writtenAfterInvalidation.removeWhere((name) => name.startsWith(prefix));
+    final preserved = preserveKeys
+        .map((key) => 'data/${_name(namespace, key)}')
+        .toSet();
+    _writtenAfterInvalidation.removeWhere(
+      (name) => name.startsWith(prefix) && !preserved.contains(name),
+    );
+    _writtenAfterInvalidation.addAll(preserved);
     try {
-      await _delete(ReadingCacheKind.data, prefix: digest(namespace));
+      await _delete(
+        ReadingCacheKind.data,
+        prefix: digest(namespace),
+        exceptNames: preserveKeys.map((key) => _name(namespace, key)).toSet(),
+      );
     } catch (_) {
       /* 服务端保存成功不能受清理失败影响。 */
     }
@@ -265,13 +278,18 @@ class ReadingCacheRepository {
     if (!imagesOnly) await _delete(ReadingCacheKind.data);
   }
 
-  Future<void> _delete(ReadingCacheKind kind, {String? prefix}) {
+  Future<void> _delete(
+    ReadingCacheKind kind, {
+    String? prefix,
+    Set<String> exceptNames = const {},
+  }) {
     if (!enabled) return Future.value();
     return _serial(() async {
       final group = await _group(kind);
       for (final file in await _files(group)) {
         final name = file.uri.pathSegments.last;
-        if (prefix == null || name.startsWith('$prefix-')) {
+        if (!exceptNames.contains(name) &&
+            (prefix == null || name.startsWith('$prefix-'))) {
           await file.delete();
           _sizes[kind]?.remove(file.path);
         }

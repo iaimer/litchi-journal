@@ -1,0 +1,5 @@
+# Copy to android/key.properties and fill locally. Never commit the filled file.
+storeFile=/absolute/path/to/upload-keystore.jks
+storePassword=SET_LOCALLY
+keyAlias=upload
+keyPassword=SET_LOCALLY

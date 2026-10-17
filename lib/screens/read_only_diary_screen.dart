@@ -10,6 +10,7 @@ import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
+import '../services/failure_messages.dart';
 import '../services/draft_repository.dart';
 import '../services/image_settings_repository.dart';
 import '../services/polisher_service.dart';
@@ -131,7 +132,10 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
           _cachedAt = null;
           _error = '认证失败，请检查连接设置后重试';
         } else {
-          _error = _diary == null ? '此日记尚未缓存，连接服务器后可查看' : null;
+          _error = diaryReadFailureMessage(
+            error,
+            hasLocalContent: _diary != null,
+          );
         }
         _loading = false;
         _refreshing = false;
@@ -210,13 +214,14 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
       };
     }
 
-    var success = await append();
-    if (!success) {
+    try {
+      return await append();
+    } on ApiException catch (error) {
+      if (error.statusCode != 404) rethrow;
       final created = await widget.apiClient.ensureDiary(widget.date);
       if (!created) return false;
-      success = await append();
+      return append();
     }
-    return success;
   }
 
   Future<PolishResult> _polish(String content, EntryType entryType) async {
@@ -321,9 +326,10 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
               ReadingCacheStatus(
                 updatedAt: _cachedAt,
                 refreshing: _refreshing,
+                message: _error,
                 onRetry: _loadDiary,
               ),
-            if (_error != null) _buildInlineError(theme),
+            if (_verified && _error != null) _buildInlineError(theme),
             DiaryMarkdownView(
               markdown: _diary?.raw ?? '',
               onHabitUpdate: null,

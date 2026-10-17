@@ -1218,10 +1218,18 @@ class _MemoryCache extends ReadingCacheRepository {
     String key,
   ) async => _entries.remove(begin(kind, namespace, key).name);
   @override
-  Future<void> invalidateData(String namespace) async {
+  Future<void> invalidateData(
+    String namespace, {
+    Set<String> preserveKeys = const {},
+  }) async {
     dataGeneration++;
     final prefix = 'data/${ReadingCacheRepository.digest(namespace)}-';
-    _entries.removeWhere((key, _) => key.startsWith(prefix));
+    final keep = preserveKeys
+        .map((key) => '$prefix${ReadingCacheRepository.digest(key)}.cache')
+        .toSet();
+    _entries.removeWhere(
+      (key, _) => key.startsWith(prefix) && !keep.contains(key),
+    );
   }
 
   @override

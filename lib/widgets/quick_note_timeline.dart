@@ -6,6 +6,7 @@ import '../models/diary_document.dart';
 import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
+import '../services/failure_messages.dart';
 import '../services/api_client.dart';
 import '../screens/quick_capture_screen.dart';
 import 'entry_type.dart';
@@ -191,7 +192,7 @@ class _QuickNoteRowState extends State<_QuickNoteRow> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error is ApiException ? error.message : '删除失败，请稍后重试'),
+          content: Text(writeFailureMessage(error, fallback: '删除失败，请稍后重试')),
         ),
       );
     } finally {

@@ -166,7 +166,7 @@ class MarkdownParser {
   String? _entryIdFromBlock(List<String> lines) {
     if (lines.isEmpty) return null;
     return _entryIdMarker
-        .firstMatch(lines.last.trim())
+        .firstMatch(lines.last.trimRight())
         ?.group(1)
         ?.toLowerCase();
   }
@@ -367,11 +367,15 @@ class MarkdownParser {
     while (end < lines.length) {
       final line = lines[end];
       final trimmed = line.trim();
+      if (line.isNotEmpty && RegExp(r'^\s').hasMatch(line)) {
+        end++;
+        continue;
+      }
+      if (RegExp(r'^#{1,6}\s').hasMatch(line)) break;
       if (trimmed.isNotEmpty && _isSpecialLine(line)) break;
       if (trimmed.isNotEmpty && _horizontalRule.hasMatch(trimmed)) break;
-      if (trimmed.isNotEmpty &&
-          _htmlComment.hasMatch(trimmed) &&
-          !_entryIdMarker.hasMatch(trimmed)) {
+      if (trimmed.startsWith('![[')) break;
+      if (trimmed.startsWith('<!--') && !_entryIdMarker.hasMatch(trimmed)) {
         break;
       }
       end++;
@@ -390,7 +394,7 @@ class MarkdownParser {
     for (var index = 1; index < blockLines.length; index++) {
       var continuation = blockLines[index].trim();
       if (index == blockLines.length - 1 &&
-          _entryIdMarker.hasMatch(continuation)) {
+          _entryIdMarker.hasMatch(blockLines[index].trimRight())) {
         continue;
       }
       if (isQuote && continuation.startsWith('>')) {

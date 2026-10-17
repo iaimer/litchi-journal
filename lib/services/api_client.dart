@@ -12,6 +12,7 @@ import '../models/history_month_result.dart';
 import '../models/habit_stats.dart';
 import '../models/tag_config.dart';
 import 'api_config.dart';
+import 'operation_id.dart';
 import 'reading_cache_repository.dart';
 import 'habit_stats_service.dart';
 import 'habit_stats_cache_repository.dart';
@@ -40,7 +41,7 @@ class ApiClient {
   late final Map<String, String> _headers;
 
   String get baseUrl => _baseUrl;
-  String get cacheNamespace => _baseUrl;
+  String get cacheNamespace => readingCacheNamespace;
   String get readingCacheNamespace {
     final uri = Uri.parse(_baseUrl).normalizePath();
     final canonical = uri.replace(
@@ -105,16 +106,7 @@ class ApiClient {
   }
 
   static String generateUuidV4() {
-    final random = Random.secure();
-    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    return '${hex.substring(0, 8)}-'
-        '${hex.substring(8, 12)}-'
-        '${hex.substring(12, 16)}-'
-        '${hex.substring(16, 20)}-'
-        '${hex.substring(20, 32)}';
+    return generateOperationId();
   }
 
   Future<TestConnectionResult> testConnection(DateTime date) async {
@@ -768,6 +760,18 @@ class ApiClient {
     );
   }
 
+  Future<List<String>> visitedGalleryPageStarts() async {
+    final starts = <String>{};
+    for (final key in await _galleryManifest()) {
+      final uri = Uri.tryParse(key.split('|').first);
+      final cursor = uri?.queryParameters['cursor'] ?? _galleryKeyMonth(key);
+      if (RegExp(r'^\d{4}-(0[1-9]|1[0-2])$').hasMatch(cursor)) {
+        starts.add(cursor);
+      }
+    }
+    return starts.toList()..sort((a, b) => b.compareTo(a));
+  }
+
   /// 重启及跨月后恢复仍存在的已访问分页，首页淘汰不阻断较早月份。
   Stream<CachedReading<GalleryPage>> cachedGalleryPages() async* {
     if (!readingCache.enabled) return;
@@ -846,6 +850,7 @@ class ApiClient {
     required int minutes,
     required bool replace,
     int? dailyTargetMinutes,
+    String? operationId,
   }) async {
     final body = <String, dynamic>{
       'date': formatDate(date),
@@ -854,7 +859,7 @@ class ApiClient {
       'rawLine': rawLine,
       'minutes': minutes,
       'operation': replace ? 'set' : 'add',
-      'operationId': generateUuidV4(),
+      'operationId': operationId ?? generateUuidV4(),
     };
     if (dailyTargetMinutes != null) {
       body['dailyTargetMinutes'] = dailyTargetMinutes;
@@ -929,6 +934,7 @@ class ApiClient {
       ),
       timeout: timeout,
     );
+    _checkWriteResponse(path, response);
     if (response.statusCode == 200 && path.startsWith('/api/v1/diary/')) {
       await _invalidateReading(body);
       if (path.contains('delete')) {
@@ -949,7 +955,10 @@ class ApiClient {
   Future<void> _invalidateReading(Map<String, dynamic> body) async {
     // 先同步使在途读取失效，再等待磁盘清理。
     final invalidations = <Future<void>>[
-      readingCache.invalidateData('$readingCacheNamespace/gallery'),
+      readingCache.invalidateData(
+        '$readingCacheNamespace/gallery',
+        preserveKeys: {_galleryManifestKey},
+      ),
     ];
     HabitStatsService.clearDayCache();
     invalidations.add(HabitStatsCacheRepository().clear());
@@ -1003,10 +1012,26 @@ class ApiClient {
       () async => http.Response.fromStream(await _http.send(request)),
       timeout: timeout,
     );
+    _checkWriteResponse(path, response);
     if (response.statusCode == 200 && path.startsWith('/api/v1/diary/')) {
       await _invalidateReading(body);
     }
     return response;
+  }
+
+  void _checkWriteResponse(String path, http.Response response) {
+    if (!path.startsWith('/api/v1/diary/') || response.statusCode == 200) {
+      return;
+    }
+    final prefix = path.endsWith('/create')
+        ? '创建日记失败'
+        : path.contains('/image/')
+        ? '图片上传失败'
+        : '保存失败';
+    throw ApiException(
+      _statusMessage(prefix, response.statusCode),
+      statusCode: response.statusCode,
+    );
   }
 
   Future<http.Response> _send(

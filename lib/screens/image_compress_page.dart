@@ -57,20 +57,39 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
     }
 
     setState(() => _saving = true);
-    await _repository.save(_settings.copyWith(filenamePrefix: prefix));
-    if (!mounted) return;
-    setState(() => _saving = false);
-    showFloraSuccessSnackBar(context, '图片设置已保存');
+    try {
+      await _repository.save(_settings.copyWith(filenamePrefix: prefix));
+      if (mounted) showFloraSuccessSnackBar(context, '图片设置已保存');
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('图片设置保存失败，请重试')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _resetDefault() async {
-    final defaults = await _repository.resetDefault();
-    if (!mounted) return;
-    setState(() {
-      _settings = defaults;
-      _prefixController.text = defaults.filenamePrefix;
-      _prefixError = null;
-    });
+    setState(() => _saving = true);
+    try {
+      final defaults = await _repository.resetDefault();
+      if (!mounted) return;
+      setState(() {
+        _settings = defaults;
+        _prefixController.text = defaults.filenamePrefix;
+        _prefixError = null;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('恢复默认失败，请重试')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -201,6 +220,7 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<T>(
+        key: ValueKey('$label:$value'),
         initialValue: value,
         decoration: InputDecoration(labelText: label),
         items: options

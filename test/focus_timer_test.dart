@@ -1048,7 +1048,7 @@ void main() {
     await controller.start(_target());
     now = now.add(const Duration(minutes: 1, seconds: 20));
     var savedMinutes = 0;
-    var soundCount = 0;
+    var feedbackCount = 0;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1058,7 +1058,7 @@ void main() {
             savedMinutes = minutes;
             return true;
           },
-          onPositiveFeedback: () => soundCount++,
+          onPositiveFeedback: () => feedbackCount++,
         ),
       ),
     );
@@ -1070,7 +1070,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(savedMinutes, 1);
-    expect(soundCount, 1);
+    expect(feedbackCount, 1);
     expect(storage.value, isNull);
     controller.dispose();
   });

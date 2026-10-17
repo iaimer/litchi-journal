@@ -165,6 +165,10 @@ class _ImageUploadTileState extends State<ImageUploadTile> {
                     snapshot.data!,
                     fit: BoxFit.cover,
                     gaplessPlayback: true,
+                    cacheWidth:
+                        (widget.size * MediaQuery.devicePixelRatioOf(context))
+                            .ceil()
+                            .clamp(1, 1024),
                   );
                 },
               ),

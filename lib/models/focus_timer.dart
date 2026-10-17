@@ -45,6 +45,8 @@ class FocusTimerSession {
   final String rawLine;
   final int currentMinutes;
   final int? dailyTargetMinutes;
+  final String? saveOperationId;
+  final int? pendingSaveMinutes;
 
   const FocusTimerSession({
     required this.habitKey,
@@ -60,10 +62,13 @@ class FocusTimerSession {
     required this.rawLine,
     required this.currentMinutes,
     this.dailyTargetMinutes,
+    this.saveOperationId,
+    this.pendingSaveMinutes,
   });
 
   bool get isRunning => state == FocusTimerState.running;
   bool get isPaused => state == FocusTimerState.paused;
+  bool get hasPendingSave => saveOperationId != null;
 
   int elapsedSeconds([DateTime? now]) {
     if (!isRunning || runningSince == null) return accumulatedSeconds;
@@ -89,6 +94,8 @@ class FocusTimerSession {
     FocusTimerState? state,
     DateTime? runningSince,
     bool clearRunningSince = false,
+    String? saveOperationId,
+    int? pendingSaveMinutes,
   }) {
     return FocusTimerSession(
       habitKey: habitKey,
@@ -106,6 +113,8 @@ class FocusTimerSession {
       rawLine: rawLine,
       currentMinutes: currentMinutes,
       dailyTargetMinutes: dailyTargetMinutes,
+      saveOperationId: saveOperationId ?? this.saveOperationId,
+      pendingSaveMinutes: pendingSaveMinutes ?? this.pendingSaveMinutes,
     );
   }
 
@@ -123,6 +132,8 @@ class FocusTimerSession {
     'rawLine': rawLine,
     'currentMinutes': currentMinutes,
     'dailyTargetMinutes': dailyTargetMinutes,
+    if (saveOperationId != null) 'saveOperationId': saveOperationId,
+    if (pendingSaveMinutes != null) 'pendingSaveMinutes': pendingSaveMinutes,
   };
 
   factory FocusTimerSession.fromJson(Map<String, dynamic> json) {
@@ -141,8 +152,22 @@ class FocusTimerSession {
     final rawLine = json['rawLine'];
     final currentMinutes = json['currentMinutes'];
     final dailyTargetMinutes = json['dailyTargetMinutes'];
+    final saveOperationId = json['saveOperationId'];
+    final pendingSaveMinutes = json['pendingSaveMinutes'];
 
-    if (habitKey is! String ||
+    if ((saveOperationId != null &&
+            (saveOperationId is! String ||
+                !RegExp(
+                  r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+                  caseSensitive: false,
+                ).hasMatch(saveOperationId))) ||
+        (saveOperationId != null &&
+            (pendingSaveMinutes is! int ||
+                pendingSaveMinutes <= 0 ||
+                stateName != FocusTimerState.paused.name ||
+                runningSince != null)) ||
+        (saveOperationId == null && pendingSaveMinutes != null) ||
+        habitKey is! String ||
         habitKey.trim().isEmpty ||
         displayName is! String ||
         displayName.trim().isEmpty ||
@@ -179,6 +204,8 @@ class FocusTimerSession {
       rawLine: rawLine,
       currentMinutes: currentMinutes.toInt(),
       dailyTargetMinutes: dailyTargetMinutes?.toInt(),
+      saveOperationId: saveOperationId as String?,
+      pendingSaveMinutes: pendingSaveMinutes as int?,
     );
   }
 

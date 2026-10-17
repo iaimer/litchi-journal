@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -559,7 +558,6 @@ void main() {
   for (final past in [false, true]) {
     testWidgets('${past ? '过往' : '今天'}保留下拉圆形反馈', (tester) async {
       FlutterSecureStorage.setMockInitialValues({});
-      _mockHeaderAudio(tester);
       final pending = Completer<http.Response>();
       final client = _client(
         galleryRefresh: past ? pending : null,
@@ -982,7 +980,6 @@ Future<void> _expectRefreshWithoutStripe(
   await tester.binding.setSurfaceSize(const Size(320, 720));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   FlutterSecureStorage.setMockInitialValues({});
-  _mockHeaderAudio(tester);
   final pending = Completer<http.Response>();
   final client = _client(
     galleryRefresh: past ? pending : null,
@@ -1048,25 +1045,6 @@ Future<void> _finishHeaderRefresh(
   expect(find.byType(LinearProgressIndicator), findsNothing);
   expect(tester.takeException(), isNull);
   await tester.pumpWidget(const SizedBox.shrink());
-}
-
-void _mockHeaderAudio(WidgetTester tester) {
-  for (final name in [
-    'xyz.luan/audioplayers.global/events',
-    'xyz.luan/audioplayers.global',
-  ]) {
-    final channel = MethodChannel(name);
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (_) async => null,
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        channel,
-        null,
-      ),
-    );
-  }
 }
 
 Future<void> _expectRefreshFrames(

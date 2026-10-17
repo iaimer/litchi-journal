@@ -81,7 +81,13 @@ router.get('/:year/:month', async (req, res) => {
     const diaries: any[] = [];
 
     for (const dateStr of diaryDates) {
-      const date = parseShanghaiDate(dateStr);
+      let date: Date;
+      try {
+        date = parseShanghaiDate(dateStr);
+      } catch {
+        // 月份目录允许存放其他 Markdown 文件，它们不是日记。
+        continue;
+      }
 
       try {
         const content = readDiary(date);

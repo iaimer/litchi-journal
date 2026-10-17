@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../services/draft_repository.dart';
 import '../services/api_client.dart';
+import '../services/failure_messages.dart';
 import '../services/image_compress_service.dart';
 import '../services/image_settings_repository.dart';
 import '../services/polisher_service.dart';
@@ -118,6 +119,9 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
 
   /// 草稿写入串行链，避免保存与清空竞争导致残留。
   Future<void> _draftWriteChain = Future.value();
+  Timer? _draftDebounce;
+  int _draftRevision = 0;
+  bool _applyingDraft = false;
 
   bool get _isEditing => widget.initialContent != null;
 
@@ -227,6 +231,11 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
 
   @override
   void dispose() {
+    final hasPendingDraft =
+        _draftDebounce?.isActive == true ||
+        (_restoringDraft && _draftRevision > 0);
+    _draftDebounce?.cancel();
+    if (!_entrySaved && hasPendingDraft) _queueDraftSnapshot();
     _controller.removeListener(_handleContentChanged);
     _controller.dispose();
     _focusNode.dispose();
@@ -235,6 +244,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   }
 
   void _handleContentChanged() {
+    if (_applyingDraft) return;
     if (mounted) setState(() {});
     _saveDraft();
   }
@@ -244,13 +254,21 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     final repository = widget.draftRepository;
     final date = widget.recordDate;
     if (repository == null || date == null) return;
+    final revision = _draftRevision;
     _restoringDraft = true;
-    final draft = await repository.loadQuickDraft(
-      date: date,
-      entryType: widget.entryType,
-    );
-    if (!mounted) return;
-    if (draft != null) {
+    try {
+      final draft = await repository.loadQuickDraft(
+        date: date,
+        entryType: widget.entryType,
+      );
+      if (!mounted ||
+          _entrySaved ||
+          revision != _draftRevision ||
+          _controller.text.isNotEmpty ||
+          draft == null) {
+        return;
+      }
+      _applyingDraft = true;
       setState(() {
         _controller.text = draft.content;
         _selectedTags = draft.tags;
@@ -258,15 +276,29 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
           offset: draft.content.length,
         );
       });
+    } catch (_) {
+      // 短时草稿不可用时，用户仍能继续输入与提交。
+    } finally {
+      _applyingDraft = false;
+      _restoringDraft = false;
+      if (mounted && !_entrySaved && revision != _draftRevision) _saveDraft();
     }
-    _restoringDraft = false;
   }
 
   void _saveDraft() {
-    if (_isEditing) return;
+    _draftRevision++;
+    if (_isEditing || _restoringDraft || _entrySaved) return;
+    _draftDebounce?.cancel();
+    _draftDebounce = Timer(
+      const Duration(milliseconds: 350),
+      _queueDraftSnapshot,
+    );
+  }
+
+  void _queueDraftSnapshot() {
     final repository = widget.draftRepository;
     final date = widget.recordDate;
-    if (_restoringDraft || repository == null || date == null) return;
+    if (_isEditing || _entrySaved || repository == null || date == null) return;
     final content = _controller.text;
     final tags = List<String>.from(_selectedTags);
     _draftWriteChain = _draftWriteChain
@@ -415,11 +447,12 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error is ApiException && error.message == '记录已发生变化，请刷新日记后重新确认'
-            ? error.message
-            : _entrySaved
+        _error = _entrySaved
             ? '文字已保存，部分照片操作失败，请重试'
-            : (_isEditing ? '更新失败，请重试' : '保存失败，请重试');
+            : writeFailureMessage(
+                error,
+                fallback: _isEditing ? '更新失败，请重试' : '保存失败，请重试',
+              );
       });
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -430,8 +463,13 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     final repository = widget.draftRepository;
     final date = widget.recordDate;
     if (_isEditing || repository == null || date == null) return;
-    await _draftWriteChain;
-    await repository.clearDraft(date: date, entryType: widget.entryType);
+    _draftDebounce?.cancel();
+    try {
+      await _draftWriteChain;
+      await repository.clearDraft(date: date, entryType: widget.entryType);
+    } catch (_) {
+      // 日记已经保存，草稿清理失败不能把服务端成功报告成失败。
+    }
   }
 
   Future<void> _pickPhotos() async {

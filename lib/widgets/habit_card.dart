@@ -1,8 +1,12 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'flora_sheet.dart';
 import 'flora_origin.dart';
 
 import '../models/diary_document.dart';
+import '../services/failure_messages.dart';
 import '../models/focus_timer.dart';
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
@@ -80,8 +84,16 @@ class HabitCard extends StatefulWidget {
   State<HabitCard> createState() => _HabitCardState();
 }
 
-class _HabitCardState extends State<HabitCard> {
+class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
   String? _updatingField;
+  final _feedback = <String, _HabitFeedback>{};
+  int _feedbackRevision = 0;
+  bool get _motionAllowed =>
+      !MediaQuery.disableAnimationsOf(context) &&
+      TickerMode.valuesOf(context).enabled &&
+      (ModalRoute.of(context)?.isCurrent ?? true) &&
+      (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
   late HabitStatus _status;
   late Map<String, bool> _customCheckboxStates;
   late Map<String, int> _customDurationStates;
@@ -91,6 +103,7 @@ class _HabitCardState extends State<HabitCard> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _status = HabitStatus.fromHabitSection(widget.section);
     _customCheckboxStates = {};
     _customDurationStates = {};
@@ -110,6 +123,12 @@ class _HabitCardState extends State<HabitCard> {
   @override
   void didUpdateWidget(covariant HabitCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.diaryDate != widget.diaryDate ||
+        oldWidget.readOnly != widget.readOnly ||
+        oldWidget.habitSettings != widget.habitSettings ||
+        !setEquals(oldWidget.activeHabitKeys, widget.activeHabitKeys)) {
+      _feedback.clear();
+    }
     if (_updatingField != null) return;
 
     final oldStatus = HabitStatus.fromHabitSection(oldWidget.section);
@@ -118,6 +137,64 @@ class _HabitCardState extends State<HabitCard> {
       _status = nextStatus;
     }
     _syncCustomStatesFromSection();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_motionAllowed) _feedback.clear();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    setState(() {
+      _feedback.clear();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  _HabitFeedback? _beginFeedback(String key, bool before, bool after) {
+    if (before == after || !_motionAllowed || widget.readOnly) return null;
+    final feedback = _HabitFeedback(++_feedbackRevision);
+    _feedback[key] = feedback;
+    return feedback;
+  }
+
+  void _confirmFeedback(String key, _HabitFeedback? feedback) {
+    if (feedback == null || !identical(_feedback[key], feedback)) return;
+    _feedback[key] = _HabitFeedback(feedback.revision, confirmed: true);
+  }
+
+  void _rollbackFeedback(String key, _HabitFeedback? feedback) {
+    if (feedback == null || !identical(_feedback[key], feedback)) return;
+    _feedback[key] = _HabitFeedback(++_feedbackRevision, rollback: true);
+  }
+
+  bool _completed(String key, HabitStatus status) {
+    switch (key) {
+      case 'water':
+        return status.water >= _settings.targetFor(key)!;
+      case 'steps':
+        return status.steps >= _settings.targetFor(key)!;
+      case 'reading':
+        return _settings.trackingTypeFor(key) == HabitTrackingType.duration
+            ? _durationCompleted(key, status.readingMinutes, status)
+            : status.reading;
+      case 'language':
+        return _settings.trackingTypeFor(key) == HabitTrackingType.duration
+            ? _durationCompleted(key, status.languageMinutes, status)
+            : status.language;
+      case 'supplements':
+        return status.supplements;
+      default:
+        return false;
+    }
   }
 
   void _syncCustomStatesFromSection() {
@@ -137,15 +214,23 @@ class _HabitCardState extends State<HabitCard> {
     if (_updatingField != null) return false;
 
     final previous = _status;
+    _HabitFeedback? feedback;
     setState(() {
+      feedback = _beginFeedback(
+        field,
+        _completed(field, previous),
+        _completed(field, next),
+      );
       _status = next;
       _updatingField = field;
     });
 
     var ok = false;
+    Object? failure;
     try {
       ok = await widget.onUpdate(next);
-    } catch (_) {
+    } catch (error) {
+      failure = error;
       ok = false;
     }
 
@@ -153,19 +238,23 @@ class _HabitCardState extends State<HabitCard> {
 
     if (!ok) {
       setState(() {
+        _rollbackFeedback(field, feedback);
         _status = previous;
         _updatingField = null;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('更新失败')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(writeFailureMessage(failure, fallback: '更新失败'))),
+      );
       return false;
     }
 
     if (_isPositiveTransition(previous, next, field)) {
       widget.onPositiveFeedback?.call();
     }
-    setState(() => _updatingField = null);
+    setState(() {
+      if (_completed(field, next)) _confirmFeedback(field, feedback);
+      _updatingField = null;
+    });
     return true;
   }
 
@@ -344,23 +433,26 @@ class _HabitCardState extends State<HabitCard> {
       return const SizedBox.shrink();
     }
 
-    return IgnorePointer(
-      ignoring: widget.readOnly && widget.preserveControlLayout,
-      child: ExcludeFocus(
-        excluding: widget.readOnly && widget.preserveControlLayout,
-        child: SectionCard(
-          accentColor: _accentColor,
-          padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
-          children: [
-            Text(
-              diarySectionDisplayTitle(widget.section),
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            ...children,
-          ],
+    return _HabitFeedbackScope(
+      feedback: Map.of(_feedback),
+      child: IgnorePointer(
+        ignoring: widget.readOnly && widget.preserveControlLayout,
+        child: ExcludeFocus(
+          excluding: widget.readOnly && widget.preserveControlLayout,
+          child: SectionCard(
+            accentColor: _accentColor,
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+            children: [
+              Text(
+                diarySectionDisplayTitle(widget.section),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              ...children,
+            ],
+          ),
         ),
       ),
     );
@@ -434,17 +526,26 @@ class _HabitCardState extends State<HabitCard> {
     if (_updatingField != null) return false;
 
     final previous = Map<String, bool>.from(_customCheckboxStates);
-    setState(() => _customCheckboxStates[key] = newChecked);
+    _HabitFeedback? feedback;
+    setState(() {
+      feedback = _beginFeedback(key, previous[key] ?? false, newChecked);
+      _customCheckboxStates[key] = newChecked;
+      if (widget.onCustomCheckboxToggle == null && newChecked) {
+        _confirmFeedback(key, feedback);
+      }
+    });
     if (widget.onCustomCheckboxToggle == null) return true;
 
     setState(() => _updatingField = 'custom:$key');
     var ok = false;
+    Object? failure;
     try {
       ok = await widget.onCustomCheckboxToggle!(
         _status,
         Map.from(_customCheckboxStates),
       );
-    } catch (_) {
+    } catch (error) {
+      failure = error;
       ok = false;
     }
 
@@ -452,19 +553,23 @@ class _HabitCardState extends State<HabitCard> {
 
     if (!ok) {
       setState(() {
+        _rollbackFeedback(key, feedback);
         _customCheckboxStates = previous;
         _updatingField = null;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('更新失败')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(writeFailureMessage(failure, fallback: '更新失败'))),
+      );
       return false;
     }
 
     if (!(previous[key] ?? false) && newChecked) {
       widget.onPositiveFeedback?.call();
     }
-    setState(() => _updatingField = null);
+    setState(() {
+      if (newChecked) _confirmFeedback(key, feedback);
+      _updatingField = null;
+    });
     return true;
   }
 
@@ -681,31 +786,44 @@ class _HabitCardState extends State<HabitCard> {
     final current = target.currentMinutes;
     final nextMinutes = replace ? minutes : current + minutes;
     if (nextMinutes > HabitSettings.maxDurationTarget) return false;
+    _HabitFeedback? feedback;
     setState(() {
-      _status = _statusForDuration(target.habitKey, nextMinutes);
+      final next = _statusForDuration(target.habitKey, nextMinutes);
+      feedback = _beginFeedback(
+        target.habitKey,
+        _completed(target.habitKey, previous),
+        _completed(target.habitKey, next),
+      );
+      _status = next;
       _updatingField = field;
     });
     var ok = false;
+    Object? failure;
     try {
       ok = widget.onDurationUpdate == null
           ? true
           : await widget.onDurationUpdate!(target, minutes, replace);
-    } catch (_) {
+    } catch (error) {
+      failure = error;
       ok = false;
     }
     if (!mounted) return ok;
     if (!ok) {
       setState(() {
+        _rollbackFeedback(target.habitKey, feedback);
         _status = previous;
         _updatingField = null;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('更新失败')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(writeFailureMessage(failure, fallback: '更新失败'))),
+      );
       return false;
     }
     if (nextMinutes > current) widget.onPositiveFeedback?.call();
-    setState(() => _updatingField = null);
+    setState(() {
+      if (nextMinutes > current) _confirmFeedback(target.habitKey, feedback);
+      _updatingField = null;
+    });
     return true;
   }
 
@@ -735,11 +853,21 @@ class _HabitCardState extends State<HabitCard> {
     final previous = _customDurationStates[target.habitKey] ?? 0;
     final next = replace ? minutes : previous + minutes;
     if (next > HabitSettings.maxDurationTarget) return false;
+    final dailyTarget = _settings.durationDailyTargetFor(target.habitKey);
+    bool completed(int value) =>
+        dailyTarget == null ? value > 0 : value >= dailyTarget;
+    _HabitFeedback? feedback;
     setState(() {
+      feedback = _beginFeedback(
+        target.habitKey,
+        completed(previous),
+        completed(next),
+      );
       _customDurationStates[target.habitKey] = next;
       _updatingField = 'duration:${target.habitKey}';
     });
     var ok = false;
+    Object? failure;
     try {
       ok = widget.onCustomDurationUpdate == null
           ? true
@@ -748,22 +876,27 @@ class _HabitCardState extends State<HabitCard> {
               Map.from(_customCheckboxStates),
               Map.from(_customDurationStates),
             );
-    } catch (_) {
+    } catch (error) {
+      failure = error;
       ok = false;
     }
     if (!mounted) return ok;
     if (!ok) {
       setState(() {
+        _rollbackFeedback(target.habitKey, feedback);
         _customDurationStates[target.habitKey] = previous;
         _updatingField = null;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('更新失败')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(writeFailureMessage(failure, fallback: '更新失败'))),
+      );
       return false;
     }
     if (next > previous) widget.onPositiveFeedback?.call();
-    setState(() => _updatingField = null);
+    setState(() {
+      if (next > previous) _confirmFeedback(target.habitKey, feedback);
+      _updatingField = null;
+    });
     return true;
   }
 
@@ -869,7 +1002,34 @@ class _DurationEditResult {
   const _DurationEditResult({required this.minutes, required this.replace});
 }
 
+class _HabitFeedback {
+  final int revision;
+  final bool confirmed;
+  final bool rollback;
+
+  const _HabitFeedback(
+    this.revision, {
+    this.confirmed = false,
+    this.rollback = false,
+  });
+}
+
+class _HabitFeedbackScope extends InheritedWidget {
+  final Map<String, _HabitFeedback> feedback;
+
+  const _HabitFeedbackScope({required this.feedback, required super.child});
+
+  static _HabitFeedback? forHabit(BuildContext context, String? key) => context
+      .dependOnInheritedWidgetOfExactType<_HabitFeedbackScope>()
+      ?.feedback[key];
+
+  @override
+  bool updateShouldNotify(_HabitFeedbackScope oldWidget) =>
+      !mapEquals(feedback, oldWidget.feedback);
+}
+
 class _CompactHabitRow extends StatelessWidget {
+  final String? feedbackKey;
   final Key? rowKey;
   final Key? statusKey;
   final String displayName;
@@ -893,6 +1053,7 @@ class _CompactHabitRow extends StatelessWidget {
   final String? onLongPressHint;
 
   const _CompactHabitRow({
+    this.feedbackKey,
     this.rowKey,
     this.statusKey,
     required this.displayName,
@@ -939,6 +1100,7 @@ class _CompactHabitRow extends StatelessWidget {
               key: statusKey,
               checked: checked,
               color: checkedColor,
+              feedback: _HabitFeedbackScope.forHabit(context, feedbackKey),
             ),
             const SizedBox(width: statusIconGap),
             if (icon != null) ...[
@@ -1078,6 +1240,7 @@ class _DurationHabitRow extends StatelessWidget {
 
     return _CompactHabitRow(
       rowKey: ValueKey('duration_row_$habitKey'),
+      feedbackKey: habitKey,
       statusKey: ValueKey('habit_status_$habitKey'),
       displayName: displayName,
       icon: icon,
@@ -1198,6 +1361,7 @@ class _CheckboxRow extends StatelessWidget {
 
     return _CompactHabitRow(
       statusKey: ValueKey('habit_status_${habit.habitKey ?? displayName}'),
+      feedbackKey: habit.habitKey,
       displayName: displayName,
       icon: icon,
       checked: _checked,
@@ -1239,6 +1403,7 @@ class _WaterCounterRow extends StatelessWidget {
     final color = progressColor ?? theme.colorScheme.primary;
     return _CompactHabitRow(
       statusKey: const ValueKey('habit_status_water'),
+      feedbackKey: 'water',
       displayName: displayName,
       icon: icon,
       checked: target != null && status.water >= target!,
@@ -1294,6 +1459,7 @@ class _StepsCounterRow extends StatelessWidget {
     final color = progressColor ?? theme.colorScheme.primary;
     return _CompactHabitRow(
       statusKey: const ValueKey('habit_status_steps'),
+      feedbackKey: 'steps',
       displayName: displayName,
       icon: icon,
       checked: target != null && status.steps >= target!,
@@ -1487,6 +1653,7 @@ class _CustomCheckboxRowState extends State<_CustomCheckboxRow> {
 
     return _CompactHabitRow(
       statusKey: ValueKey('habit_status_${widget.habitKey}'),
+      feedbackKey: widget.habitKey,
       displayName: displayName,
       icon: icon.isEmpty ? null : icon,
       checked: _checked,
@@ -1510,11 +1677,13 @@ class _CustomCheckboxRowState extends State<_CustomCheckboxRow> {
 class _AnimatedHabitCheckbox extends StatefulWidget {
   final bool checked;
   final Color color;
+  final _HabitFeedback? feedback;
 
   const _AnimatedHabitCheckbox({
     super.key,
     required this.checked,
     required this.color,
+    this.feedback,
   });
 
   @override
@@ -1522,51 +1691,128 @@ class _AnimatedHabitCheckbox extends StatefulWidget {
 }
 
 class _AnimatedHabitCheckboxState extends State<_AnimatedHabitCheckbox>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _curve;
+    with TickerProviderStateMixin {
+  late final AnimationController _draw;
+  late final AnimationController _fade;
+  late final AnimationController _celebration;
+  bool _pendingCelebration = false;
+  bool _drawing = false;
+  bool _fading = false;
+  bool get _motionDisabled =>
+      MediaQuery.disableAnimationsOf(context) ||
+      !TickerMode.valuesOf(context).enabled ||
+      !(ModalRoute.of(context)?.isCurrent ?? true) ||
+      (WidgetsBinding.instance.lifecycleState != null &&
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed);
+  double _frozenFill = 0;
+  double _frozenStroke = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _draw =
+        AnimationController(
+          vsync: this,
+          duration: FloraMotion.habitCheck,
+          value: widget.checked ? 1 : 0,
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            _drawing = false;
+            _startCelebrationIfReady();
+          }
+        });
+    _fade = AnimationController(
+      vsync: this,
+      duration: FloraMotion.fast,
+      value: 1,
+    );
+    _celebration = AnimationController(
       vsync: this,
       duration: FloraMotion.standard,
-      value: widget.checked ? 1 : 0,
-    );
-    _curve = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      value: 1,
     );
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller.duration = FloraMotion.standardFor(MediaQuery.of(context));
+    if (_motionDisabled) _finishImmediately();
   }
 
   @override
   void didUpdateWidget(covariant _AnimatedHabitCheckbox oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.checked == widget.checked) return;
-    final duration = FloraMotion.standardFor(MediaQuery.of(context));
-    _controller.duration = duration;
-    if (duration == Duration.zero) {
-      _controller.value = widget.checked ? 1 : 0;
+    final feedback = widget.feedback;
+    if (_motionDisabled || feedback == null) {
+      _finishImmediately();
       return;
     }
-    if (widget.checked) {
-      _controller.forward();
-    } else {
-      _controller.reverse();
+    if (oldWidget.feedback?.revision != feedback.revision) {
+      _pendingCelebration = false;
+      _celebration.value = 1;
+      if (widget.checked && !feedback.rollback) {
+        _fading = false;
+        _fade.value = 1;
+        _drawing = true;
+        _draw.forward(from: 0);
+      } else if (!widget.checked) {
+        // 回滚保留当前笔画形状，只降低透明度，不倒着擦除路径。
+        _frozenFill = _fillProgress;
+        _frozenStroke = _strokeProgress;
+        _draw.stop();
+        _drawing = false;
+        _fading = true;
+        _fade.forward(from: 0);
+      } else {
+        _finishImmediately();
+      }
+    } else if (oldWidget.checked != widget.checked) {
+      _finishImmediately();
     }
+    if (feedback.confirmed &&
+        (oldWidget.feedback?.revision != feedback.revision ||
+            oldWidget.feedback?.confirmed != true) &&
+        widget.checked) {
+      _pendingCelebration = true;
+      _startCelebrationIfReady();
+    }
+  }
+
+  double get _fillProgress => (_draw.value / 0.2).clamp(0.0, 1.0);
+
+  double get _strokeProgress {
+    final value = _draw.value;
+    if (value <= 0.3) return value / 0.3 * _HabitCheckboxPainter.shortFraction;
+    final longProgress = Curves.easeOutQuad.transform((value - 0.3) / 0.7);
+    return _HabitCheckboxPainter.shortFraction +
+        (1 - _HabitCheckboxPainter.shortFraction) * longProgress;
+  }
+
+  void _startCelebrationIfReady() {
+    if (!_pendingCelebration ||
+        _drawing ||
+        !widget.checked ||
+        _motionDisabled) {
+      return;
+    }
+    _pendingCelebration = false;
+    _celebration.forward(from: 0);
+  }
+
+  void _finishImmediately() {
+    _pendingCelebration = false;
+    _drawing = false;
+    _fading = false;
+    _draw.value = widget.checked ? 1 : 0;
+    _fade.value = 1;
+    _celebration.value = 1;
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _draw.dispose();
+    _fade.dispose();
+    _celebration.dispose();
     super.dispose();
   }
 
@@ -1578,19 +1824,18 @@ class _AnimatedHabitCheckboxState extends State<_AnimatedHabitCheckbox>
     );
 
     return AnimatedBuilder(
-      animation: _curve,
+      animation: Listenable.merge([_draw, _fade, _celebration]),
       builder: (context, child) {
-        final value = _curve.value;
-        final scale = 1 - (0.10 * (1 - (2 * value - 1).abs()));
-        return Transform.scale(
-          scale: scale,
-          child: CustomPaint(
-            size: const Size.square(22),
-            painter: _HabitCheckboxPainter(
-              progress: value,
-              color: widget.color,
-              inactiveColor: inactiveColor,
-            ),
+        final opacity = _fading ? 1 - _fade.value : 1.0;
+        return CustomPaint(
+          size: const Size.square(22),
+          painter: _HabitCheckboxPainter(
+            fill: (_fading ? _frozenFill : _fillProgress) * opacity,
+            stroke: _fading ? _frozenStroke : _strokeProgress,
+            strokeOpacity: opacity,
+            celebration: _celebration.value,
+            color: widget.color,
+            inactiveColor: inactiveColor,
           ),
         );
       },
@@ -1599,12 +1844,19 @@ class _AnimatedHabitCheckboxState extends State<_AnimatedHabitCheckbox>
 }
 
 class _HabitCheckboxPainter extends CustomPainter {
-  final double progress;
+  static final shortFraction = math.sqrt(18) / (math.sqrt(18) + 10);
+  final double fill;
+  final double stroke;
+  final double strokeOpacity;
+  final double celebration;
   final Color color;
   final Color inactiveColor;
 
   const _HabitCheckboxPainter({
-    required this.progress,
+    required this.fill,
+    required this.stroke,
+    required this.strokeOpacity,
+    required this.celebration,
     required this.color,
     required this.inactiveColor,
   });
@@ -1614,18 +1866,11 @@ class _HabitCheckboxPainter extends CustomPainter {
     final rect = Offset.zero & size;
     final center = rect.center;
     final boxRect = Rect.fromCenter(center: center, width: 18, height: 18);
-    final borderColor = Color.lerp(inactiveColor, color, progress)!;
-
-    if (progress > 0) {
-      final haloPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..color = color.withAlpha((58 * (1 - progress)).round());
-      canvas.drawCircle(center, 9 * (1 + 2.5 * progress), haloPaint);
-    }
+    final borderColor = Color.lerp(inactiveColor, color, fill)!;
 
     final fillPaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = color.withAlpha((255 * progress).round());
+      ..color = color.withAlpha((255 * fill).round());
     canvas.drawCircle(center, 9, fillPaint);
 
     final borderPaint = Paint()
@@ -1635,30 +1880,42 @@ class _HabitCheckboxPainter extends CustomPainter {
       ..color = borderColor;
     canvas.drawCircle(center, 9, borderPaint);
 
-    if (progress == 0) return;
-
-    final checkProgress = ((progress - 0.25) / 0.75).clamp(0.0, 1.0);
-    if (checkProgress == 0) return;
-
     final checkPath = Path()
       ..moveTo(boxRect.left + 3.5, boxRect.top + 9)
       ..lineTo(boxRect.left + 6.5, boxRect.top + 12)
       ..lineTo(boxRect.left + 12.5, boxRect.top + 4);
 
     final metric = checkPath.computeMetrics().first;
-    final visiblePath = metric.extractPath(0, metric.length * checkProgress);
+    final visiblePath = metric.extractPath(0, metric.length * stroke);
     final checkPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..color = Colors.white.withAlpha(245);
-    canvas.drawPath(visiblePath, checkPaint);
+      ..color = Colors.white.withAlpha((245 * strokeOpacity).round());
+    if (stroke > 0 && strokeOpacity > 0) {
+      canvas.drawPath(visiblePath, checkPaint);
+    }
+    if (celebration >= 1) return;
+    final burst = Curves.easeOutCubic.transform(celebration);
+    final burstPaint = Paint()
+      ..color = color.withAlpha((220 * (1 - celebration)).round())
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 6; i++) {
+      final angle = i * math.pi / 3 - math.pi / 2;
+      final direction = Offset(math.cos(angle), math.sin(angle));
+      final start = center + direction * (8 + 3 * burst);
+      canvas.drawLine(start, start + direction * 2.5, burstPaint);
+    }
   }
 
   @override
   bool shouldRepaint(covariant _HabitCheckboxPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
+    return oldDelegate.fill != fill ||
+        oldDelegate.stroke != stroke ||
+        oldDelegate.strokeOpacity != strokeOpacity ||
+        oldDelegate.celebration != celebration ||
         oldDelegate.color != color ||
         oldDelegate.inactiveColor != inactiveColor;
   }

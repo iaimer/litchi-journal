@@ -1,3 +1,5 @@
+import { DiaryWriteError } from './diary-write-error.js';
+
 export const sectionHeaders: Record<string, string> = {
   habits: '## 🏃 习惯打卡',
   quick_notes: '## ✍️ 随手记 & 灵感',
@@ -12,7 +14,7 @@ export const sectionHeaders: Record<string, string> = {
 // 旧版标题（向后兼容）
 const LEGACY_LIZHI_SAYS = '### 🧠 荔枝喵说';
 const TIMELINE_ENTRY_PATTERN = /^(?:-\s*|>\s*)\*\*((?:[01]\d|2[0-3]):[0-5]\d)\*\*/;
-const ENTRY_ID_MARKER_PATTERN = /^<!-- litchi-entry-id:[0-9a-f-]{36} -->$/i;
+const ENTRY_ID_MARKER_PATTERN = /^<!-- litchi-entry-id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12} -->$/i;
 
 interface TimelineEntryBlock {
   originalIndex: number;
@@ -26,16 +28,16 @@ interface TimelineSectionParts {
 }
 
 export function isTimelineEntryStart(line: string): boolean {
-  return TIMELINE_ENTRY_PATTERN.test(line.trim());
+  return TIMELINE_ENTRY_PATTERN.test(line);
 }
 
 function isTimelineBlockBoundary(line: string): boolean {
+  if (/^\s/.test(line)) return false;
   const trimmed = line.trim();
   if (!trimmed) return false;
   if (ENTRY_ID_MARKER_PATTERN.test(trimmed)) return false;
   return isTimelineEntryStart(trimmed) ||
-    trimmed.startsWith('##') ||
-    trimmed.startsWith('###') ||
+    /^#{1,6}\s/.test(line) ||
     trimmed === '---' ||
     trimmed.startsWith('<!--') ||
     trimmed.startsWith('> [!') ||
@@ -189,7 +191,7 @@ export function appendToSection(content: string, section: string, newLine: strin
     }
   }
 
-  if (startIndex === -1) return content;
+  if (startIndex === -1) throw new DiaryWriteError('日记缺少目标区块，请检查模板后重试');
 
   // 如果是随手记区块，删除模板中的示例行
   if (section === 'quick_notes') {
@@ -201,9 +203,8 @@ export function appendToSection(content: string, section: string, newLine: strin
     }
   }
 
-  const allHeaders = [...Object.values(sectionHeaders), '## 📈 每日复盘'];
   for (let i = startIndex + 1; i < lines.length; i++) {
-    if (allHeaders.some(h => lines[i].startsWith(h))) {
+    if (/^#{1,6}\s/.test(lines[i])) {
       endIndex = i;
       break;
     }
@@ -228,9 +229,8 @@ export function appendToSection(content: string, section: string, newLine: strin
 }
 
 function findSectionEnd(lines: string[], start: number): number {
-  const allHeaders = [...Object.values(sectionHeaders), '### 🧠 荔枝喵说', '## 📈 每日复盘'];
   for (let i = start + 1; i < lines.length; i++) {
-    if (allHeaders.some(header => lines[i].startsWith(header))) return i;
+    if (/^#{1,6}\s/.test(lines[i])) return i;
   }
   return lines.length;
 }
@@ -303,10 +303,9 @@ export function replaceEmptyBulletInSection(content: string, section: string, ne
 
   if (sectionStart === -1) return null;
 
-  const allHeaders = [...Object.values(sectionHeaders), '### 🧠 荔枝喵说', '## 📈 每日复盘'];
   let sectionEnd = lines.length;
   for (let i = sectionStart + 1; i < lines.length; i++) {
-    if (allHeaders.some(h => lines[i].startsWith(h))) {
+    if (/^#{1,6}\s/.test(lines[i])) {
       sectionEnd = i;
       break;
     }

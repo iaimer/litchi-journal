@@ -12,7 +12,21 @@ class PastMemoryService {
   /// 缓存：key = 'YYYY-MM-DD'，value = MemoryEntry（已计算的卡片数据）
   final Map<String, MemoryEntry> _entryCache = {};
 
+  int? _generation;
+  DateTime? _cachedAt;
   PastMemoryService(this._apiClient);
+
+  void _checkCache() {
+    final now = _apiClient.readingCache.now();
+    if (_generation != _apiClient.readingCache.dataGeneration ||
+        _cachedAt == null ||
+        now.difference(_cachedAt!) >= const Duration(minutes: 5)) {
+      _monthCache.clear();
+      _entryCache.clear();
+      _generation = _apiClient.readingCache.dataGeneration;
+      _cachedAt = now;
+    }
+  }
 
   // ── 公开方法 ──
 
@@ -20,6 +34,7 @@ class PastMemoryService {
   /// 候选顺序：去年同月同日 → 上个月同日 → 7 天前。
   /// 返回第一个真实有内容的条目，或 null。
   Future<MemoryEntry?> getTodayHistory() async {
+    _checkCache();
     final now = DateTime.now();
     final candidates = <DateTime>[
       _safeDate(now.year - 1, now.month, now.day),
@@ -44,6 +59,7 @@ class PastMemoryService {
   /// 从最近 2 个月有内容的日期中随机抽取一条记忆。
   /// [excludeDateKeys] 为已显示过的日期 key（'YYYY-MM-DD'），避免重复。
   Future<MemoryEntry?> getRandomMemory({Set<String>? excludeDateKeys}) async {
+    _checkCache();
     final now = DateTime.now();
     final candidates = <DateTime>[];
 
@@ -88,9 +104,14 @@ class PastMemoryService {
   // ── 内部方法 ──
 
   Future<MemoryEntry?> _loadMemoryEntry(DateTime date) async {
+    final generation = _apiClient.readingCache.dataGeneration;
     try {
       final diary = await _apiClient.getDiary(date, allowCachedFallback: true);
-      if (diary == null || diary.raw.isEmpty) return null;
+      if (generation != _apiClient.readingCache.dataGeneration ||
+          diary == null ||
+          diary.raw.isEmpty) {
+        return null;
+      }
       final document = const MarkdownParser().parse(diary.raw);
       final entry = _buildMemoryEntry(date, document);
       _entryCache[_dateKey(date)] = entry;
@@ -147,11 +168,13 @@ class PastMemoryService {
     final key = _monthKey(month);
     if (_monthCache.containsKey(key)) return;
 
+    final generation = _apiClient.readingCache.dataGeneration;
     try {
       final result = await _apiClient.fetchHistoryMonth(
         month.year,
         month.month,
       );
+      if (generation != _apiClient.readingCache.dataGeneration) return;
       final datesWithContent = <DateTime>[];
       for (final day in result.diaries) {
         if (day.hasContent) {

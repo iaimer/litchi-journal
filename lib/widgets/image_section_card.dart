@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -153,47 +152,32 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
       _error = null;
     });
     try {
-      final result = await widget.apiClient.fetchDiaryImage(
+      final bytes = await widget.apiClient.fetchRenderedDiaryImage(
         year: widget.date.year,
         month: widget.date.month,
         imageName: widget.filename,
+        maxWidth: 480,
         forceRefresh: forceRefresh,
         onRevalidated: (result) {
           if (!mounted || serial != _requestSerial) return;
           if (result.bytes != null) {
-            try {
-              final json =
-                  jsonDecode(utf8.decode(result.bytes!))
-                      as Map<String, dynamic>;
-              final data = json['data'] as String;
-              final bytes = base64Decode(data.substring(data.indexOf(',') + 1));
-              _requestSerial++;
-              setState(() {
-                _bytes = bytes;
-                _loading = false;
-              });
-            } catch (_) {
-              // 无效更新不覆盖仍可阅读的本地图片。
-            }
+            _requestSerial++;
+            setState(() {
+              _bytes = result.bytes;
+              _loading = false;
+              _error = null;
+            });
           } else if (result.error?.statusCode == 404 ||
               result.error?.isAuthenticationFailure == true) {
             _requestSerial++;
             setState(() {
               _bytes = null;
-              _error = result.error!.isAuthenticationFailure ? '认证失败' : '图片不可用';
               _loading = false;
+              _error = result.error!.isAuthenticationFailure ? '认证失败' : '图片不可用';
             });
           }
         },
       );
-      final dataUrl = result['data'] as String?;
-      if (dataUrl == null) throw Exception('图片数据为空');
-
-      final commaIndex = dataUrl.indexOf(',');
-      final base64 = commaIndex >= 0
-          ? dataUrl.substring(commaIndex + 1)
-          : dataUrl;
-      final bytes = base64Decode(base64);
 
       if (!mounted || serial != _requestSerial) return;
       setState(() {
@@ -235,15 +219,11 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
               onTap: () => Navigator.of(dialogContext).pop(),
               child: InteractiveViewer(
                 child: Center(
-                  child: Image.memory(
-                    _bytes!,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Center(
-                      child: Text(
-                        '图片加载失败',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
+                  child: _DiaryImagePreview(
+                    apiClient: widget.apiClient,
+                    date: widget.date,
+                    filename: widget.filename,
+                    initialBytes: _bytes!,
                   ),
                 ),
               ),
@@ -370,6 +350,10 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
                 _bytes!,
                 width: widget.size,
                 height: widget.size,
+                cacheWidth:
+                    (widget.size * MediaQuery.devicePixelRatioOf(context))
+                        .ceil()
+                        .clamp(1, 480),
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => Container(
                   width: widget.size,
@@ -419,4 +403,95 @@ class _DiaryImageThumbnailState extends State<DiaryImageThumbnail> {
       ],
     );
   }
+}
+
+class _DiaryImagePreview extends StatefulWidget {
+  final ApiClient apiClient;
+  final DateTime date;
+  final String filename;
+  final Uint8List initialBytes;
+  const _DiaryImagePreview({
+    required this.apiClient,
+    required this.date,
+    required this.filename,
+    required this.initialBytes,
+  });
+  @override
+  State<_DiaryImagePreview> createState() => _DiaryImagePreviewState();
+}
+
+class _DiaryImagePreviewState extends State<_DiaryImagePreview> {
+  Uint8List? _bytes;
+  String? _error;
+  int _serial = 0;
+  @override
+  void initState() {
+    super.initState();
+    _bytes = widget.initialBytes;
+    _load();
+  }
+
+  Future<void> _load({bool forceRefresh = false}) async {
+    final serial = ++_serial;
+    setState(() => _error = null);
+    try {
+      final bytes = await widget.apiClient.fetchRenderedDiaryImage(
+        year: widget.date.year,
+        month: widget.date.month,
+        imageName: widget.filename,
+        maxWidth: 1600,
+        forceRefresh: forceRefresh,
+        onRevalidated: (result) {
+          if (!mounted || serial != _serial) return;
+          if (result.bytes != null) {
+            _serial++;
+            setState(() => _bytes = result.bytes);
+          } else if (result.error?.statusCode == 404 ||
+              result.error?.isAuthenticationFailure == true) {
+            _serial++;
+            setState(() {
+              _bytes = null;
+              _error = result.error!.isAuthenticationFailure ? '认证失败' : '图片不可用';
+            });
+          }
+        },
+      );
+      if (mounted && serial == _serial) setState(() => _bytes = bytes);
+    } catch (error) {
+      if (!mounted || serial != _serial) return;
+      setState(() {
+        if (error is ApiException &&
+            (error.statusCode == 404 || error.isAuthenticationFailure)) {
+          _bytes = null;
+          _error = error.isAuthenticationFailure ? '认证失败' : '图片不可用';
+        } else {
+          _error = '大图暂时无法加载';
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (_bytes != null)
+        Flexible(
+          child: Image.memory(
+            _bytes!,
+            cacheWidth: 1600,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) =>
+                const Text('图片加载失败', style: TextStyle(color: Colors.white70)),
+          ),
+        ),
+      if (_error != null)
+        Text(_error!, style: const TextStyle(color: Colors.white70)),
+      if (_error != null && _error != '图片不可用' && _error != '认证失败')
+        TextButton(
+          onPressed: () => _load(forceRefresh: true),
+          child: const Text('重试'),
+        ),
+    ],
+  );
 }

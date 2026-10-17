@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fixture = vi.hoisted(() => ({
   contents: new Map<string, string>(),
+  diaryKeys: [] as string[],
 }));
 
 vi.mock('../services/vault.js', () => ({
@@ -11,8 +12,8 @@ vi.mock('../services/vault.js', () => ({
     if (content == null) throw new Error('Diary not found');
     return content;
   },
-  listDiaryMonths: () => [],
-  listMonthDiaries: () => [],
+  listDiaryMonths: () => [{ year: 2024, month: 2 }],
+  listMonthDiaries: () => fixture.diaryKeys,
   getDiaryPath: () => '',
 }));
 
@@ -44,6 +45,7 @@ function response() {
 describe('habit trend route', () => {
   beforeEach(() => {
     fixture.contents = new Map();
+    fixture.diaryKeys = [];
   });
 
   it('returns a bounded date range with built-in and custom snapshots', async () => {
@@ -131,6 +133,19 @@ describe('habit trend route', () => {
         },
         customDurations: { '📝 阅读计划': 25 },
       }),
+    ]);
+  });
+
+  it('days=all skips invalid filenames and dates while preserving sorted valid snapshots', async () => {
+    fixture.diaryKeys = ['备份', '2024-02-30', '2024-02-31', '2024-02-2', '2024-02-29', '2024-02-28', '2024-02-29', '9999-01-01'];
+    fixture.contents.set('2024-02-29', '## 🏃 习惯打卡\n- 饮水 1200 mL');
+    fixture.contents.set('2024-02-28', '## 🏃 习惯打卡\n- 饮水 800 mL');
+    const res = response();
+    await habitHandler()({ query: { days: 'all' } }, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual([
+      expect.objectContaining({ date: '2024-02-28', hasDiary: true, water: 800 }),
+      expect.objectContaining({ date: '2024-02-29', hasDiary: true, water: 1200 }),
     ]);
   });
 

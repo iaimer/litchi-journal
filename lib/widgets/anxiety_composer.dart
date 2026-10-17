@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'flora_icon.dart';
 
 import '../services/draft_repository.dart';
+import '../services/failure_messages.dart';
 import '../services/polisher_service.dart';
 import 'entry_type.dart';
 
@@ -83,6 +84,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   bool _saving = false;
   bool _polishing = false;
   String? _error;
+  int _inputRevision = 0;
 
   /// 草稿写入串行链，避免保存与清空竞争导致残留。
   Future<void> _draftWriteChain = Future.value();
@@ -115,13 +117,9 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
     if (_answers.every((a) => a.isEmpty)) return;
     final answers = List<String>.from(_answers);
     final step = _step;
-    _draftWriteChain = _draftWriteChain.then(
-      (_) => dr.saveAnxietyDraft(
-        date: d,
-        step: step,
-        answers: answers,
-      ),
-    ).catchError((_) {});
+    _draftWriteChain = _draftWriteChain
+        .then((_) => dr.saveAnxietyDraft(date: d, step: step, answers: answers))
+        .catchError((_) {});
   }
 
   Future<void> _clearDraft() async {
@@ -141,32 +139,35 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   }
 
   void _onTextChanged() {
+    _inputRevision++;
     setState(() {}); // trigger rebuild for _canPolish
   }
 
-  void _restoreDraft() {
+  Future<void> _restoreDraft() async {
     final dr = widget.draftRepository;
     final d = widget.date;
+    final revision = _inputRevision;
+    AnxietyDraft? draft;
 
-    if (dr != null && d != null) {
-      dr.loadAnxietyDraft(date: d).then((draft) {
-        if (!mounted) return;
-
-        if (draft != null) {
-          for (int i = 0; i < draft.answers.length && i < 4; i++) {
-            _answers[i] = draft.answers[i];
-            _controllers[i].text = draft.answers[i];
-          }
-          setState(() => _step = draft.step.clamp(0, 3));
-          return;
-        }
-
-        _restoreInitialAnswers();
-      });
+    try {
+      if (dr != null && d != null) draft = await dr.loadAnxietyDraft(date: d);
+    } catch (_) {
+      // 草稿不可用时仍允许继续作答，未改动的表单回退初始答案。
+    }
+    if (!mounted ||
+        revision != _inputRevision ||
+        _controllers.any((controller) => controller.text.isNotEmpty)) {
       return;
     }
-
-    _restoreInitialAnswers();
+    if (draft == null) {
+      _restoreInitialAnswers();
+      return;
+    }
+    for (int i = 0; i < draft.answers.length && i < 4; i++) {
+      _answers[i] = draft.answers[i];
+      _controllers[i].text = draft.answers[i];
+    }
+    setState(() => _step = draft!.step.clamp(0, 3));
   }
 
   void _restoreInitialAnswers() {
@@ -179,11 +180,13 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   }
 
   void _previous() {
+    _inputRevision++;
     _saveCurrentAnswer();
     setState(() => _step--);
   }
 
   void _next() {
+    _inputRevision++;
     _saveCurrentAnswer();
     if (_isLastStep) {
       _submit();
@@ -194,6 +197,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
   }
 
   void _skip() {
+    _inputRevision++;
     if (_isLastStep) {
       widget.onClose?.call();
       return;
@@ -253,7 +257,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
       _reset();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = '保存失败，请重试');
+      setState(() => _error = writeFailureMessage(e));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -330,9 +334,7 @@ class _AnxietyComposerState extends State<AnxietyComposer> {
         const SizedBox(height: 8),
         TextField(
           controller: _controllers[_step],
-          decoration: InputDecoration(
-            hintText: _placeholders[_step],
-          ),
+          decoration: InputDecoration(hintText: _placeholders[_step]),
           minLines: minInputLines,
           maxLines: 8,
           keyboardType: TextInputType.multiline,

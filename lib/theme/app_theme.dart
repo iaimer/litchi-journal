@@ -174,6 +174,7 @@ class FloraMotion {
   static const fast = Duration(milliseconds: 160);
   static const standard = Duration(milliseconds: 220);
   static const slow = Duration(milliseconds: 320);
+  static const habitCheck = Duration(milliseconds: 400);
 
   static Duration fastFor(MediaQueryData mediaQuery) =>
       mediaQuery.disableAnimations ? Duration.zero : fast;

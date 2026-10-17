@@ -1,12 +1,18 @@
 import {
   existsSync,
+  closeSync,
+  fsyncSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from 'fs';
+import { randomUUID } from 'crypto';
 import { isAbsolute, join, relative, resolve } from 'path';
 import config from '../config/index.js';
 import { getShanghaiDateParts, getShanghaiDateString } from '../utils/date.js';
@@ -59,7 +65,35 @@ export function writeDiary(date: Date, content: string): void {
     mkdirSync(dir, { recursive: true });
   }
 
-  writeFileSync(path, content, 'utf-8');
+  const temporaryPath = `${path}.${randomUUID()}.tmp`;
+  const mode = existsSync(path) ? statSync(path).mode & 0o777 : 0o600;
+  let descriptor: number | undefined;
+  try {
+    descriptor = openSync(temporaryPath, 'wx', mode);
+    writeFileSync(descriptor, content, 'utf-8');
+    fsyncSync(descriptor);
+    closeSync(descriptor);
+    descriptor = undefined;
+    renameSync(temporaryPath, path);
+  } finally {
+    try {
+      if (descriptor !== undefined) closeSync(descriptor);
+    } finally {
+      if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+    }
+  }
+
+  // rename 已提交后，目录同步失败不能再向调用方报告“未保存”并触发重试。
+  try {
+    const directoryDescriptor = openSync(dir, 'r');
+    try {
+      fsyncSync(directoryDescriptor);
+    } finally {
+      closeSync(directoryDescriptor);
+    }
+  } catch {
+    // 部分文件系统不支持目录 fsync；文件本身已在替换前同步。
+  }
 }
 
 export function listMonthDiaries(year: number, month: number): string[] {

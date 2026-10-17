@@ -76,6 +76,18 @@ describe('parseDiary frontmatter', () => {
 });
 
 describe('appendToSection', () => {
+  it('rejects a missing section instead of discarding the entry', () => {
+    expect(() => appendToSection('# 今天\n## 自定义标题', 'quick_notes', '- **08:00** 新记录'))
+      .toThrow('区块');
+  });
+
+  it.each(['  ## 细节', '  - [ ] 子任务', '  - **09:00** 正文里的时间', '  <!-- 正文注释 -->', '  ![[正文照片.jpg]]'])(
+    'keeps indented continuation %s with its original entry', continuation => {
+      const evening = `- **18:00** 晚间\n${continuation}\n  晚间续行`;
+      const input = `## ✍️ 随手记 & 灵感\n${evening}\n- **08:00** 上午\n## ✨ 每日小确幸`;
+      expect(sortTimelineEntriesInSection(input, 'quick_notes')).toContain(`- **08:00** 上午\n${evening}`);
+    },
+  );
   it('appends content to a section', () => {
     const result = appendToSection(template, 'happiness', '- **12:00** 小确幸');
     expect(result).toContain('- **12:00** 小确幸');

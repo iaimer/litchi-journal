@@ -6,11 +6,19 @@ Flutter 客户端负责 UI、状态管理和 API 调用；`server/` 负责 Markd
 
 ## 当前状态
 
+2026-10-18 在 `codex/write-reliability-20261018` 完成写入可靠性第一批及本地回归，版本保持 `1.9.1+40`：日记原子替换、缺失区块明确失败、习惯逐行更新、多行原始块精确匹配、共享附件保守删除，以及正文与操作标记同次提交。专注计时保存冻结请求并支持失败／重启后幂等重试，离开页面不再中断保存收尾。具体验证与交付边界见 `HANDOFF.md`。
+
+2026-10-18 第二、第三批继续完成：写入错误分类、草稿恢复防抖、短屏计时、图片按尺寸渲染、趋势凭据隔离、画廊访问清单与刷新缓存；补齐 CI、测试按功能拆分、交接归档、平台权限和备份规则。默认保留现有安装兼容，新增的可选商店构建要求明确正式包名与本地签名；具体操作见 [构建与发布](docs/RELEASE.md)。
+
+用户已授权将本轮修复连同前置 1.9.1 提交 squash 合入 `main`、构建 Android Release 并推送，清单仍为 `1.9.1+40`。新版内部安装包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reliability-release.apk`（约 65.3MB），沿用原包名和证书，支持覆盖安装；旧 `litchi-journal-1.9.1-release.apk` 不包含本批修改。Flutter 949 项、服务端 127 项、静态检查、服务端构建与 Release 构建通过。本批同时修改客户端和 `server/`，需后续部署新版 API 服务端并安装新包才能完整生效，本轮未部署或装机。旧操作索引只读兼容，索引损坏且无法确认旧操作状态时拒绝重放，需要先检查服务器索引；不要自动删除索引来绕过保护。
+
+2026-10-17 在 `codex/habit-silent-completion-20261017` 发布 `1.9.1+40`：移除打卡及专注计时保存的音效，点击完成后用 400ms 依次画出短笔与长笔，保存成功且画完后播放一次局部六短线庆祝。刷新只显示真实完成状态，失败淡出回滚；保持紧凑布局和现有交互，支持减少动态效果。审查已修复调整计时目标后旧勾选干扰动画的问题，完成 `test_36` 模拟器验收；范围及真实截图见 [验收记录](docs/design-reference/habit-completion-motion/emulator/README.md)。发布阶段完整 911 项测试、静态检查和正常入口 Release 构建通过，安装包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-release.apk`；沿用 debug 签名，不是商店正式签名包。当时按授权仅推送功能分支，未合并主分支或安装真机；校验及交接状态见 `HANDOFF.md`。
+
 2026-10-14 今天与过往刷新条带修复：在 `codex/banner-refresh-line-fix` 移除切回及刷新时 Banner 下短暂出现的线性进度条，保留手动下拉圆形反馈、旧内容与既有缓存逻辑。版本保持 `1.9.0+39`，用户已确认修复成功，主线交付包含本次修复与 C 方案品牌替换；验证与代理端设备状态见 `HANDOFF.md`。
 
 2026-10-13 品牌资源更新：采用 C 方案翻页日记本、荔枝装饰与飞出爱心，统一 Android / iOS 桌面图标及启动、关于页展示；页面品牌图按名称实际宽度的 95% 显示。版本保持 `1.9.0+39`，来源分支为 `codex/brand-icon-c`，随刷新修复纳入主线，不新增发布；审查记录见 `docs/BRAND_C_CODE_REVIEW.md`，验证与真机状态见 `HANDOFF.md`。
 
-当前版本：`1.9.0+39`
+当前版本：`1.9.1+40`
 
 2026-10-12 按用户授权将习惯趋势页顶部接缝修复提交并合并至本地 `main`，同时核对所有本地及远端跟踪功能分支并补齐历史合并记录，详见 [分支整合记录](docs/BRANCH_INTEGRATION_20261012.md)。静止时头部与页面纸色一致，滚过顶部 8dp 留白后用 16dp 距离渐进恢复玻璃，返回顶部恢复纸色。版本不变，PLG110 截图验收仍待连接；本轮未推送或部署。
 
@@ -111,7 +119,7 @@ Flutter 客户端 + 本仓库 API 服务端版
 - `DESIGN.md` — 设计语言：色彩、排版、组件、Flora 图标与空状态规范。
 - `docs/THIRD_PARTY_NOTICES.md` — Lucide 与 Lordicon 静态/动画图标来源及许可说明。
 - `UI_REFINEMENT_PLAN.md` — UI 去 AI 化改进计划、阶段决策与验收标准。
-- `PRODUCT.md` — 产品用户、定位、品牌性格与设计原则。
+- `docs/RELEASE.md` — 内部与商店构建、签名、权限、备份和服务端交付。
 - `SESSION_LOG.md` — 旧流程遗留的历史档案，不再更新，也不作为接手必读文档。
 - `docs/design-reference/` — 品牌视觉源图，更新启动页或 App 图标时优先读取这里。
 
@@ -120,9 +128,8 @@ Flutter 客户端 + 本仓库 API 服务端版
 ## 验证命令
 
 ```bash
-/Users/yezi/development/flutter/bin/cache/dart-sdk/bin/dart analyze lib test
-/Users/yezi/development/flutter/bin/flutter analyze
-/Users/yezi/development/flutter/bin/flutter test
+flutter analyze
+flutter test
 
 cd server
 npm run build
@@ -132,7 +139,7 @@ npm test
 构建并安装 release 包：
 
 ```bash
-/Users/yezi/development/flutter/bin/flutter build apk --release
+flutter build apk --release
 adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
@@ -152,7 +159,7 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 - [ ] 外观主题设置：三种模式均正常工作，深色模式主要页面可读
 - [ ] 标签设置、AI 润色正常
 
-当前 `android/app/build.gradle.kts` 的 Release 构建仍使用 debug 签名，`applicationId` 为 `com.example.litchi_journal_flutter`。生成的 APK 是 Release 模式内部构建；上架应用商店前需配置正式包名和签名密钥。
+默认内部 Release 构建仍使用原 debug 签名与 `com.example.litchi_journal_flutter` 包名，保持覆盖安装兼容。可选 `distribution=store` 必须提供正式包名和本地签名配置，否则拒绝构建；本轮未配置真实密钥或迁移身份。权限、系统备份与正式构建步骤见 [构建与发布](docs/RELEASE.md)。
 
 ## 后续方向
 

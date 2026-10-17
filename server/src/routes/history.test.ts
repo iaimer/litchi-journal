@@ -46,6 +46,21 @@ function response() {
   };
 }
 
+it('calendar skips non-date filenames and impossible dates but retains valid leap day', async () => {
+  const keys = ['备份', '2024-02-30', '2024-02-31', '2024-02-2', '2024-02-29', '2024-02-28'];
+  fixture.diaries = new Map([['2024-2', keys]]);
+  fixture.contents = new Map([
+    ['2024-02-29', '## ✍️ 随手记 & 灵感\n- **08:00** 闰日记录'],
+    ['2024-02-28', '## ✍️ 随手记 & 灵感\n- **08:00** 普通记录'],
+  ]);
+  const layer = (historyRoutes as any).stack.find((item: any) => item.route?.path === '/:year/:month');
+  const res = response();
+  await layer.route.stack[0].handle({ params: { year: '2024', month: '2' } }, res);
+  expect(res.statusCode).toBe(200);
+  expect((res.body as any).diaries.map((diary: any) => diary.date)).toEqual(['2024-02-29', '2024-02-28']);
+  expect((res.body as any).diaries.every((diary: any) => diary.hasContent)).toBe(true);
+});
+
 describe('history gallery route', () => {
   it('returns months, photo days, all images, and pagination cursor', async () => {
     fixture.months = [

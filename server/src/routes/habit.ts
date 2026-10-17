@@ -1,3 +1,4 @@
+import { isWaterLine, isStepsLine, isReadingLine, isLanguageLine, isSupplementLine, isBuiltInHabitLine, isCheckedLine } from '../services/habit-identity.js';
 import { Router } from 'express';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -49,7 +50,14 @@ router.get('/habit', async (req, res) => {
           if (dateKey <= getShanghaiDateString(today)) dateKeys.add(dateKey);
         }
       }
-      for (const dateKey of [...dateKeys].sort()) dates.push(parseShanghaiDate(dateKey));
+      for (const dateKey of [...dateKeys].sort()) {
+        try {
+          dates.push(parseShanghaiDate(dateKey));
+        } catch {
+          // 忽略非日记文件和不存在的日期，不影响其他有效日记。
+          continue;
+        }
+      }
     } else {
       const requested = Number.parseInt(rawDays ?? '', 10);
       const days = Number.isFinite(requested)
@@ -163,66 +171,5 @@ function parseHabitLines(lines: string[]): any {
   return data;
 }
 
-function isWaterLine(line: string): boolean {
-  return /^\s*-\s*(?:🥛(?:🥤)*\s*)?饮水\s+\d+\s*mL\s*$/i.test(line);
-}
-
-function isStepsLine(line: string): boolean {
-  return /^\s*-\s*(?:🧘\s*)?(?:运动|运动\s*\/\s*拉伸\s*\/\s*快走)\s+\d+\s*步\s*$/.test(line);
-}
-
-function checkboxHabitLabel(line: string): string | null {
-  const match = line.match(/^\s*-\s*\[[ xX]\]\s*(.+?)\s*$/);
-  if (!match) return null;
-  return match[1]
-    .replace(/\s+\d+\s*(?:分钟|min)\s*$/i, '')
-    .replace(/\s*\/\s*/g, '/')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function isCheckedLine(line: string): boolean {
-  return /^\s*-\s*\[[xX]\]/.test(line);
-}
-
-function isReadingLine(line: string): boolean {
-  const label = checkboxHabitLabel(line);
-  return label != null && new Set([
-    '阅读',
-    '亲子共读',
-    '亲子阅读',
-    '阅读/亲子共读',
-    '📖 阅读',
-    '📖 亲子共读',
-    '📖 阅读/亲子共读',
-  ]).has(label);
-}
-
-function isLanguageLine(line: string): boolean {
-  const label = checkboxHabitLabel(line);
-  return label === '学语言' || label === '🇬🇧 学语言';
-}
-
-function isSupplementLine(line: string): boolean {
-  const label = checkboxHabitLabel(line);
-  return label != null && new Set([
-    '鱼油',
-    '植物甾醇',
-    '鱼油/植物甾醇',
-    '补充剂',
-    '💊 鱼油',
-    '💊 植物甾醇',
-    '💊 鱼油/植物甾醇',
-    '💊 补充剂',
-  ]).has(label);
-}
-
-function isBuiltInHabitLine(line: string): boolean {
-  return isWaterLine(line) ||
-    isStepsLine(line) ||
-    isReadingLine(line) ||
-    isLanguageLine(line) ||
-    isSupplementLine(line);
-}
 
 export default router;

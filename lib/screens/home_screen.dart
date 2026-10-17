@@ -25,11 +25,11 @@ import '../screens/quick_capture_screen.dart';
 import '../screens/settings_page.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
+import '../services/failure_messages.dart';
 import '../services/api_config.dart';
 import '../services/draft_repository.dart';
 import '../services/entry_line_builder.dart';
 import '../services/habit_settings_repository.dart';
-import '../services/habit_completion_sound.dart';
 import '../services/focus_timer_controller.dart';
 import '../services/habit_stats_service.dart';
 import '../services/markdown_parser.dart';
@@ -144,7 +144,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   TagSettings? _tagSettings;
   final _draftRepository = DraftRepository();
   final _scrollController = ScrollController();
-  final _habitCompletionSound = HabitCompletionSound();
   late final FocusTimerController _focusTimerController;
   bool _generatingCoach = false;
   bool _quickRecordExpanded = false;
@@ -176,7 +175,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _focusTimerController = FocusTimerController();
     unawaited(_focusTimerController.load());
-    _habitCompletionSound.preload();
     _loadDiary();
     _loadTagConfig();
   }
@@ -220,7 +218,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _focusTimerController.dispose();
     _scrollController.dispose();
-    unawaited(_habitCompletionSound.dispose());
     super.dispose();
   }
 
@@ -355,27 +352,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
-  String _diaryLoadFailureMessage(Object error) {
-    final hasLocalContent = _diary != null;
-    if (error is TimeoutException ||
-        (error is ApiException && error.isNetworkFailure)) {
-      return hasLocalContent ? '暂时无法连接，正在显示本地内容' : '无法连接服务器，此日记尚未缓存，连接后请重试';
-    }
-    final String message;
-    if (error is FormatException || error is TypeError) {
-      message = '服务器返回的日记数据无法解析，请重试或检查服务器版本';
-    } else if (error is ApiException && error.statusCode != null) {
-      message = error.statusCode! >= 500
-          ? '服务器错误（${error.statusCode}），请稍后重试'
-          : '日记请求失败（${error.statusCode}），请重试';
-    } else if (error is ApiException &&
-        const ['今日日记创建失败，请重试', '今日日记暂时无法读取，请重试'].contains(error.message)) {
-      message = error.message;
-    } else {
-      message = '今日日记加载失败，请重试';
-    }
-    return hasLocalContent ? '$message；正在显示本地内容' : message;
-  }
+  String _diaryLoadFailureMessage(Object error) => diaryReadFailureMessage(
+    error,
+    hasLocalContent: _diary != null,
+    fallback: '今日日记加载失败，请重试',
+  );
 
   void _warmReadingCache(ApiClient client, DateTime date) {
     if (_warmedConnection == client.readingCacheNamespace) return;
@@ -521,12 +502,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
     }
 
-    var success = await call();
-    if (!success) {
+    try {
+      return await call();
+    } on ApiException catch (error) {
+      if (error.statusCode != 404) rethrow;
       await widget.apiClient.ensureDiary(date);
-      success = await call();
+      return call();
     }
-    return success;
   }
 
   Future<bool> _handleHabitUpdate(HabitStatus status) async {
@@ -534,6 +516,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final ok = await _updateHabitsAPI(status);
       if (ok && mounted) _loadDiarySilently();
       return ok;
+    } on ApiException {
+      rethrow;
     } catch (_) {
       return false;
     }
@@ -595,6 +579,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (mounted) _loadDiarySilently();
       }
       return ok;
+    } on ApiException {
+      rethrow;
     } catch (_) {
       return false;
     }
@@ -617,6 +603,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (mounted) _loadDiarySilently();
       }
       return ok;
+    } on ApiException {
+      rethrow;
     } catch (_) {
       return false;
     }
@@ -641,6 +629,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (result == null) return false;
       if (mounted) _loadDiarySilently();
       return true;
+    } on ApiException {
+      rethrow;
     } catch (_) {
       return false;
     }
@@ -667,7 +657,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (_) => FocusTimerScreen(
           controller: _focusTimerController,
           onSave: _saveFocusDuration,
-          onPositiveFeedback: _habitCompletionSound.play,
         ),
       ),
     );
@@ -686,6 +675,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       minutes: minutes,
       replace: false,
       dailyTargetMinutes: session.dailyTargetMinutes,
+      operationId: session.saveOperationId,
     );
     if (result == null) return false;
     if (mounted) _loadDiarySilently();
@@ -698,6 +688,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final settings = _habitSettings ?? HabitSettings.defaults;
     final states = customStates ?? _customCheckboxStates;
     final result = <String, Map<String, dynamic>>{};
+    final rawLines = _customHabitRawLines(settings);
     for (final entry in settings.extraHabits.entries) {
       final key = entry.key;
       if (!settings.isActive(key) ||
@@ -706,6 +697,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       result[key] = {
         'checked': states[key] ?? false,
+        'rawLine': rawLines[key] ?? '',
         'label': '📝 ${settings.displayNameFor(key)}',
       };
     }
@@ -718,6 +710,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final settings = _habitSettings ?? HabitSettings.defaults;
     final states = customStates ?? _customDurationStates;
     final result = <String, Map<String, dynamic>>{};
+    final rawLines = _customHabitRawLines(settings);
     for (final entry in settings.extraHabits.entries) {
       final key = entry.key;
       if (!settings.isActive(key) ||
@@ -728,7 +721,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       result[key] = {
         'minutes': minutes,
         'label': '📝 ${settings.displayNameFor(key)}',
-        'rawLine': _customDurationRawLine(key),
+        'rawLine': rawLines[key] ?? '',
         'checked': _durationIsComplete(settings, key, minutes),
       };
     }
@@ -740,19 +733,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return target == null ? minutes > 0 : minutes >= target;
   }
 
-  String _customDurationRawLine(String key) {
-    final settings = _habitSettings ?? HabitSettings.defaults;
-    final names = <String>{
-      settings.displayNameFor(key),
-      ...(settings.customHabitAliases[key] ?? const <String>[]),
-    };
+  Map<String, String> _customHabitRawLines(HabitSettings settings) {
     final raw = _diary?.raw;
-    if (raw == null) return '';
-    for (final line in raw.split('\n')) {
-      if (!line.contains('分钟')) continue;
-      if (names.any(line.contains)) return line;
+    if (raw == null) return {};
+    final document = const MarkdownParser().parse(raw);
+    final result = <String, String>{};
+    for (final section in document.sections.whereType<HabitSection>()) {
+      for (final item in section.habits) {
+        if (item.habitKey != null) continue;
+        final key = settings.customHabitKeyForLabel(item.label);
+        if (key != null) result[key] = item.rawLine;
+      }
     }
-    return '';
+    return result;
   }
 
   Future<PolishResult> _handlePolish(
@@ -1331,7 +1324,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   _habitSettings ?? HabitSettings.defaults,
                               onCustomCheckboxToggle:
                                   _handleCustomCheckboxToggle,
-                              onPositiveFeedback: _habitCompletionSound.play,
                               onWaterQuickAmountsChanged:
                                   _handleWaterQuickAmountsChanged,
                               onStartDuration: _handleStartDuration,
@@ -1364,7 +1356,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   _habitSettings ?? HabitSettings.defaults,
                               onCustomCheckboxToggle:
                                   _handleCustomCheckboxToggle,
-                              onPositiveFeedback: _habitCompletionSound.play,
                               onWaterQuickAmountsChanged:
                                   _handleWaterQuickAmountsChanged,
                               onStartDuration: _handleStartDuration,

@@ -3,7 +3,12 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { join } from 'path';
 import { vi } from 'vitest';
 
-const fixture = vi.hoisted(() => ({ vaultPath: `/private/tmp/litchi-write-reliability-${process.pid}` }));
+const fixture = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  return { vaultPath: mkdtempSync(join(tmpdir(), 'litchi-write-reliability-')) };
+});
 vi.mock('../config/index.js', () => ({ default: { ...fixture, apiToken: 'test-token', port: 0 } }));
 vi.mock('fs', async importOriginal => {
   const fs = await importOriginal<typeof import('fs')>();
@@ -131,6 +136,53 @@ describe('write reliability', () => {
       expect(existsSync(getAssetsDir(date))).toBe(false);
     },
   );
+
+  it.each([undefined, null, 123, {}, [], '', '   '])(
+    'rejects invalid imageData %j before touching the diary or assets', async imageData => {
+      const before = readDiary(date);
+      const res = await post('/image/upload', { imageData });
+      expect(res.statusCode).toBe(400);
+      expect(readDiary(date)).toBe(before);
+      expect(existsSync(getAssetsDir(date))).toBe(false);
+    },
+  );
+
+  it.each([
+    '- 没有时间的记录\n  缩进续行',
+    '> 没有时间的引用\n> 第二段引用',
+    '> [!note] 提醒\n> 不可遗漏的说明',
+    '- [ ] 自定义任务\n  任务说明',
+  ])('requires the full non-timeline block for edit and delete: %s', async block => {
+    writeDiary(date, `## ✍️ 随手记 & 灵感\n${block}\n- **09:00** 相邻记录`);
+    const before = readDiary(date);
+    for (const path of ['/delete-entry', '/edit-entry']) {
+      const res = await post(path, { section: 'quick_notes', line: block.split('\n')[0], target: block.split('\n')[0], replacement: '- 新内容' });
+      expect(res.statusCode).toBe(404);
+      expect(readDiary(date)).toBe(before);
+      const continuation = block.split('\n')[1];
+      const partial = await post(path, { section: 'quick_notes', line: continuation, target: continuation, replacement: '- 新内容' });
+      expect(partial.statusCode).toBe(404);
+      expect(readDiary(date)).toBe(before);
+    }
+    const edited = await post('/edit-entry', { section: 'quick_notes', target: block, replacement: '- 完整改写\n  新续行' });
+    expect(edited.statusCode).toBe(200);
+    expect(readDiary(date)).toContain('- 完整改写\n  新续行');
+    const removed = await post('/delete-entry', { section: 'quick_notes', line: '- 完整改写\n  新续行' });
+    expect(removed.statusCode).toBe(200);
+    expect(readDiary(date)).toContain('- **09:00** 相邻记录');
+    expect(readDiary(date)).not.toContain('新续行');
+  });
+
+  it('requires the association marker when deleting a linked image rawLine', async () => {
+    const block = `![[photo.jpg]]\n<!-- litchi-photo-of:${entryId};op:${photoOp} -->`;
+    writeDiary(date, `## 📸 影像记录\n${block}\n手写说明应保留`);
+    const before = readDiary(date);
+    expect((await post('/delete-entry', { section: 'images', line: '![[photo.jpg]]' })).statusCode).toBe(404);
+    expect(readDiary(date)).toBe(before);
+    expect((await post('/delete-entry', { section: 'images', line: block })).statusCode).toBe(200);
+    expect(readDiary(date)).toContain('手写说明应保留');
+    expect(readDiary(date)).not.toContain('litchi-photo-of');
+  });
 
   it('does not inject a section through a custom checkbox label', async () => {
     const before = readDiary(date);

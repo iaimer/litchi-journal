@@ -8,9 +8,12 @@ import {
 } from 'fs';
 import { join } from 'path';
 
-const testConfig = vi.hoisted(() => ({
-  vaultPath: `/private/tmp/litchi-diary-image-route-${process.pid}`,
-}));
+const testConfig = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  return { vaultPath: mkdtempSync(join(tmpdir(), 'litchi-diary-image-route-')) };
+});
 
 vi.mock('../config/index.js', () => ({
   default: {

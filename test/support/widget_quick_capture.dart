@@ -130,7 +130,6 @@ void registerQuickCaptureTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: HabitStatsCacheRepository(storage: _MemoryStorage()),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),

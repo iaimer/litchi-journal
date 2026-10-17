@@ -8,7 +8,6 @@ import '../models/habit_settings.dart';
 import '../models/habit_trend.dart';
 import '../services/api_client.dart';
 import '../services/habit_settings_repository.dart';
-import '../services/habit_stats_cache_repository.dart';
 import '../services/habit_trend_cache_repository.dart';
 import '../services/habit_trend_service.dart';
 import '../theme/app_theme.dart';
@@ -27,9 +26,6 @@ import '../widgets/habit_trend_heatmap.dart';
 class HabitStatsScreen extends StatefulWidget {
   final ApiClient apiClient;
 
-  /// 旧缓存参数保留用于兼容已有调用方；趋势页使用 [trendCacheRepo]。
-  @Deprecated('请使用 trendCacheRepo')
-  final HabitStatsCacheRepository? cacheRepo;
   final HabitTrendCacheRepository? trendCacheRepo;
   final HabitSettingsRepository? habitSettingsRepo;
   final int refreshToken;
@@ -37,7 +33,6 @@ class HabitStatsScreen extends StatefulWidget {
   const HabitStatsScreen({
     super.key,
     required this.apiClient,
-    this.cacheRepo,
     this.trendCacheRepo,
     this.habitSettingsRepo,
     this.refreshToken = 0,

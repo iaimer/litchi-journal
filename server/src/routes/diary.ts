@@ -725,6 +725,9 @@ router.post('/image/upload', async (req, res) => {
     if (dateStr === undefined) {
       throw new DiaryWriteError('缺少上传日期，请使用 YYYY-MM-DD', 400);
     }
+    if (typeof imageData !== 'string' || !imageData.trim()) {
+      throw new DiaryWriteError('图片数据无效，请重新选择照片', 400);
+    }
     const entryId = req.body.entryId == null ? undefined : validateOperationId(req.body.entryId);
     if (req.body.entryId != null && !entryId) {
       return res.status(400).json({ error: '记录关联标识无效' });
@@ -1186,9 +1189,18 @@ function deleteUnreferencedImageFiles(date: Date, filenames: string[], content: 
 }
 
 function findEntryRangeInSection(
-  lines: string[], _startIdx: number, endIdx: number,
+  lines: string[], startIdx: number, endIdx: number,
   targetLine: string, matches: number[]
 ): { startIndex: number; endIndexExclusive: number } | null {
+  const starts = new Set<number>();
+  for (let index = startIdx; index < endIdx;) {
+    if (!lines[index].trim()) { index++; continue; }
+    starts.add(index);
+    index = isTimelineEntryStart(lines[index].trim())
+      ? findTimelineEntryBlockEnd(lines, index, endIdx)
+      : findNonTimelineEntryEnd(lines, index, endIdx);
+  }
+  matches = matches.filter(index => starts.has(index));
   if (matches.length === 0) return null;
 
   const firstMatch = matches[0];
@@ -1206,11 +1218,36 @@ function findEntryRangeInSection(
   }
 
   const normalized = targetLine.replace(/\r\n/g, '\n').trimEnd();
-  const length = normalized.split('\n').length;
-  const matchedIndex = matches.find(index => index + length <= endIdx &&
-    lines.slice(index, index + length).join('\n').replace(/\r\n/g, '\n').trimEnd() === normalized);
+  const matchedIndex = matches.find(index => {
+    const end = findNonTimelineEntryEnd(lines, index, endIdx);
+    return lines.slice(index, end).join('\n').replace(/\r\n/g, '\n').trimEnd() === normalized;
+  });
   if (matchedIndex === undefined) return null;
-  return { startIndex: matchedIndex, endIndexExclusive: matchedIndex + length };
+  return { startIndex: matchedIndex, endIndexExclusive: findNonTimelineEntryEnd(lines, matchedIndex, endIdx) };
+}
+
+function findNonTimelineEntryEnd(lines: string[], start: number, limit: number): number {
+  const first = lines[start].trim();
+  if (first.startsWith('<!--')) return start + 1;
+  if (extractImageName(first)) {
+    // 独立图片后的手写说明不属于照片；关联标记属于同一原始块。
+    return start + 1 < limit && /^<!-- litchi-photo-of:.* -->$/.test(lines[start + 1].trim())
+      ? start + 2 : start + 1;
+  }
+  const quoted = first.startsWith('>');
+  let end = start + 1;
+  while (end < limit) {
+    const line = lines[end];
+    if (/^\s/.test(line)) { end++; continue; }
+    if (quoted) {
+      if (!line.startsWith('>') || line.startsWith('> [!') || isTimelineEntryStart(line)) break;
+    } else if (isTimelineEntryStart(line) || /^(?:#{1,6}\s|[-*+]\s|>\s|<!--|!\[\[|---\s*$)/.test(line)) {
+      break;
+    }
+    end++;
+  }
+  while (end > start + 1 && !lines[end - 1].trim()) end--;
+  return end;
 }
 
 router.post('/delete-entry', async (req, res) => {

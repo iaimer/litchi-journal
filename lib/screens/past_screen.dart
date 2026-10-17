@@ -253,29 +253,44 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
     final firstStart = firstPage.months.isEmpty
         ? null
         : _monthKey(firstPage.months.first);
-    final starts = _loadedPageStarts.toList()..sort((a, b) => b.compareTo(a));
-    for (final cursor in starts) {
-      if (cursor == firstStart) continue;
-      try {
-        final page = await _galleryService.fetchPage(cursor: cursor);
-        if (!mounted || generation != _galleryRequestGeneration) return;
-        setState(() {
+    final starts =
+        _loadedPageStarts.where((cursor) => cursor != firstStart).toList()
+          ..sort((a, b) => b.compareTo(a));
+    const batchSize = 3;
+    for (var offset = 0; offset < starts.length; offset += batchSize) {
+      if (!mounted || generation != _galleryRequestGeneration) return;
+      final batch = starts.skip(offset).take(batchSize);
+      final results = await Future.wait(
+        batch.map((cursor) async {
+          try {
+            final page = await _galleryService.fetchPage(cursor: cursor);
+            return (cursor: cursor, page: page, error: null as ApiException?);
+          } on ApiException catch (error) {
+            if (error.isAuthenticationFailure) rethrow;
+            return (cursor: cursor, page: null as GalleryPage?, error: error);
+          }
+        }),
+        eagerError: true,
+      );
+      if (!mounted || generation != _galleryRequestGeneration) return;
+      // 同批请求并发，仍按游标顺序合并，防止响应乱序使旧照片复活。
+      setState(() {
+        for (final result in results) {
+          final page = result.page;
+          if (page == null) {
+            _failedCursors.add(result.cursor);
+            _galleryError = '部分过往内容更新失败，请重试';
+            continue;
+          }
           _applyGalleryPage(
             page,
             reset: false,
-            requestedCursor: cursor,
+            requestedCursor: result.cursor,
             updateCursor: false,
           );
-          if (cursor == starts.last) _nextCursor = page.nextCursor;
-        });
-      } on ApiException catch (error) {
-        if (error.isAuthenticationFailure) rethrow;
-        if (!mounted || generation != _galleryRequestGeneration) return;
-        setState(() {
-          _failedCursors.add(cursor);
-          _galleryError = '部分过往内容更新失败，请重试';
-        });
-      }
+          if (result.cursor == starts.last) _nextCursor = page.nextCursor;
+        }
+      });
     }
   }
 

@@ -31,7 +31,6 @@ import '../services/draft_repository.dart';
 import '../services/entry_line_builder.dart';
 import '../services/habit_settings_repository.dart';
 import '../services/focus_timer_controller.dart';
-import '../services/habit_stats_service.dart';
 import '../services/markdown_parser.dart';
 import '../services/polisher_service.dart';
 import '../services/tag_repository.dart';
@@ -432,8 +431,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       final diary = await widget.apiClient.getDiary(_activeDate);
       if (!mounted || requestId != _diaryRefreshSerial) return;
-      // 日记内容更新后清除习惯统计日缓存，避免显示旧数据
-      HabitStatsService.clearDayCache();
       setState(() {
         _diary = diary;
         _verified = diary != null;

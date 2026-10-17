@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { readFileSync } from 'fs';
 
 vi.mock('../config/index.js', () => ({
-  default: { vaultPath: '/private/tmp/litchi-vault-read-fixture' },
+  default: { vaultPath: 'unused-read-fixture' },
 }));
 vi.mock('fs', async importOriginal => ({
   ...await importOriginal<typeof import('fs')>(),

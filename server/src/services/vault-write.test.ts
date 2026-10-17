@@ -2,7 +2,12 @@ import { afterAll, afterEach, expect, it, vi } from 'vitest';
 import { chmodSync, existsSync, fsyncSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 
-const fixture = vi.hoisted(() => ({ vaultPath: `/private/tmp/litchi-atomic-write-${process.pid}` }));
+const fixture = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  return { vaultPath: mkdtempSync(join(tmpdir(), 'litchi-atomic-write-')) };
+});
 vi.mock('../config/index.js', () => ({ default: fixture }));
 vi.mock('fs', async importOriginal => {
   const fs = await importOriginal<typeof import('fs')>();

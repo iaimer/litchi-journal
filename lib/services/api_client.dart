@@ -14,8 +14,6 @@ import '../models/tag_config.dart';
 import 'api_config.dart';
 import 'operation_id.dart';
 import 'reading_cache_repository.dart';
-import 'habit_stats_service.dart';
-import 'habit_stats_cache_repository.dart';
 import 'habit_trend_cache_repository.dart';
 
 typedef UploadProgressCallback = void Function(int sentBytes, int totalBytes);
@@ -960,8 +958,6 @@ class ApiClient {
         preserveKeys: {_galleryManifestKey},
       ),
     ];
-    HabitStatsService.clearDayCache();
-    invalidations.add(HabitStatsCacheRepository().clear());
     invalidations.add(
       HabitTrendCacheRepository.invalidateNamespace(cacheNamespace),
     );

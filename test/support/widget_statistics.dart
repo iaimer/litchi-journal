@@ -1,400 +1,7 @@
 part of '../widget_test.dart';
 
 void registerStatisticsTests() {
-  group('HabitStatsService', () {
-    setUp(() {
-      HabitStatsService.clearCache();
-    });
-
-    tearDown(() {
-      HabitStatsService.clearCache();
-    });
-
-    ApiClient habitTestClient({
-      required Map<int, int> waterByDay,
-      required Map<int, int> stepsByDay,
-      required Map<int, bool> readingByDay,
-      required Map<int, bool> languageByDay,
-      required Map<int, bool> supplementByDay,
-      String? customCheckboxLabel,
-    }) {
-      final now = DateTime.now();
-      return ApiClient(
-        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
-        httpClient: _HabitTestHttpClient(
-          year: now.year,
-          month: now.month,
-          waterByDay: waterByDay,
-          stepsByDay: stepsByDay,
-          readingByDay: readingByDay,
-          languageByDay: languageByDay,
-          supplementByDay: supplementByDay,
-          customCheckboxLabel: customCheckboxLabel,
-        ),
-      );
-    }
-
-    test('generates correct 7-day date range', () {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final days = <DateTime>[];
-      for (var i = 6; i >= 0; i--) {
-        days.add(today.subtract(Duration(days: i)));
-      }
-      expect(days.length, 7);
-      // No future dates
-      for (final d in days) {
-        expect(d.isAfter(today), false);
-      }
-    });
-
-    test('parses numeric and duration habits correctly', () async {
-      final now = DateTime.now();
-      final today = now.day;
-      final apiClient = habitTestClient(
-        waterByDay: {today - 1: 1500, today - 2: 800},
-        stepsByDay: {today - 1: 6000},
-        readingByDay: {today - 1: true, today - 2: true},
-        languageByDay: {today - 1: true},
-        supplementByDay: {today - 1: true, today - 2: true, today - 3: true},
-      );
-
-      final service = HabitStatsService(apiClient);
-      final stats = await service.loadStats();
-
-      expect(stats.items.length, 5);
-
-      // 饮水
-      final water = stats.items.firstWhere((i) => i.key == 'water');
-      expect(water.type, HabitStatType.numeric);
-      expect(water.completedDays, 2);
-
-      // 亲子共读
-      final reading = stats.items.firstWhere((i) => i.key == 'reading');
-      expect(reading.type, HabitStatType.duration);
-      expect(reading.completedDays, 2);
-
-      // 鱼油
-      final supp = stats.items.firstWhere((i) => i.key == 'supplements');
-      expect(supp.type, HabitStatType.boolean);
-      expect(supp.completedDays, 3);
-      expect(supp.currentStreak, 3);
-    });
-
-    test(
-      'uses checkbox completion when reading is configured as checkbox',
-      () async {
-        final now = DateTime.now();
-        final today = now.day;
-        final apiClient = habitTestClient(
-          waterByDay: {},
-          stepsByDay: {},
-          readingByDay: {today - 1: true, today - 2: true},
-          languageByDay: {},
-          supplementByDay: {},
-        );
-        final settings = HabitSettings.defaults.updateHabit(
-          key: 'reading',
-          trackingType: HabitTrackingType.checkbox,
-        );
-
-        final stats = await HabitStatsService(
-          apiClient,
-        ).loadStats(habitSettings: settings);
-        final reading = stats.items.firstWhere((item) => item.key == 'reading');
-
-        expect(reading.type, HabitStatType.boolean);
-        expect(reading.completedDays, 2);
-        expect(reading.recent7Values.where((value) => value == 1).length, 2);
-      },
-    );
-
-    test(
-      'keeps an old custom checkbox completion after switching to duration',
-      () async {
-        final today = DateTime.now().day;
-        final apiClient = habitTestClient(
-          waterByDay: {today - 1: 0},
-          stepsByDay: {},
-          readingByDay: {},
-          languageByDay: {},
-          supplementByDay: {},
-          customCheckboxLabel: '专注学习',
-        );
-        final settings = HabitSettings.defaults.copyWith(
-          statusMap: {'custom_focus': true},
-          extraHabits: {'custom_focus': '专注学习'},
-          trackingTypeMap: {'custom_focus': HabitTrackingType.duration},
-        );
-
-        final stats = await HabitStatsService(
-          apiClient,
-        ).loadStats(habitSettings: settings);
-        final focus = stats.items.firstWhere(
-          (item) => item.key == 'custom_focus',
-        );
-
-        expect(focus.type, HabitStatType.duration);
-        expect(focus.completedDays, 1);
-        expect(focus.lifetimeValue, 0);
-        expect(focus.recent7Completed.where((done) => done).length, 1);
-      },
-    );
-
-    test('returns empty stats when no habit data', () async {
-      final apiClient = habitTestClient(
-        waterByDay: {},
-        stepsByDay: {},
-        readingByDay: {},
-        languageByDay: {},
-        supplementByDay: {},
-      );
-
-      final service = HabitStatsService(apiClient);
-      final stats = await service.loadStats();
-
-      expect(stats.feedbackSuggestion, '先选一个最容易的小习惯照顾起来就很好。');
-    });
-
-    test('generates feedback text for stable week', () async {
-      final now = DateTime.now();
-      final today = now.day;
-      final apiClient = habitTestClient(
-        waterByDay: {for (var i = 1; i <= 6; i++) today - i: 1500},
-        stepsByDay: {for (var i = 1; i <= 6; i++) today - i: 5000},
-        readingByDay: {for (var i = 1; i <= 6; i++) today - i: true},
-        languageByDay: {for (var i = 1; i <= 6; i++) today - i: true},
-        supplementByDay: {for (var i = 1; i <= 6; i++) today - i: true},
-      );
-
-      final service = HabitStatsService(apiClient);
-      final stats = await service.loadStats();
-
-      expect(stats.feedbackSummary, '这周你把自己照顾得挺稳定。');
-    });
-
-    test('phased loading: loadRecent7 returns 7-day data first', () async {
-      final apiClient = habitTestClient(
-        waterByDay: {DateTime.now().day - 1: 1500},
-        stepsByDay: {},
-        readingByDay: {},
-        languageByDay: {},
-        supplementByDay: {},
-      );
-
-      final service = HabitStatsService(apiClient);
-      final stats7 = await service.loadRecent7();
-
-      // 7 天数据已填充
-      expect(stats7.recentDays.length, 7);
-      expect(stats7.items.length, 5);
-      expect(stats7.items.first.recent7Values.length, 7);
-
-      // 30 天字段应为空
-      expect(stats7.days30, isEmpty);
-      expect(stats7.items.first.recent30Values, isEmpty);
-    });
-
-    test(
-      'phased loading: loadRecent30 fills 30-day data after loadRecent7',
-      () async {
-        final apiClient = habitTestClient(
-          waterByDay: {DateTime.now().day - 1: 1500},
-          stepsByDay: {},
-          readingByDay: {},
-          languageByDay: {},
-          supplementByDay: {},
-        );
-
-        final service = HabitStatsService(apiClient);
-        await service.loadRecent7();
-        final stats30 = await service.loadRecent30();
-
-        // 30 天数据已填充
-        expect(stats30.days30.length, 30);
-        expect(stats30.items.first.recent30Values.length, 30);
-      },
-    );
-
-    test('30-day load reuses 7-day cached day records', () async {
-      final apiClient = habitTestClient(
-        waterByDay: {DateTime.now().day - 1: 1500},
-        stepsByDay: {},
-        readingByDay: {},
-        languageByDay: {},
-        supplementByDay: {},
-      );
-
-      final service = HabitStatsService(apiClient);
-      await service.loadRecent7();
-
-      // 清掉 history month 缓存，验证 30 天阶段不再请求 history
-      HabitStatsService.clearCache();
-      // 但 dayCache 还保留（没办法单独检查，但能验证 30 天正常完成）
-      final stats30 = await service.loadRecent30();
-      expect(stats30.days30.length, 30);
-    });
-
-    test('history month results are cached', () async {
-      final apiClient = habitTestClient(
-        waterByDay: {},
-        stepsByDay: {},
-        readingByDay: {},
-        languageByDay: {},
-        supplementByDay: {},
-      );
-
-      final service1 = HabitStatsService(apiClient);
-      await service1.loadRecent7();
-
-      // 第二个 service 实例复用缓存
-      final service2 = HabitStatsService(apiClient);
-      final stats = await service2.loadRecent7();
-      expect(stats.recentDays.length, 7);
-    });
-
-    test(
-      'static cache is reused across ApiClient instances with same baseUrl',
-      () async {
-        final now = DateTime.now();
-        final today = now.day;
-        final firstHttpClient = _HabitTestHttpClient(
-          year: now.year,
-          month: now.month,
-          waterByDay: {today - 1: 1500},
-          stepsByDay: {},
-          readingByDay: {},
-          languageByDay: {},
-          supplementByDay: {},
-        );
-        final firstApiClient = ApiClient(
-          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
-          httpClient: firstHttpClient,
-        );
-
-        final service1 = HabitStatsService(firstApiClient);
-        await service1.loadRecent7();
-
-        final secondHttpClient = _HabitTestHttpClient(
-          year: now.year,
-          month: now.month,
-          waterByDay: {},
-          stepsByDay: {},
-          readingByDay: {},
-          languageByDay: {},
-          supplementByDay: {},
-        );
-        final secondApiClient = ApiClient(
-          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
-          httpClient: secondHttpClient,
-        );
-
-        final service2 = HabitStatsService(secondApiClient);
-        final stats = await service2.loadRecent7();
-
-        expect(stats.recentDays.length, 7);
-        expect(secondHttpClient.historyRequestCount, 0);
-        expect(secondHttpClient.diaryRequestCount, 0);
-      },
-    );
-
-    test('single day getDiary failure does not break overall stats', () async {
-      final now = DateTime.now();
-      // 用 broken HTTP client 模拟某一天失败
-      var callCount = 0;
-      final brokenClient = _SelectiveFailureHttpClient(
-        year: now.year,
-        month: now.month,
-        waterByDay: {now.day - 1: 1500, now.day - 2: 800, now.day - 3: 1200},
-        stepsByDay: {},
-        readingByDay: {},
-        languageByDay: {},
-        supplementByDay: {},
-        failOnDay: now.day - 2,
-        failCount: 1,
-        callCount: () => callCount++,
-      );
-
-      final apiClient = ApiClient(
-        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
-        httpClient: brokenClient,
-      );
-
-      final service = HabitStatsService(apiClient);
-      final stats = await service.loadStats();
-
-      // 即使某天失败，统计仍完整
-      expect(stats.items.length, 5);
-      expect(stats.recentDays.length, 7);
-      // 不崩溃
-    });
-
-    test('only loads getDiary for dates in history month result', () async {
-      final now = DateTime.now();
-      var getDiaryCount = 0;
-
-      final client = _CountingGetDiaryHttpClient(
-        year: now.year,
-        month: now.month,
-        waterByDay: {now.day - 1: 1500},
-        stepsByDay: {},
-        readingByDay: {},
-        languageByDay: {},
-        supplementByDay: {},
-        onGetDiary: () => getDiaryCount++,
-      );
-
-      final apiClient = ApiClient(
-        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
-        httpClient: client,
-      );
-
-      final service = HabitStatsService(apiClient);
-      await service.loadStats();
-
-      // 只有 history month 中存在的日期才调用了 getDiary
-      // 最多调用 1 次（只有 now.day-1 有数据）
-      expect(getDiaryCount, lessThanOrEqualTo(1));
-    });
-
-    test('concurrent loading does not miss data', () async {
-      final now = DateTime.now();
-      final today = now.day;
-      final waterData = <int, int>{};
-      for (var i = 0; i < 7; i++) {
-        waterData[today - i] = 1500;
-      }
-
-      final apiClient = habitTestClient(
-        waterByDay: waterData,
-        stepsByDay: {for (var i = 0; i < 7; i++) today - i: 5000},
-        readingByDay: {},
-        languageByDay: {},
-        supplementByDay: {},
-      );
-
-      final service = HabitStatsService(apiClient);
-      final stats = await service.loadStats();
-
-      final water = stats.items.firstWhere((i) => i.key == 'water');
-      // 最近 7 天全部有数据
-      expect(water.completedDays, 7);
-    });
-  });
-
   group('HabitStatsScreen', () {
-    setUp(() {
-      HabitStatsService.clearCache();
-    });
-
-    tearDown(() {
-      HabitStatsService.clearCache();
-    });
-
-    /// 返回一个不会在测试中挂起的内存缓存仓库。
-    HabitStatsCacheRepository testCacheRepo() =>
-        HabitStatsCacheRepository(storage: _MemoryStorage());
-
     testWidgets('shows trend title and period selector', (tester) async {
       final now = DateTime.now();
       final client = ApiClient(
@@ -414,7 +21,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -446,7 +52,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -476,7 +81,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -508,7 +112,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -539,7 +142,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -571,7 +173,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -602,7 +203,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -636,7 +236,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -672,7 +271,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -705,14 +303,16 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(DropdownButton<HabitItemStats>), findsNothing);
+      expect(
+        find.byWidgetPredicate((widget) => widget is DropdownButton),
+        findsNothing,
+      );
 
       final yearSegment = find.text('年');
       expect(yearSegment, findsOneWidget);
@@ -730,7 +330,6 @@ void registerStatisticsTests() {
       final today = now.day;
       final storage = _TestStorage();
       final settingsRepo = HabitSettingsRepository(storage: storage);
-      final cacheRepo = testCacheRepo();
       final client = ApiClient(
         ApiConfig(baseUrl: 'https://test.local', token: 'test'),
         httpClient: _HabitTestHttpClient(
@@ -748,7 +347,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: cacheRepo,
             habitSettingsRepo: settingsRepo,
           ),
         ),
@@ -781,7 +379,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: cacheRepo,
             habitSettingsRepo: settingsRepo,
             refreshToken: 1,
           ),
@@ -836,7 +433,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: settingsRepo,
           ),
         ),
@@ -860,7 +456,6 @@ void registerStatisticsTests() {
         MaterialApp(
           home: HabitStatsScreen(
             apiClient: client,
-            cacheRepo: testCacheRepo(),
             habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
           ),
         ),
@@ -874,102 +469,7 @@ void registerStatisticsTests() {
     });
   });
 
-  group('HabitStatsCacheRepository', () {
-    late _MemoryStorage memoryStorage;
-    late HabitStatsCacheRepository cacheRepo;
-
-    setUp(() {
-      memoryStorage = _MemoryStorage();
-      cacheRepo = HabitStatsCacheRepository(storage: memoryStorage);
-    });
-
-    HabitStats makeStats() {
-      final day = HabitDayRecord(
-        date: DateTime(2026, 6, 1),
-        weekday: '星期一',
-        hasDiary: true,
-        waterMl: 1500,
-        steps: 5000,
-        readingDone: true,
-        languageDone: false,
-        supplementDone: true,
-      );
-      return HabitStats(
-        recentDays: [day],
-        monthDays: [day],
-        days30: [day],
-        items: [
-          HabitItemStats(
-            key: 'water',
-            title: '饮水',
-            group: HabitGroup.body,
-            type: HabitStatType.numeric,
-            recent7Values: [1500],
-            completedDays: 1,
-            totalDays: 1,
-            averageValue: 1500,
-            currentStreak: 1,
-            displayName: '饮水',
-            icon: '💧',
-            color: const Color(0xFF6BAED6),
-            recent30Values: [1500],
-            completedDays30: 1,
-            completionRate30: 1.0,
-            longestStreak30: 1,
-          ),
-        ],
-        overallRate: 1.0,
-        feedbackText: '测试',
-        feedbackSummary: '总结',
-        feedbackSuggestion: '建议',
-      );
-    }
-
-    test('save and load round-trip', () async {
-      final stats = makeStats();
-      await cacheRepo.save(stats);
-      final loaded = await cacheRepo.load();
-      expect(loaded, isNotNull);
-      expect(loaded!.items.length, 1);
-      expect(loaded.items.first.key, 'water');
-      expect(loaded.feedbackSummary, '总结');
-    });
-
-    test('load returns null when no cache', () async {
-      final loaded = await cacheRepo.load();
-      expect(loaded, isNull);
-    });
-
-    test('schema version mismatch ignores cache', () async {
-      final stats = makeStats();
-      await cacheRepo.save(stats);
-
-      // 篡改 schema version
-      final raw = await memoryStorage.read('habit_stats_cache');
-      final json = jsonDecode(raw!) as Map<String, dynamic>;
-      json['schemaVersion'] = 999;
-      await memoryStorage.write('habit_stats_cache', jsonEncode(json));
-
-      final loaded = await cacheRepo.load();
-      expect(loaded, isNull);
-    });
-
-    test('corrupted JSON returns null, does not throw', () async {
-      await memoryStorage.write('habit_stats_cache', 'not valid json {{{');
-      final loaded = await cacheRepo.load();
-      expect(loaded, isNull);
-    });
-
-    test('clear removes cache', () async {
-      final stats = makeStats();
-      await cacheRepo.save(stats);
-      await cacheRepo.clear();
-      final loaded = await cacheRepo.load();
-      expect(loaded, isNull);
-    });
-  });
-
-  group('HabitStats persistence round-trip', () {
+  group('HabitDayRecord persistence', () {
     test('HabitDayRecord toJson fromJson round-trip', () {
       final record = HabitDayRecord(
         date: DateTime(2026, 6, 1),
@@ -987,82 +487,6 @@ void registerStatisticsTests() {
       expect(restored.waterMl, 1500);
       expect(restored.readingDone, true);
       expect(restored.languageDone, false);
-    });
-
-    test('HabitItemStats toJson fromJson round-trip with Color', () {
-      final item = HabitItemStats(
-        key: 'water',
-        title: '饮水',
-        group: HabitGroup.body,
-        type: HabitStatType.numeric,
-        recent7Values: [1500, 800],
-        completedDays: 2,
-        totalDays: 7,
-        averageValue: 328,
-        currentStreak: 2,
-        displayName: '饮水',
-        icon: '💧',
-        color: const Color(0xFF6BAED6),
-        recent30Values: List.generate(30, (i) => i < 10 ? 1500 : 0),
-        completedDays30: 10,
-        completionRate30: 0.33,
-        longestStreak30: 10,
-      );
-      final json = item.toJson();
-      final restored = HabitItemStats.fromJson(json);
-      expect(restored.key, 'water');
-      expect(restored.recent7Values, [1500, 800]);
-      expect(restored.displayName, '饮水');
-      expect(restored.icon, '💧');
-      expect(restored.color.toARGB32(), 0xFF6BAED6);
-      expect(restored.recent30Values.length, 30);
-      expect(restored.completionRate30, 0.33);
-    });
-
-    test('HabitStats full round-trip with cachedAt', () {
-      final day = HabitDayRecord(
-        date: DateTime(2026, 6, 1),
-        weekday: '星期一',
-        hasDiary: true,
-        waterMl: 1500,
-        steps: 5000,
-        readingDone: true,
-        languageDone: false,
-        supplementDone: true,
-      );
-      final stats = HabitStats(
-        recentDays: [day],
-        monthDays: [day],
-        days30: [day],
-        items: [
-          HabitItemStats(
-            key: 'water',
-            title: '饮水',
-            group: HabitGroup.body,
-            type: HabitStatType.numeric,
-            recent7Values: [1500],
-            completedDays: 1,
-            totalDays: 1,
-            averageValue: 1500,
-            currentStreak: 1,
-            displayName: '饮水',
-            icon: '💧',
-            color: const Color(0xFF6BAED6),
-          ),
-        ],
-        overallRate: 1.0,
-        feedbackText: '测试文案',
-        feedbackSummary: '总结',
-        feedbackSuggestion: '建议',
-        cachedAt: DateTime(2026, 6, 1, 12, 0),
-      );
-      final json = stats.toJson();
-      expect(json['schemaVersion'], HabitStats.schemaVersion);
-
-      final restored = HabitStats.fromJson(json);
-      expect(restored.items.length, 1);
-      expect(restored.feedbackSummary, '总结');
-      expect(restored.cachedAt, isNotNull);
     });
   });
 }

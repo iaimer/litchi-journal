@@ -566,7 +566,6 @@ class _HabitTestHttpClient extends http.BaseClient {
   final Map<int, bool> readingByDay;
   final Map<int, bool> languageByDay;
   final Map<int, bool> supplementByDay;
-  final String? customCheckboxLabel;
   int historyRequestCount = 0;
   int diaryRequestCount = 0;
 
@@ -578,7 +577,6 @@ class _HabitTestHttpClient extends http.BaseClient {
     required this.readingByDay,
     required this.languageByDay,
     required this.supplementByDay,
-    this.customCheckboxLabel,
   });
 
   @override
@@ -608,8 +606,7 @@ class _HabitTestHttpClient extends http.BaseClient {
             stepsByDay.containsKey(dataKey) ||
             readingByDay.containsKey(dataKey) ||
             languageByDay.containsKey(dataKey) ||
-            supplementByDay.containsKey(dataKey) ||
-            customCheckboxLabel != null;
+            supplementByDay.containsKey(dataKey);
         rows.add({
           'date': ApiClient.formatDate(date),
           'hasDiary': hasData,
@@ -620,9 +617,7 @@ class _HabitTestHttpClient extends http.BaseClient {
           'supplements': supplementByDay[dataKey] ?? false,
           'readingMinutes': readingByDay[dataKey] == true ? 30 : null,
           'languageMinutes': languageByDay[dataKey] == true ? 10 : null,
-          'customCheckboxes': customCheckboxLabel == null
-              ? <String, bool>{}
-              : <String, bool>{'📝 $customCheckboxLabel': true},
+          'customCheckboxes': <String, bool>{},
           'customDurations': <String, int>{},
         });
       }
@@ -713,15 +708,12 @@ class _HabitTestHttpClient extends http.BaseClient {
       final suppCheck = supp ? 'x' : ' ';
       final readingMinutes = reading ? 30 : 0;
       final languageMinutes = language ? 10 : 0;
-      final customLine = customCheckboxLabel == null
-          ? ''
-          : '\n- [x] 📝 $customCheckboxLabel';
 
       final body = jsonEncode({
         'date': dateStr,
         'title': '今天',
         'raw':
-            '# 今天\n\n### 📋 习惯打卡\n- [$readingCheck] 阅读 $readingMinutes 分钟\n- [$languageCheck] 学语言 $languageMinutes 分钟\n- [$suppCheck] 鱼油 / 植物甾醇\n- 饮水 $water mL\n- 运动 $steps 步$customLine',
+            '# 今天\n\n### 📋 习惯打卡\n- [$readingCheck] 阅读 $readingMinutes 分钟\n- [$languageCheck] 学语言 $languageMinutes 分钟\n- [$suppCheck] 鱼油 / 植物甾醇\n- 饮水 $water mL\n- 运动 $steps 步',
         'sections': {},
       });
       return http.StreamedResponse(
@@ -757,71 +749,6 @@ class _HabitTestHttpClient extends http.BaseClient {
       return day - previousDays;
     }
     return day;
-  }
-}
-
-/// HTTP 客户端：选择性在某一天 getDiary 上失败。
-class _SelectiveFailureHttpClient extends _HabitTestHttpClient {
-  final int failOnDay;
-  final int failCount;
-  final int Function() callCount;
-  int _failures = 0;
-
-  _SelectiveFailureHttpClient({
-    required super.year,
-    required super.month,
-    required super.waterByDay,
-    required super.stepsByDay,
-    required super.readingByDay,
-    required super.languageByDay,
-    required super.supplementByDay,
-    required this.failOnDay,
-    required this.failCount,
-    required this.callCount,
-  });
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final url = request.url.toString();
-    if (url.contains('/api/v1/diary/')) {
-      final parts = url.split('/');
-      final dateParts = parts.last.split('-');
-      final day = int.parse(dateParts.last);
-      callCount();
-      if (day == failOnDay && _failures < failCount) {
-        _failures++;
-        return http.StreamedResponse(
-          Stream.value(utf8.encode('server error')),
-          500,
-        );
-      }
-    }
-    return super.send(request);
-  }
-}
-
-/// HTTP 客户端：记录 getDiary 调用次数。
-class _CountingGetDiaryHttpClient extends _HabitTestHttpClient {
-  final void Function() onGetDiary;
-
-  _CountingGetDiaryHttpClient({
-    required super.year,
-    required super.month,
-    required super.waterByDay,
-    required super.stepsByDay,
-    required super.readingByDay,
-    required super.languageByDay,
-    required super.supplementByDay,
-    required this.onGetDiary,
-  });
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final url = request.url.toString();
-    if (url.contains('/api/v1/diary/')) {
-      onGetDiary();
-    }
-    return super.send(request);
   }
 }
 
@@ -882,24 +809,6 @@ img.Image _makeNoisyImage(int width, int height) {
     }
   }
   return image;
-}
-
-/// 内存存储，用于测试 HabitStatsCacheRepository。
-class _MemoryStorage implements HabitStatsCacheStorage {
-  final Map<String, String> store = {};
-
-  @override
-  Future<String?> read(String key) async => store[key];
-
-  @override
-  Future<void> write(String key, String value) async {
-    store[key] = value;
-  }
-
-  @override
-  Future<void> delete(String key) async {
-    store.remove(key);
-  }
 }
 
 TagConfig fullTagConfig() {

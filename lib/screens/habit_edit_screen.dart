@@ -9,8 +9,6 @@ import '../widgets/flora_success_snackbar.dart';
 import '../models/habit_settings.dart';
 import '../models/habit_visual_config.dart';
 import '../services/habit_settings_repository.dart';
-import '../services/habit_stats_cache_repository.dart';
-import '../services/habit_stats_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/habit_icon.dart';
 import '../widgets/flora_page_scaffold.dart';
@@ -216,10 +214,6 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
           : updated;
 
       await _repo.save(saved);
-
-      // 清除习惯统计缓存，确保统计页使用最新视觉配置
-      await HabitStatsCacheRepository().clear();
-      HabitStatsService.clearDayCache();
 
       if (!mounted) return;
       showFloraSuccessSnackBar(context, '已保存');

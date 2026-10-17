@@ -18,9 +18,11 @@ npm run build
 
 回到仓库根目录后运行 `git diff --check`。`.github/workflows/ci.yml` 在 push、pull request 和手动触发时分别验证 Flutter 与服务端，并确认锁文件未被改写；不部署、不生成商店包、不需要仓库保存任何签名或服务端密钥。新增设置路由测试只监听本机随机端口，读写临时 Vault。
 
-`test/widget_test.dart` 保留 430 项原测试的注册入口，共享 fixture 位于 `test/support/widget_fixtures.dart`，按功能拆入同目录的 `widget_*.dart`。这些是 Dart part，不能单独执行；用 `flutter test test/widget_test.dart --plain-name 'QuickCaptureScreen'` 等名称过滤。新可靠性用例独立放在 `test/client_reliability_test.dart` 与 `test/write_reliability_test.dart`。
+`test/widget_test.dart` 是按功能拆分的测试注册入口（原 430 项，旧统计链路退役后保留 409 项当前有效用例），共享 fixture 位于 `test/support/widget_fixtures.dart`，按功能拆入同目录的 `widget_*.dart`。这些是 Dart part，不能单独执行；用 `flutter test test/widget_test.dart --plain-name 'QuickCaptureScreen'` 等名称过滤。新可靠性用例独立放在 `test/client_reliability_test.dart`、`test/write_reliability_test.dart`、`test/anxiety_draft_reliability_test.dart` 和 `test/gallery_refresh_performance_test.dart`。服务端测试使用系统临时目录，无需创建 `/private/tmp` 或复制真实配置。
 
 ## 保留覆盖安装的内部包
+
+2026-10-18 最新补修产物为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-followup-release.apk`；更早的 `reliability-release.apk` 和原 `1.9.1-release.apk` 不包含本轮全部后续改动。准确哈希和云端验证见 `HANDOFF.md`。
 
 ```bash
 flutter build apk --release

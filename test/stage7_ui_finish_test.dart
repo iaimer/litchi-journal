@@ -127,8 +127,8 @@ void main() {
 
       expect(find.text('选择你喜欢的显示方式'), findsNothing);
       expect(find.text('跟随系统'), findsOneWidget);
-      expect(find.text('浅色模式'), findsOneWidget);
-      expect(find.text('深色模式'), findsOneWidget);
+      expect(find.text('浅色'), findsOneWidget);
+      expect(find.text('深色'), findsOneWidget);
     });
 
     test('减少动态效果时动效时长为零', () {

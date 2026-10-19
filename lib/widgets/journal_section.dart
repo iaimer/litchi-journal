@@ -3,8 +3,29 @@ import 'flora_origin.dart';
 
 import '../models/tag_config.dart';
 import '../theme/app_theme.dart';
+import '../theme/diary_reading_style.dart';
 import 'flora_icon.dart';
 import 'tag_color_helper.dart';
+
+TextStyle journalTimeStyle(BuildContext context) =>
+    DiaryReadingStyle.of(context)
+        .metadata(Theme.of(context))
+        .copyWith(
+          fontWeight: FontWeight.w600,
+          fontFeatures: const [FontFeature.tabularFigures()],
+          height: 1.4,
+        );
+
+double journalTimeColumnWidth(BuildContext context) {
+  final painter = TextPainter(
+    text: TextSpan(text: '00:00', style: journalTimeStyle(context)),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  final width = (painter.width.ceilToDouble() + 1).clamp(48.0, double.infinity);
+  painter.dispose();
+  return width;
+}
 
 double journalFabSafetyInset(BuildContext context) {
   final mediaQuery = MediaQuery.of(context);
@@ -51,11 +72,7 @@ class JournalSection extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                    ),
+                    style: DiaryReadingStyle.of(context).heading(theme),
                   ),
                 ),
                 ?trailing,
@@ -94,15 +111,29 @@ class JournalEntryActionSlot extends StatelessWidget {
     if (!busy && onPressed == null) return const SizedBox.shrink();
 
     final alignment = alignToTags ? Alignment.topCenter : Alignment.center;
+    final metadata = DiaryReadingStyle.of(context).metadata(Theme.of(context));
+    // 对齐标签第一行，不随整个多行标签的高度移动；热区至少 48dp。
+    final tagCenter =
+        MediaQuery.textScalerOf(context).scale(metadata.fontSize!) *
+            metadata.height! /
+            2 +
+        2.6 +
+        (attachmentAboveTags ? 0 : FloraSpacing.md);
+    // 大字标签的中心可能超过常规热区，让槽增高而不是挤压图标。
+    final height = alignToTags
+        ? (tagCenter + 9).clamp(48.0, double.infinity)
+        : 48.0;
     if (busy) {
       return SizedBox(
         width: 48,
-        height: 48,
+        height: height,
         child: Align(
           alignment: alignment,
           child: Padding(
             padding: alignToTags
-                ? EdgeInsets.only(top: attachmentAboveTags ? 2 : 6)
+                ? EdgeInsets.only(
+                    top: (tagCenter - 7).clamp(0.0, double.infinity),
+                  )
                 : EdgeInsets.zero,
             child: const SizedBox(
               width: 14,
@@ -116,13 +147,13 @@ class JournalEntryActionSlot extends StatelessWidget {
 
     return SizedBox(
       width: 48,
-      height: 48,
+      height: height,
       child: IconButton(
         alignment: alignment,
-        padding: alignToTags && !attachmentAboveTags
-            ? const EdgeInsets.only(top: 4)
+        padding: alignToTags
+            ? EdgeInsets.only(top: (tagCenter - 9).clamp(0.0, double.infinity))
             : EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+        constraints: BoxConstraints.tightFor(width: 48, height: height),
         iconSize: 16,
         tooltip: '更多操作',
         icon: const FloraIcon(FloraIcons.more, size: 18),
@@ -218,17 +249,21 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
   @override
   Widget build(BuildContext context) {
     if (widget.isLast) _scheduleRailMeasurement();
+    final timeWidth = journalTimeColumnWidth(context);
     return Padding(
       padding: EdgeInsets.only(left: 4, right: journalFabSafetyInset(context)),
       child: Stack(
         key: _stackKey,
-        children: [_buildRail(), _buildEntry(Theme.of(context))],
+        children: [
+          _buildRail(timeWidth),
+          _buildEntry(Theme.of(context), timeWidth),
+        ],
       ),
     );
   }
 
-  Widget _buildRail() => Positioned(
-    left: 48,
+  Widget _buildRail(double timeWidth) => Positioned(
+    left: timeWidth,
     top: 0,
     bottom: 0,
     width: 8,
@@ -240,20 +275,18 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
     ),
   );
 
-  Widget _buildEntry(ThemeData theme) => Row(
+  Widget _buildEntry(ThemeData theme, double timeWidth) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       SizedBox(
-        width: 48,
+        width: timeWidth,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Text(
             widget.time,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: widget.accentColor,
-              fontWeight: FontWeight.w600,
-              height: 1.4,
-            ),
+            style: journalTimeStyle(
+              context,
+            ).copyWith(color: widget.accentColor),
           ),
         ),
       ),
@@ -271,7 +304,11 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
   Widget _buildContent(ThemeData theme) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(widget.content, key: _contentKey, style: theme.textTheme.bodyMedium),
+      Text(
+        widget.content,
+        key: _contentKey,
+        style: DiaryReadingStyle.of(context).body(theme),
+      ),
       if (widget.attachment != null) ...[
         const SizedBox(height: FloraSpacing.sm),
         KeyedSubtree(key: _attachmentKey, child: widget.attachment!),
@@ -289,7 +326,9 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
       if (widget.tags.isNotEmpty)
         Expanded(
           child: Padding(
-            padding: EdgeInsets.only(top: widget.attachment == null ? 2 : 0),
+            padding: EdgeInsets.only(
+              top: widget.attachment == null ? FloraSpacing.md : 0,
+            ),
             child: TagChipList(
               key: _tagsKey,
               tags: widget.tags,
@@ -328,6 +367,7 @@ class JournalListEntryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final readingStyle = DiaryReadingStyle.of(context);
     return Padding(
       padding: EdgeInsets.only(
         left: 4,
@@ -345,32 +385,32 @@ class JournalListEntryRow extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 1),
                 child: Text(
                   '•',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: accentColor,
-                    height: 1.4,
-                  ),
+                  style: readingStyle
+                      .body(theme)
+                      .copyWith(color: accentColor, height: 1.4),
                 ),
               ),
             ),
-          Expanded(child: _buildContent(theme)),
+          Expanded(child: _buildContent(theme, readingStyle)),
         ],
       ),
     );
   }
 
-  Widget _buildContent(ThemeData theme) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(content, style: theme.textTheme.bodyMedium),
-      if (attachment != null) ...[
-        const SizedBox(height: FloraSpacing.sm),
-        attachment!,
-        if (tags.isNotEmpty || trailing != null)
-          const SizedBox(height: FloraSpacing.md),
-      ],
-      if (tags.isNotEmpty || trailing != null) _buildMetadataRow(),
-    ],
-  );
+  Widget _buildContent(ThemeData theme, DiaryReadingStyle readingStyle) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(content, style: readingStyle.body(theme)),
+          if (attachment != null) ...[
+            const SizedBox(height: FloraSpacing.sm),
+            attachment!,
+            if (tags.isNotEmpty || trailing != null)
+              const SizedBox(height: FloraSpacing.md),
+          ],
+          if (tags.isNotEmpty || trailing != null) _buildMetadataRow(),
+        ],
+      );
 
   Widget _buildMetadataRow() => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,7 +418,9 @@ class JournalListEntryRow extends StatelessWidget {
       if (tags.isNotEmpty)
         Expanded(
           child: Padding(
-            padding: EdgeInsets.only(top: attachment == null ? 2 : 0),
+            padding: EdgeInsets.only(
+              top: attachment == null ? FloraSpacing.md : 0,
+            ),
             child: TagChipList(
               tags: tags,
               tagConfig: tagConfig,

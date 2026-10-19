@@ -9,6 +9,7 @@ import 'screens/home_screen.dart';
 import 'screens/past_screen.dart';
 import 'screens/habit_stats_screen.dart';
 import 'theme/app_theme.dart';
+import 'theme/diary_reading_style.dart';
 import 'widgets/flora_dock.dart';
 import 'widgets/flora_skeleton.dart';
 import 'widgets/flora_splash.dart';
@@ -30,8 +31,14 @@ class LitchiJournalApp extends StatelessWidget {
       builder: (context, _) {
         return MaterialApp(
           title: '荔枝日记',
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
+          theme: DiaryReadingStyle.applyTo(
+            AppTheme.light,
+            fontSize: AppearanceController.instance.readingFontSize,
+          ),
+          darkTheme: DiaryReadingStyle.applyTo(
+            AppTheme.dark,
+            fontSize: AppearanceController.instance.readingFontSize,
+          ),
           themeMode: AppearanceController.instance.themeMode,
           builder: (context, child) {
             final theme = Theme.of(context);

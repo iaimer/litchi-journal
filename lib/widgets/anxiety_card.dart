@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../models/diary_document.dart';
 import '../theme/app_theme.dart';
+import '../theme/diary_reading_style.dart';
 import 'journal_section.dart';
 
 final _templateQuestionHint = RegExp(r'[？?]');
@@ -69,9 +70,7 @@ class AnxietyCard extends StatelessWidget {
       MarkdownBody(
         data: markdown,
         selectable: true,
-        styleSheet: MarkdownStyleSheet.fromTheme(
-          theme,
-        ).copyWith(p: theme.textTheme.bodyMedium?.copyWith(height: 1.6)),
+        styleSheet: DiaryReadingStyle.of(context).markdown(theme),
       ),
     ];
   }
@@ -143,10 +142,9 @@ class _AnxietyOpenGroup extends StatelessWidget {
 
   Widget _buildItem(BuildContext context, _AnxietyItem item, int index) {
     final theme = Theme.of(context);
-    final questionStyle = theme.textTheme.bodySmall?.copyWith(
-      fontWeight: FontWeight.w600,
-      height: 1.45,
-    );
+    final questionStyle = DiaryReadingStyle.of(
+      context,
+    ).metadata(theme).copyWith(fontWeight: FontWeight.w600, height: 1.45);
     final answer = item.answer;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +171,7 @@ class _AnxietyOpenGroup extends StatelessWidget {
             padding: const EdgeInsets.only(left: 16, top: 8),
             child: Text(
               answer,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+              style: DiaryReadingStyle.of(context).body(theme),
             ),
           ),
       ],

@@ -11,6 +11,7 @@ import '../services/failure_messages.dart';
 import '../services/api_client.dart';
 import '../screens/quick_capture_screen.dart';
 import '../theme/app_theme.dart';
+import '../theme/diary_reading_style.dart';
 import 'entry_type.dart';
 import 'diary_section_title.dart';
 import 'flora_icon.dart';
@@ -116,6 +117,7 @@ class GenericSectionCard extends StatelessWidget {
     }
     return SectionCard(
       title: displayTitle.isEmpty ? null : displayTitle,
+      titleStyle: DiaryReadingStyle.of(context).heading(Theme.of(context)),
       accentColor: effectiveAccent,
       children: children,
     );
@@ -209,28 +211,27 @@ class GenericSectionCard extends StatelessWidget {
         textColor ?? _readableAccentText(quoteAccentColor, isDark);
     final quoteBackground = quoteAccentColor.withAlpha(isDark ? 26 : 18);
     final quoteBorderColor = quoteAccentColor.withAlpha(isDark ? 120 : 92);
-    var sheet = MarkdownStyleSheet.fromTheme(theme).copyWith(
-      h2: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-      h3: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-      p: theme.textTheme.bodyMedium,
-      listBullet: theme.textTheme.bodyMedium,
-      blockquote: theme.textTheme.bodyMedium?.copyWith(
-        color: quoteTextColor,
-        height: 1.6,
-      ),
-      blockquotePadding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
-      blockquoteDecoration: BoxDecoration(
-        color: quoteBackground,
-        borderRadius: BorderRadius.circular(FloraRadius.sm),
-        border: Border(left: BorderSide(color: quoteBorderColor, width: 1)),
-      ),
-      horizontalRuleDecoration: BoxDecoration(
-        border: Border(top: BorderSide(color: theme.dividerColor, width: 1)),
-      ),
-    );
+    var sheet = DiaryReadingStyle.of(context)
+        .markdown(theme)
+        .copyWith(
+          blockquote: DiaryReadingStyle.of(
+            context,
+          ).body(theme).copyWith(color: quoteTextColor),
+          blockquotePadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
+          blockquoteDecoration: BoxDecoration(
+            color: quoteBackground,
+            borderRadius: BorderRadius.circular(FloraRadius.sm),
+            border: Border(left: BorderSide(color: quoteBorderColor, width: 1)),
+          ),
+          horizontalRuleDecoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: theme.dividerColor, width: 1),
+            ),
+          ),
+        );
     if (textColor != null) {
       sheet = sheet.copyWith(
         p: sheet.p?.copyWith(color: textColor),
@@ -254,12 +255,7 @@ class GenericSectionCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 12, bottom: 4),
-      child: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      child: Text(title, style: DiaryReadingStyle.of(context).heading(theme)),
     );
   }
 
@@ -290,17 +286,20 @@ class GenericSectionCard extends StatelessWidget {
                   child: MarkdownBody(
                     data: content.title,
                     selectable: true,
-                    styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                      blockSpacing: 0,
-                      p: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: color,
-                      ),
-                      strong: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
+                    styleSheet: DiaryReadingStyle.of(context)
+                        .markdown(theme)
+                        .copyWith(
+                          blockSpacing: 0,
+                          p: DiaryReadingStyle.of(
+                            context,
+                          ).heading(theme).copyWith(color: color),
+                          strong: DiaryReadingStyle.of(context)
+                              .heading(theme)
+                              .copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                              ),
+                        ),
                   ),
                 ),
               ],
@@ -375,18 +374,21 @@ class GenericSectionCard extends StatelessWidget {
             child: MarkdownBody(
               data: content.title,
               selectable: true,
-              styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                blockSpacing: 0,
-                p: theme.textTheme.bodySmall?.copyWith(
-                  color: color,
-                  fontStyle: FontStyle.italic,
-                ),
-                strong: theme.textTheme.bodySmall?.copyWith(
-                  color: color,
-                  fontStyle: FontStyle.italic,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              styleSheet: DiaryReadingStyle.of(context)
+                  .markdown(theme)
+                  .copyWith(
+                    blockSpacing: 0,
+                    p: DiaryReadingStyle.of(context)
+                        .body(theme)
+                        .copyWith(color: color, fontStyle: FontStyle.italic),
+                    strong: DiaryReadingStyle.of(context)
+                        .body(theme)
+                        .copyWith(
+                          color: color,
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
             ),
           ),
         ],
@@ -413,10 +415,7 @@ class GenericSectionCard extends StatelessWidget {
           FloraIcon(icon, size: 20, color: color),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-            ),
+            child: Text(text, style: DiaryReadingStyle.of(context).body(theme)),
           ),
         ],
       ),
@@ -683,6 +682,7 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
     }
 
     final trailing = _buildJournalTrailing();
+    final attachment = _buildPhotoGrid();
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
       child: IntrinsicHeight(
@@ -690,13 +690,10 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 48,
+              width: journalTimeColumnWidth(context),
               child: Text(
                 widget.content.time,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: accentColor,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: journalTimeStyle(context).copyWith(color: accentColor),
               ),
             ),
             _TimelineMarker(color: accentColor),
@@ -705,10 +702,15 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.content.text, style: theme.textTheme.bodyMedium),
-                  if (_buildPhotoGrid() case final attachment?) ...[
+                  Text(
+                    widget.content.text,
+                    style: DiaryReadingStyle.of(context).body(theme),
+                  ),
+                  if (attachment != null) ...[
                     const SizedBox(height: FloraSpacing.sm),
                     attachment,
+                    if (widget.content.tags.isNotEmpty || trailing != null)
+                      const SizedBox(height: FloraSpacing.md),
                   ],
                   if (widget.content.tags.isNotEmpty || trailing != null)
                     Row(
@@ -716,7 +718,9 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
                         if (widget.content.tags.isNotEmpty)
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.only(top: 2),
+                              padding: EdgeInsets.only(
+                                top: attachment == null ? FloraSpacing.md : 0,
+                              ),
                               child: TagChipList(
                                 tags: widget.content.tags,
                                 tagConfig: widget.tagConfig,

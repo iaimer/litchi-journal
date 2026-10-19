@@ -201,6 +201,19 @@ class FloraPaperPageTransitionsBuilder extends PageTransitionsBuilder {
 }
 
 class AppTheme {
+  static const _operationButtonStyle = ButtonStyle(
+    textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 16)),
+    minimumSize: WidgetStatePropertyAll(Size(48, 48)),
+  );
+
+  static DialogThemeData _dialogTheme(Color color) => DialogThemeData(
+    titleTextStyle: TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: color,
+    ),
+    contentTextStyle: TextStyle(fontSize: 16, height: 1.5, color: color),
+  );
   static final _pageTransitions = PageTransitionsTheme(
     builders: {
       for (final platform in TargetPlatform.values)
@@ -229,6 +242,14 @@ class AppTheme {
       onError: AppColors.surface,
     ),
     extensions: const [AppCalloutColors.light],
+    dialogTheme: _dialogTheme(AppColors.textPrimary),
+    textButtonTheme: const TextButtonThemeData(style: _operationButtonStyle),
+    filledButtonTheme: const FilledButtonThemeData(
+      style: _operationButtonStyle,
+    ),
+    popupMenuTheme: const PopupMenuThemeData(
+      textStyle: TextStyle(fontSize: 16),
+    ),
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.background,
       foregroundColor: AppColors.textPrimary,
@@ -260,6 +281,8 @@ class AppTheme {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
+        textStyle: const TextStyle(fontSize: 16),
+        minimumSize: const Size(48, 48),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.surface,
         elevation: 0,
@@ -271,6 +294,8 @@ class AppTheme {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        textStyle: const TextStyle(fontSize: 16),
+        minimumSize: const Size(48, 48),
         foregroundColor: AppColors.primary,
         side: const BorderSide(color: AppColors.primary, width: 0.5),
       ),
@@ -351,6 +376,14 @@ class AppTheme {
       onError: AppColors.darkBackground,
     ),
     extensions: const [AppCalloutColors.dark],
+    dialogTheme: _dialogTheme(AppColors.darkTextPrimary),
+    textButtonTheme: const TextButtonThemeData(style: _operationButtonStyle),
+    filledButtonTheme: const FilledButtonThemeData(
+      style: _operationButtonStyle,
+    ),
+    popupMenuTheme: const PopupMenuThemeData(
+      textStyle: TextStyle(fontSize: 16),
+    ),
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.darkBackground,
       foregroundColor: AppColors.darkTextPrimary,
@@ -382,6 +415,8 @@ class AppTheme {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
+        textStyle: const TextStyle(fontSize: 16),
+        minimumSize: const Size(48, 48),
         backgroundColor: AppColors.darkPrimary,
         foregroundColor: AppColors.darkBackground,
         elevation: 0,
@@ -393,6 +428,8 @@ class AppTheme {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        textStyle: const TextStyle(fontSize: 16),
+        minimumSize: const Size(48, 48),
         foregroundColor: AppColors.darkPrimary,
         side: const BorderSide(color: AppColors.darkPrimary, width: 0.5),
       ),

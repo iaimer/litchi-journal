@@ -7,6 +7,7 @@
 - 来源：[Lucide Icons](https://lucide.dev/)
 - 固定版本：[lucide-static@1.47.0](https://github.com/lucide-icons/lucide/releases/tag/1.47.0)
 - 资源形式：官方 SVG，随 App 本地打包。
+- 2026-10-18 外观模式补充 `monitor.svg` 与 `sun.svg`，取自同一固定版本 `lucide-static@1.47.0`；`moon.svg` 复用已有资源，不改写已保存的图标逻辑名称。
 - 许可：ISC License；其中列出的 Feather 派生图标同时附带 MIT License。
 
 ### Dock 实心派生资源

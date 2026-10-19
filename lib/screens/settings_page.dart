@@ -193,13 +193,13 @@ class SettingsPage extends StatelessWidget {
     return Semantics(
       button: true,
       label: item.title,
-      child: SizedBox(
+      child: ConstrainedBox(
         key: ValueKey('settings-item-${item.title}'),
-        height: 56,
+        constraints: const BoxConstraints(minHeight: 56),
         child: FloraInkWell(
           onTap: item.onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 SizedBox(width: 22, height: 22, child: item.icon),

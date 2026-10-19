@@ -11,6 +11,7 @@ import '../models/tag_settings.dart';
 import '../services/api_client.dart';
 import '../services/markdown_parser.dart';
 import '../theme/app_theme.dart';
+import '../theme/diary_reading_style.dart';
 import 'anxiety_card.dart';
 import 'diary_section_title.dart';
 import 'entry_type.dart';
@@ -406,7 +407,12 @@ class DiaryMarkdownView extends StatelessWidget {
       if (c is MarkdownContent && c.text.trim().isNotEmpty) {
         if (c.text.trim().startsWith('<!--')) continue;
         children.addAll(
-          _buildCoachContentWidgets(theme, c.text, _accentColorFor(section)),
+          _buildCoachContentWidgets(
+            context,
+            theme,
+            c.text,
+            _accentColorFor(section),
+          ),
         );
       }
     }
@@ -433,7 +439,6 @@ class DiaryMarkdownView extends StatelessWidget {
                   : const FloraIcon(FloraIcons.coach, size: 14),
               label: Text(
                 generatingCoach ? '生成中...' : (hasContent ? '更新回顾' : '生成回顾'),
-                style: const TextStyle(fontSize: 13),
               ),
             )
           : null,
@@ -451,9 +456,9 @@ class DiaryMarkdownView extends StatelessWidget {
             padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
             child: Text(
               '还没有今日回顾',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: DiaryReadingStyle.of(context)
+                  .metadata(theme)
+                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),
       ],
@@ -461,6 +466,7 @@ class DiaryMarkdownView extends StatelessWidget {
   }
 
   List<Widget> _buildCoachContentWidgets(
+    BuildContext context,
     ThemeData theme,
     String rawText,
     Color accentColor,
@@ -485,11 +491,9 @@ class DiaryMarkdownView extends StatelessWidget {
                 Expanded(
                   child: Text(
                     line,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: accentColor,
-                    ),
+                    style: DiaryReadingStyle.of(
+                      context,
+                    ).heading(theme).copyWith(color: accentColor),
                   ),
                 ),
               ],
@@ -501,10 +505,7 @@ class DiaryMarkdownView extends StatelessWidget {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              line,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-            ),
+            child: Text(line, style: DiaryReadingStyle.of(context).body(theme)),
           ),
         );
         hasRenderedLine = true;
@@ -644,7 +645,7 @@ class DiaryMarkdownView extends StatelessWidget {
               for (var index = 0; index < contentTexts.length; index++) ...[
                 Text(
                   contentTexts[index],
-                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+                  style: DiaryReadingStyle.of(context).body(theme),
                 ),
                 if (index < contentTexts.length - 1) const SizedBox(height: 8),
               ],

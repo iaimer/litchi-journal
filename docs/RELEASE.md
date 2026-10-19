@@ -22,7 +22,15 @@ npm run build
 
 ## 保留覆盖安装的内部包
 
-2026-10-18 最新补修产物为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-followup-release.apk`；更早的 `reliability-release.apk` 和原 `1.9.1-release.apk` 不包含本轮全部后续改动。准确哈希和云端验证见 `HANDOFF.md`。
+2026-10-19 最新测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reading-minimal-fixes-release.apk`（65,349,064 字节），SHA-256 `dc00ac2363962ab1ca864566243f302934e7623b7b4becc62e61059243c0ac68`，与当前 `app-release.apk` 相同。包含纸面三段设置及后续三处阅读补修：大字图标空间、标题强调继承与回顾按钮状态颜色。完整 Flutter 1060 项、静态检查、差异检查及 Release 构建通过；已核对 `1.9.1+40`、原包名及签名、无调试标记和三架构 AOT，支持覆盖安装。仍在功能分支，不升版、不合并、不推送、不部署、不运行远端 CI 或装机；真机验收由用户执行。
+
+上一阶段测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-paper-segments-release.apk`（65,349,064 字节），SHA-256 `5b9abbccc210e3e5dd561b5ad7fed74c438610e7013992c36b11aa09d88e1481`，不含后续阅读显示三处最小补修，不能当作最新 `app-release.apk`。外观与阅读字号改为仅点击的纸面三段按钮，修复超大字体圆角裁切和动画中途停用后的中间颜色残留；该阶段完整 Flutter 1021 项、静态检查、差异检查与 Release 构建通过。保持 `1.9.1+40`、原包名及证书，APK v2 签名与三架构 AOT 已核对，可覆盖安装。`paper-segments-pre-review-release.apk` 为更早的中间包，不用于验收。
+
+2026-10-18 统一胶囊审核补修已完成：超大系统字体空间不足时标签换行，避免选项热区重叠；正常字体布局不变。完整 Flutter 1021 项、静态检查、差异检查与 Release 构建通过，上一轮包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-appearance-reviewed-release.apk`（65,447,368 字节），SHA-256 `1e3141395c8e52aa3652aeadec152337f24f7fd478216c483e6cbc97bfa8b7b4`。保持 `1.9.1+40`、原包名与证书，APK v2 验证通过，支持覆盖安装；此包不含最新纸面三段按钮。
+
+2026-10-18 外观设置按确认图收拢为统一胶囊，完整 Flutter 1015 项、静态检查、差异检查和 Release 构建通过。审核前测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-appearance-capsules-release.apk`（65,447,368 字节），SHA-256 `df76c7b2987dc5f928dbea7a26ef9a1afb81381b0e19b19ff85871d8118675a3`。版本仍为 `1.9.1+40`，原包名与证书未变，已验证 APK v2 签名有效；只在当前功能分支，不包含升版、合并、推送、部署或装机。浅深色本地渲染已检查，用户真机验收待完成。下面的旧测试包保留，不含统一胶囊。
+
+2026-10-18 阅读字号功能根据真机反馈改为小／中／大 14／16／18sp 滑动条，默认中档，并增大正文到标签间距；该阶段完整 Flutter 1006 项、静态检查及 Release 构建通过。上阶段测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reading-three-sizes-release.apk`，仍为 `1.9.1+40`，仅在功能分支，不代表发布、合并或推送，构建校验见 `HANDOFF.md`。该轮授权不包含装机，下方安装命令仅供用户自行操作。原两档 `litchi-journal-1.9.1-reading-typography-release.apk` 和此前 `litchi-journal-1.9.1-followup-release.apk` 都保留，不包含最新三档与间距补修；更早的 `reliability-release.apk` 和原 `1.9.1-release.apk` 也不包含全部后续改动。
 
 ```bash
 flutter build apk --release

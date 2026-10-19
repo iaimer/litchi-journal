@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 
 class SectionCard extends StatelessWidget {
   final String? title;
+  final TextStyle? titleStyle;
   final Color? accentColor;
   final List<Widget> children;
   final EdgeInsetsGeometry? padding;
@@ -12,6 +13,7 @@ class SectionCard extends StatelessWidget {
   const SectionCard({
     super.key,
     this.title,
+    this.titleStyle,
     this.accentColor,
     this.children = const [],
     this.padding,
@@ -71,11 +73,13 @@ class SectionCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title!,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: titleColor,
-                          ),
+                          style:
+                              (titleStyle ??
+                                      const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ))
+                                  .copyWith(color: titleColor),
                         ),
                       ),
                       ?trailing,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/tag_config.dart';
 import '../theme/app_theme.dart';
+import '../theme/diary_reading_style.dart';
 
 class TagChipColors {
   final Color backgroundColor;
@@ -52,11 +53,9 @@ class TagChipList extends StatelessWidget {
               ),
               child: Text(
                 tag,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.textColor,
-                  fontSize: 11,
-                  height: 1.2,
-                ),
+                style: DiaryReadingStyle.of(
+                  context,
+                ).metadata(theme).copyWith(color: colors.textColor),
               ),
             );
           })

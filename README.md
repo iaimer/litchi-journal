@@ -6,7 +6,17 @@ Flutter 客户端负责 UI、状态管理和 API 调用；`server/` 负责 Markd
 
 ## 当前状态
 
-2026-10-18 后续复核补修在 `codex/reliability-followup-20261018` 完成：非时间记录也按完整原文编辑／删除，上传数据类型提前校验；过往旧分页每批最多三并发并保持合并顺序，服务器启动时保守清理过期重复临时副本。删除无调用的旧统计链路与闲置组件，当前趋势页行为不变。服务端测试改用系统临时目录，以修正首次 Ubuntu CI 的路径权限失败；本地 Flutter 932 项、服务端 146 项通过，功能分支 Ubuntu CI 已全部通过，正常入口 Release 构建通过。最新包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-followup-release.apk`（约 65.3MB），仍为 `1.9.1+40`，与旧包同包名、同证书，可覆盖安装。此前 reliability APK 不包含这轮后续补修。
+2026-10-19 按已确认预览完成阅读显示三处最小补修：大字下操作区可增高，菜单图标和加载圈不被挤小；标题里的加粗／斜体／链接继承正确字号，粗斜体可叠加；回顾按钮恢复原有启用／禁用颜色，仍为 16sp。新增 39 项回归，完整 Flutter 1060 项、静态检查、差异检查与 Release 构建通过，最新测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reading-minimal-fixes-release.apk`，校验见 `HANDOFF.md`。版本保持 `1.9.1+40`，三档字号、纸面控件、标签间距和保存逻辑不变，仍在原功能分支，不合并、推送、部署或装机。
+
+2026-10-19 外观设置改为纸面三段按钮：跟随系统／浅色／深色与小／中／大两组等宽等高，仅点击选择；选中整格暖色实底，不使用磨砂、透明、高光或投影。正常视觉高度 40dp、操作热区至少 48dp，系统大字时文字换行并同步增高；字号仍为 14／16／18sp、默认中档，保留即时预览、自动保存与失败回退。该阶段完整 Flutter 1021 项、静态检查、差异检查与 Release 构建通过，旧包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-paper-segments-release.apk`，不含后续三处补修。清单保持 `1.9.1+40`，仅在 `codex/reading-typography-20261018` 完成，不合并、推送、部署或装机。
+
+此前统一胶囊已完成双轴审核并补修超大系统字体下的选项误触，完整 Flutter 1021 项、静态检查、差异检查与 Release 构建通过。旧测试包 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-appearance-reviewed-release.apk` 保留，但不包含最新纸面三段按钮；其胶囊轨道与拖动交互已被替换。
+
+2026-10-18 的上一版曾将外观设置收拢为两组 24dp 胶囊，阅读预览并入字号分组；审核前完整 Flutter 1015 项、静态检查与 Release 构建通过，旧包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-appearance-capsules-release.apk`。这些是历史实现与验证记录，当前交互以上方纸面三段按钮为准，校验信息见 `HANDOFF.md`。
+
+2026-10-18 阅读字号调整已在 `codex/reading-typography-20261018` 实现：设置 → 外观通过 iOS 风格滑动条选择小／中／大（14／16／18sp），默认中档 16，立即预览并自动保存；仅调整今天与历史详情中的日记正文，不放大输入框、习惯或菜单。阅读章节标题 18、时间与标签 14，操作文字保持 16；支持手机系统继续放大，设置行可随文字自然增高。真机反馈后把纯文字正文到标签从 2dp 改为 12dp，照片到标签仍为 12dp，网格尺寸、时间轴实际收尾与数据行为不变。胶囊调整前完整 Flutter 1006 项及静态检查通过；旧 `litchi-journal-1.9.1-reading-typography-release.apk` 不含三档与间距补修。清单保持 `1.9.1+40`，本轮不合并、推送或装机，等待用户再次真机验收。
+
+2026-10-18 后续复核补修在 `codex/reliability-followup-20261018` 完成：非时间记录也按完整原文编辑／删除，上传数据类型提前校验；过往旧分页每批最多三并发并保持合并顺序，服务器启动时保守清理过期重复临时副本。删除无调用的旧统计链路与闲置组件，当前趋势页行为不变。服务端测试改用系统临时目录，以修正首次 Ubuntu CI 的路径权限失败；本地 Flutter 932 项、服务端 146 项通过，功能分支 Ubuntu CI 已全部通过，正常入口 Release 构建通过。该轮包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-followup-release.apk`（约 65.3MB），仍为 `1.9.1+40`，与旧包同包名、同证书，可覆盖安装；不包含本轮阅读字号调整。此前 reliability APK 不包含这轮后续补修。
 
 2026-10-18 在 `codex/write-reliability-20261018` 完成写入可靠性第一批及本地回归，版本保持 `1.9.1+40`：日记原子替换、缺失区块明确失败、习惯逐行更新、多行原始块精确匹配、共享附件保守删除，以及正文与操作标记同次提交。专注计时保存冻结请求并支持失败／重启后幂等重试，离开页面不再中断保存收尾。具体验证与交付边界见 `HANDOFF.md`。
 

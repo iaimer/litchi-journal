@@ -2,15 +2,22 @@ import 'package:flutter/material.dart';
 
 /// 外观设置数据模型。
 class AppearanceSettings {
+  static const readingFontSizes = [14, 16, 18];
   final int schemaVersion;
   final DateTime updatedAt;
   final ThemeMode themeMode;
+  final int readingFontSize;
 
   AppearanceSettings({
     this.schemaVersion = 1,
     DateTime? updatedAt,
     this.themeMode = ThemeMode.system,
-  }) : updatedAt = updatedAt ?? DateTime.now();
+    int readingFontSize = 16,
+  }) : updatedAt = updatedAt ?? DateTime.now(),
+       readingFontSize = normalizeReadingFontSize(readingFontSize);
+
+  static int normalizeReadingFontSize(Object? value) =>
+      value is int && readingFontSizes.contains(value) ? value : 16;
 
   factory AppearanceSettings.fromJson(Map<String, dynamic> json) {
     final modeStr = json['themeMode'] as String? ?? 'system';
@@ -20,20 +27,23 @@ class AppearanceSettings {
           ? DateTime.tryParse(json['updatedAt'] as String) ?? DateTime.now()
           : DateTime.now(),
       themeMode: _parseThemeMode(modeStr),
+      readingFontSize: normalizeReadingFontSize(json['readingFontSize']),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'schemaVersion': schemaVersion,
-        'updatedAt': updatedAt.toIso8601String(),
-        'themeMode': _themeModeString(themeMode),
-      };
+    'schemaVersion': schemaVersion,
+    'updatedAt': updatedAt.toIso8601String(),
+    'themeMode': _themeModeString(themeMode),
+    'readingFontSize': readingFontSize,
+  };
 
-  AppearanceSettings copyWith({ThemeMode? themeMode}) {
+  AppearanceSettings copyWith({ThemeMode? themeMode, int? readingFontSize}) {
     return AppearanceSettings(
       schemaVersion: schemaVersion,
       updatedAt: updatedAt,
       themeMode: themeMode ?? this.themeMode,
+      readingFontSize: readingFontSize ?? this.readingFontSize,
     );
   }
 

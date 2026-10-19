@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
@@ -35,6 +36,15 @@ void main() {
     );
   }
 
+  double firstTagLineCenter(WidgetTester tester, Finder tag) {
+    final text = find.descendant(of: tag, matching: find.byType(RichText)).first;
+    final paragraph = tester.renderObject<RenderParagraph>(text);
+    final firstCharacter = paragraph.getBoxesForSelection(
+      const TextSelection(baseOffset: 0, extentOffset: 1),
+    ).first;
+    return paragraph.localToGlobal(firstCharacter.toRect().center).dy;
+  }
+
   Future<void> expectTagAndMenuAligned(
     WidgetTester tester, {
     required Widget child,
@@ -52,10 +62,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final tagRect = tester.getRect(find.text(tag));
     final moreRect = tester.getRect(moreIconFinder());
     expect(
-      (tagRect.center.dy - moreRect.center.dy).abs(),
+      (firstTagLineCenter(tester, find.text(tag)) - moreRect.center.dy).abs(),
       lessThanOrEqualTo(2),
     );
     expect(find.byType(IconButton), findsOneWidget);
@@ -859,10 +868,10 @@ void main() {
         );
         expect(noteTags.top - notePhoto.bottom, closeTo(12, 0.5));
         expect(happinessTags.top - happinessPhoto.bottom, closeTo(12, 0.5));
-        expect(noteWithoutPhotoTags.top - noteBody.bottom, closeTo(2, 0.5));
+        expect(noteWithoutPhotoTags.top - noteBody.bottom, closeTo(12, 0.5));
         expect(
           happinessWithoutPhotoTags.top - happinessBody.bottom,
-          closeTo(2, 0.5),
+          closeTo(12, 0.5),
         );
 
         for (var index = 0; index < 4; index++) {

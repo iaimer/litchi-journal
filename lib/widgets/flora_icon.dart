@@ -75,6 +75,9 @@ class FloraIcons {
 
   static const String deviceSystem = 'device-system';
   static const String theme = 'theme';
+  static const String appearanceSystem = 'appearance-system';
+  static const String appearanceLight = 'appearance-light';
+  static const String appearanceDark = 'appearance-dark';
 
   static const String habitWater = 'habit-water';
   static const String habitWalk = 'habit-walk';
@@ -170,6 +173,9 @@ class FloraIcons {
     calloutCode: 'code-xml',
     deviceSystem: 'monitor-smartphone',
     theme: 'sun-moon',
+    appearanceSystem: 'monitor',
+    appearanceLight: 'sun',
+    appearanceDark: 'moon',
     habitWater: 'glass-water',
     habitWalk: 'footprints',
     habitRead: 'book-open',

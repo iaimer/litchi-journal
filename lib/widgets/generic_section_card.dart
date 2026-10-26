@@ -75,36 +75,9 @@ class GenericSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (section.isEmpty) return const SizedBox.shrink();
 
-    // 小确幸：全部走专用渲染（单条纯文本，多条 bullet list，不用 Timeline）
-    if (section is HappinessSection) {
-      return _buildHappinessSection(context, section);
-    }
-
-    final journalLayout = section is ReviewSection;
-    final timelineCount = section.contents.whereType<TimelineContent>().length;
-    final children = <Widget>[];
-    if (_hasCollapsibleCallout(section)) {
-      children.add(_buildCollapsedCallout(context, section));
-    } else {
-      for (int i = 0; i < section.contents.length; i++) {
-        final content = section.contents[i];
-        if (content is SubSectionContent) {
-          if (_subSectionHasContent(section.contents, i)) {
-            children.add(_buildSubSectionHeader(context, content.title));
-          }
-        } else {
-          if (_isHappinessSlogan(section, content)) continue;
-          _buildContent(
-            context,
-            content,
-            children,
-            journalLayout: journalLayout,
-            timelineCount: timelineCount,
-          );
-        }
-      }
-    }
-
+    final journalLayout =
+        section is ReviewSection || section is HappinessSection;
+    final children = _buildSectionContents(context, journalLayout);
     final effectiveAccent =
         accentColor ?? Theme.of(context).colorScheme.primary;
     final displayTitle = diarySectionDisplayTitle(section);
@@ -121,6 +94,35 @@ class GenericSectionCard extends StatelessWidget {
       accentColor: effectiveAccent,
       children: children,
     );
+  }
+
+  List<Widget> _buildSectionContents(BuildContext context, bool journalLayout) {
+    if (_hasCollapsibleCallout(section)) {
+      return [_buildCollapsedCallout(context, section)];
+    }
+    final children = <Widget>[];
+    for (int i = 0; i < section.contents.length; i++) {
+      final content = section.contents[i];
+      if (content is SubSectionContent) {
+        if (_subSectionHasContent(section.contents, i)) {
+          children.add(_buildSubSectionHeader(context, content.title));
+        }
+        continue;
+      }
+      if (_isHappinessSlogan(section, content)) continue;
+      _buildContent(
+        context,
+        content,
+        children,
+        journalLayout: journalLayout,
+        isFirst: i == 0 || section.contents[i - 1] is! TimelineContent,
+        isLast:
+            i == section.contents.length - 1 ||
+            section.contents[i + 1] is! TimelineContent,
+      );
+    }
+
+    return children;
   }
 
   static bool _subSectionHasContent(List<DiaryContent> contents, int from) {
@@ -153,7 +155,8 @@ class GenericSectionCard extends StatelessWidget {
     DiaryContent content,
     List<Widget> widgets, {
     required bool journalLayout,
-    required int timelineCount,
+    required bool isFirst,
+    required bool isLast,
   }) {
     switch (content) {
       case CalloutContent():
@@ -161,27 +164,7 @@ class GenericSectionCard extends StatelessWidget {
       case CheckboxContent():
         widgets.add(_buildCheckbox(context, content));
       case TimelineContent():
-        widgets.add(
-          _EditableEntryRow(
-            content: content,
-            preserveActionSpace: preserveActionSpace,
-            onDelete: onTimelineDelete,
-            onEdit: onTimelineEdit,
-            onEditWithEntryId: onTimelineEditWithEntryId,
-            onEditCompleted: onTimelineEditCompleted,
-            tagConfig: tagConfig,
-            tagSettings: tagSettings,
-            accentColor: accentColor,
-            recordDate: recordDate,
-            entryType: _entryTypeForSection(section),
-            onPolish: onPolish,
-            apiClient: apiClient,
-            imagePicker: imagePicker,
-            imageCompressor: imageCompressor,
-            journalLayout: journalLayout,
-            showBullet: journalLayout && timelineCount > 1,
-          ),
-        );
+        widgets.add(_buildEntryRow(content, journalLayout, isFirst, isLast));
       case MarkdownContent():
         widgets.add(
           MarkdownBody(
@@ -196,6 +179,32 @@ class GenericSectionCard extends StatelessWidget {
         break;
     }
   }
+
+  Widget _buildEntryRow(
+    TimelineContent content,
+    bool journalLayout,
+    bool isFirst,
+    bool isLast,
+  ) => _EditableEntryRow(
+    content: content,
+    preserveActionSpace: preserveActionSpace,
+    onDelete: onTimelineDelete,
+    onEdit: onTimelineEdit,
+    onEditWithEntryId: onTimelineEditWithEntryId,
+    onEditCompleted: onTimelineEditCompleted,
+    tagConfig: tagConfig,
+    tagSettings: tagSettings,
+    accentColor: accentColor,
+    recordDate: recordDate,
+    entryType: _entryTypeForSection(section),
+    onPolish: onPolish,
+    apiClient: apiClient,
+    imagePicker: imagePicker,
+    imageCompressor: imageCompressor,
+    journalLayout: journalLayout,
+    isFirst: isFirst,
+    isLast: isLast,
+  );
 
   EntryType? _entryTypeForSection(DiarySection section) {
     if (section is ReviewSection) return EntryType.reflection;
@@ -314,42 +323,6 @@ class GenericSectionCard extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-
-  /// 小确幸专用渲染：单条无圆点，多条使用 bullet，并复用可编辑条目行。
-  Widget _buildHappinessSection(BuildContext context, DiarySection section) {
-    final theme = Theme.of(context);
-    final entries = section.contents.whereType<TimelineContent>().toList();
-
-    if (entries.isEmpty) return const SizedBox.shrink();
-
-    final effectiveAccent = accentColor ?? theme.colorScheme.primary;
-    return JournalSection(
-      title: '小确幸',
-      accentColor: effectiveAccent,
-      children: [
-        for (final entry in entries)
-          _EditableEntryRow(
-            content: entry,
-            preserveActionSpace: preserveActionSpace,
-            onDelete: onTimelineDelete,
-            onEdit: onTimelineEdit,
-            onEditWithEntryId: onTimelineEditWithEntryId,
-            onEditCompleted: onTimelineEditCompleted,
-            tagConfig: tagConfig,
-            tagSettings: tagSettings,
-            accentColor: effectiveAccent,
-            recordDate: recordDate,
-            entryType: EntryType.happiness,
-            onPolish: onPolish,
-            apiClient: apiClient,
-            imagePicker: imagePicker,
-            imageCompressor: imageCompressor,
-            journalLayout: true,
-            showBullet: entries.length > 1,
-          ),
-      ],
     );
   }
 
@@ -514,7 +487,8 @@ class _EditableEntryRow extends StatefulWidget {
   final Future<PolishResult> Function(String content, EntryType entryType)?
   onPolish;
   final bool journalLayout;
-  final bool showBullet;
+  final bool isFirst;
+  final bool isLast;
   final ApiClient? apiClient;
   final QuickCaptureImagePicker? imagePicker;
   final QuickCaptureImageCompressor? imageCompressor;
@@ -533,7 +507,8 @@ class _EditableEntryRow extends StatefulWidget {
     this.entryType,
     this.onPolish,
     this.journalLayout = false,
-    this.showBullet = false,
+    this.isFirst = false,
+    this.isLast = false,
     this.apiClient,
     this.imagePicker,
     this.imageCompressor,
@@ -670,12 +645,14 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
     final accentColor = widget.accentColor ?? theme.colorScheme.primary;
 
     if (widget.journalLayout) {
-      return JournalListEntryRow(
+      return JournalTimelineRow(
+        time: widget.content.time,
         content: widget.content.text,
         tags: widget.content.tags,
         accentColor: accentColor,
         tagConfig: widget.tagConfig,
-        showBullet: widget.showBullet,
+        isFirst: widget.isFirst,
+        isLast: widget.isLast,
         trailing: _buildJournalTrailing(),
         attachment: _buildPhotoGrid(),
       );

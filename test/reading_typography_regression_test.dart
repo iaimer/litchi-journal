@@ -208,7 +208,8 @@ void main() {
           addTearDown(tester.view.resetDevicePixelRatio);
           await tester.pumpWidget(
             _host(
-              JournalListEntryRow(
+              JournalTimelineRow(
+                time: '10:30',
                 content: '正文',
                 tags: const ['#生活'],
                 accentColor: TodayRainbow.quickNote,

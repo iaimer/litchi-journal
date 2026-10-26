@@ -796,7 +796,8 @@ void main() {
           onPressed: _emptyCallback,
         ),
       );
-      final happinessRow = JournalListEntryRow(
+      final happinessRow = JournalTimelineRow(
+        time: '10:30',
         content: '小确幸正文',
         tags: const ['#小确幸'],
         accentColor: Colors.orange,
@@ -825,7 +826,8 @@ void main() {
           onPressed: _emptyCallback,
         ),
       );
-      final happinessWithoutPhotoRow = JournalListEntryRow(
+      final happinessWithoutPhotoRow = JournalTimelineRow(
+        time: '10:30',
         content: '无图小确幸正文',
         tags: const ['#无图小确幸'],
         accentColor: Colors.orange,

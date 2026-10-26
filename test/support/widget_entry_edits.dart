@@ -221,7 +221,7 @@ void registerEntryEditsTests() {
       },
     );
 
-    testWidgets('GenericSectionCard single happiness shows plain text', (
+    testWidgets('GenericSectionCard single happiness shows its time', (
       tester,
     ) async {
       final section = HappinessSection(
@@ -242,14 +242,15 @@ void registerEntryEditsTests() {
         ),
       );
 
-      // 单条显示纯文本，无项目符号
+      // 单条也显示真实时间，不使用圆点列表。
       expect(find.text('下班看到晚霞'), findsOneWidget);
       expect(find.text('•'), findsNothing);
-      // 无 timeline 图标
+      expect(find.text('14:00'), findsOneWidget);
+      // 只读条目不提供操作按钮。
       expect(find.byTooltip("更多操作"), findsNothing);
     });
 
-    testWidgets('GenericSectionCard multiple happiness shows bullet list', (
+    testWidgets('GenericSectionCard multiple happiness shows timeline', (
       tester,
     ) async {
       final section = HappinessSection(
@@ -276,17 +277,17 @@ void registerEntryEditsTests() {
         ),
       );
 
-      // 多条显示 bullet list
-      expect(find.text('•'), findsNWidgets(2));
+      // 多条保留各自时间。
+      expect(find.text('•'), findsNothing);
       expect(find.text('下班看到晚霞'), findsOneWidget);
       expect(find.text('女儿收拾玩具'), findsOneWidget);
-      // 无 timeline 样式
-      expect(find.text('14:00'), findsNothing);
-      expect(find.text('15:00'), findsNothing);
+      // 阅读模式不显示编辑操作。
+      expect(find.text('14:00'), findsOneWidget);
+      expect(find.text('15:00'), findsOneWidget);
       expect(find.byTooltip("更多操作"), findsNothing);
     });
 
-    testWidgets('GenericSectionCard happiness no longer shows timeline', (
+    testWidgets('GenericSectionCard happiness retains all three times', (
       tester,
     ) async {
       final section = HappinessSection(
@@ -319,11 +320,11 @@ void registerEntryEditsTests() {
         ),
       );
 
-      // 三条都是 bullet，不是时间标签
-      expect(find.text('•'), findsNWidgets(3));
-      expect(find.text('20:00'), findsNothing);
-      expect(find.text('21:00'), findsNothing);
-      expect(find.text('22:00'), findsNothing);
+      // 三条时间均可读取。
+      expect(find.text('•'), findsNothing);
+      expect(find.text('20:00'), findsOneWidget);
+      expect(find.text('21:00'), findsOneWidget);
+      expect(find.text('22:00'), findsOneWidget);
     });
 
     testWidgets('GenericSectionCard happiness shows actions per entry', (
@@ -358,7 +359,7 @@ void registerEntryEditsTests() {
         ),
       );
 
-      expect(find.text('•'), findsNWidgets(2));
+      expect(find.byType(JournalTimelineRow), findsNWidgets(2));
       expect(find.byTooltip("更多操作"), findsNWidgets(2));
     });
 
@@ -505,7 +506,7 @@ void registerEntryEditsTests() {
       },
     );
 
-    testWidgets('GenericSectionCard single reflection hides its timeline', (
+    testWidgets('GenericSectionCard single reflection shows its timeline', (
       tester,
     ) async {
       final section = ReviewSection(
@@ -532,13 +533,13 @@ void registerEntryEditsTests() {
       );
 
       expect(find.text('先停下来观察'), findsOneWidget);
-      expect(find.text('10:00'), findsNothing);
+      expect(find.text('10:00'), findsOneWidget);
       expect(find.text('•'), findsNothing);
-      expect(find.byType(JournalTimelineRow), findsNothing);
+      expect(find.byType(JournalTimelineRow), findsOneWidget);
       expect(find.byTooltip("更多操作"), findsOneWidget);
     });
 
-    testWidgets('GenericSectionCard multiple reflections use bullets', (
+    testWidgets('GenericSectionCard multiple reflections use timeline', (
       tester,
     ) async {
       final section = ReviewSection(
@@ -567,10 +568,10 @@ void registerEntryEditsTests() {
 
       expect(find.text('先停下来观察'), findsOneWidget);
       expect(find.text('把感受说清楚'), findsOneWidget);
-      expect(find.text('10:00'), findsNothing);
-      expect(find.text('21:30'), findsNothing);
-      expect(find.text('•'), findsNWidgets(2));
-      expect(find.byType(JournalTimelineRow), findsNothing);
+      expect(find.text('10:00'), findsOneWidget);
+      expect(find.text('21:30'), findsOneWidget);
+      expect(find.text('•'), findsNothing);
+      expect(find.byType(JournalTimelineRow), findsNWidgets(2));
       expect(find.byTooltip("更多操作"), findsNothing);
     });
 

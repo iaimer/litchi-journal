@@ -1,5 +1,17 @@
 # 当前交接
 
+## 恢复觉察、小确幸时间轴（2026-10-26，本地完成，已审核修复）
+
+功能分支 `codex/consistent-entry-timeline` 从 `5d6c74a` 开始。两个模块的时间一直保存在日记中，本轮移除隐藏时间的列表分支，直接复用随手记 `JournalTimelineRow`；今天和历史详情生效。相邻时间记录连接，遇到领域模型中的 Markdown 正文、Callout 或小标题断开；无时间旧正文保留，不改写原文件。Parser 对时间记录后未缩进正文的既有多行归属保持不变，混排回归使用明确分隔表示独立旧正文。
+
+新增三模块显示回归先因缺少觉察时间失败；既有阅读布局基线 74 项通过。恢复后针对性阅读、编辑、删除与布局 517 项通过，真实页面浅深色 4 项通过。三档字号和真实 320dp 元信息下 1／1.3／2／3 倍字体均验证时间、12dp 标签间距和末条收尾；迁移的 4 倍字操作回归也通过。共享时间轴原有固定 72dp 避让在 3 倍字产生 17px 溢出，已按实际宽度收敛；无法并排时上下排布，标签和操作必要时换行。
+
+双轴审核已完成并复核。规范轴发现内容遍历四层嵌套，改为提前返回及 continue，现最多三层；需求轴核对超大字体上下排布发现节点遮挡时间和多条竖线间断，均先补失败回归再修复。节点按真实时间高度偏移，时间左缩进避开竖线，非首条竖线从行顶连续连接，末条仍在实际标签底部结束。相关 88 项通过，最终完整 Flutter 1147 项、`flutter analyze --no-pub` 与 `git diff --check` 通过，两轴最终未解决问题均为 0。
+
+实际 Flutter 本地预览在 `build/consistent-entry-timeline-preview/`，today／history × light／dark，共 4 张；390dp，测试显式提供中文字体，不是 PLG110 真机截图。测试阴影和个别按钮文字的字体覆盖与实机存在差异，三个记录模块已逐项核对。
+
+用户随后授权构建并确认已装机。已从功能分支代码 `51971db` 的正常 `lib/main.dart` 入口构建内部 Android Release：`build/app/outputs/flutter-apk/litchi-journal-1.9.2-consistent-entry-timeline-release.apk`，65,332,756 字节，SHA-256 `3720c324d0c74342beb1ce6bb36fae0a59f893d7aec2e4a42aad441664bccaa0`。核对版本 `1.9.2+41`、原包名 `com.example.litchi_journal_flutter` 与原 Android Debug 证书（SHA-256 `4b15b79943c8e123ab288bfcb76e6235d59cc265b9e56e40660eb69af499c433`），APK v2 签名通过，可覆盖安装；构建只有既有 KGP 迁移提示。当前开始合并并推送；未部署。先前的 `startup-record-fab-release.apk` 不包含本轮时间轴更新。
+
 ## 冷启动加号变淡修复（2026-10-26，本地完成）
 
 在 `codex/fix-startup-record-fab` 修复用户报告的启动期间加号变透明：首页用 `_verified ? 1 : 0.4` 将整组记录入口透明度绑定到日记联网确认状态，导致启动至请求成功前只有 40% 不透明度。移除这层 `Opacity`，保留原有 `IgnorePointer`、语义与联网写入边界；菜单展开时隐藏加号的独立规则保留。版本升至 `1.9.2+41`，已 squash 合并至 `main` 并推送。

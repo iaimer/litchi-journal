@@ -182,10 +182,7 @@ void main() {
           ]) {
             expect(tester.widget<Text>(find.text(title)).style?.fontSize, 18);
           }
-          for (final row in [
-            find.byType(JournalTimelineRow),
-            find.byType(JournalListEntryRow),
-          ]) {
+          for (final row in [find.byType(JournalTimelineRow)]) {
             for (final element in row.evaluate()) {
               final entry = find.byElementPredicate(
                 (candidate) => identical(candidate, element),
@@ -195,9 +192,7 @@ void main() {
                 matching: find.byType(TagChipList),
               );
               final widget = element.widget;
-              final text = widget is JournalTimelineRow
-                  ? widget.content
-                  : (widget as JournalListEntryRow).content;
+              final text = (widget as JournalTimelineRow).content;
               expect(
                 tester.getRect(tags).top -
                     tester.getRect(find.text(text)).bottom,

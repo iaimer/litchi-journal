@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'flora_origin.dart';
 
@@ -250,19 +252,72 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
   Widget build(BuildContext context) {
     if (widget.isLast) _scheduleRailMeasurement();
     final timeWidth = journalTimeColumnWidth(context);
-    return Padding(
-      padding: EdgeInsets.only(left: 4, right: journalFabSafetyInset(context)),
-      child: Stack(
-        key: _stackKey,
-        children: [
-          _buildRail(timeWidth),
-          _buildEntry(Theme.of(context), timeWidth),
-        ],
-      ),
+    final minimumBodyWidth = math.max(
+      48.0,
+      MediaQuery.textScalerOf(
+        context,
+      ).scale(DiaryReadingStyle.of(context).fontSize),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final spareWidth =
+            constraints.maxWidth - 4 - timeWidth - 16 - minimumBodyWidth;
+        final stacked = spareWidth < 0;
+        // 系统大字下优先保留真实时间和正文，不能让 FAB 避让挤掉内容。
+        final rightInset = spareWidth.clamp(
+          0.0,
+          journalFabSafetyInset(context),
+        );
+        return Padding(
+          padding: EdgeInsets.only(left: 4, right: rightInset),
+          child: Stack(
+            key: _stackKey,
+            children: [
+              _buildRail(
+                stacked ? 0 : timeWidth,
+                nodeOffset: stacked
+                    ? _stackedTimeHeight(constraints.maxWidth - 20)
+                    : 0,
+              ),
+              stacked
+                  ? _buildStackedEntry(Theme.of(context))
+                  : _buildEntry(Theme.of(context), timeWidth),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildRail(double timeWidth) => Positioned(
+  double _stackedTimeHeight(double maxWidth) {
+    final painter = TextPainter(
+      text: TextSpan(text: widget.time, style: journalTimeStyle(context)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: maxWidth);
+    final height = painter.height;
+    painter.dispose();
+    return height;
+  }
+
+  Widget _buildStackedEntry(ThemeData theme) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Text(
+          widget.time,
+          style: journalTimeStyle(context).copyWith(color: widget.accentColor),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(left: 16, top: 4, bottom: 4),
+        child: _buildContent(theme),
+      ),
+    ],
+  );
+
+  Widget _buildRail(double timeWidth, {double nodeOffset = 0}) => Positioned(
     left: timeWidth,
     top: 0,
     bottom: 0,
@@ -271,6 +326,7 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
       color: widget.accentColor,
       isFirst: widget.isFirst,
       isLast: widget.isLast,
+      nodeOffset: nodeOffset,
       terminalBottom: widget.isLast ? _terminalRailBottom : null,
     ),
   );
@@ -320,118 +376,41 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
     ],
   );
 
-  Widget _buildMetadataRow() => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (widget.tags.isNotEmpty)
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: widget.attachment == null ? FloraSpacing.md : 0,
-            ),
-            child: TagChipList(
-              key: _tagsKey,
-              tags: widget.tags,
-              tagConfig: widget.tagConfig,
-              moduleAccentColor: widget.accentColor,
-            ),
-          ),
-        )
-      else
-        const Spacer(),
-      ?widget.trailing,
-    ],
-  );
-}
-
-class JournalListEntryRow extends StatelessWidget {
-  final String content;
-  final List<String> tags;
-  final Color accentColor;
-  final TagConfig? tagConfig;
-  final bool showBullet;
-  final Widget? trailing;
-  final Widget? attachment;
-
-  const JournalListEntryRow({
-    super.key,
-    required this.content,
-    required this.tags,
-    required this.accentColor,
-    required this.tagConfig,
-    this.showBullet = false,
-    this.trailing,
-    this.attachment,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final readingStyle = DiaryReadingStyle.of(context);
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 4,
-        top: 4,
-        right: journalFabSafetyInset(context),
-        bottom: 8,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showBullet)
-            SizedBox(
-              width: 20,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: Text(
-                  '•',
-                  style: readingStyle
-                      .body(theme)
-                      .copyWith(color: accentColor, height: 1.4),
-                ),
-              ),
-            ),
-          Expanded(child: _buildContent(theme, readingStyle)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContent(ThemeData theme, DiaryReadingStyle readingStyle) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(content, style: readingStyle.body(theme)),
-          if (attachment != null) ...[
-            const SizedBox(height: FloraSpacing.sm),
-            attachment!,
-            if (tags.isNotEmpty || trailing != null)
-              const SizedBox(height: FloraSpacing.md),
+  Widget _buildMetadataRow() => LayoutBuilder(
+    builder: (context, constraints) {
+      final tags = _buildTags();
+      final minimumTagWidth = MediaQuery.textScalerOf(context).scale(14) + 14;
+      if (widget.tags.isNotEmpty &&
+          widget.trailing != null &&
+          constraints.maxWidth < minimumTagWidth + 48) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            tags,
+            Align(alignment: Alignment.centerRight, child: widget.trailing!),
           ],
-          if (tags.isNotEmpty || trailing != null) _buildMetadataRow(),
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.tags.isNotEmpty) Expanded(child: tags) else const Spacer(),
+          ?widget.trailing,
         ],
       );
+    },
+  );
 
-  Widget _buildMetadataRow() => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (tags.isNotEmpty)
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: attachment == null ? FloraSpacing.md : 0,
-            ),
-            child: TagChipList(
-              tags: tags,
-              tagConfig: tagConfig,
-              moduleAccentColor: accentColor,
-            ),
-          ),
-        )
-      else
-        const Spacer(),
-      ?trailing,
-    ],
+  Widget _buildTags() => Padding(
+    padding: EdgeInsets.only(
+      top: widget.attachment == null ? FloraSpacing.md : 0,
+    ),
+    child: TagChipList(
+      key: _tagsKey,
+      tags: widget.tags,
+      tagConfig: widget.tagConfig,
+      moduleAccentColor: widget.accentColor,
+    ),
   );
 }
 
@@ -440,17 +419,19 @@ class _JournalTimelineRail extends StatelessWidget {
   final bool isFirst;
   final bool isLast;
   final double? terminalBottom;
+  final double nodeOffset;
 
   const _JournalTimelineRail({
     required this.color,
     required this.isFirst,
     required this.isLast,
     required this.terminalBottom,
+    required this.nodeOffset,
   });
 
   @override
   Widget build(BuildContext context) {
-    final lineTop = isFirst ? 11.0 : 0.0;
+    final lineTop = isFirst ? nodeOffset + 11.0 : 0.0;
     return SizedBox(
       width: 8,
       child: Stack(
@@ -469,7 +450,7 @@ class _JournalTimelineRail extends StatelessWidget {
             child: ColoredBox(color: color.withAlpha(88)),
           ),
           Positioned(
-            top: 7,
+            top: nodeOffset + 7,
             left: 0,
             child: DecoratedBox(
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),

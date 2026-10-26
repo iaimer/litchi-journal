@@ -22,7 +22,9 @@ npm run build
 
 ## 保留覆盖安装的内部包
 
-2026-10-26 最新测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.2-startup-record-fab-release.apk`（65,332,756 字节），SHA-256 `2d65fb68d305ac1d9479da916c8b26f568829c379a54d1b277f2fa7228ef105d`。从冷启动加号修复分支构建，完整 Flutter 1111 项与 `flutter analyze --no-pub` 通过；已核对版本 `1.9.2+41`、原包名与证书及 APK v2 签名，可覆盖安装。尚未装机。此前 `1.9.1+40` 的 `litchi-journal-1.9.1-reflection-vertical-menu-release.apk` 不包含加号加载态修复。
+2026-10-26 最新测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.2-consistent-entry-timeline-release.apk`（65,332,756 字节），SHA-256 `3720c324d0c74342beb1ce6bb36fae0a59f893d7aec2e4a42aad441664bccaa0`。从功能分支代码 `51971db` 构建，三个记录模块统一显示时间轴，完整 Flutter 1147 项与静态检查通过、审核问题已修复。核对版本 `1.9.2+41`、原包名与证书及 APK v2 签名；用户确认已装机；本轮完成主线合并与推送，未部署。
+
+前一个测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.2-startup-record-fab-release.apk`（65,332,756 字节），SHA-256 `2d65fb68d305ac1d9479da916c8b26f568829c379a54d1b277f2fa7228ef105d`。包含冷启动加号修复，不含后续统一时间轴；完整 Flutter 1111 项与 `flutter analyze --no-pub` 通过。此前 `1.9.1+40` 的 `litchi-journal-1.9.1-reflection-vertical-menu-release.apk` 不包含加号加载态修复。
 
 此前测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reflection-vertical-menu-release.apk`（65,332,680 字节），SHA-256 `0d029d99e810044b85e753fdd449974ec6e483ab275a09f173f8f1f601fb58d2`。该包从功能分支代码 `381beec` 构建，包含三个快速记录入口、觉察静态提示和旧焦虑阅读修复；完整 Flutter 1110 项、服务端 160 项、静态分析、服务端构建及 Android Release 构建通过。已核对 `1.9.1+40`、原包名与证书和 APK v2 签名。未装机或部署；新日记模板须部署新版服务端后生效。
 

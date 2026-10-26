@@ -18,6 +18,8 @@ const _writePreview = bool.fromEnvironment('WRITE_REFLECTION_PREVIEW');
 const _previewFontPath = String.fromEnvironment('REFLECTION_PREVIEW_FONT');
 const _previewKey = ValueKey('reflection_preview');
 const _questions = '发生了什么？\n当时我在想什么、在意什么？\n现在有什么需要？';
+const _quickNoteHint = '有什么想记下来的？\n一句话也可以。';
+const _happinessHint = '有什么让你开心的小事？\n记下那个瞬间就好。';
 
 ThemeData _theme(bool dark) {
   final theme = dark ? AppTheme.dark : AppTheme.light;
@@ -278,23 +280,123 @@ void main() {
     expect(tester.getSize(_editor).height, greaterThan(filledHeight));
   });
 
-  for (final type in [EntryType.quickNote, EntryType.happiness]) {
-    testWidgets('${type.name} 保留原占位样式', (tester) async {
-      await tester.pumpWidget(_host(type: type));
-      final field = tester.widget<TextField>(_editor);
-      expect(
-        field.decoration!.hintText,
-        type == EntryType.quickNote ? '写点想法...' : '今天有什么小确幸？',
+  for (final (type, copy) in [
+    (EntryType.quickNote, _quickNoteHint),
+    (EntryType.happiness, _happinessHint),
+  ]) {
+    for (final dark in [false, true]) {
+      for (final highContrast in [false, true]) {
+        testWidgets(
+          '${type.name} 空白提示与觉察同样轻巧 dark=$dark highContrast=$highContrast',
+          (tester) async {
+            await tester.pumpWidget(
+              _host(type: type, dark: dark, highContrast: highContrast),
+            );
+            final field = tester.widget<TextField>(_editor);
+            final hint = tester.widget<Text>(find.text(copy));
+            final color = _theme(dark).colorScheme.onSurfaceVariant;
+            final alpha = highContrast ? 1.0 : (dark ? 0.65 : 0.5);
+            expect(field.controller!.text, isEmpty);
+            expect(field.decoration!.hintText, copy);
+            expect(field.decoration!.maintainHintSize, isFalse);
+            expect(field.decoration!.hintFadeDuration, Duration.zero);
+            expect(hint.style!.fontSize, 13);
+            expect(hint.style!.fontWeight, FontWeight.w400);
+            expect(hint.style!.height, 1.7);
+            expect(hint.style!.color, color.withValues(alpha: alpha));
+            expect(field.style!.fontSize, 16);
+            expect(find.text(_questions), findsNothing);
+          },
+        );
+      }
+    }
+
+    for (final mode in ['new', 'edit', 'historical']) {
+      testWidgets('${type.name} $mode 输入后隐藏提示，清空后恢复', (tester) async {
+        await tester.pumpWidget(
+          _host(
+            type: type,
+            content: mode == 'edit' ? '已有记录' : null,
+            date: mode == 'historical' ? DateTime(2026, 10, 24) : null,
+          ),
+        );
+        final field = tester.widget<TextField>(_editor);
+        final element = tester.element(_editor);
+        expect(find.text(copy), mode == 'edit' ? findsNothing : findsOneWidget);
+        await tester.showKeyboard(_editor);
+        for (final value in [
+          const TextEditingValue(
+            text: ' ',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+          const TextEditingValue(
+            text: '用户正文',
+            selection: TextSelection.collapsed(offset: 4),
+          ),
+          const TextEditingValue(selection: TextSelection.collapsed(offset: 0)),
+        ]) {
+          tester.testTextInput.updateEditingValue(value);
+          await tester.pump();
+          final current = tester.widget<TextField>(_editor);
+          expect(identical(tester.element(_editor), element), isTrue);
+          expect(identical(current.controller, field.controller), isTrue);
+          expect(current.controller!.value, value);
+          expect(current.focusNode!.hasFocus, isTrue);
+          expect(
+            find.text(copy),
+            value.text.isEmpty ? findsOneWidget : findsNothing,
+          );
+        }
+        expect(
+          tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
+          isNull,
+        );
+      });
+    }
+
+    testWidgets('${type.name} 保存和草稿只使用用户正文', (tester) async {
+      final storage = _DraftStorage();
+      QuickCaptureSubmission? saved;
+      await tester.pumpWidget(
+        _host(
+          type: type,
+          date: DateTime(2026, 10, 24),
+          drafts: DraftRepository(storage: storage),
+          onSave: (submission) => saved = submission,
+        ),
       );
-      expect(field.decoration!.hintStyle!.fontSize, 16);
-      expect(field.decoration!.hintStyle!.height, 1.6);
-      expect(
-        field.decoration!.hintStyle!.color,
-        AppTheme.light.colorScheme.onSurfaceVariant,
-      );
-      expect(field.decoration!.maintainHintSize, isTrue);
-      expect(find.text(_questions), findsNothing);
+      await tester.pump(const Duration(seconds: 1));
+      expect(storage.writes, 0);
+      await tester.enterText(_editor, '只写这一句');
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(storage.values.values.single, contains('只写这一句'));
+      expect(storage.values.values.single, isNot(contains(copy)));
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+      expect(saved!.content, '只写这一句');
     });
+
+    for (final dark in [false, true]) {
+      for (final scale in [1.0, 1.3, 2.0, 3.0]) {
+        testWidgets('${type.name} 320dp dark=$dark scale=$scale 提示完整且输入后收起', (
+          tester,
+        ) async {
+          _setViewport(tester, const Size(320, 900));
+          await tester.pumpWidget(_host(type: type, dark: dark, scale: scale));
+          final hint = tester.renderObject<RenderParagraph>(find.text(copy));
+          expect(hint.didExceedMaxLines, isFalse);
+          expect(hint.size.width, lessThanOrEqualTo(288));
+          expect(tester.getSize(_editor).height, greaterThan(50));
+          final emptyHeight = tester.getSize(_editor).height;
+          await tester.enterText(_editor, '记下一句');
+          await tester.pump();
+          expect(find.text(copy), findsNothing);
+          expect(tester.getSize(_editor).height, lessThan(emptyHeight));
+          expect(tester.takeException(), isNull);
+          _expectToolbarTargets(tester);
+        });
+      }
+    }
   }
 
   for (final dark in [false, true]) {
@@ -335,17 +437,17 @@ void main() {
   }
 
   if (_writePreview) {
-    for (final dark in [false, true]) {
-      for (final scale in [1.0, 2.0]) {
+    for (final type in EntryType.values) {
+      for (final dark in [false, true]) {
         for (final filled in [false, true]) {
-          testWidgets('导出三问预览 dark=$dark scale=$scale filled=$filled', (
+          testWidgets('导出${type.label}预览 dark=$dark filled=$filled', (
             tester,
           ) async {
-            _setViewport(tester, Size(scale == 1 ? 390 : 320, 844));
+            _setViewport(tester, const Size(390, 844));
             await tester.runAsync(_loadPreviewFont);
-            await tester.pumpWidget(_host(dark: dark, scale: scale));
+            await tester.pumpWidget(_host(type: type, dark: dark));
             if (filled) {
-              await tester.enterText(_editor, '刚才被催促时有点烦，可能是今天已经很累了。');
+              await tester.enterText(_editor, '只写这一句，留住刚才的瞬间。');
             }
             await tester.pumpAndSettle();
             final boundary = tester.renderObject<RenderRepaintBoundary>(
@@ -354,7 +456,7 @@ void main() {
             await tester.runAsync(
               () => _savePreview(
                 boundary,
-                '${dark ? 'dark' : 'light'}-${filled ? 'filled' : 'empty'}-$scale',
+                '${type.name}-${dark ? 'dark' : 'light'}-${filled ? 'filled' : 'empty'}',
               ),
             );
             expect(tester.takeException(), isNull);
@@ -420,7 +522,7 @@ Future<void> _savePreview(RenderRepaintBoundary boundary, String name) async {
   try {
     final png = (await frame.toByteData(format: ui.ImageByteFormat.png))!;
     final directory = await Directory(
-      'build/reflection-placeholder-preview',
+      'build/record-placeholder-preview',
     ).create(recursive: true);
     await File(
       '${directory.path}/$name.png',

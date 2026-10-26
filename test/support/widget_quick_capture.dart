@@ -435,7 +435,7 @@ void registerQuickCaptureTests() {
         ),
         isFalse,
       );
-      expect(find.text('今天有什么小确幸？'), findsOneWidget);
+      expect(find.text('有什么让你开心的小事？\n记下那个瞬间就好。'), findsOneWidget);
     });
 
     testWidgets('关闭竖排菜单不写入内容', (tester) async {

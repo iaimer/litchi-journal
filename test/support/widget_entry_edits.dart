@@ -411,7 +411,7 @@ void registerEntryEditsTests() {
       expect(find.text('今天 14:00'), findsOneWidget);
       expect(
         tester.widget<TextField>(find.byType(TextField)).decoration?.hintText,
-        '今天有什么小确幸？',
+        '有什么让你开心的小事？\n记下那个瞬间就好。',
       );
 
       await tester.tap(find.text('保存'));

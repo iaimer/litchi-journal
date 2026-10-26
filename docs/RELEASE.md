@@ -1,5 +1,7 @@
 # 构建与发布
 
+2026-10-26 最新提示样式版本已构建并随 `main` 推送：`build/app/outputs/flutter-apk/litchi-journal-1.9.2-record-placeholders-release.apk`，SHA-256 `ed1f840f5791118e2eab92a75ca0bbc1c82619a1371c3e3c28e1e9db6be4f344`。版本 `1.9.2+41`，三种记录统一使用低透明度小字占位提示；沿用原包名和 Android Debug 证书，未部署服务端。
+
 当前清单为 `1.9.2+41`。2026-10-26 修复启动时记录加号变淡并升补丁版本；Android 内部 Release 沿用原 applicationId `com.example.litchi_journal_flutter` 和原签名，iOS Bundle ID 也保持不变。
 
 ## 本地与 CI 验证

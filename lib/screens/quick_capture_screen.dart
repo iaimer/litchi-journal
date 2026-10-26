@@ -826,10 +826,8 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       decoration: InputDecoration(
         hintText: widget.entryType.placeholder,
         hintStyle: _editorHintStyle(theme),
-        maintainHintSize: widget.entryType != EntryType.reflection,
-        hintFadeDuration: widget.entryType == EntryType.reflection
-            ? Duration.zero
-            : null,
+        maintainHintSize: false,
+        hintFadeDuration: Duration.zero,
         filled: false,
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
@@ -842,12 +840,6 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
 
   TextStyle? _editorHintStyle(ThemeData theme) {
     final style = theme.textTheme.bodyLarge;
-    if (widget.entryType != EntryType.reflection) {
-      return style?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-        height: 1.6,
-      );
-    }
     final alpha = MediaQuery.highContrastOf(context)
         ? 1.0
         : theme.brightness == Brightness.light

@@ -1,5 +1,13 @@
 # 当前交接
 
+## 冷启动加号变淡修复（2026-10-26，本地完成）
+
+在 `codex/fix-startup-record-fab` 修复用户报告的启动期间加号变透明：首页用 `_verified ? 1 : 0.4` 将整组记录入口透明度绑定到日记联网确认状态，导致启动至请求成功前只有 40% 不透明度。移除这层 `Opacity`，保留原有 `IgnorePointer`、语义与联网写入边界；菜单展开时隐藏加号的独立规则保留。版本升至 `1.9.2+41`，已 squash 合并至 `main` 并推送。
+
+新增真实 `MainScreen` 延迟日记响应回归，先复现实际绘制透明度 0.4，再确认初始帧、等待期间与响应后均为 1；同时验证响应前无法展开、成功后正常展开。该回归通过，完整 Flutter 1111 项、`flutter analyze --no-pub` 和差异检查通过。
+
+内部 Android Release 包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.2-startup-record-fab-release.apk`，65,332,756 字节，SHA-256 `2d65fb68d305ac1d9479da916c8b26f568829c379a54d1b277f2fa7228ef105d`。包名 `com.example.litchi_journal_flutter`，versionCode 41；APK v2 签名验证通过，沿用原 Android Debug 证书 SHA-256 `4b15b79943c8e123ab288bfcb76e6235d59cc265b9e56e40660eb69af499c433`，可用于同身份覆盖安装，不是商店正式签名包。构建输出既有 `package_info_plus` Kotlin Gradle Plugin 迁移提示，构建成功。已推送 `main`；未装机或部署。
+
 ## main 交付：觉察整合与竖排记录菜单（2026-10-26）
 
 用户授权合并、构建和推送后，功能分支 `codex/reflection-integration` 已 squash 合入 `main`。合并前验证：完整 Flutter 1110 项通过，`flutter analyze --no-pub` 无问题；服务端 160 项通过，`npm run build` 成功；`git diff --check` 通过。版本保持 `1.9.1+40`。

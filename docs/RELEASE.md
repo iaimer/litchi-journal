@@ -1,6 +1,6 @@
 # 构建与发布
 
-当前清单为 `1.9.1+40`。2026-10-18 的可靠性修复没有新增版本；用户随后授权合并主分支、构建内部 Android Release 并推送。现有安装继续使用原 Android applicationId `com.example.litchi_journal_flutter` 和原签名，iOS Bundle ID 也保持不变。
+当前清单为 `1.9.2+41`。2026-10-26 修复启动时记录加号变淡并升补丁版本；Android 内部 Release 沿用原 applicationId `com.example.litchi_journal_flutter` 和原签名，iOS Bundle ID 也保持不变。
 
 ## 本地与 CI 验证
 
@@ -22,7 +22,9 @@ npm run build
 
 ## 保留覆盖安装的内部包
 
-2026-10-26 最新测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reflection-integration-release.apk`（65,349,064 字节），SHA-256 `8fe211de70239c584db867df9339c624d68f6fd00afb4a93be396b5d68a99b0f`，与当前 `app-release.apk` 相同。从功能分支代码 `62833da` 构建，包含三个快速记录入口、觉察静态提示和旧焦虑阅读修复；最新完整 Flutter 1043 项、服务端 160 项、静态分析、服务端构建及 Android Release 构建通过。已核对 `1.9.1+40`、原包名与证书、无调试标记、三架构 AOT 和 APK v2 签名，支持覆盖安装。未装机或部署，真机验收待完成；新日记模板须部署新版服务端后生效。
+2026-10-26 最新测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.2-startup-record-fab-release.apk`（65,332,756 字节），SHA-256 `2d65fb68d305ac1d9479da916c8b26f568829c379a54d1b277f2fa7228ef105d`。从冷启动加号修复分支构建，完整 Flutter 1111 项与 `flutter analyze --no-pub` 通过；已核对版本 `1.9.2+41`、原包名与证书及 APK v2 签名，可覆盖安装。尚未装机。此前 `1.9.1+40` 的 `litchi-journal-1.9.1-reflection-vertical-menu-release.apk` 不包含加号加载态修复。
+
+此前测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reflection-vertical-menu-release.apk`（65,332,680 字节），SHA-256 `0d029d99e810044b85e753fdd449974ec6e483ab275a09f173f8f1f601fb58d2`。该包从功能分支代码 `381beec` 构建，包含三个快速记录入口、觉察静态提示和旧焦虑阅读修复；完整 Flutter 1110 项、服务端 160 项、静态分析、服务端构建及 Android Release 构建通过。已核对 `1.9.1+40`、原包名与证书和 APK v2 签名。未装机或部署；新日记模板须部署新版服务端后生效。
 
 2026-10-19 上一轮测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reading-minimal-fixes-release.apk`（65,349,064 字节），SHA-256 `dc00ac2363962ab1ca864566243f302934e7623b7b4becc62e61059243c0ac68`。包含纸面三段设置及后续三处阅读补修：大字图标空间、标题强调继承与回顾按钮状态颜色。该阶段完整 Flutter 1060 项、静态检查、差异检查及 Release 构建通过，原安装包保留。
 

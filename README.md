@@ -6,6 +6,8 @@ Flutter 客户端负责 UI、状态管理和 API 调用；`server/` 负责 Markd
 
 ## 当前状态
 
+2026-10-26 发布 `1.9.2+41` 修复启动时加号入口变淡：首次打开到今日日记联网确认期间，加号保持正常显示，确认前仍不能打开记录菜单。冷启动延迟响应回归先复现 40% 透明度再验证修复；完整 Flutter 1111 项和静态检查通过。内部 Android Release 包 `build/app/outputs/flutter-apk/litchi-journal-1.9.2-startup-record-fab-release.apk` 已构建并核验，沿用原包名和证书；摘要与交付边界见 `HANDOFF.md`。
+
 2026-10-26 焦虑四问停止新建、补答和编辑，旧记录保留只读；新日记模板移除焦虑章节。觉察空白输入框直接显示三问提示。今天页与历史详情统一使用竖排快速记录菜单，过往画廊仍不提供补录入口。用户授权合并、构建与推送后，已 squash 合入 `main`，完整 Flutter 1110 项、服务端 160 项、静态检查与服务端构建通过；内部 Android Release 包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reflection-vertical-menu-release.apk`，版本保持 `1.9.1+40`。APK 校验、未装机和服务端未部署状态见 `HANDOFF.md`。
 
 2026-10-19 按已确认预览完成阅读显示三处最小补修：大字下操作区可增高，菜单图标和加载圈不被挤小；标题里的加粗／斜体／链接继承正确字号，粗斜体可叠加；回顾按钮恢复原有启用／禁用颜色，仍为 16sp。新增 39 项回归，完整 Flutter 1060 项、静态检查、差异检查与 Release 构建通过，最新测试包为 `build/app/outputs/flutter-apk/litchi-journal-1.9.1-reading-minimal-fixes-release.apk`，校验见 `HANDOFF.md`。版本保持 `1.9.1+40`，三档字号、纸面控件、标签间距和保存逻辑不变，仍在原功能分支，不合并、推送、部署或装机。

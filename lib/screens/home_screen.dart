@@ -1112,10 +1112,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           excluding: !_verified,
           child: IgnorePointer(
             ignoring: !_verified,
-            child: Opacity(
-              opacity: _verified ? 1 : 0.4,
-              child: _buildQuickRecordFab(theme),
-            ),
+            child: _buildQuickRecordFab(theme),
           ),
         ),
         floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,

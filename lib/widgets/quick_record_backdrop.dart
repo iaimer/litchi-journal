@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// 扇形记录菜单展开时，为阅读内容提供独立的退场层。
+/// 记录菜单展开时，为阅读内容提供独立的退场层。
 ///
 /// 顶部 Banner 与 Scaffold 上层的 Dock、FAB 不在此组件的绘制范围内，
 /// 因此始终保持清晰且可操作。
@@ -34,7 +34,7 @@ class _QuickRecordBackdropState extends State<QuickRecordBackdrop>
   final _readingPointers = <int>{};
   bool _skipMotion = false;
 
-  bool get _isBlocking => widget.expanded || _controller.value > 0;
+  bool get _isBlocking => widget.expanded;
 
   @override
   void initState() {
@@ -43,15 +43,7 @@ class _QuickRecordBackdropState extends State<QuickRecordBackdrop>
       vsync: this,
       value: widget.expanded ? 1 : 0,
       duration: FloraMotion.standard,
-      reverseDuration: FloraMotion.fast,
-    )..addStatusListener(_handleAnimationStatus);
-  }
-
-  void _handleAnimationStatus(AnimationStatus status) {
-    if (status == AnimationStatus.dismissed && mounted) {
-      // 收回完成后移除滤镜与拦截层，避免留下零强度的合成层。
-      setState(() {});
-    }
+    );
   }
 
   @override
@@ -95,40 +87,24 @@ class _QuickRecordBackdropState extends State<QuickRecordBackdrop>
   }
 
   void _moveToTarget() {
-    final target = widget.expanded ? 1.0 : 0.0;
-    if (_skipMotion) {
-      _controller.value = target;
+    if (!widget.expanded || _skipMotion) {
+      _controller.value = widget.expanded ? 1 : 0;
       return;
     }
-    final distance = (target - _controller.value).abs();
-    final fullDuration = widget.expanded
-        ? FloraMotion.standard
-        : FloraMotion.fast;
     final duration = Duration(
-      microseconds: (fullDuration.inMicroseconds * distance).round(),
+      microseconds:
+          (FloraMotion.standard.inMicroseconds * (1 - _controller.value))
+              .round(),
     );
     if (duration == Duration.zero) {
-      _controller.value = target;
+      _controller.value = 1;
       return;
     }
-    if (widget.expanded) {
-      _controller.animateTo(
-        target,
-        duration: duration,
-        curve: Curves.easeOutQuart,
-      );
-    } else {
-      _controller.animateBack(
-        target,
-        duration: duration,
-        curve: Curves.easeOutQuart,
-      );
-    }
+    _controller.animateTo(1, duration: duration, curve: Curves.easeOutQuart);
   }
 
   @override
   void dispose() {
-    _controller.removeStatusListener(_handleAnimationStatus);
     _controller.dispose();
     super.dispose();
   }

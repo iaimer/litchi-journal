@@ -16,6 +16,7 @@ import 'package:litchi_journal_flutter/screens/settings_page.dart';
 import 'package:litchi_journal_flutter/services/api_client.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/services/appearance_settings.dart';
+import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
 import 'package:litchi_journal_flutter/theme/diary_reading_style.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
@@ -265,17 +266,10 @@ void main() {
   });
 
   testWidgets('焦虑非问答格式的回退正文同样可切换字号', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        const AnxietyCard(
-          section: AnxietySection(
-            title: '焦虑时刻',
-            contents: [MarkdownContent('没有问答结构的旧焦虑正文')],
-          ),
-        ),
-        size: 16,
-      ),
-    );
+    final section =
+        const MarkdownParser().parse('## 焦虑时刻\n没有问答结构的旧焦虑正文').sections.single
+            as AnxietySection;
+    await tester.pumpWidget(_host(AnxietyCard(section: section), size: 16));
     final markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
     expect(markdown.styleSheet?.p?.fontSize, 16);
     expect(markdown.styleSheet?.p?.height, 1.6);

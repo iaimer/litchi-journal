@@ -106,7 +106,7 @@ void main() {
     });
   }
 
-  test('普通润色、焦虑润色与回顾共用百炼非思考规则', () async {
+  test('普通润色与回顾共用百炼非思考规则', () async {
     final bodies = <Map<String, dynamic>>[];
     final service = PolisherService(
       httpClient: MockClient((request) async {
@@ -131,10 +131,9 @@ void main() {
       tagConfig: DefaultTagConfig.value,
       config: _config,
     );
-    await service.polishPlainText(content: '担心明天', config: _config);
     await service.generateCoach(diaryContext: '今天陪孩子聊天', config: _config);
-    expect(bodies, hasLength(3));
-    expect(bodies.map((body) => body['max_tokens']), [512, 500, 800]);
+    expect(bodies, hasLength(2));
+    expect(bodies.map((body) => body['max_tokens']), [512, 800]);
     for (final body in bodies) {
       expect(body['enable_thinking'], isFalse);
       expect(body['model'], 'qwen3.7-flash');

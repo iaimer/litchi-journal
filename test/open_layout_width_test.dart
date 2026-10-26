@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:litchi_journal_flutter/models/diary_document.dart';
+import 'package:litchi_journal_flutter/services/markdown_parser.dart';
 import 'package:litchi_journal_flutter/services/api_client.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
@@ -37,11 +38,15 @@ void main() {
   }
 
   double firstTagLineCenter(WidgetTester tester, Finder tag) {
-    final text = find.descendant(of: tag, matching: find.byType(RichText)).first;
+    final text = find
+        .descendant(of: tag, matching: find.byType(RichText))
+        .first;
     final paragraph = tester.renderObject<RenderParagraph>(text);
-    final firstCharacter = paragraph.getBoxesForSelection(
-      const TextSelection(baseOffset: 0, extentOffset: 1),
-    ).first;
+    final firstCharacter = paragraph
+        .getBoxesForSelection(
+          const TextSelection(baseOffset: 0, extentOffset: 1),
+        )
+        .first;
     return paragraph.localToGlobal(firstCharacter.toRect().center).dy;
   }
 
@@ -1040,10 +1045,12 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       const answer = '下午准备汇报时，我先整理了重点，再按顺序完成说明。';
-      final section = AnxietySection(
-        title: '焦虑时刻',
-        contents: const [MarkdownContent('- 什么时候感到焦虑？\n> $answer')],
-      );
+      final section =
+          const MarkdownParser()
+                  .parse('## 焦虑时刻\n- 什么时候感到焦虑？\n> $answer')
+                  .sections
+                  .single
+              as AnxietySection;
 
       await tester.pumpWidget(
         MaterialApp(

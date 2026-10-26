@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   existsSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -24,7 +25,8 @@ vi.mock('../config/index.js', () => ({
 }));
 
 import diaryRoutes from './diary.js';
-import { readDiary, writeDiary } from '../services/vault.js';
+import { getDiaryPath, readDiary, writeDiary } from '../services/vault.js';
+import { createObsidianDiaryContent } from '../services/template.js';
 
 type Handler = (req: unknown, res: any) => Promise<void>;
 
@@ -841,5 +843,170 @@ describe('entry photo associations', () => {
     expect(res.statusCode).toBe(200);
     expect(updated).toContain(`  <!-- litchi-entry-id:${copiedId} -->`);
     expect(updated).toContain(`<!-- litchi-entry-id:${entryId} -->`);
+  });
+});
+
+
+describe('diary creation template compatibility', () => {
+  const date = new Date('2026-10-25T12:00:00+08:00');
+
+  beforeEach(() => rmSync(testConfig.vaultPath, { recursive: true, force: true }));
+
+  it('creates a diary without anxiety and permits the first reflection', async () => {
+    const created = response();
+    await diaryEntryHandler('/create')({ body: { date: '2026-10-25' } }, created);
+    expect(created.statusCode).toBe(200);
+    expect(readDiary(date)).toBe(createObsidianDiaryContent(date));
+    const saved = response();
+    await diaryEntryHandler('/reflection')({ body: {
+      date: '2026-10-25', time: '10:00', content: '有点紧张，还没想明白', tags: ['生活'],
+    } }, saved);
+    expect(saved.statusCode).toBe(200);
+    expect(readDiary(date)).toContain('- **10:00** 有点紧张，还没想明白 #生活');
+    expect(readDiary(date)).not.toContain('焦虑时刻');
+  });
+
+  it.each(['new', 'old'])('keeps the legacy anxiety replacement API usable with %s diaries', async kind => {
+    const original = kind === 'new'
+      ? createObsidianDiaryContent(date)
+      : '# 旧日记\n## 😰 焦虑时刻\n- 今天什么时候我感到焦虑/紧张？\n>\n### 💡 觉察与迭代\n- **09:00** 原有觉察';
+    writeDiary(date, original);
+    const res = response();
+    await diaryEntryHandler('/anxiety/replace')({ body: {
+      date: '2026-10-25', content: '- 今天什么时候我感到焦虑/紧张？\n> 开会时',
+    } }, res);
+    expect(res.body).toMatchObject({ success: true });
+    const updated = readDiary(date);
+    expect(updated).toContain('> 开会时');
+    expect(updated).toContain('### 💡 觉察与迭代');
+    if (kind === 'old') {
+      expect(updated).toContain('- **09:00** 原有觉察');
+    } else {
+      const happiness = updated.indexOf('## ✨ 每日小确幸');
+      const anxiety = updated.indexOf('## 😰 焦虑时刻');
+      const review = updated.indexOf('## 📈 每日复盘');
+      expect(anxiety).toBeGreaterThan(happiness);
+      expect(anxiety).toBeLessThan(review);
+      expect(updated.slice(anxiety, review)).toContain('\n---\n');
+    }
+  });
+
+  it('replacing an existing legacy anxiety section preserves its following separator', async () => {
+    writeDiary(date, [
+      '# 旧日记',
+      '## ✨ 每日小确幸',
+      '- 一件好事',
+      '---',
+      '## 😰 焦虑时刻',
+      '- 旧答案',
+      '---',
+      '## 📈 每日复盘',
+      '### 💡 觉察与迭代',
+      '- **09:00** 原有觉察',
+    ].join('\n'));
+
+    const res = response();
+    await diaryEntryHandler('/anxiety/replace')({ body: {
+      date: '2026-10-25', content: '- 今天什么时候我感到焦虑/紧张？\n> 开会时',
+    } }, res);
+
+    const updated = readDiary(date);
+    expect(res.body).toMatchObject({ success: true });
+    expect(updated).toContain('> 开会时\n\n---\n## 📈 每日复盘');
+    expect(updated.match(/^---$/gm)).toHaveLength(2);
+  });
+
+  it('preserves handwritten formatting after an existing anxiety section without adding a separator', async () => {
+    const prefix = '# 手写日记\n## 😰 焦虑时刻\n';
+    const suffix = '### 💡 觉察与迭代\n\n- **09:00** 原有觉察  \n\n## 自定义章节\n保留正文\n';
+    const replacement = '- 我做了什么？\n> 先停下来';
+    writeDiary(date, prefix + '- 旧答案\n\n' + suffix);
+
+    const res = response();
+    await diaryEntryHandler('/anxiety/replace')({ body: {
+      date: '2026-10-25', content: replacement,
+    } }, res);
+
+    expect(res.body).toMatchObject({ success: true });
+    expect(readDiary(date)).toBe(prefix + replacement + '\n\n' + suffix);
+  });
+
+  it('places missing anxiety before the daily review and repeated replacement stays stable', async () => {
+    writeDiary(date, createObsidianDiaryContent(date));
+    const body = '- 今天什么时候我感到焦虑/紧张？\n> 开会时';
+
+    const first = response();
+    await diaryEntryHandler('/anxiety/replace')({ body: {
+      date: '2026-10-25', content: body,
+    } }, first);
+    const afterFirst = readDiary(date);
+
+    const second = response();
+    await diaryEntryHandler('/anxiety/replace')({ body: {
+      date: '2026-10-25', content: body,
+    } }, second);
+    const afterSecond = readDiary(date);
+
+    expect(first.body).toMatchObject({ success: true });
+    expect(second.body).toMatchObject({ success: true });
+    expect(afterSecond).toBe(afterFirst);
+    expect(afterSecond.match(/^## 😰 焦虑时刻$/gm)).toHaveLength(1);
+    expect(afterSecond).toContain(
+      '## ✨ 每日小确幸\n> [!success] 总有事件值得感恩🙏♥️\n> \n\n---\n'
+      + '## 😰 焦虑时刻\n' + body + '\n\n---\n## 📈 每日复盘',
+    );
+    expect(afterSecond).not.toMatch(/---\s*\n\s*---/);
+  });
+
+  it.each([
+    ['a reflection subsection', '# 旧日记\n## 其他\n正文\n### 💡 觉察与迭代\n- 旧觉察'],
+    ['no downstream anchor', '# 旧日记\n## 自定义章节\n保留正文'],
+  ])('inserts missing anxiety with separators when the file has %s', async (_kind, original) => {
+    writeDiary(date, original);
+    const res = response();
+    await diaryEntryHandler('/anxiety/replace')({ body: {
+      date: '2026-10-25', content: '- 我做了什么？\n> 先停下来整理思路',
+    } }, res);
+
+    const updated = readDiary(date);
+    const anxiety = updated.indexOf('## 😰 焦虑时刻');
+    const reflection = updated.indexOf('### 💡 觉察与迭代');
+    expect(res.body).toMatchObject({ success: true });
+    if (reflection >= 0) expect(anxiety).toBeLessThan(reflection);
+    expect(updated.slice(anxiety)).toContain('\n> 先停下来整理思路');
+    expect(updated).not.toMatch(/---\s*\n\s*---/);
+  });
+
+  it.each(['', '> 当时有点担心\n> 后来缓过来了'])('does not replace an existing old diary with answer %s', async answer => {
+    const original = '# 旧日记\n## 😰 焦虑时刻\n- 今天什么时候我感到焦虑/紧张？\n' + answer + '\n';
+    writeDiary(date, original);
+    const before = readFileSync(getDiaryPath(date));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = response();
+      await diaryEntryHandler('/create')({ body: { date: '2026-10-25' } }, res);
+      expect(res.body).toMatchObject({ success: true, exists: true });
+      expect(readFileSync(getDiaryPath(date))).toEqual(before);
+    }
+  });
+
+  it.each([
+    ['empty new template', createObsidianDiaryContent(date)],
+    [
+      'new template with a saved entry',
+      createObsidianDiaryContent(date).replace(
+        '- **HH:MM** 内容 #标签',
+        '- **08:25** 已经写下的记录 #生活',
+      ),
+    ],
+  ])('repeated creation leaves an existing %s byte-for-byte unchanged', async (_kind, original) => {
+    writeDiary(date, original);
+    const before = readFileSync(getDiaryPath(date));
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = response();
+      await diaryEntryHandler('/create')({ body: { date: '2026-10-25' } }, res);
+      expect(res.body).toMatchObject({ success: true, exists: true });
+      expect(readFileSync(getDiaryPath(date))).toEqual(before);
+    }
   });
 });

@@ -1,8 +1,7 @@
 enum EntryType {
   quickNote('随手记', '写点想法...'),
-  reflection('觉察', '觉察到了什么？'),
-  happiness('小确幸', '今天有什么小确幸？'),
-  anxiety('焦虑', '记录焦虑时刻...');
+  reflection('觉察', '发生了什么？\n当时我在想什么、在意什么？\n现在有什么需要？'),
+  happiness('小确幸', '今天有什么小确幸？');
 
   final String label;
   final String placeholder;

@@ -1010,7 +1010,7 @@ void registerEntryEditsTests() {
       expect(find.text('10:15'), findsNothing);
       expect(
         tester.widget<TextField>(find.byType(TextField)).decoration?.hintText,
-        '觉察到了什么？',
+        '发生了什么？\n当时我在想什么、在意什么？\n现在有什么需要？',
       );
 
       await tester.tap(find.text('保存'));
@@ -1060,56 +1060,6 @@ void registerEntryEditsTests() {
       );
 
       expect(replacement, '> **14:00** 新小确幸 #生活 #日常记录');
-    });
-  });
-
-  group('ApiClient replaceAnxiety', () {
-    ApiClient makeClient(_CapturingClient client) {
-      return ApiClient(
-        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
-        httpClient: client,
-      );
-    }
-
-    test('calls replace endpoint, not append endpoint', () async {
-      final client = _CapturingClient();
-      final api = makeClient(client);
-
-      await api.replaceAnxiety(DateTime(2026, 6, 7), 'test');
-
-      expect(client.lastUrl, contains('/api/v1/diary/anxiety/replace'));
-    });
-
-    test('sends date, content, and operationId in body', () async {
-      final client = _CapturingClient();
-      final api = makeClient(client);
-
-      await api.replaceAnxiety(DateTime(2026, 6, 7), '四问内容');
-
-      final body = jsonDecode(client.lastBody!) as Map<String, dynamic>;
-      expect(body['date'], '2026-06-07');
-      expect(body['content'], '四问内容');
-      expect(body['operationId'], isA<String>());
-      expect(body['operationId'], hasLength(36));
-    });
-
-    test('does NOT send tags (replace endpoint has no tags)', () async {
-      final client = _CapturingClient();
-      final api = makeClient(client);
-
-      await api.replaceAnxiety(DateTime(2026, 6, 7), 'content');
-
-      final body = jsonDecode(client.lastBody!) as Map<String, dynamic>;
-      expect(body.containsKey('tags'), isFalse);
-    });
-
-    test('returns true on 200 response', () async {
-      final client = _CapturingClient();
-      final api = makeClient(client);
-
-      final result = await api.replaceAnxiety(DateTime(2026, 6, 7), 'test');
-
-      expect(result, isTrue);
     });
   });
 

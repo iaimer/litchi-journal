@@ -101,10 +101,87 @@ class QuickNoteSection extends DiarySection {
 }
 
 class AnxietySection extends DiarySection {
-  const AnxietySection({required super.title, required super.contents});
+  AnxietySection({required super.title, required List<DiaryContent> contents})
+    : super(contents: List.unmodifiable(contents));
+
+  List<AnxietyAnswer> get answers =>
+      contents.whereType<AnxietyAnswer>().toList(growable: false);
+
+  /// 保留旧回顾的标准问题顺序；重复问题采用最后一个非空回答。
+  List<String> get coachAnswers {
+    final latest = <LegacyAnxietyQuestion, String>{};
+    for (final answer in answers) {
+      final question = answer.standardQuestion;
+      if (question != null) latest[question] = answer.answer;
+    }
+    return LegacyAnxietyQuestion.values
+        .map((question) => latest[question] ?? '')
+        .toList(growable: false);
+  }
 
   @override
   String get sectionType => 'anxiety';
+}
+
+enum LegacyAnxietyQuestion {
+  moment('今天什么时候我感到焦虑/紧张？'),
+  worry('当时我在担心什么？'),
+  response('我做了什么？'),
+  approach('这个应对是帮我面对了，还是帮我躲开了？');
+
+  final String prompt;
+
+  const LegacyAnxietyQuestion(this.prompt);
+
+  static LegacyAnxietyQuestion? fromPrompt(String question) {
+    final normalized = question
+        .replaceAll('?', '？')
+        .replaceAll('(', '（')
+        .replaceAll(')', '）');
+    for (final legacyQuestion in values) {
+      if (normalized == legacyQuestion.prompt ||
+          normalized.startsWith('${legacyQuestion.prompt}（')) {
+        return legacyQuestion;
+      }
+    }
+    return null;
+  }
+}
+
+class AnxietyAnswer extends DiaryContent {
+  final String question;
+  final String answer;
+  final LegacyAnxietyQuestion? standardQuestion;
+
+  AnxietyAnswer({required String question, required String answer})
+    : question = question.trim(),
+      answer = answer.trim(),
+      standardQuestion = LegacyAnxietyQuestion.fromPrompt(question) {
+    if (this.question.isEmpty) {
+      throw ArgumentError.value(question, 'question', 'must not be empty');
+    }
+    if (this.answer.isEmpty) {
+      throw ArgumentError.value(answer, 'answer', 'must not be empty');
+    }
+  }
+
+  @override
+  bool get hasRealContent => true;
+}
+
+class AnxietyLegacyBody extends DiaryContent {
+  final DiaryContent content;
+
+  const AnxietyLegacyBody(this.content);
+
+  @override
+  bool get hasRealContent {
+    final wrappedContent = content;
+    if (wrappedContent is MarkdownContent) {
+      return wrappedContent.text.trim().isNotEmpty;
+    }
+    return wrappedContent.hasRealContent;
+  }
 }
 
 class HappinessSection extends DiarySection {

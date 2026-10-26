@@ -1,4 +1,5 @@
 import '../models/diary_document.dart';
+import 'anxiety_parser.dart';
 
 final _calloutStart = RegExp(r'^>\s*\[!(\w+)\]\s*(.*)$');
 final _checkboxLine = RegExp(r'^-\s*\[([ xX])\]\s*(.*)$');
@@ -440,7 +441,7 @@ class _DraftSection {
       );
     }
     if (title.contains('焦虑')) {
-      return AnxietySection(title: title, contents: contents);
+      return parseAnxietySection(title, contents);
     }
     if (title.contains('小确幸')) {
       return HappinessSection(title: title, contents: contents);

@@ -82,7 +82,7 @@ class QuickCaptureScreen extends StatefulWidget {
     this.imageCompressor,
     this.timePicker,
     this.onPolish,
-  }) : assert(entryType != EntryType.anxiety);
+  });
 
   @override
   State<QuickCaptureScreen> createState() => _QuickCaptureScreenState();
@@ -811,6 +811,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
 
   Widget _buildEditor(ThemeData theme) {
     return TextField(
+      key: const ValueKey('quick_capture_editor'),
       controller: _controller,
       focusNode: _focusNode,
       autofocus: _shouldAutofocus,
@@ -824,10 +825,11 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
       decoration: InputDecoration(
         hintText: widget.entryType.placeholder,
-        hintStyle: theme.textTheme.bodyLarge?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          height: 1.6,
-        ),
+        hintStyle: _editorHintStyle(theme),
+        maintainHintSize: widget.entryType != EntryType.reflection,
+        hintFadeDuration: widget.entryType == EntryType.reflection
+            ? Duration.zero
+            : null,
         filled: false,
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
@@ -835,6 +837,27 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         disabledBorder: InputBorder.none,
         contentPadding: const EdgeInsets.only(top: FloraSpacing.md),
       ),
+    );
+  }
+
+  TextStyle? _editorHintStyle(ThemeData theme) {
+    final style = theme.textTheme.bodyLarge;
+    if (widget.entryType != EntryType.reflection) {
+      return style?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+        height: 1.6,
+      );
+    }
+    final alpha = MediaQuery.highContrastOf(context)
+        ? 1.0
+        : theme.brightness == Brightness.light
+        ? 0.5
+        : 0.65;
+    return style?.copyWith(
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: alpha),
+      height: 1.7,
     );
   }
 

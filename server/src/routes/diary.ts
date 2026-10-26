@@ -967,9 +967,7 @@ function replaceHabitLineInSection(
 function replaceAnxietySection(content: string, newText: string): string {
   const lines = content.split('\n');
   const header = '## 😰 焦虑时刻';
-
   let startIndex = -1;
-  let endIndex = -1;
 
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].startsWith(header)) {
@@ -978,23 +976,12 @@ function replaceAnxietySection(content: string, newText: string): string {
     }
   }
 
+  const newLines = newText.trim().split(/\r?\n/);
   if (startIndex === -1) {
-    // Section doesn't exist — create it before the next section or at end
-    const insertHeaders = ['## 🏃 习惯打卡', '## ✍️ 随手记', '## ✨ 每日小确幸', '### 💡 觉察与迭代',
-      '### 🧠 人生教练', '### 🌙 明日寄语', '## 📸 影像记录'];
-    let insertIndex = lines.length;
-    for (let i = 0; i < lines.length; i++) {
-      if (insertHeaders.some(h => lines[i].startsWith(h))) {
-        insertIndex = i;
-        break;
-      }
-    }
-    const newLines = newText.split('\n');
-    const before = lines.slice(0, insertIndex);
-    const after = lines.slice(insertIndex);
-    return [...before, header, ...newLines, '', ...after].join('\n');
+    return insertMissingAnxietySection(lines, header, newLines);
   }
 
+  let endIndex = lines.length;
   for (let i = startIndex + 1; i < lines.length; i++) {
     if (/^#{1,6}\s/.test(lines[i])) {
       endIndex = i;
@@ -1002,13 +989,77 @@ function replaceAnxietySection(content: string, newText: string): string {
     }
   }
 
-  if (endIndex === -1) endIndex = lines.length;
+  const suffix = anxietySectionSuffix(lines, endIndex);
+  return [
+    ...lines.slice(0, startIndex + 1),
+    ...newLines,
+    ...(suffix.length === 0 ? [] : ['', ...suffix]),
+  ].join('\n');
+}
 
-  const newLines = newText.split('\n');
-  const before = lines.slice(0, startIndex + 1);
-  const after = lines.slice(endIndex);
+function insertMissingAnxietySection(
+  lines: string[],
+  header: string,
+  newLines: string[],
+): string {
+  const anchors = new Set([
+    '## 📈 每日复盘',
+    '### 💡 觉察与迭代',
+    '### 🧠 人生教练',
+    '### 🧠 荔枝喵说',
+    '### 🌙 明日寄语',
+    '## 📸 影像记录',
+  ]);
+  const anchorIndex = lines.findIndex(line =>
+    [...anchors].some(anchor => line.startsWith(anchor)));
+  if (anchorIndex === -1) {
+    const before = trimTrailingBlankLines([...lines]);
+    if (before.length > 0 && before[before.length - 1].trim() !== '---') {
+      before.push('', '---');
+    }
+    return [...before, header, ...newLines].join('\n');
+  }
 
-  return [...before, ...newLines, '', ...after].join('\n');
+  const separatorIndex = previousNonBlankIndex(lines, anchorIndex);
+  const hasSeparator = separatorIndex >= 0 && lines[separatorIndex].trim() === '---';
+  const before = hasSeparator
+    ? lines.slice(0, separatorIndex + 1)
+    : trimTrailingBlankLines(lines.slice(0, anchorIndex));
+  const after = hasSeparator
+    ? trimLeadingBlankLines(lines.slice(separatorIndex + 1))
+    : trimLeadingBlankLines(lines.slice(anchorIndex));
+  if (!hasSeparator && before.length > 0 && before[before.length - 1].trim() !== '---') {
+    before.push('', '---');
+  }
+
+  return [...before, header, ...newLines, '', '---', ...after].join('\n');
+}
+
+function anxietySectionSuffix(lines: string[], nextHeadingIndex: number): string[] {
+  if (nextHeadingIndex >= lines.length) return [];
+  const separatorIndex = previousNonBlankIndex(lines, nextHeadingIndex);
+  if (separatorIndex >= 0 && lines[separatorIndex].trim() === '---') {
+    return trimLeadingBlankLines(lines.slice(separatorIndex));
+  }
+  return lines.slice(nextHeadingIndex);
+}
+
+function previousNonBlankIndex(lines: string[], beforeIndex: number): number {
+  for (let index = beforeIndex - 1; index >= 0; index--) {
+    if (lines[index].trim() !== '') return index;
+  }
+  return -1;
+}
+
+function trimTrailingBlankLines(lines: string[]): string[] {
+  while (lines.length > 0 && lines[lines.length - 1].trim() === '') lines.pop();
+  return lines;
+}
+
+function trimLeadingBlankLines(lines: string[]): string[] {
+  let first = 0;
+  while (first < lines.length && lines[first].trim() === '') first++;
+  return lines.slice(first);
 }
 
 router.get('/image/render/:year/:imageName', async (req, res) => {

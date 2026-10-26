@@ -24,7 +24,7 @@ import 'package:litchi_journal_flutter/widgets/flora_origin_transform.dart';
 import 'package:litchi_journal_flutter/widgets/flora_page_route.dart';
 import 'package:litchi_journal_flutter/widgets/flora_sheet.dart';
 import 'package:litchi_journal_flutter/widgets/flora_dialog.dart';
-import 'package:litchi_journal_flutter/widgets/quick_record_fan.dart';
+import 'package:litchi_journal_flutter/widgets/quick_record_menu.dart';
 import 'package:litchi_journal_flutter/widgets/timeline_action_sheet.dart';
 
 const _entry = Key('entry');
@@ -140,10 +140,14 @@ void main() {
         'quick_record_quick_note',
         'quick_record_reflection',
         'quick_record_happiness',
-        'quick_record_anxiety',
       ])
         tester.getRect(find.byKey(Key(key))),
     ];
+    expect(find.byKey(const Key('quick_record_anxiety')), findsNothing);
+    expect(entries[2].bottom, closeTo(entries[1].top, 0.01));
+    expect(entries[1].bottom, closeTo(entries[0].top, 0.01));
+    expect(entries[0].right, fab.right);
+    expect(entries[0].bottom + 8, closeTo(fab.bottom, 0.5));
     for (var index = 0; index < entries.length; index++) {
       expect(
         tester.getSize(
@@ -153,12 +157,11 @@ void main() {
                 'quick_record_quick_note',
                 'quick_record_reflection',
                 'quick_record_happiness',
-                'quick_record_anxiety',
               ][index],
             ),
           ),
         ),
-        const Size(48, 48),
+        const Size(176, 56),
       );
       expect(entries[index].bottom, lessThan(dock.top));
       expect(entries[index].left, greaterThanOrEqualTo(0));
@@ -167,7 +170,7 @@ void main() {
         expect(entries[index].overlaps(entries[next]), false);
       }
     }
-    await tester.tap(find.byKey(const Key('quick_record_fab')));
+    await tester.tapAt(const Offset(20, 180));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView).first, const Offset(0, -5000));
     await tester.pumpAndSettle();
@@ -629,17 +632,17 @@ void main() {
         home: Scaffold(
           floatingActionButton: ValueListenableBuilder<bool>(
             valueListenable: expanded,
-            builder: (context, open, _) => QuickRecordFan(
+            builder: (context, open, _) => QuickRecordMenu(
               expanded: open,
-              onToggle: () => expanded.value = !open,
+              onExpandedChanged: (value) => expanded.value = value,
               mainButtonKey: const Key('main_fab'),
               tooltip: '快速记录',
               actions: [
-                QuickRecordFanAction(
+                QuickRecordMenuAction(
                   key: const Key('fan_entry'),
                   title: '随手记',
                   icon: const Text('写'),
-                  angleDegrees: 180,
+
                   onTap: () {
                     expanded.value = false;
                     route = FloraPageRoute(

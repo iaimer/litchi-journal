@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:litchi_journal_flutter/models/diary_document.dart';
@@ -13,61 +16,19 @@ const _habits = '''
 - 饮水 750 mL
 ''';
 
-// 与服务端 createObsidianDiaryContent 的模板结构一致，不访问真实日记。
-const _serverTemplate = '''
----
-tags:
-  - 日记
----
+Map<String, String> _loadServerTemplates() {
+  final decoded =
+      jsonDecode(File('test/fixtures/diary_templates.json').readAsStringSync())
+          as Map<String, dynamic>;
+  return {
+    for (final entry in decoded.entries)
+      entry.key: (entry.value as List<dynamic>).cast<String>().join('\n'),
+  };
+}
 
-# 🌿 星期日 · 此时此刻
-> [!quote] 2026 年，如果只选一件事：**让健康和记录成为习惯。**
-
----
-## 🏃 习惯打卡
-- 🥛饮水 0 mL
-- 🧘 运动/拉伸/快走 0 步
-- [ ] 📖 阅读/亲子共读 0 分钟
-- [ ] 🇬🇧 学语言 0 分钟
-- [ ] 💊 鱼油/植物甾醇
-
----
-## ✍️ 随手记 & 灵感
-<!-- 随手记和灵感，文案喵会自动添加合适的标签 -->
-- **HH:MM** 内容 #标签
-
----
-## ✨ 每日小确幸
-> [!success] 总有事件值得感恩🙏♥️
->
-
----
-## 😰 焦虑时刻
-- 今天什么时候我感到焦虑/紧张？
->
-- 当时我在担心什么？（具体到一句话)
->
-- 我做了什么？
->
-- 这个应对是帮我面对了，还是帮我躲开了？
->
-
----
-## 📈 每日复盘
-### 💡 觉察与迭代
-<!-- 这里是你的观点和思考，荔枝喵会重点提取 -->
--
-
-### 🧠 人生教练
-<!-- 基于当天日记的客观反馈：模式识别、矛盾指出、批判性问题 -->
--
-
-### 🌙 明日寄语
--
-
----
-## 📸 影像记录
-''';
+final _serverTemplates = _loadServerTemplates();
+final _legacyServerTemplate = _serverTemplates['legacy']!;
+final _newServerTemplate = _serverTemplates['current']!;
 
 Future<void> _mount(
   WidgetTester tester,
@@ -93,6 +54,25 @@ Future<void> _mount(
 }
 
 void main() {
+  for (final fixture in {
+    'old': _legacyServerTemplate,
+    'new': _newServerTemplate,
+  }.entries) {
+    testWidgets('${fixture.key} 完整模板无焦虑空壳，真实觉察控制回顾入口', (tester) async {
+      await _mount(tester, fixture.value);
+      expect(find.text('焦虑时刻'), findsNothing);
+      expect(find.text('今日回顾'), findsNothing);
+      final withReflection = fixture.value.replaceFirst(
+        '### 💡 觉察与迭代',
+        '### 💡 觉察与迭代\n- **12:00** 我有点紧张 #生活',
+      );
+      await _mount(tester, withReflection);
+      expect(find.text('生成回顾'), findsOneWidget);
+      await _mount(tester, fixture.value, readOnly: true);
+      expect(find.text('焦虑时刻'), findsNothing);
+    });
+  }
+
   for (final prefix in ['-', '>']) {
     test('Parser 排除 $prefix HH:MM 模板示例但保留实际时间记录', () {
       final document = const MarkdownParser().parse('''
@@ -164,29 +144,37 @@ $_habits
     expect(find.text('今日回顾'), findsNothing);
   });
 
-  testWidgets('服务端完整空模板和习惯更新均不显示今日回顾', (tester) async {
-    await _mount(tester, _serverTemplate);
-    expect(find.byType(HabitCard), findsOneWidget);
-    expect(find.text('今日回顾'), findsNothing);
-    expect(find.text('生成回顾'), findsNothing);
+  for (final fixture in {
+    '旧模板': _legacyServerTemplate,
+    '新模板': _newServerTemplate,
+  }.entries) {
+    testWidgets('${fixture.key}只改习惯仍隐藏，正文新增后显示，移除后再次隐藏', (tester) async {
+      await _mount(tester, fixture.value);
+      expect(find.byType(HabitCard), findsOneWidget);
+      expect(find.text('今日回顾'), findsNothing);
+      expect(find.text('生成回顾'), findsNothing);
 
-    await _mount(tester, _serverTemplate.replaceFirst('饮水 0 mL', '饮水 1000 mL'));
-    expect(find.text('今日回顾'), findsNothing);
-  });
+      await _mount(tester, fixture.value.replaceFirst('饮水 0 mL', '饮水 1000 mL'));
+      expect(find.text('今日回顾'), findsNothing);
+      expect(find.text('生成回顾'), findsNothing);
 
-  testWidgets('完整模板新增正文后显示回顾，移除后再次隐藏', (tester) async {
-    await _mount(
-      tester,
-      _serverTemplate.replaceFirst(
+      final withBody = fixture.value.replaceFirst(
         '- **HH:MM** 内容 #标签',
         '- **08:25** 今天写下的内容 #生活',
-      ),
-    );
-    expect(find.text('今日回顾'), findsOneWidget);
-    expect(find.text('生成回顾'), findsOneWidget);
-    await _mount(tester, _serverTemplate);
-    expect(find.text('今日回顾'), findsNothing);
-  });
+      );
+      await _mount(tester, withBody);
+      expect(find.text('今日回顾'), findsOneWidget);
+      expect(find.text('生成回顾'), findsOneWidget);
+
+      await _mount(tester, fixture.value);
+      expect(find.text('今日回顾'), findsNothing);
+      expect(find.text('生成回顾'), findsNothing);
+
+      await _mount(tester, withBody, readOnly: true);
+      expect(find.text('今天写下的内容'), findsOneWidget);
+      expect(find.text('生成回顾'), findsNothing);
+    });
+  }
 
   testWidgets('HH:MM 示例不是随手记正文，不恢复生成回顾', (tester) async {
     await _mount(tester, '$_habits\n## 随手记\n- **HH:MM** 内容 #标签\n');

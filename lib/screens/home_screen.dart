@@ -19,7 +19,6 @@ import '../models/polish_result.dart';
 import '../models/quick_capture_submission.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
-import '../screens/anxiety_screen.dart';
 import '../screens/focus_timer_screen.dart';
 import '../screens/quick_capture_screen.dart';
 import '../screens/settings_page.dart';
@@ -27,7 +26,6 @@ import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
 import '../services/failure_messages.dart';
 import '../services/api_config.dart';
-import '../services/draft_repository.dart';
 import '../services/entry_line_builder.dart';
 import '../services/habit_settings_repository.dart';
 import '../services/focus_timer_controller.dart';
@@ -37,14 +35,13 @@ import '../services/tag_repository.dart';
 import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
 import '../theme/app_theme.dart';
-import '../widgets/anxiety_composer.dart';
 import '../widgets/diary_markdown_view.dart';
 import '../widgets/diary_date_title.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/habit_icon.dart';
 import '../widgets/quick_record_backdrop.dart';
-import '../widgets/quick_record_fan.dart';
+import '../widgets/quick_record_menu.dart';
 import '../widgets/reading_cache_status.dart';
 import '../widgets/flora_error_state.dart';
 
@@ -89,7 +86,10 @@ String buildCoachDiaryContext(String rawDiary) {
     } else if (section is HappinessSection) {
       addSection('小确幸', _timelineRawLines(section.contents));
     } else if (section is AnxietySection) {
-      addSection('焦虑时刻', _anxietyAnswerLines(section.contents));
+      addSection(
+        '焦虑时刻',
+        section.coachAnswers.where(_isUsableContextLine).toList(),
+      );
     } else if (section is ReviewSection) {
       addSection('觉察', _timelineRawLines(section.contents));
     }
@@ -102,19 +102,6 @@ List<String> _timelineRawLines(List<DiaryContent> contents) {
   return contents
       .whereType<TimelineContent>()
       .map((content) => content.rawLine)
-      .where(_isUsableContextLine)
-      .toList();
-}
-
-List<String> _anxietyAnswerLines(List<DiaryContent> contents) {
-  final answers = <String>[];
-  for (final content in contents) {
-    if (content is MarkdownContent) {
-      answers.addAll(AnxietyComposer.parseAnswers(content.text));
-    }
-  }
-  return answers
-      .map((answer) => answer.trim())
       .where(_isUsableContextLine)
       .toList();
 }
@@ -141,7 +128,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _warmedConnection;
   TagConfig? _tagConfig;
   TagSettings? _tagSettings;
-  final _draftRepository = DraftRepository();
   final _scrollController = ScrollController();
   late final FocusTimerController _focusTimerController;
   bool _generatingCoach = false;
@@ -489,13 +475,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             entryId: entryId,
             operationId: operationId,
           );
-        case EntryType.anxiety:
-          return widget.apiClient.appendAnxiety(
-            date,
-            content,
-            tags: tags,
-            time: time,
-          );
       }
     }
 
@@ -775,22 +754,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<String> _handleAnxietyPolish(String content) async {
-    final aiRepo = AIConfigRepository();
-    final aiConfig = await aiRepo.loadAIConfig();
-
-    if (!aiConfig.isUsable) {
-      throw Exception('润色功能尚未配置，请前往设置');
-    }
-
-    final service = PolisherService();
-    try {
-      return await service.polishPlainText(content: content, config: aiConfig);
-    } finally {
-      service.dispose();
-    }
-  }
-
   Future<void> _handleEntryDelete(
     String sectionKey,
     String rawLine, {
@@ -835,39 +798,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     showFloraSuccessSnackBar(context, '已更新');
     _loadDiarySilently();
-  }
-
-  Future<bool> _replaceAnxiety(String content) async {
-    var success = await widget.apiClient.replaceAnxiety(_activeDate, content);
-    if (!success) {
-      await widget.apiClient.ensureDiary(_activeDate);
-      success = await widget.apiClient.replaceAnxiety(_activeDate, content);
-    }
-    return success;
-  }
-
-  bool get _isAnxietyEdit {
-    final answers = _anxietyInitialAnswers;
-    return answers != null;
-  }
-
-  List<String>? get _anxietyInitialAnswers {
-    if (_diary == null || _diary!.raw.isEmpty) return null;
-
-    final document = const MarkdownParser().parse(_diary!.raw);
-    final anxietySections = document.sections
-        .whereType<AnxietySection>()
-        .toList();
-    if (anxietySections.isEmpty) return null;
-    final anxietySection = anxietySections.first;
-
-    final rawText = anxietySection.contents
-        .map((c) => c is MarkdownContent ? c.text : '')
-        .join('\n');
-    final answers = AnxietyComposer.parseAnswers(rawText);
-
-    final hasRealAnswers = answers.any((a) => a.trim().isNotEmpty);
-    return hasRealAnswers ? answers : null;
   }
 
   Future<void> _handleQuickCaptureSave(
@@ -945,77 +875,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   DateTime get _activeDate => _diaryDate ?? DateTime.now();
 
   Widget _buildQuickRecordFab(ThemeData theme) {
-    return QuickRecordFan(
+    return QuickRecordMenu(
       expanded: _quickRecordExpanded,
+      topInset: _headerInset,
       mainButtonKey: const Key('quick_record_fab'),
       tooltip: '快速记录',
-      onToggle: () {
-        setState(() => _quickRecordExpanded = !_quickRecordExpanded);
+      onExpandedChanged: (expanded) {
+        setState(() => _quickRecordExpanded = expanded);
       },
       actions: [
-        QuickRecordFanAction(
-          icon: const FloraIcon(FloraIcons.fabWrite, size: 19),
-          title: '随手记',
-          key: const Key('quick_record_quick_note'),
-          angleDegrees: 180,
-          onTap: () => _selectQuickEntry(EntryType.quickNote),
-        ),
-        QuickRecordFanAction(
-          icon: const FloraIcon(FloraIcons.fabInsight, size: 19),
-          title: '觉察',
-          key: const Key('quick_record_reflection'),
-          angleDegrees: 155,
-          onTap: () => _selectQuickEntry(EntryType.reflection),
-        ),
-        QuickRecordFanAction(
-          icon: const FloraIcon(FloraIcons.fabHappy, size: 19),
+        QuickRecordMenuAction(
+          icon: const FloraIcon(FloraIcons.fabHappy, size: 28),
           title: '小确幸',
           key: const Key('quick_record_happiness'),
-          angleDegrees: 130,
           onTap: () => _selectQuickEntry(EntryType.happiness),
         ),
-        QuickRecordFanAction(
-          icon: const FloraIcon(FloraIcons.fabAnxiety, size: 19),
-          title: '焦虑四问',
-          key: const Key('quick_record_anxiety'),
-          angleDegrees: 105,
-          onTap: () => _selectQuickEntry(EntryType.anxiety),
+        QuickRecordMenuAction(
+          icon: const FloraIcon(FloraIcons.fabInsight, size: 28),
+          title: '觉察',
+          key: const Key('quick_record_reflection'),
+          onTap: () => _selectQuickEntry(EntryType.reflection),
+        ),
+        QuickRecordMenuAction(
+          icon: const FloraIcon(FloraIcons.fabWrite, size: 28),
+          title: '随手记',
+          key: const Key('quick_record_quick_note'),
+          onTap: () => _selectQuickEntry(EntryType.quickNote),
         ),
       ],
     );
   }
 
   void _selectQuickEntry(EntryType type) {
-    if (type == EntryType.anxiety) {
-      setState(() => _quickRecordExpanded = false);
-      _openAnxietyCapture();
-      return;
-    }
-
     setState(() => _quickRecordExpanded = false);
     _openQuickCapture(type);
-  }
-
-  Future<void> _openAnxietyCapture() async {
-    final saved = await Navigator.of(context).push<bool>(
-      FloraPageRoute(
-        builder: (_) => AnxietyScreen(
-          date: _activeDate,
-          draftRepository: _draftRepository,
-          initialAnswers: _anxietyInitialAnswers,
-          isEdit: _isAnxietyEdit,
-          onPolish: _handleAnxietyPolish,
-          onSubmit: (content, _) async {
-            final success = await _replaceAnxiety(content);
-            if (!success) throw Exception('保存失败');
-          },
-        ),
-      ),
-    );
-
-    if (!mounted || saved != true) return;
-    showFloraSuccessSnackBar(context, '已保存');
-    _loadDiarySilently();
   }
 
   Future<void> _openQuickCapture(EntryType type) async {
@@ -1227,7 +1120,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
         floatingActionButtonLocation: FloraDockScope.maybeOf(context) == null
-            ? FloatingActionButtonLocation.endFloat
+            ? FloraDockFabLocation(MediaQuery.paddingOf(context).bottom + 16)
             : FloraDockFabLocation(FloraDockScope.maybeOf(context)!.fabBottom),
         body: SafeArea(
           top: false,

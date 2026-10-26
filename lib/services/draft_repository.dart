@@ -28,30 +28,6 @@ class QuickDraft {
       );
 }
 
-class AnxietyDraft {
-  final int step;
-  final List<String> answers;
-  final DateTime? updatedAt;
-
-  const AnxietyDraft({
-    required this.step,
-    required this.answers,
-    this.updatedAt,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'step': step,
-        'answers': answers,
-        if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
-      };
-
-  factory AnxietyDraft.fromJson(Map<String, dynamic> json) => AnxietyDraft(
-        step: json['step'] as int? ?? 0,
-        answers: (json['answers'] as List?)?.cast<String>() ?? [],
-        updatedAt: _parseDateTime(json['updatedAt']),
-      );
-}
-
 DateTime? _parseDateTime(dynamic value) {
   if (value is String) return DateTime.tryParse(value);
   return null;
@@ -132,44 +108,6 @@ class DraftRepository {
           QuickDraft.fromJson(jsonDecode(json) as Map<String, dynamic>);
       if (_isExpired(draft.updatedAt)) {
         await clearDraft(date: date, entryType: entryType);
-        return null;
-      }
-      return draft;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> saveAnxietyDraft({
-    required DateTime date,
-    required int step,
-    required List<String> answers,
-  }) async {
-    if (answers.every((a) => a.isEmpty)) {
-      await clearDraft(date: date, entryType: EntryType.anxiety);
-      return;
-    }
-    final draft = AnxietyDraft(
-      step: step,
-      answers: answers,
-      updatedAt: _now(),
-    );
-    await _storage.write(
-      _key(date, EntryType.anxiety),
-      jsonEncode(draft.toJson()),
-    );
-  }
-
-  Future<AnxietyDraft?> loadAnxietyDraft({
-    required DateTime date,
-  }) async {
-    final json = await _storage.read(_key(date, EntryType.anxiety));
-    if (json == null || json.isEmpty) return null;
-    try {
-      final draft =
-          AnxietyDraft.fromJson(jsonDecode(json) as Map<String, dynamic>);
-      if (_isExpired(draft.updatedAt)) {
-        await clearDraft(date: date, entryType: EntryType.anxiety);
         return null;
       }
       return draft;

@@ -94,9 +94,7 @@ void main() {
     });
   }
 
-  for (final type in EntryType.values.where(
-    (type) => type != EntryType.anxiety,
-  )) {
+  for (final type in EntryType.values) {
     testWidgets('${type.name} 纯文字没有空照片格，标签紧跟正文', (tester) async {
       await tester.pumpWidget(_capture(type: type, photoCount: 0));
       await tester.pumpAndSettle();

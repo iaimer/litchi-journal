@@ -139,27 +139,24 @@ void registerQuickCaptureTests() {
       expect(find.byKey(const Key('quick_record_fab')), findsNothing);
     });
 
-    testWidgets('今天页扇形入口有展开和收回的中间帧', (tester) async {
+    testWidgets('今天页竖排入口有展开收回中间帧', (tester) async {
       await tester.pumpWidget(buildHome());
       await tester.pumpAndSettle();
       final fab = find.byKey(const Key('quick_record_fab'));
       final note = find.byKey(const Key('quick_record_quick_note'));
-      final center = tester.getCenter(fab);
       await tester.tap(fab);
       await tester.pump();
+      final start = tester.getTopLeft(note);
       await tester.pump(const Duration(milliseconds: 60));
-      final openingDistance = (tester.getCenter(note) - center).distance;
-      expect(openingDistance, greaterThan(0));
-      expect(openingDistance, lessThan(120));
+      expect(tester.getTopLeft(note).dy, lessThan(start.dy));
       await tester.pumpAndSettle();
-      expect((tester.getCenter(note) - center).distance, closeTo(120, 0.01));
-      await tester.tap(fab);
+      final end = tester.getTopLeft(note);
+      expect(start.dy - end.dy, closeTo(8, 0.01));
+      await tester.tapAt(const Offset(20, 180));
       await tester.pump();
       expect(note, findsOneWidget);
       await tester.pump(const Duration(milliseconds: 60));
-      final closingDistance = (tester.getCenter(note) - center).distance;
-      expect(closingDistance, greaterThan(0));
-      expect(closingDistance, lessThan(120));
+      expect(tester.getTopLeft(note).dy, greaterThan(end.dy));
       await tester.pumpAndSettle();
       expect(note, findsNothing);
     });
@@ -180,92 +177,36 @@ void registerQuickCaptureTests() {
       expect(note, findsNothing);
     });
 
-    testWidgets('FAB expands four quick record entries in fan layout', (
-      tester,
-    ) async {
+    testWidgets('FAB 展开三个图文竖排入口', (tester) async {
       await tester.pumpWidget(buildHome());
       await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('quick_record_quick_note')), findsNothing);
-
-      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      final fab = find.byKey(const Key('quick_record_fab'));
+      final anchor = tester.getRect(fab);
+      await tester.tap(fab);
       await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('quick_record_quick_note')), findsOneWidget);
-      expect(find.byKey(const Key('quick_record_happiness')), findsOneWidget);
-      expect(find.byKey(const Key('quick_record_reflection')), findsOneWidget);
-      expect(find.byKey(const Key('quick_record_anxiety')), findsOneWidget);
+      final entries = [
+        'happiness',
+        'reflection',
+        'quick_note',
+      ].map((name) => find.byKey(Key('quick_record_$name'))).toList();
+      for (final label in ['小确幸', '觉察', '随手记']) {
+        expect(find.text(label), findsOneWidget);
+      }
+      for (final entry in entries) {
+        expect(tester.getSize(entry), const Size(176, 56));
+        expect(tester.getRect(entry).right, closeTo(anchor.right, 0.01));
+      }
+      expect(
+        tester.getRect(entries[0]).bottom,
+        closeTo(tester.getRect(entries[1]).top, 0.01),
+      );
+      expect(
+        tester.getRect(entries[1]).bottom,
+        closeTo(tester.getRect(entries[2]).top, 0.01),
+      );
+      expect(tester.widget<FloatingActionButton>(fab).onPressed, isNull);
+      expect(find.byKey(const Key('quick_record_anxiety')), findsNothing);
       expect(find.byKey(const Key('quick_record_image')), findsNothing);
-      expect(find.text('随手记'), findsNothing);
-      expect(find.text('小确幸'), findsNothing);
-      expect(find.text('觉察'), findsNothing);
-      expect(find.text('焦虑四问'), findsNothing);
-
-      final noteButton = tester.widget<Material>(
-        find
-            .descendant(
-              of: find.byKey(const Key('quick_record_quick_note')),
-              matching: find.byType(Material),
-            )
-            .first,
-      );
-      expect(noteButton.shape, isA<CircleBorder>());
-      expect(
-        tester.getSize(find.byKey(const Key('quick_record_quick_note'))),
-        const Size(48, 48),
-      );
-      expect(
-        tester.getSize(
-          find
-              .descendant(
-                of: find.byKey(const Key('quick_record_quick_note')),
-                matching: find.byType(Material),
-              )
-              .first,
-        ),
-        const Size(42, 42),
-      );
-
-      final fab = tester.widget<FloatingActionButton>(
-        find.byKey(const Key('quick_record_fab')),
-      );
-      expect(fab.shape, isA<CircleBorder>());
-
-      final mainCenter = tester.getCenter(
-        find.byKey(const Key('quick_record_fab')),
-      );
-      final noteCenter = tester.getCenter(
-        find.byKey(const Key('quick_record_quick_note')),
-      );
-      final happinessCenter = tester.getCenter(
-        find.byKey(const Key('quick_record_happiness')),
-      );
-      final reflectionCenter = tester.getCenter(
-        find.byKey(const Key('quick_record_reflection')),
-      );
-      final anxietyCenter = tester.getCenter(
-        find.byKey(const Key('quick_record_anxiety')),
-      );
-
-      double distanceFromMain(Offset center) {
-        final dx = center.dx - mainCenter.dx;
-        final dy = center.dy - mainCenter.dy;
-        return sqrt(dx * dx + dy * dy);
-      }
-
-      final distances = [
-        noteCenter,
-        happinessCenter,
-        reflectionCenter,
-        anxietyCenter,
-      ].map(distanceFromMain);
-
-      expect(noteCenter.dx, lessThan(mainCenter.dx));
-      expect(reflectionCenter.dy, lessThan(noteCenter.dy));
-      expect(happinessCenter.dy, lessThan(noteCenter.dy));
-      for (final distance in distances) {
-        expect(distance, closeTo(120, 1));
-      }
     });
 
     testWidgets('today quick note adds a photo inside capture and retries it', (
@@ -473,22 +414,6 @@ void registerQuickCaptureTests() {
       expect(find.text('觉察'), findsOneWidget);
     });
 
-    testWidgets('anxiety entry opens existing anxiety flow', (tester) async {
-      await tester.pumpWidget(buildHome());
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('quick_record_fab')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('quick_record_anxiety')));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AnxietyScreen), findsOneWidget);
-      expect(find.text('焦虑四问'), findsOneWidget);
-      expect(find.text('今天什么时候我感到焦虑/紧张？'), findsOneWidget);
-      expect(find.text('记录时间'), findsNothing);
-      expect(find.byType(TagPicker), findsNothing);
-    });
-
     testWidgets('selecting text entries does not write empty content', (
       tester,
     ) async {
@@ -513,14 +438,14 @@ void registerQuickCaptureTests() {
       expect(find.text('今天有什么小确幸？'), findsOneWidget);
     });
 
-    testWidgets('closing fan menu does not write content', (tester) async {
+    testWidgets('关闭竖排菜单不写入内容', (tester) async {
       final httpClient = _RecordingHttpClient(body: todayDiaryBody());
       await tester.pumpWidget(buildHome(httpClient: httpClient));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('quick_record_fab')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('quick_record_fab')));
+      await tester.tapAt(const Offset(20, 180));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('quick_record_quick_note')), findsNothing);

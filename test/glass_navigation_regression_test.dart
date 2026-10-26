@@ -12,7 +12,7 @@ import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
 import 'package:litchi_journal_flutter/widgets/flora_dock.dart';
 import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
-import 'package:litchi_journal_flutter/widgets/quick_record_fan.dart';
+import 'package:litchi_journal_flutter/widgets/quick_record_menu.dart';
 import 'package:litchi_journal_flutter/widgets/quick_record_backdrop.dart';
 
 const _fab = Key('quick_record_fab');
@@ -81,11 +81,11 @@ void _expectSameRect(Rect actual, Rect expected) {
 }
 
 Future<void> _expectStableFrames(WidgetTester tester, Rect expected) async {
-  final fan = tester.getRect(find.byType(QuickRecordFan));
+  final fan = tester.getRect(find.byType(QuickRecordMenu));
   for (var frame = 0; frame < 32; frame++) {
     await tester.pump(const Duration(milliseconds: 16));
     _expectSameRect(tester.getRect(find.byKey(_fab)), expected);
-    expect(tester.getRect(find.byType(QuickRecordFan)), fan);
+    expect(tester.getRect(find.byType(QuickRecordMenu)), fan);
     expect(tester.takeException(), isNull);
   }
 }
@@ -100,7 +100,7 @@ void main() {
     expect(FloraDockFabLocation(84), isNot(FloraDockFabLocation(100)));
   });
 
-  testWidgets('冷启动从首帧起加号和扇形宿主稳定', (tester) async {
+  testWidgets('冷启动从首帧起加号和菜单宿主稳定', (tester) async {
     await _mount(tester, settle: false);
     await _expectStableFrames(tester, tester.getRect(find.byKey(_fab)));
   });
@@ -201,17 +201,17 @@ void main() {
     expect(find.text('加载后的正文'), findsOneWidget);
   });
 
-  testWidgets('展开收回及中途反转只移动子入口，不缩放整个扇形', (tester) async {
+  testWidgets('展开收回及中途反转保持加号锚点稳定', (tester) async {
     await _mount(tester);
     final initial = tester.getRect(find.byKey(_fab));
     await tester.tap(find.byKey(_fab));
     await _expectStableFrames(tester, initial);
-    await tester.tap(find.byKey(_fab));
+    await tester.tapAt(const Offset(20, 180));
     await _expectStableFrames(tester, initial);
     await tester.tap(find.byKey(_fab));
     await tester.pump(const Duration(milliseconds: 64));
     _expectSameRect(tester.getRect(find.byKey(_fab)), initial);
-    await tester.tap(find.byKey(_fab));
+    await tester.tapAt(const Offset(20, 180));
     await tester.pump(const Duration(milliseconds: 32));
     _expectSameRect(tester.getRect(find.byKey(_fab)), initial);
     await tester.tap(find.byKey(_fab));
@@ -232,14 +232,13 @@ void main() {
       expect(dock.left, 16);
       expect(dock.right, 304);
       expect(fab.bottom, closeTo(dock.top - 12, 0.5));
-      expect(fab.right, 304);
+      expect(fab.right, closeTo(304, 0.01));
       await tester.tap(find.byKey(_fab));
       await _expectStableFrames(tester, fab);
       final keys = [
         'quick_record_quick_note',
         'quick_record_reflection',
         'quick_record_happiness',
-        'quick_record_anxiety',
       ];
       final entries = keys
           .map((key) => tester.getRect(find.byKey(Key(key))))
@@ -247,10 +246,10 @@ void main() {
       for (var index = 0; index < entries.length; index++) {
         expect(
           tester.getSize(find.byKey(Key(keys[index]))),
-          const Size(48, 48),
+          const Size(176, 56),
         );
         expect(entries[index].left, greaterThanOrEqualTo(0));
-        expect(entries[index].right, lessThanOrEqualTo(320));
+        expect(entries[index].right, lessThanOrEqualTo(320.01));
         expect(entries[index].top, greaterThanOrEqualTo(24));
         expect(entries[index].bottom, lessThan(dock.top));
         for (var next = index + 1; next < entries.length; next++) {

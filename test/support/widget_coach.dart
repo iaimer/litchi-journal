@@ -766,7 +766,7 @@ tags:
     test(
       'known system sections lose storage emoji but custom titles stay intact',
       () {
-        const sections = <DiarySection>[
+        final sections = <DiarySection>[
           HabitSection(title: '🏃 习惯打卡', contents: [], habits: []),
           QuickNoteSection(title: '✍️ 随手记', contents: [], notes: []),
           HappinessSection(title: '✨ 小确幸', contents: []),

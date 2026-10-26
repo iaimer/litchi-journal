@@ -43,7 +43,6 @@ import 'package:litchi_journal_flutter/models/habit_visual_config.dart';
 import 'package:litchi_journal_flutter/models/image_settings.dart';
 import 'package:litchi_journal_flutter/models/image_upload_item.dart';
 import 'package:litchi_journal_flutter/screens/home_screen.dart';
-import 'package:litchi_journal_flutter/screens/anxiety_screen.dart';
 import 'package:litchi_journal_flutter/screens/past_screen.dart';
 import 'package:litchi_journal_flutter/screens/gallery_image_viewer_screen.dart';
 import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
@@ -58,7 +57,6 @@ import 'package:litchi_journal_flutter/screens/about_page.dart';
 import 'package:litchi_journal_flutter/screens/image_compress_page.dart';
 import 'package:litchi_journal_flutter/screens/remote_api_page.dart';
 import 'package:litchi_journal_flutter/widgets/anxiety_card.dart';
-import 'package:litchi_journal_flutter/widgets/anxiety_composer.dart';
 import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
 import 'package:litchi_journal_flutter/widgets/diary_section_title.dart';
 import 'package:litchi_journal_flutter/widgets/entry_type.dart';
@@ -88,6 +86,7 @@ import 'package:litchi_journal_flutter/services/appearance_settings_repository.d
 
 import 'package:litchi_journal_flutter/screens/appearance_settings_page.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
+import 'support/anxiety_section_fixture.dart';
 
 part 'support/widget_fixtures.dart';
 part 'support/widget_startup.dart';

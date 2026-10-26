@@ -6,8 +6,6 @@ import '../theme/app_theme.dart';
 import '../theme/diary_reading_style.dart';
 import 'journal_section.dart';
 
-final _templateQuestionHint = RegExp(r'[？?]');
-
 class AnxietyCard extends StatelessWidget {
   final AnxietySection section;
   final Color? accentColor;
@@ -16,165 +14,96 @@ class AnxietyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveAccentColor = accentColor ?? TodayRainbow.anxiety;
-    final parsed = _parseContent();
-    final hasRealAnswers = parsed.any((item) => item.answer != null);
-    final visibleItems = hasRealAnswers
-        ? parsed.where((item) => item.answer != null).toList()
-        : parsed;
+    if (section.isEmpty) return const SizedBox.shrink();
 
     final children = <Widget>[];
-    if (visibleItems.isNotEmpty) {
-      children.add(
-        Padding(
-          padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
-          child: _AnxietyOpenGroup(
-            accentColor: effectiveAccentColor,
-            items: visibleItems,
+    var answerIndex = 0;
+    var previousWasAnswer = false;
+    for (final content in section.contents) {
+      final child = switch (content) {
+        AnxietyAnswer() => _buildAnswer(context, content, answerIndex++),
+        AnxietyLegacyBody() => _buildLegacyBody(context, content),
+        _ => _buildLegacyBody(context, AnxietyLegacyBody(content)),
+      };
+      if (child == null) continue;
+      if (children.isNotEmpty) {
+        children.add(
+          SizedBox(
+            height: content is AnxietyAnswer && previousWasAnswer ? 20 : 12,
           ),
-        ),
-      );
-    }
-    if (children.isEmpty) {
-      children.addAll(_fallbackContent(context));
+        );
+      }
+      children.add(child);
+      previousWasAnswer = content is AnxietyAnswer;
     }
     if (children.isEmpty) return const SizedBox.shrink();
 
     return JournalSection(
       title: '焦虑时刻',
-      accentColor: effectiveAccentColor,
+      accentColor: accentColor ?? TodayRainbow.anxiety,
       children: children,
     );
   }
 
-  List<_AnxietyItem> _parseContent() {
-    final items = <_AnxietyItem>[];
-    for (final content in section.contents) {
-      if (content is MarkdownContent) {
-        items.addAll(_parseQuestionAnswers(content.text));
-      }
-    }
-    return items;
-  }
-
-  List<Widget> _fallbackContent(BuildContext context) {
-    final markdown = section.contents
-        .whereType<MarkdownContent>()
-        .map((content) => content.text.trim())
-        .where((text) => text.isNotEmpty)
-        .join('\n\n');
-    if (markdown.isEmpty) return const [];
-
-    final theme = Theme.of(context);
-    return [
-      MarkdownBody(
-        data: markdown,
-        selectable: true,
-        styleSheet: DiaryReadingStyle.of(context).markdown(theme),
-      ),
-    ];
-  }
-
-  static List<_AnxietyItem> _parseQuestionAnswers(String text) {
-    final lines = text.split('\n');
-    String? currentQuestion;
-    final items = <_AnxietyItem>[];
-
-    for (final line in lines) {
-      final t = line.trim();
-      if (t.isEmpty) continue;
-
-      if (t.startsWith('- ') && _templateQuestionHint.hasMatch(t)) {
-        if (currentQuestion != null) {
-          items.add(_AnxietyItem(question: currentQuestion));
-        }
-        currentQuestion = t.substring(2).trim();
-        continue;
-      }
-
-      if (t.startsWith('>')) {
-        final answer = t.substring(1).trim();
-        if (currentQuestion != null) {
-          items.add(
-            _AnxietyItem(
-              question: currentQuestion,
-              answer: answer.isEmpty ? null : answer,
-            ),
-          );
-          currentQuestion = null;
-        }
-        continue;
-      }
-    }
-
-    if (currentQuestion != null) {
-      items.add(_AnxietyItem(question: currentQuestion));
-    }
-    return items;
-  }
-}
-
-class _AnxietyItem {
-  final String question;
-  final String? answer;
-
-  const _AnxietyItem({required this.question, this.answer});
-}
-
-class _AnxietyOpenGroup extends StatelessWidget {
-  final Color accentColor;
-  final List<_AnxietyItem> items;
-
-  const _AnxietyOpenGroup({required this.accentColor, required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var index = 0; index < items.length; index++) ...[
-          _buildItem(context, items[index], index),
-          if (index < items.length - 1) const SizedBox(height: 20),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildItem(BuildContext context, _AnxietyItem item, int index) {
+  Widget _buildAnswer(BuildContext context, AnxietyAnswer item, int index) {
     final theme = Theme.of(context);
     final questionStyle = DiaryReadingStyle.of(
       context,
     ).metadata(theme).copyWith(fontWeight: FontWeight.w600, height: 1.45);
-    final answer = item.answer;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 5, right: 10),
-              child: DecoratedBox(
-                key: ValueKey<String>('anxiety_question_marker_$index'),
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  shape: BoxShape.circle,
+    return Padding(
+      padding: EdgeInsets.only(right: journalFabSafetyInset(context)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 5, right: 10),
+                child: DecoratedBox(
+                  key: ValueKey<String>('anxiety_question_marker_$index'),
+                  decoration: BoxDecoration(
+                    color: accentColor ?? TodayRainbow.anxiety,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const SizedBox(width: 6, height: 6),
                 ),
-                child: const SizedBox(width: 6, height: 6),
               ),
-            ),
-            Expanded(child: Text(item.question, style: questionStyle)),
-          ],
-        ),
-        if (answer != null)
+              Expanded(child: Text(item.question, style: questionStyle)),
+            ],
+          ),
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 8),
             child: Text(
-              answer,
+              item.answer,
               style: DiaryReadingStyle.of(context).body(theme),
             ),
           ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildLegacyBody(BuildContext context, AnxietyLegacyBody legacyBody) {
+    if (!legacyBody.hasRealContent) return null;
+    final content = legacyBody.content;
+    final markdown = switch (content) {
+      MarkdownContent() => content.text,
+      CalloutContent() => [
+        '> [!${content.type}]${content.title.isEmpty ? '' : ' ${content.title}'}',
+        ...content.body.map((line) => '> $line'),
+      ].join('\n'),
+      CheckboxContent() => content.rawLine,
+      TimelineContent() => content.rawLine,
+      SubSectionContent() => '### ${content.title}',
+      MediaPhotoContent() => content.photo.rawLine,
+      _ => '',
+    };
+    if (markdown.isEmpty) return null;
+    return MarkdownBody(
+      data: markdown,
+      selectable: true,
+      styleSheet: DiaryReadingStyle.of(context).markdown(Theme.of(context)),
     );
   }
 }

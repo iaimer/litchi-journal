@@ -72,20 +72,6 @@ void registerDraftsAiTests() {
       );
     });
 
-    test('anxiety draft save and restore', () async {
-      await repo.saveAnxietyDraft(
-        date: date,
-        step: 2,
-        answers: ['a1', 'a2', '', ''],
-      );
-
-      final draft = await repo.loadAnxietyDraft(date: date);
-
-      expect(draft, isNotNull);
-      expect(draft!.step, 2);
-      expect(draft.answers, ['a1', 'a2', '', '']);
-    });
-
     test('fromJson survives type-incompatible input', () {
       final draft = QuickDraft.fromJson(<String, dynamic>{});
 
@@ -170,46 +156,6 @@ void registerDraftsAiTests() {
           entryType: EntryType.quickNote,
         );
         expect(reloaded, isNull);
-      },
-    );
-
-    test('anxiety draft not expired within TTL', () async {
-      final now = DateTime(2026, 6, 7, 10, 0);
-      repo = DraftRepository(storage: storage, now: () => now);
-
-      await repo.saveAnxietyDraft(
-        date: date,
-        step: 2,
-        answers: ['a1', 'a2', '', ''],
-      );
-
-      final draft = await repo.loadAnxietyDraft(date: date);
-
-      expect(draft, isNotNull);
-      expect(draft!.step, 2);
-      expect(draft.answers, ['a1', 'a2', '', '']);
-    });
-
-    test(
-      'anxiety draft expired after 2 minutes returns null and clears',
-      () async {
-        final now = DateTime(2026, 6, 7, 10, 0);
-        repo = DraftRepository(storage: storage, now: () => now);
-
-        await repo.saveAnxietyDraft(
-          date: date,
-          step: 2,
-          answers: ['a1', 'a2', '', ''],
-        );
-
-        repo = DraftRepository(
-          storage: storage,
-          now: () => now.add(const Duration(minutes: 2, seconds: 1)),
-        );
-
-        final draft = await repo.loadAnxietyDraft(date: date);
-
-        expect(draft, isNull);
       },
     );
 
@@ -1164,26 +1110,6 @@ void registerDraftsAiTests() {
 
       expect(systemContent, contains('必须输出 1 个领域 + 1 个主题'));
       expect(systemContent, contains('【重要提醒】'));
-    });
-
-    test('retry does not affect polishPlainText', () async {
-      final client = _MultiResponseHttpClient([
-        '{"choices":[{"message":{"content":"单次润色"}}]}',
-      ]);
-      final service = PolisherService(httpClient: client);
-
-      final result = await service.polishPlainText(
-        content: '测试',
-        config: const AIConfig(
-          enabled: true,
-          baseUrl: 'https://api.test.com',
-          apiKey: 'sk-test',
-          model: 'gpt-4',
-        ),
-      );
-
-      expect(result, '单次润色');
-      expect(client.callCount, 1);
     });
 
     test('reflection prompt includes domain guidance', () async {

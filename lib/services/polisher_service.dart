@@ -325,30 +325,6 @@ class PolisherService {
     }
   }
 
-  Future<String> polishPlainText({
-    required String content,
-    required AIConfig config,
-  }) async {
-    if (!config.isUsable) {
-      throw Exception('AI 润色未启用或配置不完整');
-    }
-    if (content.trim().isEmpty) {
-      throw Exception('内容为空');
-    }
-
-    final trimmed = config.polishPrompt?.trim();
-    final effectivePrompt = (trimmed != null && trimmed.isNotEmpty)
-        ? trimmed
-        : defaultPolishPrompt;
-
-    return _callAI(
-      config: config,
-      systemPrompt: effectivePrompt,
-      userContent: content,
-      maxTokens: 500,
-    );
-  }
-
   Future<String> generateCoach({
     required String diaryContext,
     required AIConfig config,
@@ -580,7 +556,6 @@ class PolisherService {
       EntryType.reflection =>
         '这是一条觉察与迭代记录。判断这条觉察属于哪个生活领域（亲子/育儿/工作/学习/阅读/技术/生活），从该领域中选择适合的主题。',
       EntryType.happiness => '这是一条小确幸记录。',
-      EntryType.anxiety => '这是焦虑时刻的一个回答。',
     };
 
     final tagSection = _buildTagSection(tagConfig);

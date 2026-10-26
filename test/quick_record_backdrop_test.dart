@@ -181,7 +181,7 @@ void main() {
     expect(controller.offset, greaterThan(pausedOffset));
   });
 
-  testWidgets('连续反转保持正文状态，收回完成前仍拦截内容', (tester) async {
+  testWidgets('连续反转保持正文状态，关闭开始立即恢复阅读', (tester) async {
     var contentTaps = 0;
     final key = GlobalKey<_BackdropHarnessState>();
     await tester.pumpWidget(
@@ -198,12 +198,12 @@ void main() {
     key.currentState!.setExpanded(false);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 16));
-    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsNothing);
     await tester.tap(
       find.byKey(const Key('reading_content')),
       warnIfMissed: false,
     );
-    expect(contentTaps, 0);
+    expect(contentTaps, 1);
     key.currentState!.setExpanded(true);
     await tester.pumpAndSettle();
     expect(
@@ -214,7 +214,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(BackdropFilter), findsNothing);
     await tester.tap(find.byKey(const Key('reading_content')));
-    expect(contentTaps, 1);
+    expect(contentTaps, 2);
   });
 
   for (final useReducedMotion in [false, true]) {

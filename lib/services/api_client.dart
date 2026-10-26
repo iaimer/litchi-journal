@@ -366,27 +366,6 @@ class ApiClient {
     );
   }
 
-  Future<bool> appendAnxiety(
-    DateTime date,
-    String content, {
-    List<String> tags = const [],
-    String? time,
-  }) {
-    return _appendToSection('anxiety', date, content, tags, time: time);
-  }
-
-  Future<bool> replaceAnxiety(DateTime date, String content) async {
-    final response = await _post(
-      '/api/v1/diary/anxiety/replace',
-      body: {
-        'date': formatDate(date),
-        'content': content,
-        'operationId': generateUuidV4(),
-      },
-    );
-    return response.statusCode == 200;
-  }
-
   Future<Map<String, dynamic>> uploadImage(
     DateTime date,
     String imageBase64, {

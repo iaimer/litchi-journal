@@ -25,6 +25,7 @@ import '../widgets/flora_error_state.dart';
 import '../widgets/flora_icon.dart';
 import '../widgets/flora_success_snackbar.dart';
 import '../widgets/historical_quick_record_fab.dart';
+import '../widgets/flora_dock.dart';
 import '../widgets/flora_skeleton.dart';
 import '../widgets/quick_record_backdrop.dart';
 import 'quick_capture_screen.dart';
@@ -210,7 +211,6 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
           entryId: submission.entryId,
           operationId: submission.operationId,
         ),
-        EntryType.anxiety => Future.value(false),
       };
     }
 
@@ -276,12 +276,8 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
   }
 
   void _handleBack() {
-    if (!_quickRecordExpanded) {
-      Navigator.of(context).maybePop();
-      return;
-    }
     setState(() => _quickRecordExpanded = false);
-    // PopScope 会先拦住当前这一帧的返回；下一帧直接执行原有返回行为。
+    // 外部按下可能先关闭菜单；等待 PopScope 同步，避免同次返回被旧状态拦住。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.of(context).maybePop();
     });
@@ -427,6 +423,10 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
             child: _buildBody(theme),
           ),
         ),
+        floatingActionButtonLocation: FloraDockFabLocation(
+          MediaQuery.paddingOf(context).bottom + 16,
+        ),
+        floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
         floatingActionButton: ExcludeSemantics(
           excluding: !_verified,
           child: IgnorePointer(
@@ -434,9 +434,10 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
             child: Opacity(
               opacity: _verified ? 1 : 0.4,
               child: HistoricalQuickRecordFab(
+                topInset: _headerInset,
                 expanded: _quickRecordExpanded,
-                onToggle: () {
-                  setState(() => _quickRecordExpanded = !_quickRecordExpanded);
+                onExpandedChanged: (expanded) {
+                  setState(() => _quickRecordExpanded = expanded);
                 },
                 onEntrySelected: _openQuickCapture,
               ),

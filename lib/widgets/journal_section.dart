@@ -9,6 +9,9 @@ import '../theme/diary_reading_style.dart';
 import 'flora_icon.dart';
 import 'tag_color_helper.dart';
 
+// Keeps narrow-screen layout consistent while reserving room for three common 12sp tags.
+const double _minimumTimelineTagRowWidth = 210;
+
 TextStyle journalTimeStyle(BuildContext context) =>
     DiaryReadingStyle.of(context)
         .metadata(Theme.of(context))
@@ -112,17 +115,20 @@ class JournalEntryActionSlot extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!busy && onPressed == null) return const SizedBox.shrink();
 
-    final alignment = alignToTags ? Alignment.topCenter : Alignment.center;
+    final tagMetrics = _JournalTagMetrics.maybeOf(context);
+    final alignWithTag = alignToTags && !(tagMetrics?.separate ?? false);
+    final alignment = alignWithTag ? Alignment.topCenter : Alignment.center;
     final metadata = DiaryReadingStyle.of(context).metadata(Theme.of(context));
     // 对齐标签第一行，不随整个多行标签的高度移动；热区至少 48dp。
     final tagCenter =
-        MediaQuery.textScalerOf(context).scale(metadata.fontSize!) *
+        (tagMetrics?.fontSize ??
+                MediaQuery.textScalerOf(context).scale(metadata.fontSize!)) *
             metadata.height! /
             2 +
         2.6 +
         (attachmentAboveTags ? 0 : FloraSpacing.md);
     // 大字标签的中心可能超过常规热区，让槽增高而不是挤压图标。
-    final height = alignToTags
+    final height = alignWithTag
         ? (tagCenter + 9).clamp(48.0, double.infinity)
         : 48.0;
     if (busy) {
@@ -132,7 +138,7 @@ class JournalEntryActionSlot extends StatelessWidget {
         child: Align(
           alignment: alignment,
           child: Padding(
-            padding: alignToTags
+            padding: alignWithTag
                 ? EdgeInsets.only(
                     top: (tagCenter - 7).clamp(0.0, double.infinity),
                   )
@@ -152,7 +158,7 @@ class JournalEntryActionSlot extends StatelessWidget {
       height: height,
       child: IconButton(
         alignment: alignment,
-        padding: alignToTags
+        padding: alignWithTag
             ? EdgeInsets.only(top: (tagCenter - 9).clamp(0.0, double.infinity))
             : EdgeInsets.zero,
         constraints: BoxConstraints.tightFor(width: 48, height: height),
@@ -165,6 +171,24 @@ class JournalEntryActionSlot extends StatelessWidget {
       ),
     );
   }
+}
+
+class _JournalTagMetrics extends InheritedWidget {
+  final double fontSize;
+  final bool separate;
+
+  const _JournalTagMetrics({
+    required this.fontSize,
+    required this.separate,
+    required super.child,
+  });
+
+  static _JournalTagMetrics? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_JournalTagMetrics>();
+
+  @override
+  bool updateShouldNotify(_JournalTagMetrics oldWidget) =>
+      fontSize != oldWidget.fontSize || separate != oldWidget.separate;
 }
 
 class JournalTimelineRow extends StatefulWidget {
@@ -252,7 +276,7 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
   Widget build(BuildContext context) {
     if (widget.isLast) _scheduleRailMeasurement();
     final timeWidth = journalTimeColumnWidth(context);
-    final minimumBodyWidth = math.max(
+    final minimumTextWidth = math.max(
       48.0,
       MediaQuery.textScalerOf(
         context,
@@ -260,14 +284,19 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
+        // 用统一标签行宽决定上下排布，避免每条记录的标签长度挪动时间轴。
+        final minimumBodyWidth = math.max(
+          minimumTextWidth,
+          _minimumTimelineTagRowWidth,
+        );
         final spareWidth =
             constraints.maxWidth - 4 - timeWidth - 16 - minimumBodyWidth;
-        final stacked = spareWidth < 0;
         // 系统大字下优先保留真实时间和正文，不能让 FAB 避让挤掉内容。
-        final rightInset = spareWidth.clamp(
-          0.0,
-          journalFabSafetyInset(context),
-        );
+        final safetyInset = journalFabSafetyInset(context);
+        final stacked = spareWidth < safetyInset;
+        final rightInset = stacked
+            ? safetyInset
+            : spareWidth.clamp(0.0, safetyInset);
         return Padding(
           padding: EdgeInsets.only(left: 4, right: rightInset),
           child: Stack(
@@ -276,7 +305,7 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
               _buildRail(
                 stacked ? 0 : timeWidth,
                 nodeOffset: stacked
-                    ? _stackedTimeHeight(constraints.maxWidth - 20)
+                    ? _stackedTimeHeight(constraints.maxWidth - 20 - rightInset)
                     : 0,
               ),
               stacked
@@ -363,6 +392,7 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
       Text(
         widget.content,
         key: _contentKey,
+        textAlign: TextAlign.justify,
         style: DiaryReadingStyle.of(context).body(theme),
       ),
       if (widget.attachment != null) ...[
@@ -379,15 +409,33 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
   Widget _buildMetadataRow() => LayoutBuilder(
     builder: (context, constraints) {
       final tags = _buildTags();
-      final minimumTagWidth = MediaQuery.textScalerOf(context).scale(14) + 14;
-      if (widget.tags.isNotEmpty &&
+      final minimumTagWidth = readingTagWidth(
+        context,
+        widget.tags,
+        readingTagMinSize,
+      );
+      final separate =
+          widget.tags.isNotEmpty &&
           widget.trailing != null &&
-          constraints.maxWidth < minimumTagWidth + 48) {
+          constraints.maxWidth < minimumTagWidth + 48;
+      final tagWidth =
+          (constraints.maxWidth -
+                  (widget.trailing != null && !separate ? 48 : 0))
+              .clamp(0.0, double.infinity);
+      final fontSize = readingTagFontSize(context, widget.tags, tagWidth);
+      final trailing = widget.trailing == null
+          ? null
+          : _JournalTagMetrics(
+              fontSize: fontSize,
+              separate: separate,
+              child: widget.trailing!,
+            );
+      if (separate) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             tags,
-            Align(alignment: Alignment.centerRight, child: widget.trailing!),
+            Align(alignment: Alignment.centerRight, child: trailing!),
           ],
         );
       }
@@ -395,7 +443,7 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.tags.isNotEmpty) Expanded(child: tags) else const Spacer(),
-          ?widget.trailing,
+          ?trailing,
         ],
       );
     },
@@ -410,6 +458,7 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
       tags: widget.tags,
       tagConfig: widget.tagConfig,
       moduleAccentColor: widget.accentColor,
+      singleLine: true,
     ),
   );
 }

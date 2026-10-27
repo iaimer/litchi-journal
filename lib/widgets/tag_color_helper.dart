@@ -4,6 +4,66 @@ import '../models/tag_config.dart';
 import '../theme/app_theme.dart';
 import '../theme/diary_reading_style.dart';
 
+const double readingTagMaxSize = 12;
+const double readingTagMinSize = 10;
+const double _tagHorizontalPadding = 13.2;
+const double _tagSpacing = 4;
+
+TextStyle _readingTagTextStyle(BuildContext context, double size) {
+  final baseStyle = DiaryReadingStyle.of(
+    context,
+  ).metadata(Theme.of(context)).copyWith(fontSize: size);
+  var style = DefaultTextStyle.of(context).style.merge(baseStyle);
+  if (MediaQuery.boldTextOf(context)) {
+    style = style.merge(const TextStyle(fontWeight: FontWeight.bold));
+  }
+  return style.merge(
+    TextStyle(
+      height: MediaQuery.maybeLineHeightScaleFactorOverrideOf(context),
+      letterSpacing: MediaQuery.maybeLetterSpacingOverrideOf(context),
+      wordSpacing: MediaQuery.maybeWordSpacingOverrideOf(context),
+    ),
+  );
+}
+
+double readingTagWidth(BuildContext context, List<String> tags, double size) {
+  final style = _readingTagTextStyle(context, size);
+  var width = (tags.length - 1).clamp(0, tags.length) * _tagSpacing;
+  for (final tag in tags) {
+    final painter = TextPainter(
+      text: TextSpan(text: tag, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: TextScaler.noScaling,
+      maxLines: 1,
+    )..layout();
+    width += painter.width + _tagHorizontalPadding;
+    painter.dispose();
+  }
+  return width;
+}
+
+double readingTagFontSize(
+  BuildContext context,
+  List<String> tags,
+  double width,
+) {
+  final preferred = MediaQuery.textScalerOf(
+    context,
+  ).scale(readingTagMaxSize).clamp(readingTagMinSize, readingTagMaxSize);
+  if (readingTagWidth(context, tags, preferred) <= width) return preferred;
+  var low = readingTagMinSize;
+  var high = preferred;
+  for (var i = 0; i < 12; i++) {
+    final middle = (low + high) / 2;
+    if (readingTagWidth(context, tags, middle) <= width) {
+      low = middle;
+    } else {
+      high = middle;
+    }
+  }
+  return low;
+}
+
 class TagChipColors {
   final Color backgroundColor;
   final Color borderColor;
@@ -20,46 +80,136 @@ class TagChipList extends StatelessWidget {
   final List<String> tags;
   final TagConfig? tagConfig;
   final Color? moduleAccentColor;
+  final bool singleLine;
 
   const TagChipList({
     super.key,
     required this.tags,
     required this.tagConfig,
     this.moduleAccentColor,
+    this.singleLine = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final accentColor =
         moduleAccentColor ?? TagChipModuleAccent.maybeOf(context);
-    return Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      children: tags
-          .map((tag) {
-            final colors = tagChipColorsFor(
-              label: tag,
-              tagConfig: tagConfig,
-              theme: theme,
-              moduleAccentColor: accentColor,
-            );
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: colors.backgroundColor,
-                borderRadius: BorderRadius.circular(FloraRadius.pill),
-                border: Border.all(color: colors.borderColor, width: 0.6),
-              ),
-              child: Text(
-                tag,
-                style: DiaryReadingStyle.of(
-                  context,
-                ).metadata(theme).copyWith(color: colors.textColor),
-              ),
-            );
-          })
-          .toList(growable: false),
+    if (!singleLine) {
+      return Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          for (final tag in tags)
+            _tag(context, tag, 14, null, null, accentColor: accentColor),
+        ],
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _singleLine(context, constraints.maxWidth, accentColor),
+    );
+  }
+
+  Widget _singleLine(BuildContext context, double width, Color? accentColor) {
+    if (tags.isEmpty) return const SizedBox.shrink();
+    final size = readingTagFontSize(context, tags, width);
+    final spacing = tags.length > 1
+        ? _tagSpacing.clamp(0.0, width / (tags.length - 1))
+        : 0.0;
+    final available = (width - spacing * (tags.length - 1)).clamp(
+      0.0,
+      double.infinity,
+    );
+    final naturalWidths = tags
+        .map((tag) => readingTagWidth(context, [tag], size))
+        .toList(growable: false);
+    final widths = _distributeWidths(naturalWidths, available);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < tags.length; i++) ...[
+          if (i > 0) SizedBox(width: spacing),
+          _tag(
+            context,
+            tags[i],
+            size,
+            widths[i],
+            naturalWidths[i],
+            accentColor: accentColor,
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<double> _distributeWidths(List<double> natural, double available) {
+    final widths = List<double>.filled(natural.length, 0);
+    var remaining = available;
+    final pending = <int>{for (var i = 0; i < natural.length; i++) i};
+    while (pending.isNotEmpty) {
+      final share = remaining / pending.length;
+      final fitting = pending.where((i) => natural[i] <= share).toList();
+      if (fitting.isEmpty) {
+        for (final i in pending) {
+          widths[i] = share;
+        }
+        break;
+      }
+      for (final i in fitting) {
+        widths[i] = natural[i];
+        remaining -= widths[i];
+        pending.remove(i);
+      }
+    }
+    return widths;
+  }
+
+  Widget _tag(
+    BuildContext context,
+    String tag,
+    double size,
+    double? width,
+    double? naturalWidth, {
+    Color? accentColor,
+  }) {
+    final theme = Theme.of(context);
+    final colors = tagChipColorsFor(
+      label: tag,
+      tagConfig: tagConfig,
+      theme: theme,
+      moduleAccentColor: accentColor,
+    );
+    return SizedBox(
+      width: width,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: colors.backgroundColor,
+          borderRadius: BorderRadius.circular(FloraRadius.pill),
+          border: Border.all(color: colors.borderColor, width: 0.6),
+        ),
+        child: Semantics(
+          label: tag,
+          child: ExcludeSemantics(
+            child: Text(
+              tag,
+              maxLines: singleLine ? 1 : null,
+              softWrap: singleLine ? false : null,
+              overflow:
+                  width != null &&
+                      naturalWidth != null &&
+                      width + 0.01 < naturalWidth
+                  ? TextOverflow.ellipsis
+                  : null,
+              textScaler: singleLine ? TextScaler.noScaling : null,
+              style: _readingTagTextStyle(
+                context,
+                size,
+              ).copyWith(color: colors.textColor),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

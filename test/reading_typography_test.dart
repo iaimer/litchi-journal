@@ -119,7 +119,7 @@ void main() {
     });
   });
 
-  testWidgets('默认正文 16、时间标签 14，不改变全局正文与操作字号', (tester) async {
+  testWidgets('默认正文 16、时间 14、标签 12，不改变全局正文与操作字号', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
@@ -139,7 +139,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<Text>(find.text('日记阅读正文')).style?.fontSize, 16);
     expect(tester.widget<Text>(find.text('17:29')).style?.fontSize, 14);
-    expect(tester.widget<Text>(find.text('#生活')).style?.fontSize, 14);
+    expect(tester.widget<Text>(find.text('#生活')).style?.fontSize, 12);
     final theme = Theme.of(tester.element(find.text('日记阅读正文')));
     expect(theme.textTheme.bodyMedium?.fontSize, 14);
     expect(theme.textTheme.bodyLarge?.fontSize, 16);

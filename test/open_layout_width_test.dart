@@ -262,7 +262,7 @@ void main() {
       expect(find.text('#工作'), findsOneWidget);
     });
 
-    testWidgets('窄屏放大字体下长标签换行后仍与菜单首行对齐', (tester) async {
+    testWidgets('窄屏长标签保持单行，操作区移到下方', (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -270,18 +270,26 @@ void main() {
       const textScaler = TextScaler.linear(1.3);
 
       Future<void> check(Widget child, String firstTag) async {
-        await expectTagAndMenuAligned(
-          tester,
-          child: child,
-          tag: firstTag,
-          textScaler: textScaler,
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: const MediaQueryData(textScaler: textScaler),
+              child: Scaffold(body: child),
+            ),
+          ),
         );
+        await tester.pumpAndSettle();
         expect(find.text('#第二个标签很长'), findsOneWidget);
         expect(find.text('#第三个标签很长'), findsOneWidget);
         expect(
           tester.getRect(find.text('#第二个标签很长')).top,
+          closeTo(tester.getRect(find.text(firstTag)).top, 0.1),
+        );
+        expect(
+          tester.getRect(moreIconFinder()).top,
           greaterThan(tester.getRect(find.text(firstTag)).bottom),
         );
+        expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
         expect(tester.takeException(), isNull);
       }
 
@@ -483,7 +491,7 @@ void main() {
       );
     }
 
-    testWidgets('前三条时间轴连续，末条在换行标签底部结束', (tester) async {
+    testWidgets('前三条时间轴连续，末条在单行标签底部结束', (tester) async {
       await tester.binding.setSurfaceSize(const Size(viewportWidth, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -543,7 +551,7 @@ void main() {
       expect(secondRail.top, closeTo(secondRow.top, 0.5));
       expect(secondRail.bottom, closeTo(lastRail.top, 0.5));
       expect(lastRail.top, closeTo(lastRow.top, 0.5));
-      expect(secondLastTag.top, greaterThan(firstLastTag.top));
+      expect(secondLastTag.top, closeTo(firstLastTag.top, 0.1));
       expect(lastRail.bottom, closeTo(lastTagList.bottom, 0.5));
       expect(lastRail.bottom, lessThan(lastRow.bottom));
       expect(firstRail.bottom, closeTo(firstRow.bottom, 0.5));
@@ -685,7 +693,9 @@ void main() {
       await tester.pumpAndSettle();
       final largeTags = tester.getRect(find.byType(TagChipList));
       final largeRail = tester.getRect(timelineRailAt(0));
-      expect(largeTags.height, greaterThan(normalTags.height));
+      final largeTag = tester.widget<Text>(find.text('#第一条较长标签显示文本'));
+      expect(largeTag.style!.fontSize, inInclusiveRange(10, 12));
+      expect(largeTag.textScaler, TextScaler.noScaling);
       expect(largeRail.bottom, closeTo(largeTags.bottom, 0.5));
     });
 

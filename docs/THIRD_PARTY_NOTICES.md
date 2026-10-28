@@ -12,7 +12,7 @@
 
 ### Dock 实心派生资源
 
-`assets/icons/navigation/` 中的以下文件于 2026-10-04 由项目基于已打包的 Lucide
+`assets/icons/navigation/` 中的以下文件由项目基于已打包的 Lucide
 `1.47.0` 轮廓制作，仅用于 Dock 当前页面的选中态，不是 Lucide 官方发布的实心图标。
 原官方 SVG 未修改，派生文件继续遵守下方 ISC 许可并保留来源说明。
 
@@ -21,6 +21,7 @@
 | `notebook-pen-filled.svg` | `notebook-pen.svg` |
 | `images-filled.svg` | `images.svg` |
 | `sprout-filled.svg` | `sprout.svg` |
+| `settings-filled.svg` | `settings.svg` |
 
 以下文本摘自上游 `lucide-static@1.47.0/LICENSE`：
 

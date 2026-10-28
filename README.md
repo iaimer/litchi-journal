@@ -1,8 +1,8 @@
 # 荔枝日记
 
-Flutter 原生日记客户端与 TypeScript／Express API 服务端，内容长期保存在自己的 Obsidian Vault。客户端 Android 版本负责阅读、输入、交互与缓存，`server/` 负责 Markdown 读写和 Obsidian 兼容。
+Flutter 原生日记客户端与 TypeScript／Express API 服务端，内容长期保存在自己的 Obsidian Vault。Android 客户端负责阅读、输入、交互与缓存，`server/` 负责 Markdown 读写和 Obsidian 兼容。
 
-当前客户端清单为 `1.10.0+42`，包含四项导航、浅白／浅桃粉主题、年趋势及标签显示优化；具体 APK、验证日期与手机安装状态见 [HANDOFF.md](HANDOFF.md)，不以旧构建或旧真机反馈替代本轮验收。
+当前客户端清单为 `1.10.1+43`，在四项导航、浅白／浅桃粉主题与年趋势基础上，采用五模块清亮配色及可读文字前景；具体 APK、验证日期与手机安装状态见 [HANDOFF.md](HANDOFF.md)，不以旧构建或旧真机反馈替代本轮验收。
 
 ## 当前能力
 
@@ -89,4 +89,4 @@ adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 | [README.md](README.md) | 使用入口、能力、开发命令与构建流程 |
 | [PLAN.md](PLAN.md) | 已确认需求、开发进度与后续安排 |
 
-视觉规则见 [DESIGN.md](DESIGN.md)，品牌源图在 `docs/design-reference/`，许可见 [第三方声明](docs/THIRD_PARTY_NOTICES.md)。旧计划和交接保存在 `docs/archive/`；`SESSION_LOG.md` 仅供历史追溯，不再更新。接手先读 AGENTS、HANDOFF 与 PLAN，按需查详细设计和历史方案。
+产品定位见 [PRODUCT.md](PRODUCT.md)，视觉规则见 [DESIGN.md](DESIGN.md)，品牌源图在 `docs/design-reference/`，许可见 [第三方声明](docs/THIRD_PARTY_NOTICES.md)。Android 交付见 [发布说明](docs/RELEASE.md)，服务端部署见 [部署指南](server/DEPLOY.md)。接手先读 AGENTS、HANDOFF 与 PLAN；已替代的阶段方案和会话流水从 Git 历史追溯，不再保留重复档案。

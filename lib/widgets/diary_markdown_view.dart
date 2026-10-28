@@ -500,9 +500,9 @@ class DiaryMarkdownView extends StatelessWidget {
                 Expanded(
                   child: Text(
                     line,
-                    style: DiaryReadingStyle.of(
-                      context,
-                    ).heading(theme).copyWith(color: accentColor),
+                    style: DiaryReadingStyle.of(context)
+                        .heading(theme)
+                        .copyWith(color: moduleTextColor(accentColor, theme)),
                   ),
                 ),
               ],

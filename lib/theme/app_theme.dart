@@ -45,27 +45,19 @@ class AppColors {
   static const darkTagAmber = Color(0xFFD4B57A);
 }
 
-/// Today 页面七个日记模块的固定语义色。
+/// Today 页面五个常规日记模块的固定语义色。
 ///
 /// 快速记录页的标签色板是另一套规则，不在这里复用。
 class TodayRainbow {
-  static const quickNote = Color(0xFFFF6B6B);
-  static const happiness = Color(0xFFFF9F43);
-  static const anxiety = Color(0xFFFFD43B);
-  static const review = Color(0xFF51CF66);
-  static const coach = Color(0xFF12B5CB);
-  static const tomorrow = Color(0xFF4DABF7);
-  static const media = Color(0xFF9775FA);
+  static const quickNote = Color(0xFFF08F8F);
+  static const happiness = Color(0xFFF0B36F);
+  static const anxiety = review;
+  static const review = Color(0xFF8DB993);
+  static const coach = Color(0xFF85ACD8);
+  static const tomorrow = Color(0xFFAC98CD);
+  static const media = tomorrow;
 
-  static const values = <Color>[
-    quickNote,
-    happiness,
-    anxiety,
-    review,
-    coach,
-    tomorrow,
-    media,
-  ];
+  static const values = <Color>[quickNote, happiness, review, coach, tomorrow];
 
   static Color? forSectionType(String sectionType) {
     switch (sectionType) {

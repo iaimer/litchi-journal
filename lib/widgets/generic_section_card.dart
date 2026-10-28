@@ -670,7 +670,9 @@ class _EditableEntryRowState extends State<_EditableEntryRow> {
               width: journalTimeColumnWidth(context),
               child: Text(
                 widget.content.time,
-                style: journalTimeStyle(context).copyWith(color: accentColor),
+                style: journalTimeStyle(
+                  context,
+                ).copyWith(color: moduleTextColor(accentColor, theme)),
               ),
             ),
             _TimelineMarker(color: accentColor),

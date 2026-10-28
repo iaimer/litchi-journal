@@ -266,7 +266,7 @@ void registerAnxietyTests() {
       ),
     );
 
-    const anxietyAccentColor = Color(0xFFFFD43B);
+    const anxietyAccentColor = Color(0xFF8DB993);
     final answerFinder = find.ancestor(
       of: find.text('今天送小宝去幼儿园时，她迟到了。'),
       matching: find.byType(DecoratedBox),

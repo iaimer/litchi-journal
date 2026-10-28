@@ -350,6 +350,13 @@ TagChipColors _chipColors({
   );
 }
 
+/// 模块主色用于装饰，文字按实际主题表面派生可读的同色系前景。
+Color moduleTextColor(Color accentColor, ThemeData theme) => _readableColor(
+  accentColor,
+  [theme.colorScheme.surface, theme.scaffoldBackgroundColor],
+  theme.brightness == Brightness.dark,
+);
+
 Color _readableColor(Color color, List<Color> backgrounds, bool isDark) {
   final hsl = HSLColor.fromColor(color);
   final preferredLightness = isDark

@@ -1,202 +1,59 @@
-# 荔枝日记 API 服务端部署指南
+# API 服务端部署
 
-## 前置要求
+源码位于 `server/src/`，构建入口为 `dist/index.js`；PM2进程名 `diary-api`，工作目录由 `ecosystem.config.cjs` 固定为本目录。移除macOS客户端不影响在Mac mini运行Node服务。代码已合入不表示运行机器已部署。
 
-- Mac mini 已安装 Node.js (v20.9+，`sharp` 运行要求)
-- Mac mini 已安装 Tailscale 并连接
-- 已确认 Obsidian Vault 的本地路径
+## 配置与运行
 
-服务端已迁入 Flutter 项目仓库的 `server/` 目录。原 Web 端可以逐步淘汰，后续 API 服务端开发以本仓库为准。
+开发和CI使用Node.js22。部署机器需要能访问Vault；若通过Tailscale连接，手机与服务端应在可互通网络中。
 
-## 一键部署
+在本目录复制 `config.example.json` 为 `config.json`，填写实际Vault路径、私有Token、端口及可选 `allowedOrigins`。默认示例端口4001，实际以配置为准。空来源白名单保持本地调试和真机访问兼容；原生客户端不依赖浏览器CORS。配置、密钥和Vault不得提交Git或输出到聊天与日志。
 
 ```bash
-# 1. Clone 项目到 Mac mini
-git clone <repo-url> litchi-journal
-cd litchi-journal/server
-
-# 2. 创建本地配置并填写私有值
-cp config.example.json config.json
-
-# 3. 执行部署脚本
-./deploy.sh
-```
-
-## 手动部署
-
-```bash
-cd litchi-journal/server
-
-# 1. 安装依赖
-npm install
-
-# 2. 构建 TypeScript
+npm ci
+npm test
 npm run build
-
-# 3. 创建日志目录
-mkdir -p logs
-
-# 4. 启动服务
 npm run pm2:start
-
-# 5. 查看状态
-pm2 status
 ```
 
-## 验证部署
+PM2需预先安装。开发调试可用 `npm run dev`；不使用PM2时可在构建后 `npm start`。
+
+## 更新
+
+部署前按既有方式备份Vault，确认要交付的分支／提交，保留部署机器的私有配置。在确认的代码版本上执行：
 
 ```bash
-# 测试 Health endpoint
-curl http://localhost:4001/health
-
-# 查看日志
-pm2 logs diary-api
-```
-
-## 常用命令
-
-```bash
-# 查看状态
-pm2 status
-
-# 查看日志
-npm run pm2:logs
-pm2 logs diary-api --lines 100
-
-# 重启服务
-npm run pm2:restart
-
-# 停止服务
-npm run pm2:stop
-
-# 删除服务
-pm2 delete diary-api
-```
-
-## 开机自启
-
-```bash
-# 生成 startup 脚本
-pm2 startup
-
-# 保存当前 pm2 进程列表
-pm2 save
-```
-
-执行 `pm2 startup` 后会输出一条命令，复制执行即可。
-
-## 日志管理
-
-日志文件位置：
-- 输出日志：`logs/out.log`
-- 错误日志：`logs/error.log`
-
-日志格式：
-```
-2026-05-12 10:29:58 +08:00: Diary API Server running on port 4001
-```
-
-## 更新部署
-
-```bash
-# 拉取最新代码
-git pull
-
-# 进入服务端目录并停止旧服务
 cd server
-npm run pm2:stop || true
+npm ci
+npm test
+npm run build
+npm run pm2:restart
+```
 
-# 先预览待清理的备份遗留文件，再执行清理
+先完成测试与构建再重启；首次部署用 `pm2:start`。用 `GET /health` 检查进程，再使用客户端完成授权连接和隔离测试数据的创建、记录、习惯、图文及失败重试验证。健康检查不证明Token或全部业务可用。
+
+```bash
+curl http://localhost:4001/health
+pm2 status
+npm run pm2:logs
+```
+
+手机使用可达的服务端地址和配置中的Token。连接失败先检查进程、配置端口、手机VPN／代理白名单、fake-ip DNS及浏览器同域名访问；凭据错误在本地核对，不打印真实Token。
+
+## 部署脚本与旧备份清理
+
+`./deploy.sh` 会执行 `npm install`、TypeScript构建、按需全局安装PM2、删除旧 `diary-api` 进程、清理已撤回备份功能的遗留数据，再启动并保存PM2配置。它不运行测试，结束时显示的4001是固定提示，不能替代实际配置。执行前应了解这些动作，不把它当作无副作用检查。
+
+旧备份清理脚本默认只预览，`--apply` 才删除：
+
+```bash
 ./scripts/cleanup-removed-backup-data.sh
 ./scripts/cleanup-removed-backup-data.sh --apply
-
-# 重新部署
-npm install
-npm run build
-npm run pm2:restart
 ```
 
-备份清理脚本只处理 `server/data/` 下的 `backup-settings.json`、`backup-credentials.json`、`backup-state.json` 及其 `.corrupt-*` 隔离副本，并清理 Node 临时目录中的应用专用 `litchi-journal-backups` 目录。脚本会在旧服务仍运行、目标目录是符号链接或路径校验失败时拒绝执行。
+清理时旧服务须停止；脚本只处理 `server/data/` 中指定的备份配置／凭据／状态及 `.corrupt-*`，和系统临时目录下应用专用 `litchi-journal-backups`。符号链接或路径校验异常时拒绝执行，不扫描Vault、云盘、远端WebDAV ZIP或手机下载目录。
 
-该流程不会扫描或删除 Obsidian Vault、云盘内容、WebDAV 上已有的 ZIP，或 Android 下载目录中的文件。首次部署也可直接运行 `./deploy.sh`，脚本会在停止旧进程后执行同一套幂等清理。
+## 运维边界
 
-## 监控
+PM2日志位于 `server/logs/out.log` 与 `error.log`；可用 `pm2 monit` 查看状态。需要开机自启时由部署者执行 `pm2 startup`，按其输出完成系统设置，再 `pm2 save`。
 
-### pm2 监控面板
-
-```bash
-pm2 monit
-```
-
-### API 监控
-
-```bash
-# Health check
-curl http://localhost:4001/health
-
-# 日记接口测试
-curl http://localhost:4001/api/v1/diary/2026-05-12 \
-  -H "Authorization: Token <YOUR_PRIVATE_TOKEN>"
-```
-
-## 故障排查
-
-### 1. 服务未启动
-
-```bash
-# 检查进程
-pm2 status
-
-# 查看错误日志
-pm2 logs diary-api --err
-```
-
-### 2. 端口被占用
-
-```bash
-# 检查端口
-lsof -i :4001
-
-# 停止占用进程
-pm2 stop diary-api
-```
-
-### 3. Token 无效
-
-检查 `config.json` 中的 apiToken 配置。
-
-## 手机端配置
-
-Flutter 客户端远程 API 配置：
-
-- API 地址：`http://<TAILSCALE_IP>:4001`
-- Token：使用仅保存在本地 `server/config.json` 中的私有 Token
-
-## 配置文件
-
-复制模板后编辑本地配置。`server/config.json` 已加入 `.gitignore`，禁止提交真实值：
-
-```bash
-cp config.example.json config.json
-```
-
-`server/config.json`：
-```json
-{
-  "vaultPath": "/path/to/your/Obsidian Vault",
-  "apiToken": "<YOUR_PRIVATE_TOKEN>",
-  "port": 4001
-}
-```
-
-**注意**：Mac mini 的 vaultPath 可能与 MacBook 不同，需要修改。
-
-## 图片命名前缀
-
-`POST /api/v1/diary/image/upload` 支持可选字段 `imagePrefix`。
-
-- 不传：继续使用 `Image-YYYYMMDD-NNN.jpg`
-- 传入合法前缀：使用 `{prefix}-YYYYMMDD-NNN.jpg`
-- 合法字符：英文、数字、短横线、下划线
-
-非法前缀会返回错误，不会写入图片或 Markdown。
+新日记写入支持原子替换与操作幂等，旧 `.diary-ops.json` 只读兼容；损坏且无法确认操作结果时返回冲突，不删除索引来绕过保护。原子写入不解决外部编辑器／云盘并发冲突。外部Vault备份继续独立保留，已撤回ZIP／WebDAV应用备份不恢复。

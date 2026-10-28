@@ -336,7 +336,9 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
         padding: const EdgeInsets.only(left: 16),
         child: Text(
           widget.time,
-          style: journalTimeStyle(context).copyWith(color: widget.accentColor),
+          style: journalTimeStyle(context).copyWith(
+            color: moduleTextColor(widget.accentColor, Theme.of(context)),
+          ),
         ),
       ),
       Padding(
@@ -369,9 +371,9 @@ class _JournalTimelineRowState extends State<JournalTimelineRow> {
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Text(
             widget.time,
-            style: journalTimeStyle(
-              context,
-            ).copyWith(color: widget.accentColor),
+            style: journalTimeStyle(context).copyWith(
+              color: moduleTextColor(widget.accentColor, Theme.of(context)),
+            ),
           ),
         ),
       ),

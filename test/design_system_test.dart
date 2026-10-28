@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
 import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
+import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
 import 'package:litchi_journal_flutter/widgets/journal_section.dart';
 import 'package:litchi_journal_flutter/widgets/tag_color_helper.dart';
 
@@ -34,6 +35,89 @@ void _expectOutlineContrast(Color outline, Color background) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  for (final dark in [false, true]) {
+    for (final readOnly in [false, true]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets('真实回顾标题前景 dark=$dark readOnly=$readOnly scale=$scale', (
+          tester,
+        ) async {
+          tester.view.physicalSize = const Size(320, 1400);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final theme = dark ? AppTheme.dark : AppTheme.light;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: DiaryMarkdownView(
+                    markdown: '### 人生教练\n模式识别\n今天留意到了自己的感受。\n暖心鼓励\n允许自己慢慢来。',
+                    readOnly: readOnly,
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          for (final heading in ['模式识别', '暖心鼓励']) {
+            final text = tester.widget<Text>(find.text(heading));
+            expect(
+              text.style!.color,
+              moduleTextColor(TodayRainbow.coach, theme),
+            );
+            _expectTextContrast(
+              text.style!.color!,
+              theme.scaffoldBackgroundColor,
+            );
+            _expectTextContrast(text.style!.color!, theme.colorScheme.surface);
+          }
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  }
+
+  for (final dark in [false, true]) {
+    for (final width in [320.0, 430.0]) {
+      testWidgets('真实时间文字使用可读模块前景 dark=$dark width=$width', (tester) async {
+        tester.view.physicalSize = Size(width, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final theme = dark ? AppTheme.dark : AppTheme.light;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: const Scaffold(
+              body: SingleChildScrollView(
+                child: DiaryMarkdownView(
+                  markdown:
+                      "## 随手记 & 灵感\n- **08:30** 一条记录 #生活\n## 每日小确幸\n> **10:20** 开心的小事 #日常\n### 觉察与迭代\n- **12:15** 此刻的感受 #情绪",
+                  readOnly: true,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        for (final time in ['08:30', '10:20', '12:15']) {
+          final text = tester.widget<Text>(find.text(time));
+          _expectTextContrast(
+            text.style!.color!,
+            theme.scaffoldBackgroundColor,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 
   for (final dark in [false, true]) {
     testWidgets('focused input labels stay readable dark=$dark', (
@@ -181,6 +265,19 @@ void main() {
       _expectOutlineContrast(scheme.outline, scheme.surface);
     });
 
+    test('五色时间与彩色标题前景在浅深色表面满足对比度', () {
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        for (final color in TodayRainbow.values) {
+          for (final background in [
+            theme.colorScheme.surface,
+            theme.scaffoldBackgroundColor,
+          ]) {
+            _expectTextContrast(moduleTextColor(color, theme), background);
+          }
+        }
+      }
+    });
+
     test('Today Rainbow 标签在最终混合背景上满足文字对比度', () {
       for (final theme in [AppTheme.light, AppTheme.dark]) {
         for (final moduleColor in TodayRainbow.values) {
@@ -204,7 +301,16 @@ void main() {
       }
     });
 
-    test('Today Rainbow 只映射七个系统章节', () {
+    test('五模块主色与历史兼容映射', () {
+      expect(TodayRainbow.values, const [
+        Color(0xFFF08F8F),
+        Color(0xFFF0B36F),
+        Color(0xFF8DB993),
+        Color(0xFF85ACD8),
+        Color(0xFFAC98CD),
+      ]);
+      expect(TodayRainbow.anxiety, TodayRainbow.review);
+      expect(TodayRainbow.media, TodayRainbow.tomorrow);
       expect(TodayRainbow.forSectionType('quickNote'), TodayRainbow.quickNote);
       expect(TodayRainbow.forSectionType('happiness'), TodayRainbow.happiness);
       expect(TodayRainbow.forSectionType('anxiety'), TodayRainbow.anxiety);

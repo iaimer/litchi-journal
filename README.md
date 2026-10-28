@@ -75,7 +75,7 @@ flutter build apk --release
 adb -s <device-id> install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-日常覆盖安装使用 `adb install -r`；同包名、同签名且非降级时保留本地连接配置。内部 Release 沿用原 debug 证书和 `com.example.litchi_journal_flutter`，不是商店正式包。可选商店模式必须提供正式包名与本地签名，缺配置拒绝构建。客户端不再维护 iOS、Linux、macOS 和 Windows 版本。
+日常覆盖安装使用 `adb install -r`；同包名、同签名且非降级时保留本地连接配置。内部 Release 沿用原 debug 证书和 `com.example.litchi_journal_flutter`，不是商店正式包。可选商店模式必须提供正式包名与本地签名，缺配置拒绝构建。客户端不再维护 Web、iOS、Linux、macOS 和 Windows 版本。
 
 只有明确准备发布新版本时才修改 `pubspec.yaml` 与对应 CHANGELOG 版本。构建测试包、代码合并、服务端部署和真机验收分别记录，完整流程与权限说明见 [发布说明](docs/RELEASE.md)。
 

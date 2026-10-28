@@ -2,7 +2,7 @@
 
 ## 产品定位
 
-荔枝日记当前仓库包含 Flutter 原生客户端和 `server/` API 服务端。Flutter 客户端是独立的原生产品，不是 Web 版复刻；客户端不再维护 iOS、Linux、macOS 和 Windows 版本；原 Web 端服务端已经迁入本仓库，后续服务端开发以 `server/` 为准。
+荔枝日记当前仓库包含 Flutter 原生客户端和 `server/` API 服务端。Flutter 客户端是独立的原生产品，不是 Web 版复刻；客户端不再维护 Web、iOS、Linux、macOS 和 Windows 版本；原 Web 端服务端已经迁入本仓库，后续服务端开发以 `server/` 为准。
 
 Flutter 客户端负责：
 

@@ -1,8 +1,12 @@
 # 当前交接
 
+## Web 客户端移除（2026-10-29）
+
+按确认的范围移除 Flutter Web 入口、图标和平台元数据，保留 Android 客户端与 `server/` API 服务端。`flutter analyze --no-pub` 和 Flutter 1395 项测试通过；按要求不构建 APK、不部署，版本不变。
+
 ## 客户端平台清理（2026-10-29）
 
-按确认的范围移除 iOS、Linux、macOS、Windows 的受版本管理客户端工程，保留 Android、Web 和服务端；本机已有的被忽略生成文件保留。品牌派生脚本与测试已去除 iOS 依赖。
+按确认的范围移除 iOS、Linux、macOS、Windows 的受版本管理客户端工程，当时保留 Android、Web 和服务端；本机已有的被忽略生成文件保留。品牌派生脚本与测试已去除 iOS 依赖。
 
 在 `codex/remove-unused-platforms-20261029` 完成 `flutter analyze --no-pub`、Flutter 1395 项测试及隔离目录内品牌派生脚本检查。按要求未构建或安装 APK，也未部署；版本不变。
 

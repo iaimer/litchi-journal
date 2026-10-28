@@ -2,7 +2,7 @@
 
 ## 产品定位
 
-荔枝日记当前仓库包含 Flutter 原生客户端和 `server/` API 服务端。Flutter 客户端是独立的原生产品，不是 Web 版复刻；原 Web 端服务端已经迁入本仓库，后续服务端开发以 `server/` 为准。
+荔枝日记当前仓库包含 Flutter 原生客户端和 `server/` API 服务端。Flutter 客户端是独立的原生产品，不是 Web 版复刻；客户端不再维护 iOS、Linux、macOS 和 Windows 版本；原 Web 端服务端已经迁入本仓库，后续服务端开发以 `server/` 为准。
 
 Flutter 客户端负责：
 
@@ -175,7 +175,7 @@ Flutter 端已建立的领域组件：
 
 - `docs/design-reference/` 是荔枝日记品牌视觉源图目录。
 - C 方案品牌母版为 `docs/design-reference/brand-c-master.png`：翻页日记本是主体，右页荔枝为品牌装饰，右上保留飞出的爱心；来自已确认的 `brand-c-approved.png`，不得重新绘制近似版本。
-- `tools/derive_brand_assets.cjs` 从同一透明母版派生 `icon.png`、`splash.png`、`assets/icon/` 品牌图、Android launcher 和 iOS AppIcon；桌面图标背景为 `#FAFAFA`，自适应图形完整落在中心安全圆内，外框由系统裁切。
+- `tools/derive_brand_assets.cjs` 从同一透明母版派生 `icon.png`、`splash.png`、`assets/icon/` 品牌图、Android launcher；桌面图标背景为 `#FAFAFA`，自适应图形完整落在中心安全圆内，外框由系统裁切。
 - 启动页与关于页使用透明底品牌图，保留浅色书页并融入页面纸色；`FloraBrandIdentity` 根据实际标题宽度显示 95% 宽的完整图形（包含爱心和轨迹），不再固定 168dp。
 - 启动页用原生组件组合图形、名称和标语，图文间距 24dp；关于页图文间距 20dp。浅深色共用母版，原生启动保持纸色空底，避免重复品牌闪现。
 - `docs/design-reference/reference.png` 仅作为整体视觉参考，不作为直接切图资源。
@@ -302,7 +302,7 @@ flutter test
 涉及视觉体验时，优先使用真机截图验收。真机设备：PLG110 (Android 16)，无线 ADB 连接。
 当前客户端版本以 `pubspec.yaml` 为准，当前发布版本为 `1.10.0+42`。代码、APK 与设备验收状态分别记录在 `HANDOFF.md`，旧轮次的构建或真机确认不得代替新改动的验收。
 
-默认内部 Android Release 使用原 debug 签名和 `com.example.litchi_journal_flutter` 包名，保持覆盖安装兼容；商店模式要求显式正式 applicationId 与本地签名，缺配置拒绝构建。Android 备份排除应用数据；iOS 仍需独立构建与真机验收。完整流程见 `docs/RELEASE.md`。Lordicon 静态 SVG 必须检查实际解析，不能只检查文件存在。
+默认内部 Android Release 使用原 debug 签名和 `com.example.litchi_journal_flutter` 包名，保持覆盖安装兼容；商店模式要求显式正式 applicationId 与本地签名，缺配置拒绝构建。Android 备份排除应用数据。完整流程见 `docs/RELEASE.md`。Lordicon 静态 SVG 必须检查实际解析，不能只检查文件存在。
 
 ## 数据完整性规则
 

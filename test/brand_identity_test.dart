@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -61,26 +60,6 @@ void main() {
       expect(maxRadius, lessThanOrEqualTo(33));
     });
   }
-
-  test('iOS 图标全尺寸有效且使用不透明浅白背景', () {
-    const directory = 'ios/Runner/Assets.xcassets/AppIcon.appiconset';
-    final catalog =
-        jsonDecode(File('$directory/Contents.json').readAsStringSync())
-            as Map<String, dynamic>;
-    for (final item in catalog['images'] as List) {
-      final size =
-          (double.parse((item['size'] as String).split('x').first) *
-                  double.parse((item['scale'] as String).replaceAll('x', '')))
-              .round();
-      final icon = img.decodePng(
-        File('$directory/${item['filename']}').readAsBytesSync(),
-      )!;
-      expect(icon.width, size);
-      expect(icon.height, size);
-      expect(icon.numChannels, 3);
-      expect(icon.getPixel(0, 0).r, 250);
-    }
-  });
 
   setUp(() {
     PackageInfo.setMockInitialValues(

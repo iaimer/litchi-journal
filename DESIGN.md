@@ -201,7 +201,7 @@ Lucide、Lordicon 图标 ID、下载日期和完整许可文本见 `docs/THIRD_P
 
 ## Typography
 
-**Display Font:** 平台系统字体（iOS 优先使用 SF Pro 系统呈现）
+**Display Font:** 平台系统字体
 **Body Font:** 平台系统字体
 **Label Font:** 平台系统字体
 
@@ -440,7 +440,7 @@ Lucide、Lordicon 图标 ID、下载日期和完整许可文本见 `docs/THIRD_P
 - `docs/design-reference/` 是品牌视觉权威源图目录，禁止重新绘制或 AI 生成近似图。
 - 品牌采用 C 方案：翻页日记本为主体，右页荔枝点缀，爱心沿短曲线向右上飞出。透明母版为 `brand-c-master.png`，批准的构图依据为 `brand-c-approved.png`；不重新生成近似图。
 - `tools/derive_brand_assets.cjs` 统一派生桌面与页面资源；`icon.png` / `app-launcher.png` 使用 `#FAFAFA` 不透明底，`splash.png` / `app-icon.png` / 浅深色品牌资源保持图形外部透明、书页内部浅色填充。
-- Android 自适应前景放入中心 66dp 安全圆，iOS 使用各尺寸不透明方形资源，外框均交给系统裁切。
+- Android 自适应前景放入中心 66dp 安全圆，外框交给系统裁切。
 - 启动页和关于页用 `FloraBrandIdentity` 将完整图形宽度限制为实际标题的 95%，居中展示，分别保留 24dp / 20dp 图文间距；标题随主题和系统字体比例显示，不再固定 168dp 品牌图。
 - 原生启动维持页面纸色空底，Flutter 启动页原生排布名称与「记录 · 成长 · 觉察」，浅深色共用图形，保留既有启动时序和减少动画逻辑。
 - `reference.png` 仅作整体视觉参考。更新品牌后必须重新构建并覆盖安装 APK，不能仅依赖 hot reload。

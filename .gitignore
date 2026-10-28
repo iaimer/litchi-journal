@@ -58,3 +58,13 @@ key.properties
 /server/node_modules/
 /server/dist/
 /server/logs/
+
+# Retained local Flutter-generated files from removed platform projects
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+/ios/Flutter/ephemeral/
+/ios/Runner/GeneratedPluginRegistrant.h
+/ios/Runner/GeneratedPluginRegistrant.m
+/linux/flutter/ephemeral/
+/macos/Flutter/ephemeral/
+/windows/flutter/ephemeral/

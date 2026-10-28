@@ -8,7 +8,7 @@
 
 2026-10-28 阅读条目复审补修包从 `codex/reading-entry-alignment-20261027` 构建：`build/app/outputs/flutter-apk/litchi-journal-1.9.2-reading-entry-review-fixes-20261028-release.apk`，65,349,140 字节，SHA-256 `bc3a5a2d008cfa345b5e9d6c35ed5b3c8f5e1ac102d041d96cd61298f619f286`。保持 `1.9.2+41`、原包名和 Android Debug 证书，APK v2 签名与三种 ABI 验证通过；完整 Flutter 1284 项及静态分析通过。尚未安装真机。
 
-此前清单为 `1.9.2+41`。2026-10-26 修复启动时记录加号变淡并升补丁版本；Android 内部 Release 沿用原 applicationId `com.example.litchi_journal_flutter` 和原签名，iOS Bundle ID 也保持不变。
+此前清单为 `1.9.2+41`。2026-10-26 修复启动时记录加号变淡并升补丁版本；Android 内部 Release 沿用原 applicationId `com.example.litchi_journal_flutter` 和原签名。
 
 ## 本地与 CI 验证
 
@@ -74,10 +74,6 @@ flutter build appbundle --release
 ## 权限与系统备份
 
 Android 使用 `allowBackup=false`，并分别为旧版 Auto Backup 和 Android 12+ 的云备份／设备迁移设置排除规则，覆盖应用文件、数据库、SharedPreferences 和外部应用目录。这避免把加密后的 Token、AI Key 与短时草稿迁到缺失原密钥的设备。不同 OEM 对 `allowBackup` 的行为有差异，因此同时声明 [data-extraction-rules](https://developer.android.com/identity/data/autobackup)。应用重装或换机后手动设置连接；Vault 的外部同步／备份不受这些规则影响。阅读缓存仍位于系统私有缓存目录，不能替代备份。
-
-iOS 已声明相册用途和局域网访问用途，ATS 仅添加 `NSAllowsLocalNetworking`，未开启全局任意明文访问。该键针对本地域名与本地地址，不代表任意公网 HTTP 地址可用，具体见 [Apple 官方说明](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowslocalnetworking)。远程连接优先 HTTPS；实际局域网 IP、mDNS、拒绝后从系统设置恢复权限及真机选图仍需设备验收。没有使用相机／麦克风，因此未申请对应权限。
-
-iOS 正式发布仍需要完整 Xcode、开发团队、正式 Bundle ID、描述文件及证书，并实际构建、安装与验收。当前只通过 plist 语法检查，不能据此认定 iOS 可发布。
 
 ## 服务端交付
 

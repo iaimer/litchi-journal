@@ -1,5 +1,11 @@
 # 当前交接
 
+## 客户端平台清理（2026-10-29）
+
+按确认的范围移除 iOS、Linux、macOS、Windows 的受版本管理客户端工程，保留 Android、Web 和服务端；本机已有的被忽略生成文件保留。品牌派生脚本与测试已去除 iOS 依赖。
+
+在 `codex/remove-unused-platforms-20261029` 完成 `flutter analyze --no-pub`、Flutter 1395 项测试及隔离目录内品牌派生脚本检查。按要求未构建或安装 APK，也未部署；版本不变。
+
 ## 1.10.0 内部发布（2026-10-28）
 
 清单 `1.10.0+42`，包含当前整体界面、四项导航与设置迁移、年趋势与分组、图标和正文标签显示及审查修复。发布包 `build/app/outputs/flutter-apk/litchi-journal-1.10.0-release.apk`，SHA-256 `f766100d8449ed12f1ed1abf57c78f6a8c8909251c3eec851ee0a474c6bfb25b`。正常main.dart入口，原包名 `com.example.litchi_journal_flutter`，Android Debug证书SHA-256 `4b15b79943c8e123ab288bfcb76e6235d59cc265b9e56e40660eb69af499c433`，APK v2有效。
@@ -83,7 +89,7 @@ Flutter1396项、服务端160项、静态分析及TypeScript构建通过，差�
 - 最新阅读排版 APK 尚无 OPPO PLG110（Android 16）安装验收记录；构建时 ADB 未发现设备。用户此前确认过统一时间轴包已安装，不等于最新排版包已验收。
 - 最近客户端修改不需要重新部署 API，但更早的服务端可靠性、404 语义与新模板仍缺少本轮环境中的部署确认。部署按 `docs/RELEASE.md`，保留私有配置与 Vault。
 - 离线重启、清理、旧分页恢复、多图失败重试、AI 真实请求和持续使用体验仍按 `PLAN.md` 检查；不从旧测试数量推断完成。
-- iOS 未完成实际构建／真机验收；Android 商店正式身份与签名未迁移。
+- Android 商店正式身份与签名未迁移。
 
 ## 历史追溯
 

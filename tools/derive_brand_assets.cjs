@@ -1,7 +1,6 @@
 // 使用 NODE_PATH 指向包含 sharp 的现有工具环境，无需增加 App 依赖。
 const sharp = require('sharp');
 const fs = require('node:fs/promises');
-const path = require('node:path');
 const master = 'docs/design-reference/brand-c-master.png';
 
 async function cleanExteriorShadow() {
@@ -57,18 +56,6 @@ async function derive() {
       await (await square(Math.round(108 * scale), Math.round(54 * scale), true))
         .png().toFile(`${dir}/${name}.png`);
     }
-  }
-  const iosDir = 'ios/Runner/Assets.xcassets/AppIcon.appiconset';
-  const catalog = JSON.parse(await fs.readFile(`${iosDir}/Contents.json`, 'utf8'));
-  for (const item of catalog.images) {
-    const size = Math.round(parseFloat(item.size) * parseFloat(item.scale));
-    await (await square(size, Math.round(size * 850 / 1024)))
-      .removeAlpha().png().toFile(path.join(iosDir, item.filename));
-  }
-  // 原生启动只呈现纸色背景，品牌组合由 Flutter 展示，避免重复闪现。
-  for (const suffix of ['', '@2x', '@3x']) {
-    await sharp({ create: { width: 1, height: 1, channels: 4, background: '#00000000' } })
-      .png().toFile(`ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage${suffix}.png`);
   }
 }
 derive().catch(error => { console.error(error); process.exitCode = 1; });

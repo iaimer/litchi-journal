@@ -4,7 +4,7 @@ import '../models/habit_stats.dart';
 import '../models/habit_trend.dart';
 import '../theme/app_theme.dart';
 
-/// 习惯趋势页顶部的极简指标条。
+/// 习惯趋势页顶部的淡彩指标卡。
 class HabitTrendDashboard extends StatelessWidget {
   final HabitTrendPeriod period;
   final List<HabitTrendItem> items;
@@ -66,22 +66,23 @@ class _HabitTrendMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final value = _formatValue(item);
-    final backgroundAlpha = theme.brightness == Brightness.dark ? 52 : 48;
-    final borderAlpha = theme.brightness == Brightness.dark ? 90 : 72;
+    final value = _metricValue(item);
+    final label = _metricLabel(item);
 
     return Semantics(
       key: ValueKey('habit_metric_${item.key}'),
       container: true,
-      label: '${item.displayName}，${period.range.label}，$value',
+      label: '${item.displayName}，${period.range.label}，$label $value',
+      excludeSemantics: true,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: item.color.withAlpha(backgroundAlpha),
-          borderRadius: BorderRadius.circular(FloraRadius.md),
-          border: Border.all(
-            color: item.color.withAlpha(borderAlpha),
-            width: 0.7,
+          color: Color.alphaBlend(
+            item.color.withValues(
+              alpha: theme.brightness == Brightness.dark ? .14 : .10,
+            ),
+            theme.colorScheme.surface,
           ),
+          borderRadius: BorderRadius.circular(FloraRadius.md),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
@@ -89,21 +90,49 @@ class _HabitTrendMetricCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.topLeft,
-                    child: Text(
-                      item.displayName,
-                      maxLines: 1,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.topLeft,
+                          child: Text(
+                            item.displayName,
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.topRight,
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                              color: MediaQuery.highContrastOf(context)
+                                  ? theme.colorScheme.onSurface
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Expanded(
@@ -115,7 +144,7 @@ class _HabitTrendMetricCard extends StatelessWidget {
                     child: Text(
                       value,
                       maxLines: 1,
-                      style: theme.textTheme.headlineMedium?.copyWith(
+                      style: TextStyle(
                         color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w600,
                         fontSize: 24,
@@ -131,14 +160,14 @@ class _HabitTrendMetricCard extends StatelessWidget {
       ),
     );
   }
-
-  String _formatValue(HabitTrendItem item) {
-    if (item.type == HabitStatType.duration) {
-      return formatDurationMinutes(item.totalDurationMinutes);
-    }
-    return '${item.longestStreak} 天';
-  }
 }
+
+String _metricLabel(HabitTrendItem item) =>
+    item.type == HabitStatType.duration ? '累计' : '最长连续';
+
+String _metricValue(HabitTrendItem item) => item.type == HabitStatType.duration
+    ? formatDurationMinutes(item.totalDurationMinutes)
+    : '${item.longestStreak} 天';
 
 /// 将分钟格式化为趋势页使用的一位小数小时。
 String formatDurationMinutes(int minutes) {

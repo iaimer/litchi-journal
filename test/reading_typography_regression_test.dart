@@ -268,7 +268,7 @@ void main() {
         final rails = find.byWidgetPredicate(
           (widget) =>
               widget is ColoredBox &&
-              widget.color == TodayRainbow.quickNote.withAlpha(88),
+              widget.color == TodayRainbow.quickNote.withAlpha(48),
         );
         expect(rails, findsNWidgets(3));
         expect(

@@ -126,10 +126,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     padding: const EdgeInsets.all(_panelInset),
     decoration: BoxDecoration(
       color: theme.colorScheme.surface,
-      border: Border.all(
-        color: theme.colorScheme.outlineVariant,
-        width: _panelBorder,
-      ),
+
       borderRadius: BorderRadius.circular(FloraRadius.md),
     ),
     child: Column(

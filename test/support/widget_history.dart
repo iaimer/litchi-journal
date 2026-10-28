@@ -50,7 +50,7 @@ void registerHistoryTests() {
         find.byWidgetPredicate(
           (w) => w is FloraIcon && w.name == FloraIcons.settings,
         ),
-        findsOneWidget,
+        findsNothing,
       );
     });
 

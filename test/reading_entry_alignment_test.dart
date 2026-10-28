@@ -114,7 +114,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final paragraph = tester.renderObject<RenderParagraph>(
-      find.descendant(of: find.text(tag), matching: find.byType(RichText)),
+      find.descendant(
+        of: find.text(tag.replaceFirst(RegExp(r'^#+'), '')),
+        matching: find.byType(RichText),
+      ),
     );
     expect(paragraph.text.style!.fontWeight, FontWeight.bold);
     expect(paragraph.text.style!.letterSpacing, 2);
@@ -122,7 +125,12 @@ void main() {
       paragraph.getMaxIntrinsicWidth(double.infinity),
       lessThanOrEqualTo(paragraph.size.width + 0.1),
     );
-    expect(tester.widget<Text>(find.text(tag)).overflow, isNull);
+    expect(
+      tester
+          .widget<Text>(find.text(tag.replaceFirst(RegExp(r'^#+'), '')))
+          .overflow,
+      isNull,
+    );
   });
 
   testWidgets('截图中的三个标签在放大字体后仍完整显示在一行', (tester) async {
@@ -155,10 +163,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final topEdges = _tags.map((tag) => tester.getRect(find.text(tag)).top);
+    final topEdges = _tags.map(
+      (tag) =>
+          tester.getRect(find.text(tag.replaceFirst(RegExp(r'^#+'), ''))).top,
+    );
     expect(topEdges.toSet(), hasLength(1));
     for (final tag in _tags) {
-      final text = tester.widget<Text>(find.text(tag));
+      final text = tester.widget<Text>(
+        find.text(tag.replaceFirst(RegExp(r'^#+'), '')),
+      );
       expect(text.style!.fontSize, lessThanOrEqualTo(12));
       expect(text.overflow, isNot(TextOverflow.ellipsis));
     }
@@ -212,11 +225,17 @@ void main() {
               await tester.pump();
               await tester.pump();
               final labels = _tags
-                  .map((tag) => tester.getRect(find.text(tag)))
+                  .map(
+                    (tag) => tester.getRect(
+                      find.text(tag.replaceFirst(RegExp(r'^#+'), '')),
+                    ),
+                  )
                   .toList();
               expect(labels.map((rect) => rect.top).toSet(), hasLength(1));
               for (final tag in _tags) {
-                final text = tester.widget<Text>(find.text(tag));
+                final text = tester.widget<Text>(
+                  find.text(tag.replaceFirst(RegExp(r'^#+'), '')),
+                );
                 expect(text.style!.fontSize, inInclusiveRange(10, 12));
                 expect(text.overflow, isNot(TextOverflow.ellipsis));
                 expect(text.textScaler, TextScaler.noScaling);
@@ -315,13 +334,18 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(
-      tester.widget<Text>(find.text(longTag)).overflow,
+      tester
+          .widget<Text>(find.text(longTag.replaceFirst(RegExp(r'^#+'), '')))
+          .overflow,
       TextOverflow.ellipsis,
     );
-    expect(find.bySemanticsLabel(longTag), findsOneWidget);
     expect(
-      tester.getRect(find.text(longTag)).top,
-      closeTo(tester.getRect(find.text('#生活')).top, 0.1),
+      find.bySemanticsLabel(longTag.replaceFirst(RegExp(r'^#+'), '')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(find.text(longTag.replaceFirst(RegExp(r'^#+'), ''))).top,
+      closeTo(tester.getRect(find.text('生活')).top, 0.1),
     );
     expect(tester.takeException(), isNull);
     semantics.dispose();
@@ -379,7 +403,10 @@ void main() {
         );
         final labels = _tags.map(
           (tag) => tester.getRect(
-            find.descendant(of: row, matching: find.text(tag)),
+            find.descendant(
+              of: row,
+              matching: find.text(tag.replaceFirst(RegExp(r'^#+'), '')),
+            ),
           ),
         );
         expect(labels.map((rect) => rect.top).toSet(), hasLength(1));

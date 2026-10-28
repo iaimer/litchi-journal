@@ -183,7 +183,7 @@ void registerPreferencesTests() {
       expect(find.text('外观'), findsOneWidget);
       expect(find.text('习惯设置'), findsOneWidget);
       expect(find.text('标签设置'), findsOneWidget);
-      expect(find.text('远程 API'), findsOneWidget);
+      expect(find.text('服务器连接'), findsOneWidget);
       expect(find.text('AI 服务配置'), findsOneWidget);
       expect(find.text('润色提示词'), findsOneWidget);
       expect(find.byType(Card), findsNWidgets(3));

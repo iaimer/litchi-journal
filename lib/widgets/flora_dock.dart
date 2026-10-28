@@ -66,38 +66,44 @@ class FloraDock extends StatelessWidget {
       math.max(64, 48 + MediaQuery.textScalerOf(context).scale(12) + 4);
 
   @override
-  Widget build(BuildContext context) => FloraGlassSurface(
-    navigationSurface: true,
-    borderRadius: BorderRadius.circular(FloraRadius.pill),
-    child: Theme(
-      data: Theme.of(context).copyWith(splashFactory: NoSplash.splashFactory),
-      child: NavigationBar(
-        height: height,
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        indicatorColor: Colors.transparent,
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        elevation: 0,
-        animationDuration: FloraMotion.fastFor(MediaQuery.of(context)),
-        selectedIndex: selectedIndex,
-        onDestinationSelected: onSelected,
-        destinations: const [
-          NavigationDestination(
-            icon: _DockIcon(FloraIcons.diary),
-            selectedIcon: _DockIcon(FloraIcons.dockDiarySelected),
-            label: '今天',
-          ),
-          NavigationDestination(
-            icon: _DockIcon(FloraIcons.history),
-            selectedIcon: _DockIcon(FloraIcons.dockHistorySelected),
-            label: '过往',
-          ),
-          NavigationDestination(
-            icon: _DockIcon(FloraIcons.habits),
-            selectedIcon: _DockIcon(FloraIcons.dockHabitsSelected),
-            label: '习惯',
-          ),
-        ],
+  Widget build(BuildContext context) => FloraGlassHeader(
+    child: SafeArea(
+      top: false,
+      child: Theme(
+        data: Theme.of(context).copyWith(splashFactory: NoSplash.splashFactory),
+        child: NavigationBar(
+          height: height,
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: 0,
+          animationDuration: FloraMotion.fastFor(MediaQuery.of(context)),
+          selectedIndex: selectedIndex,
+          onDestinationSelected: onSelected,
+          destinations: const [
+            NavigationDestination(
+              icon: _DockIcon(FloraIcons.diary),
+              selectedIcon: _DockIcon(FloraIcons.dockDiarySelected),
+              label: '今天',
+            ),
+            NavigationDestination(
+              icon: _DockIcon(FloraIcons.history),
+              selectedIcon: _DockIcon(FloraIcons.dockHistorySelected),
+              label: '过往',
+            ),
+            NavigationDestination(
+              icon: _DockIcon(FloraIcons.habits),
+              selectedIcon: _DockIcon(FloraIcons.dockHabitsSelected),
+              label: '习惯',
+            ),
+            NavigationDestination(
+              icon: _DockIcon(FloraIcons.settings),
+              selectedIcon: _DockIcon(FloraIcons.dockSettingsSelected),
+              label: '设置',
+            ),
+          ],
+        ),
       ),
     ),
   );

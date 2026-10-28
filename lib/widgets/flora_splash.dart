@@ -102,7 +102,7 @@ class _FloraSplashState extends State<FloraSplash>
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: theme.brightness == Brightness.dark ? AppColors.splashDark : AppColors.splashLight,
       body: SizedBox.expand(
         child: FadeTransition(
           opacity: reducedMotion ? const AlwaysStoppedAnimation(1) : _fadeIn,

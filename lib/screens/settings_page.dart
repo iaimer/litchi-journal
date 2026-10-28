@@ -4,6 +4,8 @@ import '../widgets/flora_origin.dart';
 
 import '../widgets/flora_icon.dart';
 import '../widgets/flora_page_scaffold.dart';
+import '../widgets/flora_app_bar.dart';
+import '../widgets/flora_dock.dart';
 
 import '../services/api_config.dart';
 import '../services/api_client.dart';
@@ -21,6 +23,8 @@ import 'reading_cache_page.dart';
 
 /// 设置页主框架。
 class SettingsPage extends StatelessWidget {
+  final bool primary;
+  final VoidCallback? onPreferencesChanged;
   final ApiConfig apiConfig;
   final ApiClient? apiClient;
   final bool tokenConfigured;
@@ -28,6 +32,8 @@ class SettingsPage extends StatelessWidget {
 
   const SettingsPage({
     super.key,
+    this.primary = false,
+    this.onPreferencesChanged,
     required this.apiConfig,
     this.apiClient,
     this.tokenConfigured = true,
@@ -51,8 +57,13 @@ class SettingsPage extends StatelessWidget {
           ),
         ),
       );
+      onPreferencesChanged?.call();
     } catch (_) {
-      // 静默失败
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('标签设置未能打开，请重试')));
+      }
     }
   }
 
@@ -63,88 +74,110 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final headerHeight = MediaQuery.textScalerOf(context).scale(24) * 1.25 + 16;
+    final toolbarHeight = headerHeight.clamp(64.0, double.infinity).toDouble();
+    final content = ListView(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        primary ? MediaQuery.paddingOf(context).top + toolbarHeight : 0,
+        16,
+        primary ? (FloraDockScope.maybeOf(context)?.fabBottom ?? 28) + 4 : 32,
+      ),
+      children: _menuSections(context, theme),
+    );
+    if (primary) {
+      return Scaffold(
+        extendBodyBehindAppBar: true,
+        appBar: FloraAppBar(
+          glassBackground: true,
+          toolbarHeight: toolbarHeight,
+          title: Text('设置', style: theme.textTheme.headlineLarge),
+        ),
+        body: content,
+      );
+    }
     return FloraPageScaffold(
       title: '设置',
       leading: IconButton(
         icon: const FloraIcon(FloraIcons.back),
         onPressed: () => Navigator.of(context).pop(),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-        children: [
-          _buildSectionHeader(theme, '常用'),
-          _buildMenuGroup(context, [
-            _SettingsMenuItem(
-              icon: const FloraIcon(FloraIcons.settingAppearance, size: 22),
-              title: '外观',
-              onTap: () => _push(context, const AppearanceSettingsPage()),
-            ),
-            _SettingsMenuItem(
-              icon: const FloraIcon(FloraIcons.settingHabits, size: 22),
-              title: '习惯设置',
-              onTap: () => _openHabitSettings(context),
-            ),
-            _SettingsMenuItem(
-              icon: const FloraIcon(FloraIcons.settingTags, size: 22),
-              title: '标签设置',
-              onTap: () => _openTagSettings(context),
-            ),
-          ]),
-          _buildSectionHeader(theme, '连接与智能'),
-          _buildMenuGroup(context, [
-            _SettingsMenuItem(
-              icon: const FloraIcon(FloraIcons.settingCloud, size: 22),
-              title: '远程 API',
-              onTap: () => _push(
-                context,
-                RemoteApiPage(
-                  apiConfig: apiConfig,
-                  apiClient: apiClient,
-                  tokenConfigured: tokenConfigured,
-                  onConfigChanged: onApiConfigChanged,
-                ),
-              ),
-            ),
-            _SettingsMenuItem(
-              icon: const FloraIcon(FloraIcons.settingAi, size: 22),
-              title: 'AI 服务配置',
-              onTap: () =>
-                  _push(context, AiSettingsScreen(apiConfig: apiConfig)),
-            ),
-            _SettingsMenuItem(
-              icon: const FloraIcon(FloraIcons.settingPrompt, size: 22),
-              title: '润色提示词',
-              onTap: () => _push(context, const PolishPromptPage()),
-            ),
-          ]),
-          _buildSectionHeader(theme, '媒体与应用'),
-          _buildMenuGroup(context, [
-            _SettingsMenuItem(
-              icon: const FloraIcon(FloraIcons.settingImage, size: 22),
-              title: '图片设置',
-              onTap: () => _push(context, const ImageCompressPage()),
-            ),
-            _SettingsMenuItem(
-              icon: const FloraIcon(FloraIcons.settingImage, size: 22),
-              title: '本地缓存',
-              onTap: () => _push(
-                context,
-                ReadingCachePage(repository: _apiClient.readingCache),
-              ),
-            ),
-            _SettingsMenuItem(
-              icon: const FloraIcon(FloraIcons.settingAbout, size: 22),
-              title: '关于',
-              onTap: () => _push(context, const AboutPage()),
-            ),
-          ]),
-        ],
-      ),
+      body: content,
     );
   }
 
+  List<Widget> _menuSections(BuildContext context, ThemeData theme) => [
+    _buildSectionHeader(theme, '常用'),
+    _buildMenuGroup(context, [
+      _SettingsMenuItem(
+        icon: const FloraIcon(FloraIcons.settingAppearance, size: 22),
+        title: '外观',
+        onTap: () => _push(context, const AppearanceSettingsPage()),
+      ),
+      _SettingsMenuItem(
+        icon: const FloraIcon(FloraIcons.settingHabits, size: 22),
+        title: '习惯设置',
+        onTap: () => _openHabitSettings(context),
+      ),
+      _SettingsMenuItem(
+        icon: const FloraIcon(FloraIcons.settingTags, size: 22),
+        title: '标签设置',
+        onTap: () => _openTagSettings(context),
+      ),
+    ]),
+    _buildSectionHeader(theme, '连接与智能'),
+    _buildMenuGroup(context, [
+      _SettingsMenuItem(
+        icon: const FloraIcon(FloraIcons.settingCloud, size: 22),
+        title: '服务器连接',
+        onTap: () => _push(
+          context,
+          RemoteApiPage(
+            apiConfig: apiConfig,
+            apiClient: apiClient,
+            tokenConfigured: tokenConfigured,
+            onConfigChanged: onApiConfigChanged,
+          ),
+        ),
+      ),
+      _SettingsMenuItem(
+        icon: const FloraIcon(FloraIcons.settingAi, size: 22),
+        title: 'AI 服务配置',
+        onTap: () => _push(context, AiSettingsScreen(apiConfig: apiConfig)),
+      ),
+      _SettingsMenuItem(
+        icon: const FloraIcon(FloraIcons.settingPrompt, size: 22),
+        title: '润色提示词',
+        onTap: () => _push(context, const PolishPromptPage()),
+      ),
+    ]),
+    _buildSectionHeader(theme, '媒体与应用'),
+    _buildMenuGroup(context, [
+      _SettingsMenuItem(
+        icon: const FloraIcon(FloraIcons.settingImage, size: 22),
+        title: '图片设置',
+        onTap: () => _push(context, const ImageCompressPage()),
+      ),
+      _SettingsMenuItem(
+        icon: const FloraIcon(FloraIcons.settingCache, size: 22),
+        title: '本地缓存',
+        onTap: () => _push(
+          context,
+          ReadingCachePage(repository: _apiClient.readingCache),
+        ),
+      ),
+      _SettingsMenuItem(
+        icon: const FloraIcon(FloraIcons.settingAbout, size: 22),
+        title: '关于',
+        onTap: () => _push(context, const AboutPage()),
+      ),
+    ]),
+  ];
+
   Future<void> _push(BuildContext context, Widget page) {
-    return Navigator.of(context).push(FloraPageRoute(builder: (_) => page));
+    return Navigator.of(context)
+        .push(FloraPageRoute(builder: (_) => page))
+        .whenComplete(() => onPreferencesChanged?.call());
   }
 
   Widget _buildSectionHeader(ThemeData theme, String title) {
@@ -165,6 +198,9 @@ class SettingsPage extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [

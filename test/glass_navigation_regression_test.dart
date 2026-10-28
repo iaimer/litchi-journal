@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:litchi_journal_flutter/screens/home_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -91,6 +92,32 @@ Future<void> _expectStableFrames(WidgetTester tester, Rect expected) async {
 }
 
 void main() {
+  testWidgets('settings header scales without overflow', (tester) async {
+    await _mount(tester, size: const Size(320, 900), scale: 4);
+    await tester.tap(find.text('设置').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(NavigationBar), findsOneWidget);
+  });
+
+  testWidgets('four primary destinations keep navigation on settings', (tester) async {
+    await _mount(tester);
+    final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(bar.destinations.length, 4);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    await tester.tap(find.text('设置').last);
+    await tester.pumpAndSettle();
+    expect(find.text('服务器连接'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    await tester.tap(find.text('外观'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsNothing);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(tester.widget<HomeScreen>(find.byType(HomeScreen, skipOffstage: false)).settingsRevision, 1);
+  });
+
   test('相同底部距离的 FAB 定位对象按值相等', () {
     expect(FloraDockFabLocation(84), FloraDockFabLocation(84));
     expect(
@@ -157,8 +184,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('外观'), findsOneWidget);
-    final context = tester.element(find.text('外观'));
-    Navigator.of(context).pop();
+    await tester.tap(find.text('今天').last);
     await tester.pumpAndSettle();
     expect(find.byKey(_fab), findsOneWidget);
     expect(find.bySemanticsLabel('关闭记录菜单'), findsNothing);
@@ -229,8 +255,8 @@ void main() {
       );
       final dock = tester.getRect(find.byType(FloraDock));
       final fab = tester.getRect(find.byKey(_fab));
-      expect(dock.left, 16);
-      expect(dock.right, 304);
+      expect(dock.left, 0);
+      expect(dock.right, 320);
       expect(fab.bottom, closeTo(dock.top - 12, 0.5));
       expect(fab.right, closeTo(304, 0.01));
       await tester.tap(find.byKey(_fab));

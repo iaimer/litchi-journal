@@ -139,7 +139,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<Text>(find.text('日记阅读正文')).style?.fontSize, 16);
     expect(tester.widget<Text>(find.text('17:29')).style?.fontSize, 14);
-    expect(tester.widget<Text>(find.text('#生活')).style?.fontSize, 12);
+    expect(tester.widget<Text>(find.text('生活')).style?.fontSize, 12);
     final theme = Theme.of(tester.element(find.text('日记阅读正文')));
     expect(theme.textTheme.bodyMedium?.fontSize, 14);
     expect(theme.textTheme.bodyLarge?.fontSize, 16);
@@ -429,7 +429,7 @@ void main() {
           final rail = find.byWidgetPredicate(
             (widget) =>
                 widget is ColoredBox &&
-                widget.color == Colors.red.withAlpha(88),
+                widget.color == Colors.red.withAlpha(48),
           );
           expect(rail, findsOneWidget);
           expect(tester.getRect(rail).bottom, closeTo(tags.bottom, 0.5));

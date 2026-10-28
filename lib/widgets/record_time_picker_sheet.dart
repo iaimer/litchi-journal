@@ -155,10 +155,7 @@ class _RecordTimePickerSheetState extends State<_RecordTimePickerSheet> {
             child: OutlinedButton(
               key: const Key('record_time_cancel'),
               onPressed: () => Navigator.of(context).pop(),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(48, 48),
-                foregroundColor: theme.colorScheme.primary,
-              ),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
               child: const Text('取消'),
             ),
           ),

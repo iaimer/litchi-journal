@@ -11,6 +11,7 @@ class FloraIcons {
   static const String dockDiarySelected = 'dock-diary-selected';
   static const String dockHistorySelected = 'dock-history-selected';
   static const String dockHabitsSelected = 'dock-habits-selected';
+  static const String dockSettingsSelected = 'dock-settings-selected';
   static const String settings = 'settings';
   static const String coach = 'coach';
 
@@ -27,6 +28,7 @@ class FloraIcons {
   static const String settingAi = 'setting-ai';
   static const String settingPrompt = 'setting-prompt';
   static const String settingImage = 'setting-image';
+  static const String settingCache = 'setting-cache';
   static const String settingAbout = 'setting-about';
 
   static const String edit = 'edit';
@@ -129,6 +131,7 @@ class FloraIcons {
     settingAi: 'bot',
     settingPrompt: 'message-square-text',
     settingImage: 'image',
+    settingCache: 'hard-drive',
     settingAbout: 'info',
     edit: 'pencil',
     delete: 'trash-2',
@@ -206,6 +209,7 @@ class FloraIcons {
     dockDiarySelected: 'notebook-pen-filled.svg',
     dockHistorySelected: 'images-filled.svg',
     dockHabitsSelected: 'sprout-filled.svg',
+    dockSettingsSelected: 'settings-filled.svg',
   };
 
   static const Map<String, String> _lordiconSvgFiles = {

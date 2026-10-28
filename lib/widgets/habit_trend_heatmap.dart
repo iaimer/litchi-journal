@@ -3,11 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/habit_stats.dart';
+import '../theme/app_theme.dart';
 import '../models/habit_trend.dart';
 import 'habit_icon.dart';
 import 'habit_trend_dashboard.dart';
 
-/// 习惯趋势页的纯点阵卡片列表。
+/// 习惯趋势页的热力图分组列表。
 class HabitTrendHeatmapList extends StatelessWidget {
   final HabitTrendPeriod period;
   final List<HabitTrendItem> items;
@@ -24,7 +25,7 @@ class HabitTrendHeatmapList extends StatelessWidget {
       children: [
         for (final item in items)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: 12),
             child: _HabitTrendHeatmapCard(period: period, item: item),
           ),
       ],
@@ -46,7 +47,17 @@ class _HabitTrendHeatmapCard extends StatelessWidget {
       container: true,
       label: summary,
       child: Card(
+        key: ValueKey('habit_heatmap_group_${item.key}'),
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
+        color: theme.brightness == Brightness.dark
+            ? theme.colorScheme.surface
+            : AppColors.surfaceSoft,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(FloraRadius.md),
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           child: Column(
@@ -121,20 +132,143 @@ class _HabitTrendHeatmap extends StatelessWidget {
         );
         if (!isYear) return grid;
 
-        return SizedBox(
-          width: double.infinity,
-          height: layout.height,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _HabitTrendYearWeekdayLabels(width: labelsWidth, layout: layout),
-              const SizedBox(width: labelsGap),
-              Expanded(child: grid),
-            ],
-          ),
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(
+                left: labelsWidth + labelsGap,
+                bottom: 6,
+              ),
+              child: _HabitTrendMonthLabels(
+                key: ValueKey('habit_months_${item.key}'),
+                period: period,
+                layout: layout,
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              height: layout.height,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _HabitTrendYearWeekdayLabels(
+                    width: labelsWidth,
+                    layout: layout,
+                  ),
+                  const SizedBox(width: labelsGap),
+                  Expanded(child: grid),
+                ],
+              ),
+            ),
+          ],
         );
       },
     );
+  }
+}
+
+/// 按实际日期定位月份，测量后舍弃相互挤压的中间标记。
+class _HabitTrendMonthLabels extends StatelessWidget {
+  final HabitTrendPeriod period;
+  final _GridLayout layout;
+
+  const _HabitTrendMonthLabels({
+    super.key,
+    required this.period,
+    required this.layout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = DefaultTextStyle.of(context).style
+        .merge(theme.textTheme.labelSmall)
+        .copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: MediaQuery.boldTextOf(context)
+              ? FontWeight.bold
+              : theme.textTheme.labelSmall!.fontWeight,
+        );
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _buildLabels(context, constraints.maxWidth, style),
+    );
+  }
+
+  List<DateTime> _monthDates() {
+    final dates = <DateTime>[period.heatmapStart];
+    for (
+      var date = DateTime(dates.first.year, dates.first.month + 1);
+      !date.isAfter(period.heatmapEnd);
+      date = DateTime(date.year, date.month + 1)
+    ) {
+      dates.add(date);
+    }
+    return dates;
+  }
+
+  Widget _buildLabels(BuildContext context, double width, TextStyle style) {
+    final dates = _monthDates();
+    final painters = dates
+        .map(
+          (date) => TextPainter(
+            text: TextSpan(text: '${date.month}月', style: style),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+          )..layout(),
+        )
+        .toList();
+    final positions = _visiblePositions(
+      dates,
+      painters.map((painter) => painter.width).toList(),
+      width,
+    );
+    final height = painters.map((painter) => painter.height).reduce(math.max);
+    for (final painter in painters) {
+      painter.dispose();
+    }
+    return SizedBox(
+      height: height,
+      child: Stack(
+        children: [
+          for (final entry in positions.entries)
+            Positioned(
+              left: entry.value,
+              top: 0,
+              child: Text(
+                '${dates[entry.key].month}月',
+                maxLines: 1,
+                style: style,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Map<int, double> _visiblePositions(
+    List<DateTime> dates,
+    List<double> widths,
+    double width,
+  ) {
+    final monthStartX =
+        (dates.last.difference(period.heatmapStart).inDays ~/ 7) *
+        layout.columnStep;
+    final lastX = math.min(monthStartX, math.max(0.0, width - widths.last));
+    final positions = <int, double>{0: 0};
+    if (dates.length > 1) positions[dates.length - 1] = lastX;
+    var previousEnd = widths.first;
+    for (var index = 1; index < dates.length - 1; index++) {
+      final x =
+          (dates[index].difference(period.heatmapStart).inDays ~/ 7) *
+          layout.columnStep;
+      if (x >= previousEnd + 8 && x + widths[index] + 8 <= lastX) {
+        positions[index] = x;
+        previousEnd = x + widths[index];
+      }
+    }
+    return positions;
   }
 }
 

@@ -50,6 +50,7 @@ void main() {
         'setting-ai': 'bot',
         'setting-prompt': 'message-square-text',
         'setting-image': 'image',
+        'setting-cache': 'hard-drive',
         'setting-about': 'info',
         'appearance-system': 'monitor',
         'appearance-light': 'sun',

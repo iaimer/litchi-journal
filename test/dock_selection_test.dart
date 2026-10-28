@@ -18,8 +18,9 @@ const _selectedNames = [
   'dock-diary-selected',
   'dock-history-selected',
   'dock-habits-selected',
+  'dock-settings-selected',
 ];
-const _outlineNames = [FloraIcons.diary, FloraIcons.history, FloraIcons.habits];
+const _outlineNames = [FloraIcons.diary, FloraIcons.history, FloraIcons.habits, FloraIcons.settings];
 
 Finder _icon(String name) => find.byWidgetPredicate(
   (widget) => widget is FloraIcon && widget.name == name,
@@ -89,6 +90,7 @@ void main() {
       'notebook-pen-filled.svg',
       'images-filled.svg',
       'sprout-filled.svg',
+      'settings-filled.svg',
     ];
     for (var index = 0; index < _selectedNames.length; index++) {
       final name = _selectedNames[index];

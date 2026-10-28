@@ -119,8 +119,8 @@ class _GalleryImageTileState extends State<GalleryImageTile> {
                       child: DecoratedBox(
                         key: ValueKey('gallery_day_badge_${widget.day.date}'),
                         decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(FloraRadius.pill),
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(

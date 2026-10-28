@@ -417,6 +417,15 @@ class DiaryMarkdownView extends StatelessWidget {
       }
     }
 
+    if (!hasContent && showButton) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: generatingCoach || readOnly ? null : onGenerateCoach,
+          child: Text(generatingCoach ? '生成中...' : '生成今日回顾'),
+        ),
+      );
+    }
     final accentColor = _accentColorFor(section);
 
     return JournalSection(

@@ -440,6 +440,7 @@ class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
         child: ExcludeFocus(
           excluding: widget.readOnly && widget.preserveControlLayout,
           child: SectionCard(
+            quiet: true,
             accentColor: _accentColor,
             padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
             children: [

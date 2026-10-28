@@ -496,7 +496,7 @@ class _JournalTimelineRail extends StatelessWidget {
                       ? 0
                       : (terminalBottom! - lineTop).clamp(0.0, double.infinity)
                 : null,
-            child: ColoredBox(color: color.withAlpha(88)),
+            child: ColoredBox(color: color.withAlpha(48)),
           ),
           Positioned(
             top: nodeOffset + 7,

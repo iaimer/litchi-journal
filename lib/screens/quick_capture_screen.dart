@@ -862,9 +862,9 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         spacing: FloraSpacing.sm,
         runSpacing: FloraSpacing.xs,
         children: [
-          _buildPolishButton(theme),
           if (_supportsPhotos) _buildPhotoButton(theme),
           if (widget.tagConfig != null) _buildTagToggleButton(theme),
+          _buildPolishButton(theme),
         ],
       ),
     );
@@ -877,7 +877,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       style: TextButton.styleFrom(
         minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        foregroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onSurfaceVariant,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -914,7 +914,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         children: [
           const FloraIcon(FloraIcons.fabPhoto, size: 16),
           const SizedBox(width: 4),
-          Text('照片 $_activePhotoCount/9'),
+          Text(_activePhotoCount == 0 ? '照片' : '照片 $_activePhotoCount/9'),
         ],
       ),
     );

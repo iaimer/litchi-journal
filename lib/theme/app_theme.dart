@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
+  static const splashLight = Color(0xFFF7F2EA);
+  static const splashDark = Color(0xFF1F1B18);
+  static const onPrimary = Color(0xFF603440);
+  static const actionText = Color(0xFFA9506B);
   // Light palette
-  static const background = Color(0xFFF7F2EA);
-  static const surface = Color(0xFFFFF7ED);
-  static const surfaceElevated = Color(0xFFFFF7ED);
-  static const surfaceSoft = Color(0xFFF8EBD8);
-  static const textPrimary = Color(0xFF5A4A36);
-  static const textSecondary = Color(0xFF806458);
-  static const muted = Color(0xFF8D766A);
-  static const primary = Color(0xFF955F50);
+  static const background = Color(0xFFFAFBFA);
+  static const surface = Color(0xFFFDFEFD);
+  static const surfaceElevated = Color(0xFFFDFEFD);
+  static const surfaceSoft = Color(0xFFF2F5F4);
+  static const textPrimary = Color(0xFF2C302C);
+  static const textSecondary = Color(0xFF666E68);
+  static const muted = Color(0xFF747A75);
+  static const primary = Color(0xFFF5B2C5);
   static const accentSoft = Color(0x1F955F50);
-  static const border = Color(0xFFD8C9B8);
-  static const outline = Color(0xFF9B8174);
-  static const outlineVariant = Color(0xFFD8C9B8);
-  static const surfaceContainerHighest = Color(0xFFEFE2D2);
+  static const border = Color(0xFFE4E9E5);
+  static const outline = Color(0xFF89928B);
+  static const outlineVariant = Color(0xFFE4E9E5);
+  static const surfaceContainerHighest = Color(0xFFEDF1EE);
   static const success = Color(0xFF7BA67A);
   static const red = Color(0xFFB54A4A);
   static const tagBlue = Color(0xFF7A9CC6);
@@ -22,18 +26,18 @@ class AppColors {
   static const tagAmber = Color(0xFFC9A96E);
 
   // Dark palette
-  static const darkBackground = Color(0xFF1F1B18);
-  static const darkSurface = Color(0xFF2B241E);
-  static const darkSurfaceElevated = Color(0xFF3A3027);
-  static const darkTextPrimary = Color(0xFFF1E6D7);
-  static const darkTextSecondary = Color(0xFFC8AA9A);
-  static const darkMuted = Color(0xFFA68C7D);
-  static const darkPrimary = Color(0xFFCA9A84);
+  static const darkBackground = Color(0xFF1C1E1D);
+  static const darkSurface = Color(0xFF242725);
+  static const darkSurfaceElevated = Color(0xFF2D332F);
+  static const darkTextPrimary = Color(0xFFEDF0EB);
+  static const darkTextSecondary = Color(0xFFB7BFB8);
+  static const darkMuted = Color(0xFFA6ADA7);
+  static const darkPrimary = Color(0xFFF5B2C5);
   static const darkAccentSoft = Color(0x26CA9A84);
-  static const darkBorder = Color(0xFF5B493B);
-  static const darkOutline = Color(0xFF8E7465);
-  static const darkOutlineVariant = Color(0xFF5B493B);
-  static const darkSurfaceContainerHighest = Color(0xFF3A3027);
+  static const darkBorder = Color(0xFF3E4941);
+  static const darkOutline = Color(0xFF89978D);
+  static const darkOutlineVariant = Color(0xFF3E4941);
+  static const darkSurfaceContainerHighest = Color(0xFF2D332F);
   static const darkSuccess = Color(0xFF8DB88A);
   static const darkRed = Color(0xFFE07A7A);
   static const darkTagBlue = Color(0xFF8AACD4);
@@ -228,7 +232,7 @@ class AppTheme {
     colorScheme: ColorScheme(
       brightness: Brightness.light,
       primary: AppColors.primary,
-      onPrimary: AppColors.surface,
+      onPrimary: AppColors.onPrimary,
       secondary: AppColors.textSecondary,
       onSecondary: AppColors.surface,
       surface: AppColors.surface,
@@ -243,7 +247,15 @@ class AppTheme {
     ),
     extensions: const [AppCalloutColors.light],
     dialogTheme: _dialogTheme(AppColors.textPrimary),
-    textButtonTheme: const TextButtonThemeData(style: _operationButtonStyle),
+    textButtonTheme: TextButtonThemeData(
+      style: _operationButtonStyle.copyWith(
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? AppColors.textPrimary.withValues(alpha: 0.38)
+              : AppColors.actionText,
+        ),
+      ),
+    ),
     filledButtonTheme: const FilledButtonThemeData(
       style: _operationButtonStyle,
     ),
@@ -265,6 +277,21 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surface,
+      floatingLabelStyle: WidgetStateTextStyle.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return TextStyle(
+            color: AppColors.textPrimary.withValues(alpha: 0.38),
+          );
+        }
+        if (states.contains(WidgetState.error)) {
+          return const TextStyle(color: AppColors.red);
+        }
+        return TextStyle(
+          color: states.contains(WidgetState.focused)
+              ? AppColors.actionText
+              : AppColors.textSecondary,
+        );
+      }),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(FloraRadius.md),
@@ -276,7 +303,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(FloraRadius.md),
-        borderSide: const BorderSide(color: AppColors.primary),
+        borderSide: const BorderSide(color: AppColors.actionText),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -284,7 +311,7 @@ class AppTheme {
         textStyle: const TextStyle(fontSize: 16),
         minimumSize: const Size(48, 48),
         backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.surface,
+        foregroundColor: AppColors.onPrimary,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         shape: RoundedRectangleBorder(
@@ -296,7 +323,7 @@ class AppTheme {
       style: OutlinedButton.styleFrom(
         textStyle: const TextStyle(fontSize: 16),
         minimumSize: const Size(48, 48),
-        foregroundColor: AppColors.primary,
+        foregroundColor: AppColors.actionText,
         side: const BorderSide(color: AppColors.primary, width: 0.5),
       ),
     ),
@@ -362,7 +389,7 @@ class AppTheme {
     colorScheme: ColorScheme(
       brightness: Brightness.dark,
       primary: AppColors.darkPrimary,
-      onPrimary: AppColors.darkBackground,
+      onPrimary: AppColors.onPrimary,
       secondary: AppColors.darkTextSecondary,
       onSecondary: AppColors.darkBackground,
       surface: AppColors.darkSurface,
@@ -377,7 +404,15 @@ class AppTheme {
     ),
     extensions: const [AppCalloutColors.dark],
     dialogTheme: _dialogTheme(AppColors.darkTextPrimary),
-    textButtonTheme: const TextButtonThemeData(style: _operationButtonStyle),
+    textButtonTheme: TextButtonThemeData(
+      style: _operationButtonStyle.copyWith(
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? AppColors.darkTextPrimary.withValues(alpha: 0.38)
+              : AppColors.darkPrimary,
+        ),
+      ),
+    ),
     filledButtonTheme: const FilledButtonThemeData(
       style: _operationButtonStyle,
     ),
@@ -418,7 +453,7 @@ class AppTheme {
         textStyle: const TextStyle(fontSize: 16),
         minimumSize: const Size(48, 48),
         backgroundColor: AppColors.darkPrimary,
-        foregroundColor: AppColors.darkBackground,
+        foregroundColor: AppColors.onPrimary,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         shape: RoundedRectangleBorder(

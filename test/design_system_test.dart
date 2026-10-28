@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -33,6 +34,44 @@ void _expectOutlineContrast(Color outline, Color background) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final dark in [false, true]) {
+    testWidgets('focused input labels stay readable dark=$dark', (
+      tester,
+    ) async {
+      final theme = dark ? AppTheme.dark : AppTheme.light;
+      final focus = FocusNode();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            body: TextField(
+              focusNode: focus,
+              decoration: const InputDecoration(labelText: 'Address'),
+            ),
+          ),
+        ),
+      );
+      focus.requestFocus();
+      await tester.pumpAndSettle();
+      final label = tester.renderObject<RenderParagraph>(find.text('Address'));
+      _expectTextContrast(label.text.style!.color!, theme.colorScheme.surface);
+      final border =
+          theme.inputDecorationTheme.focusedBorder! as OutlineInputBorder;
+      _expectOutlineContrast(
+        border.borderSide.color,
+        theme.colorScheme.surface,
+      );
+      await tester.pumpWidget(const SizedBox());
+      focus.dispose();
+    });
+    test('text buttons retain disabled state dark=$dark', () {
+      final theme = dark ? AppTheme.dark : AppTheme.light;
+      final colors = theme.textButtonTheme.style!.foregroundColor!;
+      expect(colors.resolve({WidgetState.disabled}), isNot(colors.resolve({})));
+      _expectTextContrast(colors.resolve({})!, theme.colorScheme.surface);
+    });
+  }
 
   group('阶段 4 Lucide 图标资源', () {
     const normalizedIcons = <String>[
@@ -106,18 +145,18 @@ void main() {
   group('阶段 5 Material 3 语义颜色', () {
     test('浅色主题公开完整的层级颜色角色', () {
       final scheme = AppTheme.light.colorScheme;
-      expect(scheme.onSurfaceVariant, const Color(0xFF806458));
-      expect(scheme.outline, const Color(0xFF9B8174));
-      expect(scheme.outlineVariant, const Color(0xFFD8C9B8));
-      expect(scheme.surfaceContainerHighest, const Color(0xFFEFE2D2));
-      expect(scheme.surfaceTint, const Color(0xFF955F50));
+      expect(scheme.onSurfaceVariant, const Color(0xFF666E68));
+      expect(scheme.outline, const Color(0xFF89928B));
+      expect(scheme.outlineVariant, const Color(0xFFE4E9E5));
+      expect(scheme.surfaceContainerHighest, const Color(0xFFEDF1EE));
+      expect(scheme.surfaceTint, const Color(0xFFF5B2C5));
       expect(scheme.error, const Color(0xFFB54A4A));
       _expectTextContrast(scheme.onSurface, scheme.surface);
       _expectTextContrast(scheme.onSurfaceVariant, scheme.surface);
       _expectTextContrast(scheme.error, scheme.surface);
-      _expectTextContrast(scheme.primary, scheme.surface);
+      _expectTextContrast(scheme.onPrimary, scheme.primary);
       _expectTextContrast(
-        scheme.primary,
+        AppColors.actionText,
         AppTheme.light.scaffoldBackgroundColor,
       );
       _expectOutlineContrast(scheme.outline, scheme.surface);
@@ -125,16 +164,16 @@ void main() {
 
     test('深色主题保持同等层级和可操作边界', () {
       final scheme = AppTheme.dark.colorScheme;
-      expect(scheme.onSurfaceVariant, const Color(0xFFC8AA9A));
-      expect(scheme.outline, const Color(0xFF8E7465));
-      expect(scheme.outlineVariant, const Color(0xFF5B493B));
-      expect(scheme.surfaceContainerHighest, const Color(0xFF3A3027));
-      expect(scheme.surfaceTint, const Color(0xFFCA9A84));
+      expect(scheme.onSurfaceVariant, const Color(0xFFB7BFB8));
+      expect(scheme.outline, const Color(0xFF89978D));
+      expect(scheme.outlineVariant, const Color(0xFF3E4941));
+      expect(scheme.surfaceContainerHighest, const Color(0xFF2D332F));
+      expect(scheme.surfaceTint, const Color(0xFFF5B2C5));
       expect(scheme.error, const Color(0xFFE07A7A));
       _expectTextContrast(scheme.onSurface, scheme.surface);
       _expectTextContrast(scheme.onSurfaceVariant, scheme.surface);
       _expectTextContrast(scheme.error, scheme.surface);
-      _expectTextContrast(scheme.primary, scheme.surface);
+      _expectTextContrast(scheme.onPrimary, scheme.primary);
       _expectTextContrast(
         scheme.primary,
         AppTheme.dark.scaffoldBackgroundColor,

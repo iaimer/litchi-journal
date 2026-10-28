@@ -1,10 +1,14 @@
 # 构建与发布
 
+当前内部发布包为 `build/app/outputs/flutter-apk/litchi-journal-1.10.0-release.apk`（`1.10.0+42`），SHA-256 `f766100d8449ed12f1ed1abf57c78f6a8c8909251c3eec851ee0a474c6bfb25b`。原包名及Android Debug证书保持，APK v2验证通过，可覆盖安装；未安装设备、未部署服务端。下方1.9.2构建记录仅为历史。
+
+2026-10-28 当前 UI／UX 整体优化及审查补修内部包：`build/app/outputs/flutter-apk/litchi-journal-1.9.2-uiux-reviewed-20261028-release.apk`，65,349,983 字节，SHA-256 `0d601468ec533d1ccdf290348161a6a2af6b9bffb73b5b631faef0a947695d1f`。从 `codex/habit-metric-labels-20261028` 当前未提交工作区构建正常入口；保持 `1.9.2+41`、原包名和与上一阅读补修包相同的 Android Debug 证书，三种 ABI 和 APK v2 签名已核对。仅构建校验，未安装真机、未提交或推送；当前交接见 HANDOFF.md。
+
 2026-10-26 最新提示样式版本已构建并随 `main` 推送：`build/app/outputs/flutter-apk/litchi-journal-1.9.2-record-placeholders-release.apk`，SHA-256 `ed1f840f5791118e2eab92a75ca0bbc1c82619a1371c3e3c28e1e9db6be4f344`。版本 `1.9.2+41`，三种记录统一使用低透明度小字占位提示；沿用原包名和 Android Debug 证书，未部署服务端。
 
 2026-10-28 阅读条目复审补修包从 `codex/reading-entry-alignment-20261027` 构建：`build/app/outputs/flutter-apk/litchi-journal-1.9.2-reading-entry-review-fixes-20261028-release.apk`，65,349,140 字节，SHA-256 `bc3a5a2d008cfa345b5e9d6c35ed5b3c8f5e1ac102d041d96cd61298f619f286`。保持 `1.9.2+41`、原包名和 Android Debug 证书，APK v2 签名与三种 ABI 验证通过；完整 Flutter 1284 项及静态分析通过。尚未安装真机。
 
-当前清单为 `1.9.2+41`。2026-10-26 修复启动时记录加号变淡并升补丁版本；Android 内部 Release 沿用原 applicationId `com.example.litchi_journal_flutter` 和原签名，iOS Bundle ID 也保持不变。
+此前清单为 `1.9.2+41`。2026-10-26 修复启动时记录加号变淡并升补丁版本；Android 内部 Release 沿用原 applicationId `com.example.litchi_journal_flutter` 和原签名，iOS Bundle ID 也保持不变。
 
 ## 本地与 CI 验证
 

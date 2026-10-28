@@ -69,7 +69,12 @@ void main() {
 
     final moreRect = tester.getRect(moreIconFinder());
     expect(
-      (firstTagLineCenter(tester, find.text(tag)) - moreRect.center.dy).abs(),
+      (firstTagLineCenter(
+                tester,
+                find.text(tag.replaceFirst(RegExp(r'^#+'), '')),
+              ) -
+              moreRect.center.dy)
+          .abs(),
       lessThanOrEqualTo(2),
     );
     expect(find.byType(IconButton), findsOneWidget);
@@ -100,7 +105,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final tagRect = tester.getRect(find.text(tag));
+    final tagRect = tester.getRect(
+      find.text(tag.replaceFirst(RegExp(r'^#+'), '')),
+    );
     final menuRect = tester.getRect(moreIconFinder());
     await tester.tap(moreIconFinder());
     await tester.pumpAndSettle();
@@ -258,8 +265,8 @@ void main() {
         textScaler: textScaler,
       );
 
-      expect(find.text('#记录'), findsOneWidget);
-      expect(find.text('#工作'), findsOneWidget);
+      expect(find.text('记录'), findsOneWidget);
+      expect(find.text('工作'), findsOneWidget);
     });
 
     testWidgets('窄屏长标签保持单行，操作区移到下方', (tester) async {
@@ -279,15 +286,24 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('#第二个标签很长'), findsOneWidget);
-        expect(find.text('#第三个标签很长'), findsOneWidget);
+        expect(find.text('第二个标签很长'), findsOneWidget);
+        expect(find.text('第三个标签很长'), findsOneWidget);
         expect(
-          tester.getRect(find.text('#第二个标签很长')).top,
-          closeTo(tester.getRect(find.text(firstTag)).top, 0.1),
+          tester.getRect(find.text('第二个标签很长')).top,
+          closeTo(
+            tester
+                .getRect(find.text(firstTag.replaceFirst(RegExp(r'^#+'), '')))
+                .top,
+            0.1,
+          ),
         );
         expect(
           tester.getRect(moreIconFinder()).top,
-          greaterThan(tester.getRect(find.text(firstTag)).bottom),
+          greaterThan(
+            tester
+                .getRect(find.text(firstTag.replaceFirst(RegExp(r'^#+'), '')))
+                .bottom,
+          ),
         );
         expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
         expect(tester.takeException(), isNull);
@@ -542,8 +558,8 @@ void main() {
       final secondRail = tester.getRect(timelineRailAt(1));
       final lastRail = tester.getRect(timelineRailAt(2));
       final firstNode = tester.getRect(timelineNodeAt(0));
-      final firstLastTag = tester.getRect(find.text('#第一行较长标签内容'));
-      final secondLastTag = tester.getRect(find.text('#第二行较长标签触发行换行'));
+      final firstLastTag = tester.getRect(find.text('第一行较长标签内容'));
+      final secondLastTag = tester.getRect(find.text('第二行较长标签触发行换行'));
       final lastTagList = tester.getRect(find.byType(TagChipList).last);
 
       expect(firstRail.top, closeTo(firstNode.center.dy, 0.5));
@@ -693,7 +709,7 @@ void main() {
       await tester.pumpAndSettle();
       final largeTags = tester.getRect(find.byType(TagChipList));
       final largeRail = tester.getRect(timelineRailAt(0));
-      final largeTag = tester.widget<Text>(find.text('#第一条较长标签显示文本'));
+      final largeTag = tester.widget<Text>(find.text('第一条较长标签显示文本'));
       expect(largeTag.style!.fontSize, inInclusiveRange(10, 12));
       expect(largeTag.textScaler, TextScaler.noScaling);
       expect(largeRail.bottom, closeTo(largeTags.bottom, 0.5));
@@ -893,7 +909,7 @@ void main() {
 
         for (var index = 0; index < 4; index++) {
           final tagsText = tester.getRect(
-            find.text(['#随手记', '#小确幸', '#无图随手记', '#无图小确幸'][index]),
+            find.text(['随手记', '小确幸', '无图随手记', '无图小确幸'][index]),
           );
           final menuIcon = tester.getRect(moreIconFinder().at(index));
           expect(
@@ -960,7 +976,7 @@ void main() {
       expect(moreIconFinder(), findsNWidgets(2));
 
       for (var index = 0; index < 2; index++) {
-        final tagText = tester.getRect(find.text(index == 0 ? '#生活' : '#开心'));
+        final tagText = tester.getRect(find.text(index == 0 ? '生活' : '开心'));
         final menuIcon = tester.getRect(moreIconFinder().at(index));
         expect(
           (tagText.center.dy - menuIcon.center.dy).abs(),

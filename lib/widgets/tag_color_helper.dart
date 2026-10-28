@@ -31,7 +31,7 @@ double readingTagWidth(BuildContext context, List<String> tags, double size) {
   var width = (tags.length - 1).clamp(0, tags.length) * _tagSpacing;
   for (final tag in tags) {
     final painter = TextPainter(
-      text: TextSpan(text: tag, style: style),
+      text: TextSpan(text: _tagDisplayLabel(tag), style: style),
       textDirection: Directionality.of(context),
       textScaler: TextScaler.noScaling,
       maxLines: 1,
@@ -189,10 +189,10 @@ class TagChipList extends StatelessWidget {
           border: Border.all(color: colors.borderColor, width: 0.6),
         ),
         child: Semantics(
-          label: tag,
+          label: _tagDisplayLabel(tag),
           child: ExcludeSemantics(
             child: Text(
-              tag,
+              _tagDisplayLabel(tag),
               maxLines: singleLine ? 1 : null,
               softWrap: singleLine ? false : null,
               overflow:
@@ -320,14 +320,14 @@ TagChipColors _chipColors({
 }) {
   final isDark = theme.brightness == Brightness.dark;
   final backgroundAlpha = switch (role) {
-    TagColorRole.module => isDark ? 38 : 22,
+    TagColorRole.module => isDark ? 24 : 12,
     TagColorRole.domain => isDark ? 44 : 24,
     TagColorRole.topic => isDark ? 32 : 16,
     TagColorRole.method => isDark ? 38 : 20,
     TagColorRole.unknown => isDark ? 32 : 18,
   };
   final borderAlpha = switch (role) {
-    TagColorRole.module => isDark ? 128 : 88,
+    TagColorRole.module => isDark ? 76 : 48,
     TagColorRole.domain => isDark ? 132 : 92,
     TagColorRole.topic => isDark ? 96 : 64,
     TagColorRole.method => isDark ? 120 : 80,
@@ -395,6 +395,9 @@ double _contrastRatio(Color foreground, Color background) {
       : foregroundLuminance;
   return (lighter + 0.05) / (darker + 0.05);
 }
+
+// 仅用于显示和测量，标签匹配与保存仍使用原始值。
+String _tagDisplayLabel(String label) => label.replaceFirst(RegExp(r'^#+'), '');
 
 String _normalizeTagLabel(String label) {
   var result = label.trim();

@@ -131,8 +131,8 @@ void main() {
     final dock = tester.getRect(find.byType(FloraDock));
     final fab = tester.getRect(find.byKey(const Key('quick_record_fab')));
     expect(fab.bottom, closeTo(dock.top - 12, 0.5));
-    expect(dock.left, 16);
-    expect(dock.right, 304);
+    expect(dock.left, 0);
+    expect(dock.right, 320);
     await tester.tap(find.byKey(const Key('quick_record_fab')));
     await tester.pumpAndSettle();
     final entries = [

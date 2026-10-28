@@ -6,6 +6,7 @@ import 'services/api_client.dart';
 import 'services/reading_cache_repository.dart';
 import 'services/appearance_controller.dart';
 import 'screens/home_screen.dart';
+import 'screens/settings_page.dart';
 import 'screens/past_screen.dart';
 import 'screens/habit_stats_screen.dart';
 import 'theme/app_theme.dart';
@@ -179,6 +180,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   int _habitRefreshToken = 0;
+  int _settingsRevision = 0;
   int _menuDismissRevision = 0;
 
   List<Widget> _buildScreens() {
@@ -188,6 +190,7 @@ class _MainScreenState extends State<MainScreen> {
         apiClient: widget.apiClient,
         onApiConfigChanged: widget.onApiConfigChanged,
         active: _currentIndex == 0,
+        settingsRevision: _settingsRevision,
       ),
       PastScreen(
         key: const PageStorageKey('past'),
@@ -198,6 +201,18 @@ class _MainScreenState extends State<MainScreen> {
         key: const PageStorageKey('habits'),
         apiClient: widget.apiClient,
         refreshToken: _habitRefreshToken,
+      ),
+      SettingsPage(
+        key: const PageStorageKey('settings'),
+        primary: true,
+        apiConfig: ApiConfig(baseUrl: widget.apiClient.baseUrl, token: ''),
+        apiClient: widget.apiClient,
+        tokenConfigured: widget.apiClient.hasToken,
+        onApiConfigChanged: widget.onApiConfigChanged,
+        onPreferencesChanged: () => setState(() {
+          _settingsRevision++;
+          _habitRefreshToken++;
+        }),
       ),
     ];
   }
@@ -210,8 +225,8 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       extendBody: true,
       body: FloraDockScope(
-        clearance: dockHeight + 8 + 12 + 56 + 16 + systemBottom,
-        fabBottom: systemBottom + 8 + dockHeight + 12,
+        clearance: dockHeight + 12 + 56 + 16 + systemBottom,
+        fabBottom: systemBottom + dockHeight + 12,
         menuDismissRevision: _menuDismissRevision,
         child: MediaQuery.removePadding(
           context: context,
@@ -219,31 +234,19 @@ class _MainScreenState extends State<MainScreen> {
           child: IndexedStack(index: _currentIndex, children: screens),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: FloraDock(
-                  selectedIndex: _currentIndex,
-                  height: dockHeight,
-                  onSelected: (index) {
-                    setState(() {
-                      _menuDismissRevision++;
-                      if (index == _currentIndex && index != 2) return;
-                      _currentIndex = index;
-                      if (index == 2) {
-                        _habitRefreshToken++;
-                      }
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
+      bottomNavigationBar: FloraDock(
+        selectedIndex: _currentIndex,
+        height: dockHeight,
+        onSelected: (index) {
+          setState(() {
+            _menuDismissRevision++;
+            if (index == _currentIndex && index != 2) return;
+            _currentIndex = index;
+            if (index == 2) {
+              _habitRefreshToken++;
+            }
+          });
+        },
       ),
     );
   }

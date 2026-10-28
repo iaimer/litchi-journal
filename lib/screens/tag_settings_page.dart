@@ -974,7 +974,6 @@ class _TagSettingsPageState extends State<TagSettingsPage>
             padding: compact
                 ? const EdgeInsets.symmetric(vertical: FloraSpacing.xs)
                 : const EdgeInsets.symmetric(vertical: FloraSpacing.sm),
-            foregroundColor: theme.colorScheme.primary,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(FloraRadius.md),
               side: BorderSide(

@@ -19,8 +19,370 @@ import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_dashboard_settings_screen.dart';
 import 'package:litchi_journal_flutter/widgets/habit_trend_dashboard.dart';
 import 'package:litchi_journal_flutter/widgets/habit_trend_heatmap.dart';
+import 'package:litchi_journal_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('trend defaults to current year with grouped colored surfaces', (
+    tester,
+  ) async {
+    final transport = _TrendHttpClient([_trendRow(_today, readingMinutes: 30)]);
+    final client = ApiClient(
+      ApiConfig(baseUrl: 'https://test.invalid', token: 'test'),
+      httpClient: transport,
+    );
+    addTearDown(client.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: HabitStatsScreen(
+          apiClient: client,
+          habitSettingsRepo: HabitSettingsRepository(
+            storage: _MemorySettingsStorage(),
+          ),
+          trendCacheRepo: HabitTrendCacheRepository(
+            storage: _MemoryTrendStorage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final dashboard = tester.widget<HabitTrendDashboard>(
+      find.byType(HabitTrendDashboard),
+    );
+    expect(dashboard.period.range, HabitTrendRange.year);
+    expect(dashboard.period.start, DateTime(_today.year, 1, 1));
+    expect(dashboard.period.metricEnd, _today);
+    expect(find.byType(SegmentedButton<HabitTrendRange>), findsNothing);
+    expect(find.byTooltip('上一个月'), findsNothing);
+    expect(find.byTooltip('下一个月'), findsNothing);
+    expect(
+      find.text('${_today.year}年 · 截至${_today.month}月${_today.day}日'),
+      findsOneWidget,
+    );
+    expect(find.text('最近6个月'), findsOneWidget);
+    final period = dashboard.period;
+    expect(transport.requests.single.queryParameters, {
+      'from': period.queryStart.toIso8601String().substring(0, 10),
+      'to': period.fetchEnd.toIso8601String().substring(0, 10),
+    });
+    final item = dashboard.items.first;
+    final decoration =
+        tester
+                .widget<DecoratedBox>(
+                  find.descendant(
+                    of: find.byKey(ValueKey('habit_metric_${item.key}')),
+                    matching: find.byType(DecoratedBox),
+                  ),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(
+      decoration.color,
+      Color.alphaBlend(
+        item.color.withValues(alpha: .10),
+        AppTheme.light.colorScheme.surface,
+      ),
+    );
+    expect(decoration.border, isNull);
+    final group = tester.widget<Card>(
+      find.byKey(ValueKey('habit_heatmap_group_${item.key}')),
+    );
+    expect(group.color, AppColors.surfaceSoft);
+    expect(find.byKey(ValueKey('habit_months_${item.key}')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test(
+    'new year resets summary while the heatmap retains previous-year dates',
+    () {
+      final client = _unusedApiClient();
+      addTearDown(client.dispose);
+      final service = HabitTrendService(client);
+      final days = [
+        _day(DateTime(2026, 12, 31), readingMinutes: 60),
+        _day(DateTime(2027, 1, 1), readingMinutes: 30),
+        _day(DateTime(2027, 1, 2), readingMinutes: 90),
+      ];
+      for (final date in [DateTime(2026, 12, 31), DateTime(2027, 1, 1)]) {
+        final period = HabitTrendPeriod.forAnchor(
+          HabitTrendRange.year,
+          date,
+          referenceDate: date,
+        );
+        final stats = service.build(
+          period: period,
+          sourceDays: days,
+          settings: HabitSettings.defaults,
+        );
+        final reading = stats.items.firstWhere((item) => item.key == 'reading');
+        expect(reading.totalDurationMinutes, date.year == 2026 ? 60 : 30);
+        expect(reading.days.last.future, isTrue);
+        final grid = buildHabitTrendYearDateGrid(period);
+        expect(grid.length, 7);
+        expect(grid.every((row) => row.length == 26), isTrue);
+        expect(grid.first.first, period.heatmapStart);
+        expect(grid.last.last, period.heatmapEnd);
+        expect(
+          grid.expand((row) => row).contains(DateTime(2026, 12, 31)),
+          isTrue,
+        );
+      }
+    },
+  );
+
+  for (final bold in [false, true]) {
+    testWidgets(
+      'month axis follows actual week columns with system bold=$bold',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final period = HabitTrendPeriod.forAnchor(
+          HabitTrendRange.year,
+          DateTime(2026, 11, 28),
+          referenceDate: DateTime(2026, 11, 28),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                boldText: bold,
+                textScaler: TextScaler.linear(bold ? 4 : 1),
+              ),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(16),
+                child: HabitTrendHeatmapList(
+                  period: period,
+                  items: [_metricItem('water', '饮水', numeric: true)],
+                ),
+              ),
+            ),
+          ),
+        );
+        final months = find.byKey(const ValueKey('habit_months_water'));
+        final last = find.descendant(of: months, matching: find.text('11月'));
+        final bounds = tester.getRect(months);
+        final rect = tester.getRect(last);
+        final column =
+            DateTime(2026, 11).difference(period.heatmapStart).inDays ~/ 7;
+        final actualX = bounds.left + column * ((bounds.width + 2) / 26);
+        final limitX = bounds.right - rect.width;
+        expect(rect.left, closeTo(actualX < limitX ? actualX : limitX, .01));
+        expect(rect.right, lessThanOrEqualTo(bounds.right + .01));
+        if (bold) {
+          expect(tester.widget<Text>(last).style!.fontWeight, FontWeight.bold);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final width in [320.0, 390.0]) {
+    for (final dark in [false, true]) {
+      for (final scale in [1.0, 1.3, 1.6, 2.0, 2.5, 3.0, 4.0]) {
+        testWidgets(
+          'grouped year heatmaps width=$width dark=$dark scale=$scale',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 900));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+            final theme = dark ? AppTheme.dark : AppTheme.light;
+            final period = HabitTrendPeriod.forAnchor(
+              HabitTrendRange.year,
+              DateTime(2027, 1, 1),
+              referenceDate: DateTime(2027, 1, 1),
+            );
+            final items = [
+              _metricItem('water', '饮水', numeric: true),
+              HabitTrendItem(
+                key: 'custom',
+                displayName: '自定义习惯',
+                icon: 'habit-water',
+                color: Colors.purple,
+                type: HabitStatType.duration,
+                dailyTarget: null,
+                days: const [],
+                totalDurationMinutes: 78,
+                longestStreak: 2,
+              ),
+            ];
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: theme,
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: TextScaler.linear(scale),
+                    highContrast: scale == 4,
+                    disableAnimations: scale >= 3,
+                  ),
+                  child: child!,
+                ),
+                home: Scaffold(
+                  body: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        HabitTrendDashboard(period: period, items: items),
+                        HabitTrendHeatmapList(period: period, items: items),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            for (final item in items) {
+              final group = find.byKey(
+                ValueKey('habit_heatmap_group_${item.key}'),
+              );
+              expect(
+                tester.widget<Card>(group).color,
+                dark ? theme.colorScheme.surface : AppColors.surfaceSoft,
+              );
+              final months = find.descendant(
+                of: find.byKey(ValueKey('habit_months_${item.key}')),
+                matching: find.byType(Text),
+              );
+              expect(
+                tester.widget<Text>(months.first).data,
+                '${period.heatmapStart.month}月',
+              );
+              expect(
+                tester.widget<Text>(months.at(1)).data,
+                '${period.heatmapEnd.month}月',
+              );
+              final rects =
+                  months
+                      .evaluate()
+                      .map(
+                        (element) =>
+                            tester.getRect(find.byWidget(element.widget)),
+                      )
+                      .toList()
+                    ..sort((a, b) => a.left.compareTo(b.left));
+              for (var index = 1; index < rects.length; index++) {
+                expect(
+                  rects[index].left,
+                  greaterThanOrEqualTo(rects[index - 1].right + 7.9),
+                );
+              }
+              final groupRect = tester.getRect(group);
+              expect(
+                rects.every(
+                  (rect) =>
+                      rect.left >= groupRect.left + 12 &&
+                      rect.right <= groupRect.right - 11.9,
+                ),
+                isTrue,
+              );
+              final decoration =
+                  tester
+                          .widget<DecoratedBox>(
+                            find.descendant(
+                              of: find.byKey(
+                                ValueKey('habit_metric_${item.key}'),
+                              ),
+                              matching: find.byType(DecoratedBox),
+                            ),
+                          )
+                          .decoration
+                      as BoxDecoration;
+              expect(
+                decoration.color,
+                Color.alphaBlend(
+                  item.color.withValues(alpha: dark ? .14 : .10),
+                  theme.colorScheme.surface,
+                ),
+              );
+            }
+            expect(
+              tester
+                      .getRect(
+                        find.byKey(
+                          const ValueKey('habit_heatmap_group_custom'),
+                        ),
+                      )
+                      .top -
+                  tester
+                      .getRect(
+                        find.byKey(const ValueKey('habit_heatmap_group_water')),
+                      )
+                      .bottom,
+              closeTo(12, .01),
+            );
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
+  for (final change in ['archive', 'rename', 'target']) {
+    testWidgets('local settings $change apply even when refresh fails', (
+      tester,
+    ) async {
+      final settings = HabitSettingsRepository(
+        storage: _MemorySettingsStorage(),
+      );
+      final transport = _FailingTrendHttpClient([
+        {..._trendRow(_today, readingMinutes: 30), 'water': 1500},
+      ]);
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://test.invalid', token: 'test'),
+        httpClient: transport,
+      );
+      addTearDown(client.dispose);
+      final cache = HabitTrendCacheRepository(storage: _MemoryTrendStorage());
+      Widget host(int revision) => MaterialApp(
+        home: HabitStatsScreen(
+          apiClient: client,
+          habitSettingsRepo: settings,
+          trendCacheRepo: cache,
+          refreshToken: revision,
+        ),
+      );
+      await tester.pumpWidget(host(0));
+      await tester.pumpAndSettle();
+      final previous = await settings.load();
+      final updated = switch (change) {
+        'archive' => previous.copyWith(
+          statusMap: {...previous.statusMap, 'steps': false},
+        ),
+        'rename' => previous.copyWith(
+          displayNameMap: {...previous.displayNameMap, 'water': '喝水'},
+        ),
+        _ => previous.copyWith(
+          targetMap: {...previous.targetMap, 'water': 2000},
+        ),
+      };
+      transport.failed = true;
+      await settings.save(updated);
+      await tester.pumpWidget(host(1));
+      await tester.pumpAndSettle();
+      final items = tester
+          .widget<HabitTrendHeatmapList>(find.byType(HabitTrendHeatmapList))
+          .items;
+      if (change == 'archive') {
+        expect(items.any((item) => item.key == 'steps'), isFalse);
+      }
+      if (change == 'rename') {
+        expect(
+          items.firstWhere((item) => item.key == 'water').displayName,
+          '喝水',
+        );
+      }
+      if (change == 'target') {
+        expect(
+          items.firstWhere((item) => item.key == 'water').longestStreak,
+          0,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   group('HabitTrendPeriod', () {
     test('creates stable week, month, and year boundaries', () {
       final anchor = DateTime(2026, 9, 10);
@@ -779,7 +1141,7 @@ void main() {
       expect(find.text('习惯趋势'), findsOneWidget);
       expect(find.text('饮水'), findsWidgets);
       expect(find.textContaining('完成率'), findsNothing);
-      expect(find.textContaining('最长连续'), findsNothing);
+      expect(find.text('最长连续'), findsWidgets);
     },
   );
 
@@ -893,12 +1255,14 @@ ApiClient _unusedApiClient() => ApiClient(
 class _TrendHttpClient extends http.BaseClient {
   final List<Map<String, dynamic>> rows;
   int requestCount = 0;
+  final requests = <Uri>[];
 
   _TrendHttpClient(this.rows);
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     requestCount++;
+    requests.add(request.url);
     return http.StreamedResponse(
       Stream.value(utf8.encode(jsonEncode(rows))),
       200,
@@ -942,4 +1306,13 @@ class _MemorySettingsStorage implements HabitSettingsStorage {
 
   @override
   Future<void> delete(String key) async => values.remove(key);
+}
+
+class _FailingTrendHttpClient extends _TrendHttpClient {
+  _FailingTrendHttpClient(super.rows);
+  bool failed = false;
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async => failed
+      ? http.StreamedResponse(Stream.value(utf8.encode('offline')), 503)
+      : super.send(request);
 }

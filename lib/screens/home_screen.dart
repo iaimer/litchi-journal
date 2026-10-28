@@ -21,7 +21,6 @@ import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../screens/focus_timer_screen.dart';
 import '../screens/quick_capture_screen.dart';
-import '../screens/settings_page.dart';
 import '../services/ai_config_repository.dart';
 import '../services/api_client.dart';
 import '../services/failure_messages.dart';
@@ -55,6 +54,7 @@ class HomeScreen extends StatefulWidget {
   final TodayImageCompressor? imageCompressor;
   final ValueChanged<ApiConfig>? onApiConfigChanged;
   final bool active;
+  final int settingsRevision;
 
   const HomeScreen({
     super.key,
@@ -64,6 +64,7 @@ class HomeScreen extends StatefulWidget {
     this.imageCompressor,
     this.onApiConfigChanged,
     this.active = true,
+    this.settingsRevision = 0,
   });
 
   @override
@@ -177,6 +178,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.settingsRevision != oldWidget.settingsRevision) {
+      _loadTagConfig();
+      _reloadHabitSettings();
+    }
     if (!identical(oldWidget.apiClient, widget.apiClient)) {
       _diaryRefreshSerial++;
       _diary = null;
@@ -1079,33 +1084,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           elevation: 0,
           scrolledUnderElevation: 0,
           title: CompactDiaryDateTitle(date: _activeDate),
-          actions: [
-            IconButton(
-              icon: const FloraIcon(FloraIcons.settings, size: 24),
-              onPressed: () async {
-                if (_quickRecordExpanded) {
-                  setState(() => _quickRecordExpanded = false);
-                }
-                await Navigator.of(context).push(
-                  FloraPageRoute(
-                    builder: (_) => SettingsPage(
-                      apiConfig: ApiConfig(
-                        baseUrl: widget.apiClient.baseUrl,
-                        token: '',
-                      ),
-                      apiClient: widget.apiClient,
-                      tokenConfigured: widget.apiClient.hasToken,
-                      onApiConfigChanged: widget.onApiConfigChanged,
-                    ),
-                  ),
-                );
-                // 从设置页返回后，重新加载标签设置和习惯设置
-                await _loadTagConfig();
-                _reloadHabitSettings();
-                if (mounted) _loadDiary();
-              },
-            ),
-          ],
         ),
         backgroundColor: theme.scaffoldBackgroundColor,
         floatingActionButton: ExcludeSemantics(

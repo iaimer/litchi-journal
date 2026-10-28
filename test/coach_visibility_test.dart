@@ -67,7 +67,7 @@ void main() {
         '### 💡 觉察与迭代\n- **12:00** 我有点紧张 #生活',
       );
       await _mount(tester, withReflection);
-      expect(find.text('生成回顾'), findsOneWidget);
+      expect(find.text('生成今日回顾'), findsOneWidget);
       await _mount(tester, fixture.value, readOnly: true);
       expect(find.text('焦虑时刻'), findsNothing);
     });
@@ -102,7 +102,7 @@ $prefix **08:25** 我的真实记录 #生活
     await _mount(tester, _habits);
     expect(find.byType(HabitCard), findsOneWidget);
     expect(find.text('今日回顾'), findsNothing);
-    expect(find.text('生成回顾'), findsNothing);
+    expect(find.text('生成今日回顾'), findsNothing);
   });
 
   for (final title in ['人生教练', '荔枝喵说']) {
@@ -110,7 +110,7 @@ $prefix **08:25** 我的真实记录 #生活
       await _mount(tester, '$_habits\n### $title\n-\n');
       expect(find.byType(HabitCard), findsOneWidget);
       expect(find.text('今日回顾'), findsNothing);
-      expect(find.text('生成回顾'), findsNothing);
+      expect(find.text('生成今日回顾'), findsNothing);
     });
   }
 
@@ -152,34 +152,34 @@ $_habits
       await _mount(tester, fixture.value);
       expect(find.byType(HabitCard), findsOneWidget);
       expect(find.text('今日回顾'), findsNothing);
-      expect(find.text('生成回顾'), findsNothing);
+      expect(find.text('生成今日回顾'), findsNothing);
 
       await _mount(tester, fixture.value.replaceFirst('饮水 0 mL', '饮水 1000 mL'));
       expect(find.text('今日回顾'), findsNothing);
-      expect(find.text('生成回顾'), findsNothing);
+      expect(find.text('生成今日回顾'), findsNothing);
 
       final withBody = fixture.value.replaceFirst(
         '- **HH:MM** 内容 #标签',
         '- **08:25** 今天写下的内容 #生活',
       );
       await _mount(tester, withBody);
-      expect(find.text('今日回顾'), findsOneWidget);
-      expect(find.text('生成回顾'), findsOneWidget);
+      expect(find.text('今日回顾'), findsNothing);
+      expect(find.text('生成今日回顾'), findsOneWidget);
 
       await _mount(tester, fixture.value);
       expect(find.text('今日回顾'), findsNothing);
-      expect(find.text('生成回顾'), findsNothing);
+      expect(find.text('生成今日回顾'), findsNothing);
 
       await _mount(tester, withBody, readOnly: true);
       expect(find.text('今天写下的内容'), findsOneWidget);
-      expect(find.text('生成回顾'), findsNothing);
+      expect(find.text('生成今日回顾'), findsNothing);
     });
   }
 
   testWidgets('HH:MM 示例不是随手记正文，不恢复生成回顾', (tester) async {
     await _mount(tester, '$_habits\n## 随手记\n- **HH:MM** 内容 #标签\n');
     expect(find.text('今日回顾'), findsNothing);
-    expect(find.text('生成回顾'), findsNothing);
+    expect(find.text('生成今日回顾'), findsNothing);
   });
 
   testWidgets('未填写的完整焦虑四问不恢复生成回顾', (tester) async {
@@ -214,9 +214,9 @@ $_habits
         '$_habits\n## ${entry.key}\n${entry.value}\n',
         onGenerate: () => generated = true,
       );
-      expect(find.text('今日回顾'), findsOneWidget);
-      await tester.ensureVisible(find.text('生成回顾'));
-      await tester.tap(find.text('生成回顾'));
+      expect(find.text('今日回顾'), findsNothing);
+      await tester.ensureVisible(find.text('生成今日回顾'));
+      await tester.tap(find.text('生成今日回顾'));
       expect(generated, isTrue);
       expect(tester.takeException(), isNull);
     });
@@ -224,7 +224,7 @@ $_habits
 
   testWidgets('标题前有正文时不误判为仅有习惯', (tester) async {
     await _mount(tester, _habits.replaceFirst('# 今天', '# 今天\n今天过得不错'));
-    expect(find.text('今日回顾'), findsOneWidget);
+    expect(find.text('今日回顾'), findsNothing);
   });
 
   testWidgets('已有回顾不会因为没有其他文字记录而被隐藏', (tester) async {
@@ -238,7 +238,7 @@ $_habits
     await _mount(tester, _habits);
     expect(find.text('今日回顾'), findsNothing);
     await _mount(tester, '$_habits\n## 随手记\n- **08:25** 今天的记录\n');
-    expect(find.text('生成回顾'), findsOneWidget);
+    expect(find.text('生成今日回顾'), findsOneWidget);
     await _mount(tester, _habits);
     expect(find.text('今日回顾'), findsNothing);
   });
@@ -248,6 +248,6 @@ $_habits
     expect(find.text('今日回顾'), findsOneWidget);
     expect(find.text('过去的回顾内容'), findsOneWidget);
     expect(find.text('更新回顾'), findsNothing);
-    expect(find.text('生成回顾'), findsNothing);
+    expect(find.text('生成今日回顾'), findsNothing);
   });
 }

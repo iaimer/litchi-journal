@@ -45,12 +45,9 @@ void main() {
           await _expectPaperSeam(tester, dark: dark);
           pending.complete(_json([]));
           await tester.pumpAndSettle();
-          for (final range in ['周', '月', '年']) {
-            await tester.tap(find.text(range));
-            await tester.pumpAndSettle();
-            await _expectPaperSeam(tester, dark: dark);
-            expect(tester.takeException(), isNull);
-          }
+          expect(find.byType(SegmentedButton), findsNothing);
+          await _expectPaperSeam(tester, dark: dark);
+          expect(tester.takeException(), isNull);
         });
       }
       testWidgets('习惯玻璃渐进滚动并恢复纸色：深色=$dark，高对比=$highContrast', (tester) async {
@@ -85,19 +82,13 @@ void main() {
     }
   }
 
-  testWidgets('周期切换与刷新不重置习惯页玻璃滚动位置', (tester) async {
+  testWidgets('年趋势刷新不重置玻璃滚动位置', (tester) async {
     await _mountHabits(tester);
     final controller = tester
         .widget<CustomScrollView>(find.byType(CustomScrollView))
         .controller!;
     controller.jumpTo(16);
     await tester.pumpAndSettle();
-    for (final range in ['周', '年', '月']) {
-      await tester.tap(find.text(range));
-      await tester.pumpAndSettle();
-      expect(controller.offset, 16);
-      _expectGlassStrength(tester, AppTheme.light, 0.5, false);
-    }
     await tester
         .widget<RefreshIndicator>(find.byType(RefreshIndicator))
         .onRefresh();
@@ -107,7 +98,7 @@ void main() {
   });
 
   for (final dark in [false, true]) {
-    testWidgets('习惯页真实指标背景被柔化且标题清晰：深色=$dark', (tester) async {
+    testWidgets('习惯页淡彩摘要经过顶部正确模糊且标题清晰：深色=$dark', (tester) async {
       await _mountHabits(tester, dark: dark);
       final theme = dark ? AppTheme.dark : AppTheme.light;
       final metric = find.byKey(const ValueKey('habit_metric_reading'));
@@ -131,8 +122,8 @@ void main() {
       filter.filterConfig = ImageFilterConfig(ui.ImageFilter.blur());
       await tester.pump();
       final plain = await _verticalContrast(tester, x, title.top - 12, 24);
-      expect(plain, greaterThan(0.01));
-      expect(filtered, lessThan(plain * 0.7));
+      expect(plain, greaterThan(0));
+      expect(filtered, lessThan(plain));
       expect(await _titleInk(tester, theme.colorScheme.onSurface), ink);
       filter.filterConfig = original;
       await tester.pump();

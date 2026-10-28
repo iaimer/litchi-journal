@@ -21,7 +21,7 @@ import '../widgets/habit_trend_heatmap.dart';
 
 /// 习惯趋势页。
 ///
-/// 页面只负责周期选择、缓存状态和展示。Markdown 解析仍由服务端完成，
+/// 页面只负责当年趋势、缓存状态和展示。Markdown 解析仍由服务端完成，
 /// 周期内的聚合则由 [HabitTrendService] 使用领域模型计算。
 class HabitStatsScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -48,8 +48,6 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   late HabitTrendCacheRepository _trendCacheRepo;
 
   HabitSettings _settings = HabitSettings.defaults;
-  HabitTrendRange _range = HabitTrendRange.month;
-  DateTime _anchor = _dateOnly(DateTime.now());
   HabitTrendStats? _stats;
   String? _error;
   int _requestSerial = 0;
@@ -61,8 +59,8 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   double _headerGlassStrength = 0;
 
   HabitTrendPeriod get _period => HabitTrendPeriod.forAnchor(
-    _range,
-    _anchor,
+    HabitTrendRange.year,
+    _referenceDate,
     referenceDate: _referenceDate,
   );
 
@@ -85,7 +83,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   }
 
   void _updateHeaderGlass() {
-    // 先走完内容的顶部留白，再渐进采样，避免静止时模糊到周期按钮。
+    // 先走完内容的顶部留白，再渐进采样，避免静止时模糊到顶部内容。
     final strength =
         ((_scrollController.offset - FloraSpacing.sm) / FloraSpacing.lg).clamp(
           0.0,
@@ -122,14 +120,20 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
     final today = _dateOnly(DateTime.now());
     if (today == _referenceDate) return;
     _referenceDate = today;
-    _anchor = today;
     _requestSerial++;
     if (mounted) {
       setState(() {
-        _stats = null;
+        final previous = _stats;
+        if (previous != null) {
+          _stats = _service.build(
+            period: _period,
+            sourceDays: previous.sourceDays,
+            settings: _settings,
+          );
+        }
         _error = null;
       });
-      _loadPeriod(reset: true, useCache: false);
+      _loadPeriod(useCache: false);
     }
   }
 
@@ -150,7 +154,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
       return;
     }
     if (widget.refreshToken != oldWidget.refreshToken) {
-      _refreshFromSource(reset: true);
+      _refreshFromSource();
     }
   }
 
@@ -171,8 +175,19 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
     try {
       final repo = widget.habitSettingsRepo ?? HabitSettingsRepository();
       final settings = await repo.load();
-      _settings = settings;
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {
+        _settings = settings;
+        final previous = _stats;
+        if (previous != null) {
+          // 本地配置已保存，不必等网络成功才更新名称、目标和归档状态。
+          _stats = _service.build(
+            period: previous.period,
+            sourceDays: previous.sourceDays,
+            settings: settings,
+          );
+        }
+      });
     } catch (_) {
       // 仓储本身会回退默认值；这里保留内存中的默认设置作为最后兜底。
     }
@@ -181,7 +196,7 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
   Future<void> _refreshFromSource({bool reset = false}) async {
     await _reloadSettings();
     if (!mounted) return;
-    await _loadPeriod(reset: reset, useCache: !reset);
+    await _loadPeriod(reset: reset, useCache: false);
   }
 
   Future<void> _loadPeriod({bool reset = false, bool useCache = true}) async {
@@ -243,30 +258,6 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
 
   Future<void> _pullRefresh() => _refreshFromSource();
 
-  void _selectRange(HabitTrendRange range) {
-    if (range == _range) return;
-    setState(() {
-      _range = range;
-      _anchor = _referenceDate;
-      _stats = null;
-      _error = null;
-    });
-    _loadPeriod(reset: true);
-  }
-
-  void _shiftPeriod(int amount) {
-    if (amount == 0 || _range == HabitTrendRange.year) return;
-    final current = _period;
-    if (amount > 0 && !current.canMoveForward(_today)) return;
-    final next = current.shift(amount);
-    setState(() {
-      _anchor = next.start;
-      _stats = null;
-      _error = null;
-    });
-    _loadPeriod(reset: true);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -302,10 +293,13 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
                 ),
                 sliver: SliverList.list(
                   children: [
-                    _buildRangeSelector(theme),
-                    const SizedBox(height: 8),
-                    _buildPeriodNavigator(theme),
-                    const SizedBox(height: 2),
+                    Text(
+                      '${_referenceDate.year}年 · 截至${_referenceDate.month}月${_referenceDate.day}日',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     if (_error != null)
                       _buildError()
                     else if (_stats == null)
@@ -338,67 +332,6 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
         child: Text('习惯趋势', style: theme.textTheme.headlineLarge),
       ),
     );
-  }
-
-  Widget _buildRangeSelector(ThemeData theme) {
-    return Semantics(
-      label: '统计周期',
-      child: SegmentedButton<HabitTrendRange>(
-        segments: [
-          for (final range in HabitTrendRange.values)
-            ButtonSegment<HabitTrendRange>(
-              value: range,
-              label: Text(range.label),
-            ),
-        ],
-        selected: {_range},
-        showSelectedIcon: false,
-        onSelectionChanged: (selection) {
-          if (selection.isNotEmpty) _selectRange(selection.first);
-        },
-      ),
-    );
-  }
-
-  Widget _buildPeriodNavigator(ThemeData theme) {
-    if (_range == HabitTrendRange.year) return const SizedBox.shrink();
-    final period = _period;
-    final canMoveForward = period.canMoveForward(_today);
-    return Row(
-      children: [
-        IconButton(
-          tooltip: '上一个${_range.label}',
-          onPressed: () => _shiftPeriod(-1),
-          icon: const FloraIcon(FloraIcons.chevronLeft),
-        ),
-        Expanded(
-          child: Text(
-            _periodLabel(period),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium,
-          ),
-        ),
-        IconButton(
-          tooltip: '下一个${_range.label}',
-          onPressed: canMoveForward ? () => _shiftPeriod(1) : null,
-          icon: const FloraIcon(FloraIcons.chevronRight),
-        ),
-      ],
-    );
-  }
-
-  String _periodLabel(HabitTrendPeriod period) {
-    final start = period.start;
-    final end = period.end;
-    switch (period.range) {
-      case HabitTrendRange.week:
-        return '${start.year}年${start.month}月${start.day}日 - '
-            '${end.month}月${end.day}日';
-      case HabitTrendRange.month:
-        return '${start.year}年${start.month}月';
-      case HabitTrendRange.year:
-        return '最近6个月';
-    }
   }
 
   Widget _buildLoading() {
@@ -477,6 +410,4 @@ class _HabitStatsScreenState extends State<HabitStatsScreen>
 
   static DateTime _dateOnly(DateTime date) =>
       DateTime(date.year, date.month, date.day);
-
-  DateTime get _today => _referenceDate;
 }

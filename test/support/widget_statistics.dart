@@ -28,7 +28,8 @@ void registerStatisticsTests() {
       await tester.pump();
 
       expect(find.text('习惯趋势'), findsOneWidget);
-      expect(find.text('月'), findsOneWidget);
+      expect(find.text('月'), findsNothing);
+      expect(find.byType(SegmentedButton), findsNothing);
     });
 
     testWidgets('shows active habit metrics when no diary data', (
@@ -149,10 +150,11 @@ void registerStatisticsTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('习惯趋势'), findsOneWidget);
-      expect(find.text('月'), findsOneWidget);
+      expect(find.text('月'), findsNothing);
+      expect(find.byType(SegmentedButton), findsNothing);
     });
 
-    testWidgets('trend page keeps metric descriptions out of visible cards', (
+    testWidgets('trend page shows concise metric labels in summary cards', (
       tester,
     ) async {
       final now = DateTime.now();
@@ -180,7 +182,7 @@ void registerStatisticsTests() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('完成率'), findsNothing);
-      expect(find.textContaining('最长连续'), findsNothing);
+      expect(find.text('最长连续'), findsWidgets);
       expect(find.textContaining('本月累计'), findsNothing);
     });
 
@@ -209,7 +211,8 @@ void registerStatisticsTests() {
       );
       // 单帧后 header 已显示
       expect(find.text('习惯趋势'), findsOneWidget);
-      expect(find.text('月'), findsOneWidget);
+      expect(find.text('月'), findsNothing);
+      expect(find.byType(SegmentedButton), findsNothing);
     });
 
     testWidgets('shows loading skeleton while 7-day data loads', (
@@ -278,50 +281,64 @@ void registerStatisticsTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('习惯趋势'), findsOneWidget);
-      expect(find.text('月'), findsOneWidget);
+      expect(find.text('月'), findsNothing);
+      expect(find.byType(SegmentedButton), findsNothing);
     });
 
-    testWidgets('switching trend period does not show page loading', (
-      tester,
-    ) async {
-      final now = DateTime.now();
-      final today = now.day;
-      final client = ApiClient(
-        ApiConfig(baseUrl: 'https://test.local', token: 'test'),
-        httpClient: _HabitTestHttpClient(
-          year: now.year,
-          month: now.month,
-          waterByDay: {today - 1: 1500},
-          stepsByDay: {today - 1: 5000},
-          readingByDay: {},
-          languageByDay: {},
-          supplementByDay: {},
-        ),
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HabitStatsScreen(
-            apiClient: client,
-            habitSettingsRepo: HabitSettingsRepository(storage: _TestStorage()),
+    testWidgets(
+      'refreshing yearly trend retains content and scroll controller',
+      (tester) async {
+        final now = DateTime.now();
+        final today = now.day;
+        final client = ApiClient(
+          ApiConfig(baseUrl: 'https://test.local', token: 'test'),
+          httpClient: _HabitTestHttpClient(
+            year: now.year,
+            month: now.month,
+            waterByDay: {today - 1: 1500},
+            stepsByDay: {today - 1: 5000},
+            readingByDay: {},
+            languageByDay: {},
+            supplementByDay: {},
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
 
-      expect(
-        find.byWidgetPredicate((widget) => widget is DropdownButton),
-        findsNothing,
-      );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: HabitStatsScreen(
+              apiClient: client,
+              habitSettingsRepo: HabitSettingsRepository(
+                storage: _TestStorage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      final yearSegment = find.text('年');
-      expect(yearSegment, findsOneWidget);
-      await tester.tap(yearSegment);
-      await tester.pumpAndSettle();
+        expect(
+          find.byWidgetPredicate((widget) => widget is DropdownButton),
+          findsNothing,
+        );
 
-      expect(find.text('习惯趋势'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-    });
+        final scroll = tester
+            .widget<CustomScrollView>(find.byType(CustomScrollView))
+            .controller;
+        await tester
+            .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+            .onRefresh();
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<CustomScrollView>(find.byType(CustomScrollView))
+              .controller,
+          same(scroll),
+        );
+        expect(find.text('最近6个月'), findsOneWidget);
+
+        expect(find.text('习惯趋势'), findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+      },
+    );
 
     testWidgets('refresh token reloads archived habit settings', (
       tester,

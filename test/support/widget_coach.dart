@@ -398,16 +398,16 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('今日回顾'), findsOneWidget);
-      expect(find.text('生成回顾'), findsOneWidget);
+      expect(find.text('今日回顾'), findsNothing);
+      expect(find.text('生成今日回顾'), findsOneWidget);
 
       final generateButton = find.ancestor(
-        of: find.text('生成回顾'),
+        of: find.text('生成今日回顾'),
         matching: find.byType(TextButton),
       );
       expect(tester.getSize(generateButton).height, greaterThanOrEqualTo(48));
 
-      await tester.tap(find.text('生成回顾'));
+      await tester.tap(find.text('生成今日回顾'));
       await tester.pump();
 
       expect(tapped, isTrue);
@@ -439,8 +439,8 @@ tags:
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('今日回顾'), findsOneWidget);
-        expect(find.text('生成回顾'), findsOneWidget);
+        expect(find.text('今日回顾'), findsNothing);
+        expect(find.text('生成今日回顾'), findsOneWidget);
         expect(find.text('明日寄语'), findsOneWidget);
         expect(find.text('习惯打卡'), findsOneWidget);
         expect(find.text('🏃 习惯打卡'), findsNothing);
@@ -470,10 +470,10 @@ tags:
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('今日回顾'), findsOneWidget);
+      expect(find.text('今日回顾'), findsNothing);
       expect(find.text('人生教练'), findsNothing);
       expect(find.text('荔枝喵说'), findsNothing);
-      expect(find.text('生成回顾'), findsOneWidget);
+      expect(find.text('生成今日回顾'), findsOneWidget);
     });
 
     testWidgets('readOnly=true hides regenerate button', (tester) async {
@@ -504,7 +504,7 @@ tags:
       expect(find.text('模式识别'), findsOneWidget);
       // Regenerate button should NOT show
       expect(find.text('更新回顾'), findsNothing);
-      expect(find.text('生成回顾'), findsNothing);
+      expect(find.text('生成今日回顾'), findsNothing);
     });
 
     testWidgets('荔枝喵说 title displays as 今日回顾', (tester) async {

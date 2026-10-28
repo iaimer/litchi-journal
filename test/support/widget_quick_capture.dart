@@ -471,7 +471,7 @@ void registerQuickCaptureTests() {
         find.byKey(const Key('quick_record_fab')),
       );
       expect(fab.backgroundColor, AppColors.darkPrimary);
-      expect(fab.foregroundColor, AppColors.darkBackground);
+      expect(fab.foregroundColor, AppColors.onPrimary);
 
       await tester.tap(find.byKey(const Key('quick_record_fab')));
       await tester.pumpAndSettle();

@@ -48,7 +48,7 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
     final theme = Theme.of(context);
 
     return FloraPageScaffold(
-      title: '远程 API',
+      title: '服务器连接',
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

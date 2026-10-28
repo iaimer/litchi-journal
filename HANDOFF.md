@@ -4,7 +4,7 @@
 
 清单 `1.10.0+42`，包含当前整体界面、四项导航与设置迁移、年趋势与分组、图标和正文标签显示及审查修复。发布包 `build/app/outputs/flutter-apk/litchi-journal-1.10.0-release.apk`，SHA-256 `f766100d8449ed12f1ed1abf57c78f6a8c8909251c3eec851ee0a474c6bfb25b`。正常main.dart入口，原包名 `com.example.litchi_journal_flutter`，Android Debug证书SHA-256 `4b15b79943c8e123ab288bfcb76e6235d59cc265b9e56e40660eb69af499c433`，APK v2有效。
 
-Flutter1396项、服务端160项、静态分析及TypeScript构建通过，差异检查通过。服务端首次在沙箱下因本地监听EPERM失败，授权解除限制后160项全通过。Kotlin插件兼容性提示未阻止APK构建。用户已授权内部APK和合并推送main，Git交付正在完成；不安装设备、不部署服务端。下方所有“未升版／未提交”和旧APK状态均为对应历史阶段，不代表本节发布状态。
+Flutter1396项、服务端160项、静态分析及TypeScript构建通过，差异检查通过。服务端首次在沙箱下因本地监听EPERM失败，授权解除限制后160项全通过。Kotlin插件兼容性提示未阻止APK构建。已从功能分支 `947b6c8` squash合并为 `main` 的 `d24f5fe` 并推送，已独立核对远端main一致；不安装设备、不部署服务端。下方所有“未升版／未提交”和旧APK状态均为对应历史阶段，不代表本节发布状态。
 
 ## 设置图标与正文标签显示（2026-10-28，未提交）
 

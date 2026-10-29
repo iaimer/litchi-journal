@@ -244,6 +244,9 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     required bool canRestore,
   }) {
     final theme = Theme.of(context);
+    final dividerColor = MediaQuery.highContrastOf(context)
+        ? theme.dividerColor
+        : theme.dividerColor.withAlpha(120);
     final actions =
         <({String label, _TagEntryAction action, bool destructive})>[
           (
@@ -286,12 +289,13 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                 Padding(
                   padding: const EdgeInsets.only(bottom: FloraSpacing.sm),
                   child: Text(
-                    '#$name',
+                    name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleLarge,
                   ),
                 ),
+                Divider(height: 1, thickness: 1, color: dividerColor),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surfaceContainerHighest.withAlpha(
@@ -303,10 +307,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                     children: [
                       for (var index = 0; index < actions.length; index++) ...[
                         if (index > 0)
-                          Divider(
-                            height: 1,
-                            color: theme.dividerColor.withAlpha(120),
-                          ),
+                          Divider(height: 1, thickness: 1, color: dividerColor),
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -325,23 +326,6 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                         ),
                       ],
                     ],
-                  ),
-                ),
-                const SizedBox(height: FloraSpacing.sm),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.error,
-                      backgroundColor: theme.colorScheme.surfaceContainerHighest
-                          .withAlpha(80),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(FloraRadius.md),
-                      ),
-                    ),
-                    child: const Text('取消'),
                   ),
                 ),
               ],
@@ -382,7 +366,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('永久删除「#$name」？', style: theme.textTheme.titleLarge),
+              Text('永久删除「$name」？', style: theme.textTheme.titleLarge),
               const SizedBox(height: FloraSpacing.sm),
               Text(
                 detail,
@@ -756,7 +740,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                         children: [
                           Expanded(
                             child: Text(
-                              '#${domain.displayName}',
+                              domain.displayName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.titleLarge?.copyWith(
@@ -922,7 +906,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
             children: [
               Expanded(
                 child: Text(
-                  '#${method.displayName}',
+                  method.displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyLarge?.copyWith(

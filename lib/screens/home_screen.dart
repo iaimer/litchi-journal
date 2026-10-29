@@ -122,9 +122,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   DateTime? _diaryDate;
   int _diaryRefreshSerial = 0;
   bool _loading = true;
-  bool _refreshing = false;
   String? _error;
-  DateTime? _cachedAt;
   bool _verified = false;
   String? _warmedConnection;
   TagConfig? _tagConfig;
@@ -185,7 +183,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!identical(oldWidget.apiClient, widget.apiClient)) {
       _diaryRefreshSerial++;
       _diary = null;
-      _cachedAt = null;
       _verified = false;
       _loadTagConfig();
       _loadDiary();
@@ -243,7 +240,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() {
       if (!hasVisibleContent) _diary = null;
       _loading = !hasVisibleContent;
-      _refreshing = hasVisibleContent;
       _error = null;
       _verified = false;
       _quickRecordExpanded = false;
@@ -265,13 +261,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   hasVisibleContent) {
                 return;
               }
-              _showDiary(
-                cached.value,
-                date,
-                settings,
-                verified: false,
-                updatedAt: cached.updatedAt,
-              );
+              _showDiary(cached.value, date, settings, verified: false);
             },
           )
           .timeout(_diaryLoadTimeout);
@@ -282,13 +272,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
 
       if (!mounted || requestId != _diaryRefreshSerial) return;
-      _showDiary(
-        diary,
-        date,
-        settings,
-        verified: true,
-        updatedAt: DateTime.now(),
-      );
+      _showDiary(diary, date, settings, verified: true);
       _warmReadingCache(client, date);
     } catch (e) {
       if (!mounted || requestId != _diaryRefreshSerial) return;
@@ -312,15 +296,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     DateTime date,
     HabitSettings settings, {
     required bool verified,
-    required DateTime updatedAt,
   }) {
     setState(() {
       _diary = diary;
       _diaryDate = date;
       _loading = false;
-      _refreshing = !verified;
       _verified = verified && diary != null;
-      _cachedAt = updatedAt;
       _habitSettings = settings;
       _activeHabitKeys = settings.activeKeys.toSet();
       _customCheckboxStates = _readCustomCheckboxStates(diary, settings);
@@ -332,13 +313,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() {
       if (error is ApiException && error.isAuthenticationFailure) {
         _diary = null;
-        _cachedAt = null;
         _error = '认证失败，请检查连接设置后重试';
       } else {
         _error = _diaryLoadFailureMessage(error);
       }
       _loading = false;
-      _refreshing = false;
     });
   }
 
@@ -425,7 +404,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() {
         _diary = diary;
         _verified = diary != null;
-        _cachedAt = DateTime.now();
         _error = null;
       });
     } catch (error) {
@@ -434,7 +412,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _verified = false;
         if (error is ApiException && error.isAuthenticationFailure) {
           _diary = null;
-          _cachedAt = null;
           _error = '认证失败，请检查连接设置后重试';
         }
       });
@@ -1114,6 +1091,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       onRefresh: _loadDiary,
                       edgeOffset: _headerInset,
                       child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         controller: _scrollController,
                         padding: EdgeInsets.fromLTRB(
                           16,
@@ -1125,12 +1103,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           const SizedBox(height: 16),
                           // 固定缓存提示的子项位置，避免刷新时重新估算正文滚动偏移。
                           if (!_verified && _diary != null)
-                            ReadingCacheStatus(
-                              updatedAt: _cachedAt,
-                              refreshing: _refreshing,
-                              message: _error,
-                              onRetry: _loadDiary,
-                            )
+                            ReadingCacheStatus(message: _error)
                           else
                             const SizedBox.shrink(),
                           _buildFocusTimerStrip(theme),

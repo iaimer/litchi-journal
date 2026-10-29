@@ -1,56 +1,65 @@
 import 'package:flutter/material.dart';
 
-/// 本地内容的更新时间独立于网络进度，失败时不遮挡阅读。
+import '../theme/app_theme.dart';
+import 'flora_icon.dart';
+
+/// 缓存和连接错误共用单行提示，空间不足时只缩小文字。
 class ReadingCacheStatus extends StatelessWidget {
-  final DateTime? updatedAt;
-  final bool refreshing;
-  final VoidCallback onRetry;
   final String? message;
 
-  const ReadingCacheStatus({
-    super.key,
-    this.updatedAt,
-    this.refreshing = false,
-    required this.onRetry,
-    this.message,
-  });
+  const ReadingCacheStatus({super.key, this.message});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final date = updatedAt;
-    final time = date == null
-        ? null
-        : '${date.month}月${date.day}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = dark
+        ? AppColors.cacheNoticeDarkForeground
+        : AppColors.cacheNoticeForeground;
+    final label = message ?? '正在显示本地缓存';
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message ??
-                      (refreshing ? '正在显示本地内容，检查更新中' : '暂时无法连接，正在显示本地内容'),
-                  style: theme.textTheme.bodySmall,
-                ),
-                if (time != null)
-                  Text(
-                    '上次更新 $time',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
+      padding: const EdgeInsets.only(bottom: FloraSpacing.md),
+      child: Semantics(
+        label: label,
+        child: ExcludeSemantics(
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: dark
+                  ? AppColors.cacheNoticeDarkBackground
+                  : AppColors.cacheNoticeBackground,
+              borderRadius: BorderRadius.circular(FloraRadius.md),
+            ),
+            child: _buildContent(label, foreground),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(String label, Color foreground) {
+    return Row(
+      children: [
+        FloraIcon(FloraIcons.calloutInfo, size: 18, color: foreground),
+        const SizedBox(width: FloraSpacing.sm),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                height: 1.4,
+                color: foreground,
+              ),
             ),
           ),
-          TextButton(
-            onPressed: refreshing ? null : onRetry,
-            child: const Text('重试'),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

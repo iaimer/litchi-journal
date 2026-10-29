@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
+  static const cacheNoticeBackground = Color(0xFFFFF5D6);
+  static const cacheNoticeForeground = Color(0xFF795B28);
+  static const cacheNoticeDarkBackground = Color(0xFF3A321C);
+  static const cacheNoticeDarkForeground = Color(0xFFF4DEA0);
   static const splashLight = Color(0xFFF7F2EA);
   static const splashDark = Color(0xFF1F1B18);
   static const onPrimary = Color(0xFF603440);

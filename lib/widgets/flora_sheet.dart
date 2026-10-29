@@ -68,6 +68,45 @@ class _FloraSheetRoute<T> extends PopupRoute<T> with FloraPopupMotion<T> {
   @override
   String get barrierLabel => label;
 
+  void _close(BuildContext context) {
+    if (isCurrent) Navigator.of(context).pop();
+  }
+
+  Widget _buildContents(BuildContext context) {
+    if (!showDragHandle) return builder(context);
+    final theme = Theme.of(context);
+    return Semantics(
+      key: const Key('flora_sheet_dismiss'),
+      container: true,
+      onDismiss: () => _close(context),
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: builder(context),
+          ),
+          Positioned(
+            top: FloraSpacing.sm,
+            child: ExcludeSemantics(
+              child: Container(
+                key: const Key('flora_sheet_handle'),
+                width: 56,
+                height: 4,
+                decoration: BoxDecoration(
+                  color:
+                      theme.bottomSheetTheme.dragHandleColor ??
+                      theme.colorScheme.onSurfaceVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget buildPage(
     BuildContext context,
@@ -93,11 +132,11 @@ class _FloraSheetRoute<T> extends PopupRoute<T> with FloraPopupMotion<T> {
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 clipBehavior: clipBehavior ?? Clip.none,
-                showDragHandle: showDragHandle,
+                showDragHandle: false,
                 onClosing: () {
                   if (isCurrent) Navigator.of(context).pop();
                 },
-                builder: builder,
+                builder: _buildContents,
               ),
               builder: (context, sheet) => FloraMotionGate(
                 onMotionChanged: updateMotion,

@@ -318,7 +318,7 @@ void registerPreferencesTests() {
       expect(find.text('标签管理'), findsWidgets);
       expect(find.text('领域'), findsOneWidget);
       expect(find.text('方法'), findsOneWidget);
-      expect(find.text('#亲子'), findsOneWidget);
+      expect(find.text('亲子'), findsOneWidget);
     });
 
     testWidgets('safe area prevents status bar overlap', (tester) async {
@@ -371,7 +371,7 @@ void registerPreferencesTests() {
     ) async {
       await tester.pumpWidget(buildPage());
 
-      expect(find.text('#亲子'), findsOneWidget);
+      expect(find.text('亲子'), findsOneWidget);
       expect(find.text('领域说明不应直接显示'), findsNothing);
       expect(find.text('主题说明不应直接显示'), findsNothing);
       expect(find.text('方法说明不应直接显示'), findsNothing);
@@ -394,8 +394,18 @@ void registerPreferencesTests() {
       await tester.pumpAndSettle();
       expect(find.text('陪伴互动'), findsOneWidget);
 
-      await tester.tap(find.text('#亲子'));
+      await tester.tap(find.text('亲子'));
       await tester.pumpAndSettle();
+      expect(find.text('#亲子'), findsNothing);
+      expect(find.text('取消'), findsNothing);
+      final sheetDividers = find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(Divider),
+      );
+      expect(sheetDividers, findsNWidgets(3));
+      for (final divider in tester.widgetList<Divider>(sheetDividers)) {
+        expect(divider.thickness, 1);
+      }
       expect(find.text('停用'), findsOneWidget);
       expect(find.text('编辑'), findsOneWidget);
       expect(find.text('永久删除'), findsOneWidget);
@@ -405,7 +415,7 @@ void registerPreferencesTests() {
       tester,
     ) async {
       await tester.pumpWidget(buildPage());
-      await tester.tap(find.text('#亲子'));
+      await tester.tap(find.text('亲子'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('编辑'));
       await tester.pumpAndSettle();
@@ -425,16 +435,16 @@ void registerPreferencesTests() {
       await tester.enterText(find.byType(TextField), '旅行');
       await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
-      expect(find.text('#旅行'), findsOneWidget);
+      expect(find.text('旅行'), findsOneWidget);
 
-      await tester.tap(find.text('#旅行'));
+      await tester.tap(find.text('旅行'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('永久删除'));
       await tester.pumpAndSettle();
       expect(find.text('已有日记中的标签不会被修改。'), findsOneWidget);
       await tester.tap(find.text('永久删除'));
       await tester.pumpAndSettle();
-      expect(find.text('#旅行'), findsNothing);
+      expect(find.text('旅行'), findsNothing);
     });
 
     testWidgets('keeps add and restore controls when all labels are deleted', (

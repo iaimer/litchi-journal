@@ -70,7 +70,6 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
   bool _refreshing = false;
   bool _quickRecordExpanded = false;
   String? _error;
-  DateTime? _cachedAt;
   bool _verified = false;
   int _requestSerial = 0;
 
@@ -111,7 +110,6 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
           if (!mounted || serial != _requestSerial || hasVisibleContent) return;
           setState(() {
             _diary = cached.value;
-            _cachedAt = cached.updatedAt;
             _loading = false;
             _refreshing = true;
           });
@@ -123,14 +121,12 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
         _loading = false;
         _refreshing = false;
         _verified = true;
-        _cachedAt = DateTime.now();
       });
     } catch (error) {
       if (!mounted || serial != _requestSerial) return;
       setState(() {
         if (error is ApiException && error.isAuthenticationFailure) {
           _diary = null;
-          _cachedAt = null;
           _error = '认证失败，请检查连接设置后重试';
         } else {
           _error = diaryReadFailureMessage(
@@ -150,7 +146,6 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
     if (!identical(oldWidget.apiClient, widget.apiClient) ||
         oldWidget.date != widget.date) {
       _diary = null;
-      _cachedAt = null;
       _loadDiary();
       _loadTagConfig();
     }
@@ -318,13 +313,7 @@ class _ReadOnlyDiaryScreenState extends State<ReadOnlyDiaryScreen>
           else if (_diary == null)
             _buildEmpty(theme)
           else ...[
-            if (!_verified)
-              ReadingCacheStatus(
-                updatedAt: _cachedAt,
-                refreshing: _refreshing,
-                message: _error,
-                onRetry: _loadDiary,
-              ),
+            if (!_verified) ReadingCacheStatus(message: _error),
             if (_verified && _error != null) _buildInlineError(theme),
             DiaryMarkdownView(
               markdown: _diary?.raw ?? '',

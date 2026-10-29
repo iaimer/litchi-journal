@@ -44,6 +44,23 @@ ApiClient _api(
   httpClient: MockClient(handler),
 );
 
+Finder _calendarMarker(DateTime date) => find.byKey(
+  ValueKey('history_calendar_marker_${ApiClient.formatDate(date)}'),
+);
+
+Map<String, dynamic> _historyMonth(DateTime date) => {
+  'year': date.year,
+  'month': date.month,
+  'diaries': [
+    {
+      'date': ApiClient.formatDate(date),
+      'exists': true,
+      'hasContent': true,
+      'hasImages': false,
+    },
+  ],
+};
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
@@ -766,7 +783,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.textContaining('立即出现的正文'), findsOneWidget);
-    expect(find.textContaining('检查更新中'), findsOneWidget);
+    expect(find.text('正在显示本地缓存'), findsOneWidget);
     network.complete(http.Response('', 503));
     await tester.pumpAndSettle();
     expect(find.textContaining('立即出现的正文'), findsOneWidget);
@@ -846,7 +863,7 @@ void main() {
       isTrue,
     );
     online = true;
-    await tester.tap(find.text('重试'));
+    await tester.drag(find.byType(ListView).first, const Offset(0, 500));
     await tester.pumpAndSettle();
     expect(find.textContaining('联网新正文'), findsOneWidget);
     expect(find.textContaining('服务器错误'), findsNothing);
@@ -897,7 +914,51 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(GalleryImageTile), findsOneWidget);
     expect(find.text('2026年9月'), findsOneWidget);
-    expect(find.textContaining('正在显示本地内容'), findsOneWidget);
+    expect(find.text('暂时无法获取更多月份，连接服务器后重试'), findsOneWidget);
+  });
+
+  testWidgets('展开月历离线失败后下拉重新请求当前月并恢复标记', (tester) async {
+    final cache = _MemoryCache();
+    final now = DateTime.now();
+    final oldDate = DateTime(now.year, now.month, 1);
+    final newDate = DateTime(now.year, now.month, 2);
+    var online = true;
+    var requests = 0;
+    final client = _api(cache, (request) async {
+      if (request.url.path == '/api/v1/history/${now.year}/${now.month}') {
+        requests++;
+        if (!online) throw const SocketException('offline');
+        return _jsonResponse(
+          jsonEncode(_historyMonth(requests == 1 ? oldDate : newDate)),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/gallery')) {
+        return _jsonResponse(
+          jsonEncode({'months': [], 'nextCursor': null}),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+    addTearDown(client.dispose);
+    await client.fetchHistoryMonth(now.year, now.month);
+    online = false;
+    await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+    await tester.pumpAndSettle();
+    expect(requests, 2);
+    expect(_calendarMarker(oldDate), findsOneWidget);
+    expect(find.text('暂时无法连接，请稍后重试'), findsOneWidget);
+    online = true;
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 500));
+    await tester.pumpAndSettle();
+    expect(requests, 3);
+    expect(_calendarMarker(newDate), findsOneWidget);
+    expect(_calendarMarker(oldDate), findsNothing);
+    expect(find.text('暂时无法连接，请稍后重试'), findsNothing);
+    expect(find.text('记录标记暂未加载，仍可选择日期'), findsNothing);
   });
 
   testWidgets('离线月历保留纯文字标记，可进入已缓存正文', (tester) async {

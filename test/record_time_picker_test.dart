@@ -97,8 +97,10 @@ void main() {
     expect(find.byKey(const Key('record_time_minute_wheel')), findsOneWidget);
     expect(find.byKey(const Key('record_time_cancel')), findsOneWidget);
     expect(find.byKey(const Key('record_time_confirm')), findsOneWidget);
-    final sheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
-    expect(sheet.showDragHandle, isTrue);
+    expect(
+      tester.getSize(find.byKey(const Key('flora_sheet_handle'))),
+      const Size(56, 4),
+    );
     expect(
       tester
           .widget<FloraGlassSurface>(

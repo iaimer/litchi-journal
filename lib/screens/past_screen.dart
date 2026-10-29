@@ -48,10 +48,8 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   List<GalleryMonth> _galleryMonths = [];
   String? _nextCursor;
   String? _galleryError;
-  DateTime? _cachedAt;
   bool _galleryLocal = false;
   DateTime? _calendarCachedAt;
-  bool _calendarRefreshing = false;
   String? _calendarError;
   final Set<String?> _failedCursors = {};
   bool _restoredEarlierPages = false;
@@ -105,7 +103,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
       _calendarLoading = false;
       _calendarLoadFailed = false;
       _galleryLocal = false;
-      _cachedAt = null;
       _galleryMonths = [];
       _loadedPageStarts.clear();
       _restoredEarlierPages = false;
@@ -203,7 +200,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
               reset: reset,
               requestedCursor: cursor,
             );
-            _cachedAt = cached.updatedAt;
             _galleryLocal = true;
           });
           _scheduleMonthSync();
@@ -213,7 +209,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
       setState(() {
         _applyGalleryPage(page, reset: reset, requestedCursor: cursor);
         _galleryLocal = reset;
-        _cachedAt = DateTime.now();
         _galleryLoading = reset;
         _galleryLoadingMore = false;
         _galleryError = null;
@@ -233,7 +228,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
         _failedCursors.add(cursor);
         if (error is ApiException && error.isAuthenticationFailure) {
           _galleryMonths = [];
-          _cachedAt = null;
           _galleryLocal = false;
           _todayMemory = null;
         }
@@ -363,7 +357,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
               ? null
               : _monthKey(original.months.first),
         );
-        _cachedAt = cached.updatedAt;
         _galleryLocal = true;
         _restoredEarlierPages = ++pages > 1;
       });
@@ -372,7 +365,10 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _refresh() async {
-    await _load();
+    await Future.wait([
+      _load(),
+      if (_calendarExpanded) _loadCalendarMonth(_calendarDisplayedMonth),
+    ]);
   }
 
   void _handleScroll() {
@@ -461,7 +457,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
     _calendarCachedAt = null;
     setState(() {
       _calendarLoading = true;
-      _calendarRefreshing = true;
       _calendarError = null;
       _calendarLoadFailed = false;
     });
@@ -493,7 +488,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
         _recordedDatesByMonth[key] = dates;
         _calendarLoading = false;
         _calendarCachedAt = null;
-        _calendarRefreshing = false;
       });
     } catch (error) {
       if (!mounted || requestGeneration != _calendarRequestGeneration) return;
@@ -505,7 +499,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
         }
         _calendarLoading = false;
         _calendarLoadFailed = true;
-        _calendarRefreshing = false;
       });
     }
   }
@@ -607,10 +600,7 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: ReadingCacheStatus(
-                      updatedAt: _calendarCachedAt,
-                      refreshing: _calendarRefreshing,
-                      onRetry: () =>
-                          _loadCalendarMonth(_calendarDisplayedMonth),
+                      message: _calendarLoadFailed ? '暂时无法连接，请稍后重试' : null,
                     ),
                   ),
                 if (_calendarError != null)
@@ -680,11 +670,7 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: ReadingCacheStatus(
-                updatedAt: _cachedAt,
-                refreshing: _galleryLoading || _galleryLoadingMore,
-                onRetry: _load,
-              ),
+              child: ReadingCacheStatus(message: _galleryError),
             ),
           ),
         if (_todayMemory != null)

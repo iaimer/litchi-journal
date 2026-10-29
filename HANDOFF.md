@@ -2,11 +2,13 @@
 
 ## 1.10.4 内部发布（2026-10-30）
 
-客户端版本 `1.10.4+46`，一起交付今天的计时页循环提示移除、过往居中月历及图墙模糊、记录工具栏照片／润色／标签顺序。来源分支 `codex/history-calendar-dialog-20261030` 保留计时页提交 `a42fcbc`，本节准备随发布提交，合并与推送完成后补充主线核对结果。
+客户端版本 `1.10.4+46`，一起交付今天的计时页循环提示移除、过往居中月历及图墙模糊、记录工具栏照片／润色／标签顺序。发布来源 `6de39aa` 包含计时页提交 `a42fcbc`，已 squash 合并为主线提交 `75863ee` 并推送，远端提交已核对；来源与合并结果源码树一致。后续交接文档提交不改变构建内容。
 
 内部包 `build/app/outputs/flutter-apk/litchi-journal-1.10.4-release.apk`，65,449,681字节，SHA-256 `a62963d4cb05df5edf611af6aec592738aa3d2b85706b880abe26da303a5fec6`。以正常 `lib/main.dart` Release入口构建，包内版本1.10.4、versionCode46及包名 `com.example.litchi_journal_flutter` 已核对；APK v2签名有效，Android Debug证书与1.10.3内部包一致，包内CHANGELOG与发布源码逐字节一致。构建存在既有 `package_info_plus` Kotlin兼容提示，未阻断构建。
 
 发布组合的 `flutter analyze` 无问题，全部1475项Flutter测试通过；实现的独立规范／需求审查已完成，问题均修复并复核通过，文档链接及差异检查通过。未安装PLG110，未完成本轮真机视觉、动效与触控验收，未部署服务端。以下未发布／未构建状态为此前实现阶段记录，以本节发布状态为准。
+
+发布提交 `75863ee` 的 GitHub CI（运行 `40937491649`）Flutter与服务端检查均通过。本轮两条功能分支的清理恢复备份：`.git/branch-cleanup-backup-20261030-release-1.10.4.bundle`；交接文档的后续合并不改变APK构建输入。
 
 ## 过往月历弹窗与记录工具栏（2026-10-30，未发布）
 

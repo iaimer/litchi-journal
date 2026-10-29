@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { writeAtomicFile } from '../services/atomic-file.js';
 import { Router } from 'express';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { closeSync, fsyncSync, openSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import config from '../config/index.js';
 
@@ -77,7 +79,11 @@ function ensureDir(path: string) {
 
 function loadTagConfig(): unknown {
   if (!existsSync(TAG_FILE)) return null;
-  return JSON.parse(readFileSync(TAG_FILE, 'utf-8'));
+  const raw = readFileSync(TAG_FILE, 'utf-8');
+  try {
+    const parsed = JSON.parse(raw);
+    return validateConfig(parsed) ? null : parsed;
+  } catch { return null; }
 }
 
 function generateTemplate(config: {
@@ -128,7 +134,7 @@ function generateTemplate(config: {
 function updateTemplateFile(generated: string) {
   ensureDir(TEMPLATE_FILE);
   if (!existsSync(TEMPLATE_FILE)) {
-    writeFileSync(TEMPLATE_FILE, `# 标签规范\n\n${generated}\n`, 'utf-8');
+    writeAtomicFile(TEMPLATE_FILE, `# 标签规范\n\n${generated}\n`);
     return;
   }
 
@@ -138,18 +144,19 @@ function updateTemplateFile(generated: string) {
   if (start >= 0 && end > start) {
     const before = existing.slice(0, start).trimEnd();
     const after = existing.slice(end + GENERATED_END.length).trimStart();
-    writeFileSync(TEMPLATE_FILE, `${before}\n\n${generated}\n\n${after}`.trimEnd() + '\n', 'utf-8');
+    writeAtomicFile(TEMPLATE_FILE, `${before}\n\n${generated}\n\n${after}`.trimEnd() + '\n');
     return;
   }
 
-  writeFileSync(TEMPLATE_FILE, `${existing.trimEnd()}\n\n${generated}\n`, 'utf-8');
+  writeAtomicFile(TEMPLATE_FILE, `${existing.trimEnd()}\n\n${generated}\n`);
 }
 
 function validateConfig(config: { domains: unknown; methods: unknown }): string | null {
+  if (!config || typeof config !== 'object') return '标签配置必须是对象';
   if (!Array.isArray(config.domains)) return 'domains 必须是数组';
   if (!Array.isArray(config.methods)) return 'methods 必须是数组';
   if (config.domains.length === 0) return '至少保留 1 个领域';
-  if (config.domains.reduce((s: number, d: { topics?: unknown }) => s + (Array.isArray(d.topics) ? d.topics.length : 0), 0) === 0) {
+  if (config.domains.reduce((s: number, d: { topics?: unknown }) => s + (Array.isArray(d?.topics) ? d.topics.length : 0), 0) === 0) {
     return '至少保留 1 个主题';
   }
 
@@ -164,16 +171,19 @@ function validateConfig(config: { domains: unknown; methods: unknown }): string 
   };
 
   for (const domain of config.domains) {
+    if (!domain || typeof domain !== 'object') return '领域格式无效';
     const domainNameError = validateName(domain.name, '领域');
     if (domainNameError) return domainNameError;
     if (!Array.isArray(domain.topics)) return `领域 ${domain.name} 的 topics 不是数组`;
     if (domain.topics.length === 0) return `领域 ${domain.name} 至少保留 1 个主题`;
     for (const topic of domain.topics) {
+      if (!topic || typeof topic !== 'object') return '主题格式无效';
       const topicNameError = validateName(topic.name, '主题');
       if (topicNameError) return topicNameError;
     }
   }
   for (const method of config.methods) {
+    if (!method || typeof method !== 'object') return '方法格式无效';
     const methodNameError = validateName(method.name, '方法');
     if (methodNameError) return methodNameError;
   }
@@ -184,11 +194,9 @@ router.get('/tags', async (_req, res) => {
   try {
     const existing = loadTagConfig();
     if (existing) return res.json(existing);
-    ensureDir(TAG_FILE);
-    writeFileSync(TAG_FILE, JSON.stringify(DEFAULT_TAG_CONFIG, null, 2), 'utf-8');
     res.json(DEFAULT_TAG_CONFIG);
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json({ error: '标签配置操作失败，请重试' });
   }
 });
 
@@ -199,14 +207,25 @@ router.put('/tags', async (req, res) => {
     if (validationError) return res.status(400).json({ error: validationError });
 
     ensureDir(TAG_FILE);
-    writeFileSync(TAG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    if (existsSync(TAG_FILE) && loadTagConfig() == null) {
+      const raw = readFileSync(TAG_FILE);
+      const backup = openSync(`${TAG_FILE}.corrupt-${Date.now()}-${randomUUID()}`, 'wx', 0o600);
+      try {
+        writeFileSync(backup, raw);
+        fsyncSync(backup);
+      } finally { closeSync(backup); }
+    }
+    writeAtomicFile(TAG_FILE, JSON.stringify(config, null, 2));
 
-    const template = generateTemplate(config);
-    updateTemplateFile(template);
+    try {
+      updateTemplateFile(generateTemplate(config));
+    } catch {
+      return res.json({ success: true, warnings: ['TAG_TEMPLATE_SYNC_FAILED'] });
+    }
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json({ error: '标签配置操作失败，请重试' });
   }
 });
 

@@ -242,7 +242,6 @@ class FloraIcons {
 
   static bool hasAsset(String name) => path(name).isNotEmpty;
   static bool isLucide(String name) => _lucideFiles.containsKey(name);
-  static bool isLordicon(String name) => _lordiconSvgFiles.containsKey(name);
 
   static List<String> get all => [
     ..._lucideFiles.keys,

@@ -1,3 +1,4 @@
+import { validateApiToken } from './token.js';
 import { existsSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 
@@ -16,8 +17,10 @@ if (!existsSync(configPath)) {
 
 const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Config;
 
-if (!config.vaultPath || !config.apiToken || config.apiToken === 'REPLACE_WITH_A_RANDOM_TOKEN') {
+if (typeof config.vaultPath !== 'string' || !config.vaultPath.trim()) {
   throw new Error('Invalid server/config.json. Set vaultPath and a private apiToken.');
 }
+
+config.apiToken = validateApiToken(config.apiToken);
 
 export default config;

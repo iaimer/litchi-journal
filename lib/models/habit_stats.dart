@@ -35,18 +35,6 @@ class HabitDayRecord {
     this.customDurationMinutes = const {},
   });
 
-  int get completedCount {
-    var n = 0;
-    if (waterMl > 0) n++;
-    if (steps > 0) n++;
-    if (readingDone) n++;
-    if (languageDone) n++;
-    if (supplementDone) n++;
-    return n;
-  }
-
-  static const totalCount = 5;
-
   // ── 序列化 ──
 
   Map<String, dynamic> toJson() => {

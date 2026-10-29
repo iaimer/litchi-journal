@@ -181,9 +181,6 @@ class FloraMotion {
 
   static Duration standardFor(MediaQueryData mediaQuery) =>
       mediaQuery.disableAnimations ? Duration.zero : standard;
-
-  static Duration slowFor(MediaQueryData mediaQuery) =>
-      mediaQuery.disableAnimations ? Duration.zero : slow;
 }
 
 /// 根页面保持静止，避免系统的次级位移改变操作入口的返回坐标。

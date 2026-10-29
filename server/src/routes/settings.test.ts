@@ -1,6 +1,6 @@
 import express from 'express';
 import type { Server } from 'node:http';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -56,7 +56,7 @@ describe('settings tags HTTP routes using a temporary Vault', () => {
     const config = await response.json();
     expect(config.domains.length).toBeGreaterThan(0);
     expect(config.methods.length).toBeGreaterThan(0);
-    expect(JSON.parse(readFileSync(tagPath(), 'utf-8'))).toEqual(config);
+    expect(existsSync(tagPath())).toBe(false);
   });
 
   it('round-trips settings and preserves manual template text on repeated saves', async () => {
@@ -85,4 +85,34 @@ describe('settings tags HTTP routes using a temporary Vault', () => {
     expect(readFileSync(tagPath(), 'utf-8')).toBe(beforeConfig);
     expect(readFileSync(templatePath(), 'utf-8')).toBe(beforeTemplate);
   });
+});
+
+it('keeps corrupt bytes on GET and preserves them on successful PUT', async () => {
+  mkdirSync(join(fixture.vaultPath, '.litchi-journal'), {recursive:true});
+  writeFileSync(tagPath(), '{broken');
+  expect((await fetch(baseUrl)).status).toBe(200);
+  expect(readFileSync(tagPath(), 'utf8')).toBe('{broken');
+  expect((await put(validConfig)).status).toBe(200);
+  const saved = readdirSync(join(fixture.vaultPath, '.litchi-journal')).find(n => n.includes('.corrupt-'))!;
+  expect(readFileSync(join(fixture.vaultPath, '.litchi-journal', saved), 'utf8')).toBe('{broken');
+});
+it('reports saved config when template fails and allows retry', async () => {
+  writeFileSync(join(fixture.vaultPath, '_Templates'), 'blocked');
+  const response = await put(validConfig);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({success:true,warnings:['TAG_TEMPLATE_SYNC_FAILED']});
+  expect(await (await fetch(baseUrl)).json()).toEqual(validConfig);
+  rmSync(join(fixture.vaultPath, '_Templates'));
+  expect(await (await put(validConfig)).json()).toEqual({success:true});
+});
+it.each([null, {domains:[null], methods:[]}, {domains:[{name:'生活', topics:[null]}],methods:[]}])('rejects malformed schema', async body => {
+  expect((await put(body)).status).toBe(400);
+});
+
+it('preserves invalid UTF8 bytes in quarantine', async () => {
+ mkdirSync(join(fixture.vaultPath,'.litchi-journal'),{recursive:true});
+ const bytes=Buffer.from([0xff,0xfe,0x7b]); writeFileSync(tagPath(),bytes);
+ expect((await put(validConfig)).status).toBe(200);
+ const backup=readdirSync(join(fixture.vaultPath,'.litchi-journal')).find(n=>n.includes('.corrupt-'))!;
+ expect(readFileSync(join(fixture.vaultPath,'.litchi-journal',backup))).toEqual(bytes);
 });

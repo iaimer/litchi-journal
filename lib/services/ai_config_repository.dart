@@ -16,7 +16,7 @@ class AIConfigRepository {
   final AIConfigStorage _storage;
 
   AIConfigRepository({AIConfigStorage? storage})
-      : _storage = storage ?? _SecureStorageAdapter();
+      : _storage = storage ?? SecureConfigStorage();
   Future<AIConfig> loadAIConfig() async {
     try {
       final raw = await _storage.read(_key);
@@ -37,7 +37,7 @@ class AIConfigRepository {
   }
 }
 
-class _SecureStorageAdapter implements AIConfigStorage {
+class SecureConfigStorage implements AIConfigStorage {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   @override

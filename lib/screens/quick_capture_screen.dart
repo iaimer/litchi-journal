@@ -1,3 +1,4 @@
+import '../services/picker_cache_cleanup.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -106,6 +107,16 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
   final ImageSettingsRepository _defaultImageSettingsRepository =
       ImageSettingsRepository();
   final List<ImageUploadItem> _newPhotos = [];
+  final Set<String> _ownedPickerFiles = {};
+  final Set<String> _readingPhotoFiles = {};
+
+  void _releasePickerFile(String path) {
+    if (_readingPhotoFiles.contains(path) || !_ownedPickerFiles.remove(path)) {
+      return;
+    }
+    unawaited(deletePickerCacheFile(path));
+  }
+
   final Map<String, GlobalKey> _photoKeys = {};
   final Set<String> _removedPhotoNames = {};
   final Set<String> _completedPhotoRemovals = {};
@@ -237,6 +248,9 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     _draftDebounce?.cancel();
     if (!_entrySaved && hasPendingDraft) _queueDraftSnapshot();
     _controller.removeListener(_handleContentChanged);
+    for (final path in _ownedPickerFiles.toList()) {
+      _releasePickerFile(path);
+    }
     _controller.dispose();
     _focusNode.dispose();
     _entryScrollController.dispose();
@@ -478,6 +492,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     }
     _focusNode.unfocus();
     final settings = await _loadImageSettings();
+    if (!mounted) return;
     final remaining = 9 - _activePhotoCount;
     final picked = widget.imagePicker != null
         ? await widget.imagePicker!(settings, remaining)
@@ -487,7 +502,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
             imageQuality: settings.initialQuality,
             limit: remaining,
           );
-    if (!mounted || picked.isEmpty) return;
+    if (!_registerPickedFiles(picked, remaining)) return;
     final addedPhotos = picked
         .take(remaining)
         .map(
@@ -502,6 +517,26 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       _error = null;
     });
     _revealPhoto(addedPhotos.first.id);
+  }
+
+  bool _registerPickedFiles(List<XFile> picked, int remaining) {
+    if (widget.imagePicker == null) {
+      _ownedPickerFiles.addAll(picked.map((file) => file.path));
+    }
+    if (!mounted || picked.isEmpty) {
+      for (final file in picked) {
+        _releasePickerFile(file.path);
+      }
+      return false;
+    }
+    final selectedPaths = picked
+        .take(remaining)
+        .map((file) => file.path)
+        .toSet();
+    for (final file in picked.skip(remaining)) {
+      if (!selectedPaths.contains(file.path)) _releasePickerFile(file.path);
+    }
+    return true;
   }
 
   void _revealPhoto(String id) {
@@ -545,6 +580,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
 
     final settings = await _loadImageSettings();
     for (final item in _newPhotos) {
+      if (!mounted) break;
       if (item.status == ImageUploadStatus.success) continue;
       await _uploadPhoto(item, settings);
       if (item.status == ImageUploadStatus.failed) break;
@@ -556,7 +592,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
     ImageSettings settings,
   ) async {
     final apiClient = widget.apiClient;
-    if (apiClient == null) return;
+    if (apiClient == null || !mounted) return;
     setState(() {
       item.status = ImageUploadStatus.preparing;
       item.sentBytes = 0;
@@ -564,7 +600,14 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       item.errorMessage = null;
     });
     try {
-      final bytes = await item.file.readAsBytes();
+      _readingPhotoFiles.add(item.file.path);
+      final Uint8List bytes;
+      try {
+        bytes = await item.file.readAsBytes();
+      } finally {
+        _readingPhotoFiles.remove(item.file.path);
+        if (!mounted) _releasePickerFile(item.file.path);
+      }
       final base64 =
           await (widget.imageCompressor?.call(bytes, settings) ??
               ImageCompressService.fromSettings(
@@ -618,6 +661,9 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       _newPhotos.remove(item);
       _photoKeys.remove(item.id);
     });
+    if (!_newPhotos.any((photo) => photo.file.path == item.file.path)) {
+      _releasePickerFile(item.file.path);
+    }
   }
 
   void _toggleSavedPhotoRemoval(DiaryPhoto photo) {

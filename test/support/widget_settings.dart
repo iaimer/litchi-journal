@@ -24,10 +24,10 @@ void registerSettingsTests() {
     });
   });
 
-  group('SettingsScreen', () {
+  group('AiSettingsScreen', () {
     Widget buildScreen({AIConfigRepository? aiRepo}) {
       return MaterialApp(
-        home: SettingsScreen(
+        home: AiSettingsScreen(
           apiConfig: ApiConfig(
             baseUrl: 'https://obsidian.femkits.org',
             token: 'secret-token',
@@ -166,7 +166,7 @@ void registerSettingsTests() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          home: SettingsScreen(
+          home: AiSettingsScreen(
             apiConfig: ApiConfig(
               baseUrl: 'https://obsidian.femkits.org',
               token: 'secret-token',

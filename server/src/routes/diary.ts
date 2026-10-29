@@ -252,6 +252,19 @@ function assertWriteInput(body: Record<string, unknown>): void {
   }
 }
 
+function rejectSystemMarkers(text: string): void {
+  if (text.split(/\r?\n/).some(line => (/^<!--\s*(?:diary-op|litchi-entry-id|litchi-upload-op)\s*:/i.test(line.trimEnd()) || /^<!--\s*litchi-photo-of\s*:/i.test(line.trim())))) {
+    throw new DiaryWriteError('正文包含系统保留标记，请移除后重试', 400);
+  }
+}
+
+function safeAnxietyContent(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) throw new DiaryWriteError('内容不能为空', 400);
+  const normalized = value.trim();
+  rejectSystemMarkers(normalized);
+  return normalized.split(/\r?\n/).map(line => /^#{1,6}\s/.test(line) ? `\\${line}` : line).join('\n');
+}
+
 const router = Router();
 
 // 检查日记是否存在
@@ -526,6 +539,9 @@ router.post('/habit/duration', async (req, res) => {
       });
     }
 
+    if (rawLine && !existingLines.includes(rawLine)) {
+      return res.status(409).json({error:'习惯记录已变化，请刷新日记后重新确认'});
+    }
     const existingLine = findExistingLine();
     const currentMinutes = existingLine == null
       ? 0
@@ -614,7 +630,7 @@ router.post('/reflection', async (req, res) => {
     // Replace template placeholder "- " bullet on first write, else fall through to append
     const replaced = replaceEmptyBulletInSection(originalContent, 'reflection', formattedContent);
     if (replaced) {
-      const updated = replaced;
+      const updated = sortTimelineEntriesInSection(replaced, 'reflection');
       commitDiary(date, updated, operationId);
       return res.json({ success: true });
     }
@@ -632,6 +648,7 @@ router.post('/anxiety', async (req, res) => {
   try {
     assertWriteInput(req.body);
     const { content, tags, operationId } = req.body;
+    safeAnxietyContent(content);
     const date = getRequestDate(req.body.date);
 
     const originalContent = readDiary(date);
@@ -643,7 +660,7 @@ router.post('/anxiety', async (req, res) => {
     }
 
     const tagStr = tags?.length > 0 ? ' ' + tags.map((t: string) => `#${t}`).join(' ') : '';
-    const formattedContent = `${content}${tagStr}`;
+    const formattedContent = `${safeAnxietyContent(content)}${tagStr}`;
     const updated = appendToSection(originalContent, 'anxiety', formattedContent);
     commitDiary(date, updated, operationId);
 
@@ -976,7 +993,7 @@ function replaceAnxietySection(content: string, newText: string): string {
     }
   }
 
-  const newLines = newText.trim().split(/\r?\n/);
+  const newLines = safeAnxietyContent(newText).split('\n');
   if (startIndex === -1) {
     return insertMissingAnxietySection(lines, header, newLines);
   }
@@ -1371,8 +1388,10 @@ router.post('/edit-entry', async (req, res) => {
       return res.status(409).json({ error: '记录关联标识已变化，请刷新后重试' });
     }
     const entryId = existingEntryId ?? suppliedEntryId;
-    const newLines = (replacement as string).split('\n');
-    if (!entryId && newLines.some(line => ENTRY_ID_MARKER_PATTERN.test(line.trim()))) {
+    if (typeof replacement !== 'string') throw new DiaryWriteError('替换内容无效', 400);
+    rejectSystemMarkers(replacement);
+    const newLines = replacement.split('\n');
+    if (!entryId && newLines.some(line => ENTRY_ID_MARKER_PATTERN.test(line.trimEnd()))) {
       return res.status(400).json({ error: '正文包含系统保留标记，请移除后重试' });
     }
     if (entryId) newLines.push(`<!-- litchi-entry-id:${entryId} -->`);

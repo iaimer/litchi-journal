@@ -42,8 +42,6 @@ class GalleryService {
       onRevalidated: onRevalidated,
     );
   }
-
-  void clearImageCache() => imageCache.clear();
 }
 
 /// 画廊专用的有界 LRU 图片缓存，避免连续回顾导致内存无限增长。

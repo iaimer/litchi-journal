@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import 'ai_config_repository.dart';
@@ -14,7 +12,7 @@ class TagSettingsRepository {
   final AIConfigStorage _storage;
 
   TagSettingsRepository({AIConfigStorage? storage})
-      : _storage = storage ?? _DefaultStorage();
+      : _storage = storage ?? SecureConfigStorage();
 
   /// 加载标签设置。
   /// - 首次无配置时从 TagConfig 生成默认设置
@@ -40,18 +38,4 @@ class TagSettingsRepository {
   Future<void> saveTagSettings(TagSettings settings) async {
     await _storage.write(_key, jsonEncode(settings.toJson()));
   }
-}
-
-class _DefaultStorage implements AIConfigStorage {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
-
-  @override
-  Future<String?> read(String key) => _storage.read(key: key);
-
-  @override
-  Future<void> write(String key, String value) =>
-      _storage.write(key: key, value: value);
-
-  @override
-  Future<void> delete(String key) => _storage.delete(key: key);
 }

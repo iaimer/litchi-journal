@@ -262,3 +262,18 @@ describe('history gallery route', () => {
     expect(future.statusCode).toBe(400);
   });
 });
+it.each([['2024x','2'],['2024','2x'],['2024','13']])('rejects malformed calendar cursor %s/%s', async (year,month) => {
+ const layer=(historyRoutes as any).stack.find((item:any)=>item.route?.path==='/:year/:month');
+ const res=response(); await layer.route.stack[0].handle({params:{year,month}},res);
+ expect(res.statusCode).toBe(400);
+});
+it('calendar omits future dates and resolves its first usable safe image', async () => {
+ const today=new Date().getFullYear();
+ fixture.diaries=new Map([['2024-2',['2024-02-28',`${today+1}-02-28`]]]);
+ fixture.contents=new Map([['2024-02-28','## 📸 影像记录\n![[missing.jpg]] ![[good.jpg]]']]);
+ fixture.availableImages=new Set(['good.jpg']);
+ const layer=(historyRoutes as any).stack.find((item:any)=>item.route?.path==='/:year/:month');
+ const res=response(); await layer.route.stack[0].handle({params:{year:'2024',month:'2'}},res);
+ expect((res.body as any).diaries).toHaveLength(1);
+ expect((res.body as any).diaries[0]).toMatchObject({firstImage:'good.jpg',hasImages:true});
+});

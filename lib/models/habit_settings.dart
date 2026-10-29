@@ -440,9 +440,6 @@ class HabitSettings {
     );
   }
 
-  /// 重置为只保留 5 个内置习惯。
-  HabitSettings resetAll() => HabitSettings.defaults;
-
   /// 使用部分更新创建新副本。
   HabitSettings copyWith({
     Map<String, bool>? statusMap,

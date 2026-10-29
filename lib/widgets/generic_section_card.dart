@@ -1,3 +1,4 @@
+import 'markdown_image_boundary.dart';
 import 'package:flutter/material.dart';
 import 'flora_dialog.dart';
 import 'flora_page_route.dart';
@@ -168,6 +169,13 @@ class GenericSectionCard extends StatelessWidget {
       case MarkdownContent():
         widgets.add(
           MarkdownBody(
+            sizedImageBuilder: (config) => markdownImageBoundary(
+              config.uri,
+              config.title,
+              config.alt,
+              apiClient,
+            ),
+            onTapLink: ignoreMarkdownLink,
             data: content.text,
             selectable: true,
             styleSheet: _baseStyleSheet(context),
@@ -293,6 +301,13 @@ class GenericSectionCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: MarkdownBody(
+                    sizedImageBuilder: (config) => markdownImageBoundary(
+                      config.uri,
+                      config.title,
+                      config.alt,
+                      apiClient,
+                    ),
+                    onTapLink: ignoreMarkdownLink,
                     data: content.title,
                     selectable: true,
                     styleSheet: DiaryReadingStyle.of(context)
@@ -316,6 +331,13 @@ class GenericSectionCard extends StatelessWidget {
           if (hasBody) ...[
             if (content.title.isNotEmpty) const SizedBox(height: 4),
             MarkdownBody(
+              sizedImageBuilder: (config) => markdownImageBoundary(
+                config.uri,
+                config.title,
+                config.alt,
+                apiClient,
+              ),
+              onTapLink: ignoreMarkdownLink,
               data: bodyText,
               selectable: true,
               styleSheet: _baseStyleSheet(context, textColor: color),
@@ -345,6 +367,13 @@ class GenericSectionCard extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: MarkdownBody(
+              sizedImageBuilder: (config) => markdownImageBoundary(
+                config.uri,
+                config.title,
+                config.alt,
+                apiClient,
+              ),
+              onTapLink: ignoreMarkdownLink,
               data: content.title,
               selectable: true,
               styleSheet: DiaryReadingStyle.of(context)

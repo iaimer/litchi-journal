@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import 'appearance_settings.dart';
 import 'ai_config_repository.dart';
 
@@ -12,7 +10,7 @@ class AppearanceSettingsRepository {
   final AIConfigStorage _storage;
 
   AppearanceSettingsRepository({AIConfigStorage? storage})
-      : _storage = storage ?? _DefaultStorage();
+      : _storage = storage ?? SecureConfigStorage();
 
   Future<AppearanceSettings> load() async {
     try {
@@ -34,18 +32,4 @@ class AppearanceSettingsRepository {
   Future<void> save(AppearanceSettings settings) async {
     await _storage.write(_key, jsonEncode(settings.toJson()));
   }
-}
-
-class _DefaultStorage implements AIConfigStorage {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
-
-  @override
-  Future<String?> read(String key) => _storage.read(key: key);
-
-  @override
-  Future<void> write(String key, String value) =>
-      _storage.write(key: key, value: value);
-
-  @override
-  Future<void> delete(String key) => _storage.delete(key: key);
 }

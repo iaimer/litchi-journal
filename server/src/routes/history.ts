@@ -68,19 +68,23 @@ router.get('/gallery', async (req, res) => {
         : null,
     });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json({ error: '历史记录读取失败，请重试' });
   }
 });
 
 router.get('/:year/:month', async (req, res) => {
   try {
-    const year = parseInt(req.params.year);
-    const month = parseInt(req.params.month);
+    const cursor = parseMonthCursor(`${req.params.year}-${req.params.month.padStart(2, '0')}`);
+    if (!cursor) return res.status(400).json({error:'月份格式无效'});
+    const {year, month} = cursor;
+    const today = getShanghaiDateParts(new Date());
+    const todayString = `${today.year}-${String(today.month).padStart(2,'0')}-${String(today.day).padStart(2,'0')}`;
 
     const diaryDates = listMonthDiaries(year, month);
     const diaries: any[] = [];
 
     for (const dateStr of diaryDates) {
+      if (dateStr > todayString) continue;
       let date: Date;
       try {
         date = parseShanghaiDate(dateStr);
@@ -93,17 +97,11 @@ router.get('/:year/:month', async (req, res) => {
         const content = readDiary(date);
         const entry = parseDiary(content);
 
-        const images = entry.sections.images.filter(l => l.includes('![['));
+        const images = extractGalleryImageNames(entry.sections.images).filter(
+          name => resolveImagePath(year, name, month) !== null,
+        );
         const hasImages = images.length > 0;
-
-        let firstImage: string | undefined;
-        if (hasImages) {
-          const imageLine = images.find(l => l.includes('![['));
-          if (imageLine) {
-            const match = imageLine.match(/!\[\[(.*?)\]\]/);
-            firstImage = match ? match[1] : undefined;
-          }
-        }
+        const firstImage = images[0];
 
         const quickNotesCount = entry.sections.quick_notes
           .filter(l => l.trim() && !l.includes('<!--') && !l.includes('- **HH:MM** 内容 #标签'))
@@ -128,7 +126,7 @@ router.get('/:year/:month', async (req, res) => {
 
     res.json({ year, month, diaries });
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json({ error: '历史记录读取失败，请重试' });
   }
 });
 

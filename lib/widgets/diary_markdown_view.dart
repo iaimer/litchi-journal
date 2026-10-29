@@ -277,6 +277,7 @@ class DiaryMarkdownView extends StatelessWidget {
         );
       case AnxietySection():
         return AnxietyCard(
+          apiClient: apiClient,
           section: section,
           accentColor: _accentColorFor(section),
         );

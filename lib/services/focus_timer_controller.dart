@@ -26,7 +26,6 @@ class FocusTimerController extends ChangeNotifier {
        _now = now ?? DateTime.now;
 
   FocusTimerSession? get session => _session;
-  bool get hasSession => _session != null;
   bool get isBusy => _busy;
   bool get saveCleanupFailed => _saveCleanupFailed;
   Object? get saveError => _saveError;

@@ -31,8 +31,6 @@ class AppearanceController extends ChangeNotifier {
 
   int get readingFontSize => _settings.readingFontSize;
 
-  bool get isInitialized => _initialized;
-
   Future<void> setThemeMode(ThemeMode mode) {
     final revision = ++_themeRevision;
     return _change((settings) => settings.copyWith(themeMode: mode), () {

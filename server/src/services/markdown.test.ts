@@ -355,3 +355,14 @@ describe('replaceEmptyBulletInSection', () => {
     expect(coachSection).toMatch(/\n- /);
   });
 });
+
+it('does not remove another section example or rewritten user content', () => {
+ const input = '## ✍️ 随手记 & 灵感\n- **HH:MM** 内容 #标签 加了自己的话\n## 其他\n- **HH:MM** 内容 #标签';
+ const updated = appendToSection(input, 'quick_notes', '- **12:00** 新内容');
+ expect(updated).toContain('- **HH:MM** 内容 #标签 加了自己的话');
+ expect(updated).toContain('## 其他\n- **HH:MM** 内容 #标签');
+});
+it('preserves indented example text inside a real entry', () => {
+ const original='## ✍️ 随手记 & 灵感\n- **10:00** 复制模板\n  - **HH:MM** 内容 #标签';
+ expect(appendToSection(original,'quick_notes','- **12:00** 新增')).toContain('  - **HH:MM** 内容 #标签');
+});

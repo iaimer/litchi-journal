@@ -49,7 +49,7 @@ import 'package:litchi_journal_flutter/screens/quick_capture_screen.dart';
 import 'package:litchi_journal_flutter/screens/read_only_diary_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_stats_screen.dart';
 import 'package:litchi_journal_flutter/screens/habit_edit_screen.dart';
-import 'package:litchi_journal_flutter/screens/settings_screen.dart';
+import 'package:litchi_journal_flutter/screens/ai_settings_screen.dart';
 import 'package:litchi_journal_flutter/screens/settings_page.dart';
 import 'package:litchi_journal_flutter/screens/polish_prompt_page.dart';
 import 'package:litchi_journal_flutter/screens/tag_settings_page.dart';

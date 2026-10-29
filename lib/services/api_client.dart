@@ -847,22 +847,6 @@ class ApiClient {
     return HabitDurationResult.fromJson(json);
   }
 
-  Future<List<HabitDurationHistoryDay>> fetchHabitDurationHistory() async {
-    final response = await _get('/api/v1/stats/habit?days=all');
-    if (response.statusCode != 200) {
-      throw ApiException(
-        _statusMessage('获取习惯时长统计失败', response.statusCode),
-        statusCode: response.statusCode,
-      );
-    }
-    final raw = jsonDecode(response.body);
-    if (raw is! List) throw const FormatException('习惯统计响应无效');
-    return raw
-        .whereType<Map<String, dynamic>>()
-        .map(HabitDurationHistoryDay.fromJson)
-        .toList();
-  }
-
   /// 获取指定日期区间内的每日习惯快照。
   ///
   /// 服务端只读取并解析 Markdown，不会因为统计请求创建日记或修改内容。
@@ -1120,45 +1104,6 @@ class HabitDurationResult {
       rawLine: rawLine,
     );
   }
-}
-
-class HabitDurationHistoryDay {
-  final DateTime date;
-  final int? readingMinutes;
-  final int? languageMinutes;
-  final Map<String, int> customDurations;
-
-  const HabitDurationHistoryDay({
-    required this.date,
-    required this.readingMinutes,
-    required this.languageMinutes,
-    required this.customDurations,
-  });
-
-  factory HabitDurationHistoryDay.fromJson(Map<String, dynamic> json) {
-    final date = DateTime.tryParse(json['date'] as String? ?? '');
-    if (date == null) throw const FormatException('习惯统计日期无效');
-    final durations = <String, int>{};
-    final raw = json['customDurations'];
-    if (raw is Map) {
-      for (final entry in raw.entries) {
-        if (entry.key is String && entry.value is num && entry.value >= 0) {
-          durations[entry.key as String] = (entry.value as num).toInt();
-        }
-      }
-    }
-    return HabitDurationHistoryDay(
-      date: date,
-      readingMinutes: _optionalWholeInt(json['readingMinutes']),
-      languageMinutes: _optionalWholeInt(json['languageMinutes']),
-      customDurations: durations,
-    );
-  }
-}
-
-int? _optionalWholeInt(Object? value) {
-  if (value is! num || value < 0 || value != value.toInt()) return null;
-  return value.toInt();
 }
 
 class TestConnectionResult {

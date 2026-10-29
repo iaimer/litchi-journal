@@ -1,9 +1,6 @@
 import { isWaterLine, isStepsLine, isReadingLine, isLanguageLine, isSupplementLine, isBuiltInHabitLine, isCheckedLine } from '../services/habit-identity.js';
 import { Router } from 'express';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import config from '../config/index.js';
-import { readDiary, listDiaryMonths, listMonthDiaries, getDiaryPath } from '../services/vault.js';
+import { readDiary, DiaryNotFoundError, listDiaryMonths, listMonthDiaries } from '../services/vault.js';
 import { parseDiary } from '../services/markdown.js';
 import { getShanghaiDateString, parseShanghaiDate } from '../utils/date.js';
 
@@ -68,7 +65,7 @@ router.get('/habit', async (req, res) => {
       }
     }
 
-    for (const date of dates) {
+    for (const date of dates.slice(-MAX_RANGE_DAYS)) {
       try {
         const content = readDiary(date);
         const entry = parseDiary(content);
@@ -79,7 +76,8 @@ router.get('/habit', async (req, res) => {
           hasDiary: true,
           ...habitData
         });
-      } catch {
+      } catch (error) {
+        if (!(error instanceof DiaryNotFoundError)) throw error;
         stats.push({
           date: getShanghaiDateString(date),
           ...emptyHabitData(),
@@ -89,7 +87,7 @@ router.get('/habit', async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json({ error: '习惯统计读取失败，请重试' });
   }
 });
 

@@ -1,3 +1,4 @@
+import '../widgets/token_rotation_dialog.dart';
 import 'package:flutter/material.dart';
 import '../widgets/flora_dialog.dart';
 
@@ -29,6 +30,7 @@ class RemoteApiPage extends StatefulWidget {
 
 class _RemoteApiPageState extends State<RemoteApiPage> {
   late String _baseUrl;
+  ApiConfig? _rotatedConfig;
   TextEditingController? _baseUrlEditController;
 
   @override
@@ -65,6 +67,12 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
             child: const Text('修改服务器地址'),
           ),
           const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: widget.apiClient == null ? null : _changeToken,
+            style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+            child: const Text('更换 Token'),
+          ),
+          const SizedBox(height: 8),
           Text(
             '保存后立即生效。',
             style: theme.textTheme.bodySmall?.copyWith(
@@ -74,6 +82,24 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
         ],
       ),
     );
+  }
+
+  ApiConfig _configForBaseUrl(String baseUrl) => _rotatedConfig == null
+      ? widget.apiClient!.configWithBaseUrl(baseUrl)
+      : ApiConfig(baseUrl: baseUrl, token: _rotatedConfig!.token);
+
+  Future<void> _changeToken() async {
+    final config = await showFloraDialog<ApiConfig>(
+      context: context,
+      builder: (_) => TokenRotationDialog(
+        baseUrl: _baseUrl,
+        createApiClient: widget.createApiClient,
+      ),
+    );
+    if (!mounted || config == null) return;
+    _rotatedConfig = config;
+    widget.onConfigChanged?.call(config);
+    showFloraSuccessSnackBar(context, 'Token 已更新并生效');
   }
 
   Future<void> _editBaseUrl() async {
@@ -125,7 +151,7 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
                       return;
                     }
 
-                    final config = widget.apiClient!.configWithBaseUrl(newUrl);
+                    final config = _configForBaseUrl(newUrl);
                     final client =
                         widget.createApiClient?.call(config) ??
                         ApiClient(config);
@@ -154,7 +180,7 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
     final newBaseUrl = controller.text.trim();
     if (!mounted || saved != true) return;
 
-    final config = widget.apiClient!.configWithBaseUrl(newBaseUrl);
+    final config = _configForBaseUrl(newBaseUrl);
     widget.onConfigChanged?.call(config);
     setState(() => _baseUrl = newBaseUrl);
     showFloraSuccessSnackBar(context, '服务器地址已保存并生效');

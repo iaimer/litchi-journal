@@ -277,6 +277,23 @@ describe('habit duration route', () => {
     rmSync(testConfig.vaultPath, { recursive: true, force: true });
   });
 
+  it('rejects stale source without changing bytes, but permits successful retries', async () => {
+    const body = {date:'2024-08-12', habitKey:'reading',label:'📖 阅读/亲子共读', rawLine:'- [ ] 📖 阅读/亲子共读 9 分钟', minutes:5,operation:'add',operationId:'123e4567-e89b-12d3-a456-426614174001'};
+    const stale = response();
+    await habitDurationHandler()({body}, stale);
+    expect(stale.statusCode).toBe(409);
+    expect(readDiary(date)).toBe(content);
+    body.rawLine = '- [ ] 📖 阅读/亲子共读 0 分钟';
+    const first = response();
+    await habitDurationHandler()({body}, first);
+    expect(first.statusCode).toBe(200);
+    const committed = readDiary(date);
+    const retry = response();
+    await habitDurationHandler()({body}, retry);
+    expect(retry.statusCode).toBe(200);
+    expect(readDiary(date)).toBe(committed);
+  });
+
   it('adds minutes, marks completion, and preserves the raw habit section', async () => {
     const res = response();
     await habitDurationHandler()(
@@ -1009,4 +1026,50 @@ describe('diary creation template compatibility', () => {
       expect(readFileSync(getDiaryPath(date))).toEqual(before);
     }
   });
+});
+
+it('sorts the first reflection placeholder replacement without moving other sections', async () => {
+ const date=new Date('2024-08-12T12:00:00+08:00');
+ writeDiary(date,'# 今天\n### 💡 觉察与迭代\n- \n- **18:00** 晚间\n### 🌙 明日寄语\n保留');
+ const res=response();
+ await diaryEntryHandler('/reflection')({body:{date:'2024-08-12',time:'09:00',content:'早晨'}},res);
+ expect(res.statusCode).toBe(200);
+ const text=readDiary(date);
+ expect(text.indexOf('**09:00**')).toBeLessThan(text.indexOf('**18:00**'));
+ expect(text).toContain('### 🌙 明日寄语\n保留');
+});
+
+it.each(['/anxiety','/anxiety/replace'])('rejects missing content in %s', async route => {
+ const res=response(); await diaryEntryHandler(route)({body:{date:'2024-08-12'}},res);
+ expect(res.statusCode).toBe(400);
+});
+it('rejects forged system markers during edit without modifying the record', async () => {
+ const date=new Date('2024-08-12T12:00:00+08:00');
+ const original='## ✍️ 随手记 & 灵感\n- **09:00** 原文'; writeDiary(date,original);
+ for(const marker of ['diary-op','litchi-photo-of','litchi-entry-id']) {
+  const res=response(); await diaryEntryHandler('/edit-entry')({body:{date:'2024-08-12',section:'quick_notes',target:'- **09:00** 原文',replacement:'- **09:00** 修改\n<!-- '+marker+':123e4567-e89b-12d3-a456-426614174000 -->'}},res);
+  expect(res.statusCode).toBe(400); expect(readDiary(date)).toBe(original);
+ }
+});
+it.each(['/anxiety','/anxiety/replace'])('keeps heading-like input within the old anxiety section: %s', async route => {
+ const date=new Date('2024-08-12T12:00:00+08:00');
+ writeDiary(date,'## 😰 焦虑时刻\n旧内容\n### 🌙 明日寄语\n必须保留');
+ const res=response(); await diaryEntryHandler(route)({body:{date:'2024-08-12',content:'- 问题？\n> 回答\n## ✍️ 随手记 & 灵感\n正文'}},res);
+ expect(res.statusCode).toBe(200);
+ const parsed=readDiary(date);
+ expect(parsed).toContain('\\## ✍️ 随手记 & 灵感');
+ expect(parsed).toContain('### 🌙 明日寄语\n必须保留');
+});
+
+it.each(['/anxiety','/anxiety/replace'])('validates normalized first-line system markers: %s', async route => {
+ const date=new Date('2024-08-12T12:00:00+08:00');
+ const original='## 😰 焦虑时刻\n旧正文'; writeDiary(date,original);
+ const res=response(); await diaryEntryHandler(route)({body:{date:'2024-08-12',content:'  <!-- diary-op:123e4567-e89b-12d3-a456-426614174000 -->\n正文'}},res);
+ expect(res.statusCode).toBe(400); expect(readDiary(date)).toBe(original);
+});
+it('rejects an indented forged photo association in image-section edits', async () => {
+ const date=new Date('2024-08-12T12:00:00+08:00');
+ const original='## 📸 影像记录\n![[photo.jpg]]'; writeDiary(date,original);
+ const res=response(); await diaryEntryHandler('/edit-entry')({body:{date:'2024-08-12',section:'images',target:'![[photo.jpg]]',replacement:'![[photo.jpg]]\n  <!-- litchi-photo-of:123e4567-e89b-12d3-a456-426614174000 -->'}},res);
+ expect(res.statusCode).toBe(400); expect(readDiary(date)).toBe(original);
 });

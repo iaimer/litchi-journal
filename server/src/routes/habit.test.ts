@@ -3,13 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const fixture = vi.hoisted(() => ({
   contents: new Map<string, string>(),
   diaryKeys: [] as string[],
+  failure: false,
+  DiaryNotFoundError: class extends Error {},
 }));
 
 vi.mock('../services/vault.js', () => ({
+  DiaryNotFoundError: fixture.DiaryNotFoundError,
   readDiary: (date: Date) => {
     const key = date.toISOString().slice(0, 10);
     const content = fixture.contents.get(key);
-    if (content == null) throw new Error('Diary not found');
+    if (fixture.failure) throw new Error('disk failure');
+    if (content == null) throw new fixture.DiaryNotFoundError();
     return content;
   },
   listDiaryMonths: () => [{ year: 2024, month: 2 }],
@@ -46,6 +50,7 @@ describe('habit trend route', () => {
   beforeEach(() => {
     fixture.contents = new Map();
     fixture.diaryKeys = [];
+    fixture.failure = false;
   });
 
   it('returns a bounded date range with built-in and custom snapshots', async () => {
@@ -161,4 +166,18 @@ describe('habit trend route', () => {
       expect(res.statusCode).toBe(400);
     }
   });
+});
+
+it('reports disk failure instead of returning an absent-day snapshot', async () => {
+ fixture.failure=true;
+ const res=response(); await habitHandler()({query:{days:'1'}},res);
+ expect(res.statusCode).toBe(500);
+ expect(JSON.stringify(res.body)).not.toContain('disk failure');
+ fixture.failure=false;
+});
+it('bounds all-date snapshots to the newest 366 valid dates', async () => {
+ fixture.diaryKeys=Array.from({length:400},(_,i)=>new Date(Date.UTC(2023,0,i+1)).toISOString().slice(0,10));
+ const res=response(); await habitHandler()({query:{days:'all'}},res);
+ expect((res.body as any[]).length).toBe(366);
+ expect((res.body as any[])[0].date).toBe(fixture.diaryKeys[34]);
 });

@@ -193,24 +193,15 @@ export function appendToSection(content: string, section: string, newLine: strin
 
   if (startIndex === -1) throw new DiaryWriteError('日记缺少目标区块，请检查模板后重试');
 
-  // 如果是随手记区块，删除模板中的示例行
-  if (section === 'quick_notes') {
-    for (let i = startIndex + 1; i < lines.length; i++) {
-      if (lines[i].includes('- **HH:MM** 内容 #标签')) {
-        lines.splice(i, 1);
-        break;
-      }
-    }
-  }
-
   for (let i = startIndex + 1; i < lines.length; i++) {
-    if (/^#{1,6}\s/.test(lines[i])) {
-      endIndex = i;
-      break;
-    }
+    if (/^#{1,6}\s/.test(lines[i])) { endIndex = i; break; }
   }
-
   if (endIndex === -1) endIndex = lines.length;
+  if (section === 'quick_notes') {
+    const index = lines.findIndex((line, index) => index > startIndex && index < endIndex &&
+      /^(?:-|>) \*\*HH:MM\*\* 内容 #标签$/.test(line.trimEnd()));
+    if (index !== -1) { lines.splice(index, 1); endIndex--; }
+  }
 
   let insertIndex = endIndex;
 

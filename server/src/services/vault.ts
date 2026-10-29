@@ -1,4 +1,7 @@
 import {
+  constants,
+  fstatSync,
+  lstatSync,
   existsSync,
   closeSync,
   fsyncSync,
@@ -13,7 +16,7 @@ import {
   writeFileSync,
 } from 'fs';
 import { randomUUID } from 'crypto';
-import { isAbsolute, join, relative, resolve } from 'path';
+import { isAbsolute, join, relative, resolve, dirname } from 'path';
 import config from '../config/index.js';
 import { getShanghaiDateParts, getShanghaiDateString } from '../utils/date.js';
 
@@ -45,9 +48,47 @@ export class DiaryNotFoundError extends Error {
   }
 }
 
+function assertDiaryParent(path: string): void {
+  const root = resolve(config.vaultPath);
+  if (!existsSync(root)) {
+    try { lstatSync(root); throw new Error('日记根目录不可用'); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    return;
+  }
+  const realRoot = realpathSync(root);
+  let parent = dirname(path);
+  while (!existsSync(parent)) {
+    // 失效链接不是可自动创建的目录。
+    try { lstatSync(parent); throw new Error('日记目录不可用'); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    if (parent === root) return;
+    parent = dirname(parent);
+  }
+  const within = relative(realRoot, realpathSync(parent));
+  if (within.startsWith('..') || isAbsolute(within) || !statSync(parent).isDirectory()) {
+    throw new Error('日记目录不安全');
+  }
+}
+
 export function readDiary(date: Date): string {
   try {
-    return readFileSync(getDiaryPath(date), 'utf-8');
+    const path = getDiaryPath(date);
+    // 先区分真正缺档与已有但失效的链接，避免错误触发自动创建。
+    assertDiaryParent(path);
+    const entry = lstatSync(path);
+    const root = realpathSync(config.vaultPath);
+    let resolved: string;
+    try { resolved = realpathSync(path); } catch { throw new Error('日记路径不可用'); }
+    const within = relative(root, resolved);
+    if (!within || within.startsWith('..') || isAbsolute(within) ||
+        (!entry.isFile() && !entry.isSymbolicLink()) || !statSync(resolved).isFile()) {
+      throw new Error('日记路径不安全');
+    }
+    const descriptor = openSync(resolved, constants.O_RDONLY | constants.O_NONBLOCK | constants.O_NOFOLLOW);
+    try {
+      if (!fstatSync(descriptor).isFile()) throw new Error('日记不是普通文件');
+      return readFileSync(descriptor, 'utf-8');
+    } finally { closeSync(descriptor); }
   } catch (error) {
     // 只将明确缺失转换为 404，权限及其他读取错误不能触发客户端创建。
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {

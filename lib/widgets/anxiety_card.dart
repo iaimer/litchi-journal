@@ -1,3 +1,5 @@
+import '../services/api_client.dart';
+import 'markdown_image_boundary.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
@@ -9,8 +11,14 @@ import 'journal_section.dart';
 class AnxietyCard extends StatelessWidget {
   final AnxietySection section;
   final Color? accentColor;
+  final ApiClient? apiClient;
 
-  const AnxietyCard({super.key, required this.section, this.accentColor});
+  const AnxietyCard({
+    super.key,
+    required this.section,
+    this.accentColor,
+    this.apiClient,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +109,13 @@ class AnxietyCard extends StatelessWidget {
     };
     if (markdown.isEmpty) return null;
     return MarkdownBody(
+      sizedImageBuilder: (config) => markdownImageBoundary(
+        config.uri,
+        config.title,
+        config.alt,
+        apiClient,
+      ),
+      onTapLink: ignoreMarkdownLink,
       data: markdown,
       selectable: true,
       styleSheet: DiaryReadingStyle.of(context).markdown(Theme.of(context)),

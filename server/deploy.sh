@@ -20,7 +20,7 @@ node -e "const [major, minor] = process.versions.node.split('.').map(Number); if
 
 # 2. 安装依赖
 echo "安装依赖..."
-npm install
+npm ci
 
 # 3. 构建 TypeScript
 echo "构建 TypeScript..."

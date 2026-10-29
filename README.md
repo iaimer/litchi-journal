@@ -2,7 +2,7 @@
 
 Flutter 原生日记客户端与 TypeScript／Express API 服务端，内容长期保存在自己的 Obsidian Vault。Android 客户端负责阅读、输入、交互与缓存，`server/` 负责 Markdown 读写和 Obsidian 兼容。
 
-当前客户端清单为 `1.10.1+43`，在四项导航、浅白／浅桃粉主题与年趋势基础上，采用五模块清亮配色及可读文字前景；具体 APK、验证日期与手机安装状态见 [HANDOFF.md](HANDOFF.md)，不以旧构建或旧真机反馈替代本轮验收。
+当前客户端清单为 `1.10.3+45`，在四项导航、浅白／浅桃粉主题与年趋势基础上，采用五模块清亮配色及可读文字前景；具体 APK、验证日期与手机安装状态见 [HANDOFF.md](HANDOFF.md)，不以旧构建或旧真机反馈替代本轮验收。
 
 ## 当前能力
 
@@ -63,6 +63,12 @@ npm run dev
 ```
 
 `allowedOrigins` 为空时保留本地调试与真机访问兼容；需要限制浏览器来源时填写白名单。原生 Flutter 不依赖浏览器 CORS。
+
+服务器 Token 至少32个字符；设置中的「服务器连接 → 更换 Token」不回显旧值，验证新凭据成功后保存并立即生效，保留其他设置。轮换前先更新到支持该入口的客户端，再切换服务端凭据，具体步骤见 [部署指南](server/DEPLOY.md)。
+
+月历只接受有效年月并过滤未来日期及失效附件；旧统计 `days=all` 只返回最近366个有效日记日期的快照，按日期升序，读取或解析失败返回错误，不冒充缺档。自定义日期区间接口保持最多366天。日记 Markdown 图片只经当前连接的 render 接口读取，外部／本地文件来源与点击跳转被禁用；旧焦虑接口保留问答格式但拒绝伪造系统标记和章节越界。
+
+标签配置 GET 只返回已有配置或默认值，不写入 Vault；PUT 原子保存配置，若仅派生模板同步失败，仍返回 `success: true` 并附 `warnings: ["TAG_TEMPLATE_SYNC_FAILED"]`，可再次提交重试模板。服务端构建会先清理固定的 `server/dist/`，不触及私有配置和 Vault。
 
 健康检查为 `GET /health`。画廊通过 `/api/v1/history/gallery?cursor=YYYY-MM&limit=3` 分页，只索引已有安全附件；图片渲染使用 `/api/v1/diary/image/render/:year/:imageName?month=MM&maxWidth=...`，不向 Vault 写缩略图。趋势快照接口 `/api/v1/stats/habit?from=YYYY-MM-DD&to=YYYY-MM-DD` 只读取最多 366 天，周期聚合由客户端完成。
 

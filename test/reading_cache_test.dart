@@ -20,6 +20,9 @@ import 'package:litchi_journal_flutter/services/gallery_service.dart';
 import 'package:litchi_journal_flutter/services/reading_cache_repository.dart';
 import 'package:litchi_journal_flutter/widgets/diary_markdown_view.dart';
 import 'package:litchi_journal_flutter/widgets/gallery_image_tile.dart';
+import 'package:litchi_journal_flutter/widgets/history_calendar.dart';
+import 'package:litchi_journal_flutter/widgets/flora_primary_header.dart';
+import 'package:litchi_journal_flutter/widgets/reading_cache_status.dart';
 
 Uint8List _bytes(String text) => Uint8List.fromList(utf8.encode(text));
 http.Response _jsonResponse(String body, int status) => http.Response(
@@ -917,6 +920,109 @@ void main() {
     expect(find.text('暂时无法获取更多月份，连接服务器后重试'), findsOneWidget);
   });
 
+  testWidgets('月历缓存后台更新不闪现提示或改变弹窗尺寸', (tester) async {
+    final cache = _MemoryCache();
+    final now = DateTime.now();
+    final oldDate = DateTime(now.year, now.month, 1);
+    final newDate = DateTime(now.year, now.month, 2);
+    final response = Completer<http.Response>();
+    var requests = 0;
+    final client = _api(cache, (request) async {
+      if (request.url.path == '/api/v1/history/${now.year}/${now.month}') {
+        if (++requests == 1) {
+          return _jsonResponse(jsonEncode(_historyMonth(oldDate)), 200);
+        }
+        return response.future;
+      }
+      if (request.url.path.endsWith('/gallery')) {
+        return _jsonResponse('{"months":[],"nextCursor":null}', 200);
+      }
+      return http.Response('{}', 404);
+    });
+    addTearDown(client.dispose);
+    await client.fetchHistoryMonth(now.year, now.month);
+    await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(_calendarMarker(oldDate), findsOneWidget);
+    final panel = find.byKey(const Key('history_calendar_scroll'));
+    final cachedBounds = tester.getRect(panel);
+    final showedHint = find.text('正在显示本地缓存').evaluate().isNotEmpty;
+
+    response.complete(_jsonResponse(jsonEncode(_historyMonth(newDate)), 200));
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(panel), cachedBounds);
+    expect(showedHint, isFalse);
+    expect(_calendarMarker(newDate), findsOneWidget);
+    expect(_calendarMarker(oldDate), findsNothing);
+  });
+
+  testWidgets('月历加载进度不拦截最后一行日期底缘点击', (tester) async {
+    DateTime? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 400,
+              child: HistoryCalendar(
+                displayedMonth: DateTime(2026, 7),
+                today: DateTime(2026, 8, 1),
+                recordedDateKeys: const {},
+                loading: true,
+                onMonthChanged: (_) {},
+                onDateSelected: (date) => selected = date,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final day = tester.getRect(
+      find.byKey(const Key('history_calendar_day_2026-07-31')),
+    );
+    await tester.tapAt(Offset(day.center.dx, day.bottom - 1));
+    expect(selected, DateTime(2026, 7, 31));
+  });
+
+  testWidgets('月历首次加载进度结束后不改变弹窗尺寸', (tester) async {
+    final cache = _MemoryCache();
+    final now = DateTime.now();
+    final response = Completer<http.Response>();
+    final client = _api(cache, (request) async {
+      if (request.url.path == '/api/v1/history/${now.year}/${now.month}') {
+        return response.future;
+      }
+      if (request.url.path.endsWith('/gallery')) {
+        return _jsonResponse('{"months":[],"nextCursor":null}', 200);
+      }
+      return http.Response('{}', 404);
+    });
+    addTearDown(client.dispose);
+    await tester.pumpWidget(MaterialApp(home: PastScreen(apiClient: client)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+    final panel = find.byKey(const Key('history_calendar_scroll'));
+    final loadingBounds = tester.getRect(panel);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+    response.complete(
+      _jsonResponse(
+        jsonEncode(_historyMonth(DateTime(now.year, now.month, 1))),
+        200,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(panel), loadingBounds);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+  });
+
   testWidgets('展开月历离线失败后下拉重新请求当前月并恢复标记', (tester) async {
     final cache = _MemoryCache();
     final now = DateTime.now();
@@ -951,6 +1057,18 @@ void main() {
     expect(requests, 2);
     expect(_calendarMarker(oldDate), findsOneWidget);
     expect(find.text('暂时无法连接，请稍后重试'), findsOneWidget);
+    final message = find.text('暂时无法连接，请稍后重试');
+    expect(
+      find.ancestor(of: message, matching: find.byType(Dialog)),
+      findsNothing,
+    );
+    final notice = tester.getRect(find.byType(ReadingCacheStatus));
+    final header = tester.getRect(find.byType(FloraPrimaryHeader));
+    final pageWidth = tester.getSize(find.byType(Scaffold).first).width;
+    expect(notice.top, closeTo(header.bottom + 16, 0.1));
+    expect(notice.left, 16);
+    expect(notice.right, pageWidth - 16);
+    expect(find.text('记录标记暂未加载，仍可选择日期'), findsNothing);
     online = true;
     await tester.drag(
       find.byKey(const Key('history_calendar_scroll')),
@@ -963,6 +1081,71 @@ void main() {
     expect(find.text('暂时无法连接，请稍后重试'), findsNothing);
     expect(find.text('记录标记暂未加载，仍可选择日期'), findsNothing);
   });
+
+  for (final scenario in [
+    (size: const Size(390, 844), scale: 1.0, auth: false),
+    (size: const Size(320, 480), scale: 2.0, auth: false),
+    (size: const Size(800, 600), scale: 1.0, auth: false),
+    (size: const Size(390, 844), scale: 1.0, auth: true),
+  ]) {
+    testWidgets('月历失败提示与页面等宽且不遮挡日历 $scenario', (tester) async {
+      tester.view.physicalSize = scenario.size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final client = _api(_MemoryCache(), (request) async {
+        if (request.url.path.endsWith('/gallery')) {
+          return _jsonResponse('{"months":[],"nextCursor":null}', 200);
+        }
+        if (request.url.path.startsWith('/api/v1/history/')) {
+          if (scenario.auth) return _jsonResponse('{}', 401);
+          throw const SocketException('offline');
+        }
+        return _jsonResponse('{}', 404);
+      });
+      addTearDown(client.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: const EdgeInsets.only(top: 24, bottom: 16),
+              viewPadding: const EdgeInsets.only(top: 24, bottom: 16),
+              textScaler: TextScaler.linear(scenario.scale),
+              highContrast: scenario.auth,
+            ),
+            child: child!,
+          ),
+          home: PastScreen(apiClient: client),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+      await tester.pumpAndSettle();
+
+      final status = find.byKey(const Key('history_calendar_status'));
+      final notice = tester.getRect(status);
+      final header = tester.getRect(find.byType(FloraPrimaryHeader));
+      final calendar = tester.getRect(
+        find.byKey(const Key('history_calendar_scroll')),
+      );
+      expect(notice.left, 16);
+      expect(notice.right, scenario.size.width - 16);
+      expect(notice.top, closeTo(header.bottom + 16, 0.1));
+      expect(notice.bottom, lessThanOrEqualTo(calendar.top + 0.1));
+      expect(calendar.center.dx, closeTo(scenario.size.width / 2, 0.1));
+      expect(calendar.center.dy, closeTo(scenario.size.height / 2 + 4, 0.1));
+      expect(
+        find.text(scenario.auth ? '认证失败，请检查连接设置后重试' : '暂时无法连接，请稍后重试'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.tapAt(notice.center);
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+      expect(status, findsNothing);
+    });
+  }
 
   testWidgets('离线月历保留纯文字标记，可进入已缓存正文', (tester) async {
     final cache = _MemoryCache();

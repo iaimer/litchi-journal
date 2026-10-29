@@ -53,22 +53,35 @@ class HistoryCalendar extends StatelessWidget {
           if (velocity < -120) _changeMonth(1);
           if (velocity > 120) _changeMonth(-1);
         },
-        child: Column(
+        child: _buildCalendarBody(context, theme),
+      ),
+    );
+  }
+
+  Widget _buildCalendarBody(BuildContext context, ThemeData theme) {
+    return Stack(
+      children: [
+        Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildMonthHeader(theme),
             const SizedBox(height: 4),
             _buildDateGrid(context, theme),
-            if (loading) ...[
-              const SizedBox(height: 8),
-              const LinearProgressIndicator(minHeight: 2),
-            ] else if (markerLoadFailed) ...[
+            if (!loading && markerLoadFailed) ...[
               const SizedBox(height: 8),
               Text('记录标记暂未加载，仍可选择日期', style: theme.textTheme.bodySmall),
             ],
           ],
         ),
-      ),
+        // 利用日期格底部留白显示进度，不增减弹窗高度。
+        if (loading)
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(child: LinearProgressIndicator(minHeight: 2)),
+          ),
+      ],
     );
   }
 

@@ -54,7 +54,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   String? _nextCursor;
   String? _galleryError;
   bool _galleryLocal = false;
-  DateTime? _calendarCachedAt;
   String? _calendarError;
   final Set<String?> _failedCursors = {};
   bool _restoredEarlierPages = false;
@@ -479,15 +478,40 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildCalendarDialog(BuildContext dialogContext) {
-    return Dialog(
-      key: const Key('history_calendar_dialog'),
-      insetPadding: const EdgeInsets.all(16),
-      constraints: const BoxConstraints(maxWidth: 400),
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: ValueListenableBuilder<int>(
-        valueListenable: _calendarRevision,
-        builder: (context, _, _) => _buildCalendarPanel(dialogContext),
+    return ValueListenableBuilder<int>(
+      valueListenable: _calendarRevision,
+      builder: (context, _, _) => CustomMultiChildLayout(
+        delegate: _CalendarPopupLayout(
+          statusTop:
+              max(0, _headerExtent - MediaQuery.paddingOf(this.context).top) +
+              16,
+        ),
+        children: [
+          LayoutId(
+            id: 'calendar',
+            child: Dialog(
+              key: const Key('history_calendar_dialog'),
+              insetPadding: const EdgeInsets.all(16),
+              constraints: const BoxConstraints(maxWidth: 400),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: _buildCalendarPanel(dialogContext),
+            ),
+          ),
+          if (_calendarLoadFailed)
+            LayoutId(
+              id: 'status',
+              child: Semantics(
+                liveRegion: true,
+                child: IgnorePointer(
+                  child: ReadingCacheStatus(
+                    key: const Key('history_calendar_status'),
+                    message: _calendarError ?? '暂时无法连接，请稍后重试',
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -504,26 +528,19 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
             key: const Key('history_calendar_scroll'),
             primary: false,
             physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                HistoryCalendar(
-                  displayedMonth: _calendarDisplayedMonth,
-                  recordedDateKeys:
-                      _recordedDatesByMonth[_monthKeyForDate(
-                        _calendarDisplayedMonth,
-                      )] ??
-                      const {},
-                  loading: _calendarLoading,
-                  markerLoadFailed: _calendarLoadFailed,
-                  today: DateTime.now(),
-                  onMonthChanged: _changeCalendarMonth,
-                  onDateSelected: (date) => Navigator.of(
-                    dialogContext,
-                  ).pop((date: date, origin: FloraOrigin.current)),
-                ),
-                ..._buildCalendarMessages(theme),
-              ],
+            child: HistoryCalendar(
+              displayedMonth: _calendarDisplayedMonth,
+              recordedDateKeys:
+                  _recordedDatesByMonth[_monthKeyForDate(
+                    _calendarDisplayedMonth,
+                  )] ??
+                  const {},
+              loading: _calendarLoading,
+              today: DateTime.now(),
+              onMonthChanged: _changeCalendarMonth,
+              onDateSelected: (date) => Navigator.of(
+                dialogContext,
+              ).pop((date: date, origin: FloraOrigin.current)),
             ),
           ),
         ),
@@ -531,28 +548,9 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
     );
   }
 
-  List<Widget> _buildCalendarMessages(ThemeData theme) => [
-    if (_calendarCachedAt != null)
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: ReadingCacheStatus(
-          message: _calendarLoadFailed ? '暂时无法连接，请稍后重试' : null,
-        ),
-      ),
-    if (_calendarError != null)
-      Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(
-          _calendarError!,
-          style: TextStyle(color: theme.colorScheme.error),
-        ),
-      ),
-  ];
-
   Future<void> _loadCalendarMonth(DateTime month) async {
     final key = _monthKeyForDate(month);
     final requestGeneration = ++_calendarRequestGeneration;
-    _calendarCachedAt = null;
     _updateCalendar(() {
       _calendarLoading = true;
       _calendarError = null;
@@ -572,7 +570,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
                 .where((day) => day.hasContent || day.hasImages)
                 .map((day) => day.date)
                 .toSet();
-            _calendarCachedAt = cached.updatedAt;
             _calendarLoading = false;
           });
         },
@@ -585,14 +582,12 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
       _updateCalendar(() {
         _recordedDatesByMonth[key] = dates;
         _calendarLoading = false;
-        _calendarCachedAt = null;
       });
     } catch (error) {
       if (!mounted || requestGeneration != _calendarRequestGeneration) return;
       _updateCalendar(() {
         if (error is ApiException && error.isAuthenticationFailure) {
           _recordedDatesByMonth.remove(key);
-          _calendarCachedAt = null;
           _calendarError = '认证失败，请检查连接设置后重试';
         }
         _calendarLoading = false;
@@ -700,6 +695,7 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
       final header = _headerKey.currentContext?.findRenderObject();
       if (header is! RenderBox || header.size.height == _headerExtent) return;
       setState(() => _headerExtent = header.size.height);
+      if (_calendarExpanded) _calendarRevision.value++;
       _scheduleMonthSync();
     });
   }
@@ -920,6 +916,37 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
       ],
     );
   }
+}
+
+/// 提示与 Banner 对齐；短屏按提示实际高度约束日历，避免互相遮挡。
+class _CalendarPopupLayout extends MultiChildLayoutDelegate {
+  final double statusTop;
+
+  _CalendarPopupLayout({required this.statusTop});
+
+  @override
+  void performLayout(Size size) {
+    var calendarHeight = size.height;
+    if (hasChild('status')) {
+      final status = layoutChild(
+        'status',
+        BoxConstraints.tightFor(width: max(0, size.width - 32)),
+      );
+      positionChild('status', Offset(16, statusTop));
+      // Dialog 上下各有16dp内边距，最终可见面板需避开提示条。
+      calendarHeight = (size.height - 2 * (statusTop + status.height) + 32)
+          .clamp(0.0, size.height);
+    }
+    layoutChild(
+      'calendar',
+      BoxConstraints.tight(Size(size.width, calendarHeight)),
+    );
+    positionChild('calendar', Offset(0, (size.height - calendarHeight) / 2));
+  }
+
+  @override
+  bool shouldRelayout(_CalendarPopupLayout oldDelegate) =>
+      statusTop != oldDelegate.statusTop;
 }
 
 class _GalleryLoadingPlaceholder extends StatelessWidget {

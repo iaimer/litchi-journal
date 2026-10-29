@@ -72,7 +72,7 @@ npm run dev
 
 健康检查为 `GET /health`。画廊通过 `/api/v1/history/gallery?cursor=YYYY-MM&limit=3` 分页，只索引已有安全附件；图片渲染使用 `/api/v1/diary/image/render/:year/:imageName?month=MM&maxWidth=...`，不向 Vault 写缩略图。趋势快照接口 `/api/v1/stats/habit?from=YYYY-MM-DD&to=YYYY-MM-DD` 只读取最多 366 天，周期聚合由客户端完成。
 
-服务端源码合并不表示运行环境已部署。更新需保留私有配置和 Vault，部署、重启及真实健康检查见 [docs/RELEASE.md](docs/RELEASE.md)。
+服务端源码合并不表示运行环境已部署。更新需保留私有配置和 Vault，部署、重启及真实健康检查见 [服务端部署指南](server/DEPLOY.md)。
 
 ## Android 构建与覆盖安装
 

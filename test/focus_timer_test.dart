@@ -1064,6 +1064,10 @@ void main() {
     );
     await tester.pump();
 
+    expect(find.text('60 分钟循环'), findsNothing);
+    expect(find.text('00:01:20'), findsOneWidget);
+    expect(find.text('专注中'), findsOneWidget);
+
     await tester.tap(find.text('完成'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('保存 1 分钟'));

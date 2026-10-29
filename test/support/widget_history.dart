@@ -208,6 +208,7 @@ void registerHistoryTests() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('history_calendar_toggle')));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 220));
       await tester.tap(
         find.byKey(const Key('history_calendar_previous_month')),
       );

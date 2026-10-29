@@ -22,7 +22,7 @@ final _photoBytes = Uint8List.fromList(
 );
 
 Widget _capture({
-  String content = '今天带小宝去游乐场。',
+  String? content = '今天带小宝去游乐场。',
   int photoCount = 1,
   List<String> tags = const ['亲子', '陪伴互动'],
   EntryType type = EntryType.quickNote,
@@ -78,6 +78,51 @@ void _setScreen(WidgetTester tester, Size size) {
 }
 
 void main() {
+  for (final type in EntryType.values) {
+    for (final mode in ['新建', '编辑', '历史补录']) {
+      testWidgets('${type.name} $mode 工具栏按照片润色标签顺序排列', (tester) async {
+        _setScreen(tester, const Size(320, 640));
+        await tester.pumpWidget(
+          _capture(
+            type: type,
+            content: mode == '编辑' ? '已有记录' : null,
+            photoCount: 0,
+            recordDate: mode == '历史补录' ? DateTime(2026, 9, 10) : null,
+            dark: mode != '新建',
+            textScale: mode == '新建' ? 1 : 1.6,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final keys = [
+          if (type != EntryType.reflection) 'quick_capture_add_photo',
+          'quick_capture_polish',
+          'quick_capture_tag_toggle',
+        ];
+        Rect? previous;
+        for (final key in keys) {
+          final bounds = tester.getRect(find.byKey(Key(key)));
+          expect(bounds.height, greaterThanOrEqualTo(48));
+          expect(bounds.left, greaterThanOrEqualTo(0));
+          expect(bounds.right, lessThanOrEqualTo(320));
+          if (previous != null) {
+            expect(
+              bounds.top > previous.top || bounds.left > previous.left,
+              isTrue,
+            );
+          }
+          previous = bounds;
+        }
+        if (type == EntryType.reflection) {
+          expect(
+            find.byKey(const Key('quick_capture_add_photo')),
+            findsNothing,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   for (final type in [EntryType.quickNote, EntryType.happiness]) {
     testWidgets('${type.name} 短正文、照片与标签按 12dp 顺序排列', (tester) async {
       _setScreen(tester, const Size(420, 800));
@@ -202,6 +247,16 @@ void main() {
     );
     final save = find.widgetWithText(ElevatedButton, '保存');
     expect(tester.getRect(save).bottom, lessThanOrEqualTo(360));
+    expect(find.byKey(const Key('quick_capture_tag_panel')), findsNothing);
+    for (final key in [
+      'quick_capture_add_photo',
+      'quick_capture_polish',
+      'quick_capture_tag_toggle',
+    ]) {
+      final bounds = tester.getRect(find.byKey(Key(key)));
+      expect(bounds.height, greaterThanOrEqualTo(48));
+      expect(bounds.bottom, lessThanOrEqualTo(tester.getRect(save).top));
+    }
     tester.view.resetViewInsets();
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('quick_capture_tag_panel')), findsOneWidget);

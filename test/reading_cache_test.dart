@@ -952,7 +952,10 @@ void main() {
     expect(_calendarMarker(oldDate), findsOneWidget);
     expect(find.text('暂时无法连接，请稍后重试'), findsOneWidget);
     online = true;
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, 500));
+    await tester.drag(
+      find.byKey(const Key('history_calendar_scroll')),
+      const Offset(0, 500),
+    );
     await tester.pumpAndSettle();
     expect(requests, 3);
     expect(_calendarMarker(newDate), findsOneWidget);

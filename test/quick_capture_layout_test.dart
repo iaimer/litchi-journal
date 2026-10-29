@@ -22,6 +22,22 @@ import 'package:litchi_journal_flutter/widgets/image_upload_strip.dart';
 
 void main() {
   group('QuickCaptureScreen layout', () {
+    for (final type in EntryType.values) {
+      testWidgets('${type.name} 工具栏把润色放在标签之前', (tester) async {
+        await tester.pumpWidget(
+          _buildCapture(entryType: type, tagConfig: _tagConfig()),
+        );
+        final polish = find.byKey(const Key('quick_capture_polish'));
+        final tags = find.byKey(const Key('quick_capture_tag_toggle'));
+        expect(
+          tester.getCenter(polish).dx,
+          lessThan(tester.getCenter(tags).dx),
+        );
+        expect(tester.getSize(polish).height, greaterThanOrEqualTo(48));
+        expect(tester.getSize(tags).height, greaterThanOrEqualTo(48));
+      });
+    }
+
     testWidgets('时间元信息是可点击的轻量行而不是卡片', (tester) async {
       await tester.pumpWidget(_buildCapture());
 
@@ -389,6 +405,7 @@ class _MemoryImageSettingsStorage implements ImageSettingsStorage {
 }
 
 Widget _buildCapture({
+  EntryType entryType = EntryType.quickNote,
   TagConfig? tagConfig,
   List<String> initialTags = const [],
   DateTime? recordDate,
@@ -398,7 +415,7 @@ Widget _buildCapture({
 }) {
   return MaterialApp(
     home: QuickCaptureScreen(
-      entryType: EntryType.quickNote,
+      entryType: entryType,
       openedAt: DateTime(2026, 9, 16, 8, 25),
       recordDate: recordDate,
       initialContent: initialContent,

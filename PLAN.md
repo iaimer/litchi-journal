@@ -1,6 +1,6 @@
 # 当前进度与后续安排
 
-截至 2026-10-29，客户端清单为 `1.10.3+45`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
+截至 2026-10-30，客户端清单为 `1.10.4+46`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
 
 ## 已实现能力
 
@@ -44,6 +44,7 @@
 
 ## 待验收与部署
 
+- [ ] 在 PLG110 验收过往居中月历的入口展开／收回、局部模糊、选日与下拉刷新，以及记录页照片／润色／标签顺序；1.10.4内部包已构建，尚未装机。
 - [ ] 在 OPPO PLG110（Android 16）以最新内部包核对四项导航、顶部玻璃、浅深色、滚动、预测返回、系统大字体与阅读标签。
 - [ ] 核对短／长正文、1／2／9张照片、标签与键盘切换、编辑返回保护、部分上传失败及原地重试。
 - [ ] 完成联网访问后断网重启阅读、跨月恢复、图片更新、恢复连接、缓存清理与服务端切换隔离验收。

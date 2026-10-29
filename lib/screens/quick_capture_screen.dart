@@ -909,8 +909,8 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
         runSpacing: FloraSpacing.xs,
         children: [
           if (_supportsPhotos) _buildPhotoButton(theme),
-          if (widget.tagConfig != null) _buildTagToggleButton(theme),
           _buildPolishButton(theme),
+          if (widget.tagConfig != null) _buildTagToggleButton(theme),
         ],
       ),
     );

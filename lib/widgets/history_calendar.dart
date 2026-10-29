@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
 import '../theme/app_theme.dart';
 import 'flora_icon.dart';
+import 'flora_origin.dart';
 
 class HistoryCalendar extends StatelessWidget {
   final DateTime displayedMonth;
@@ -55,9 +58,7 @@ class HistoryCalendar extends StatelessWidget {
           children: [
             _buildMonthHeader(theme),
             const SizedBox(height: 4),
-            _buildWeekdays(theme),
-            const SizedBox(height: 4),
-            _buildDays(theme),
+            _buildDateGrid(context, theme),
             if (loading) ...[
               const SizedBox(height: 8),
               const LinearProgressIndicator(minHeight: 2),
@@ -113,7 +114,45 @@ class HistoryCalendar extends StatelessWidget {
     );
   }
 
-  Widget _buildDays(ThemeData theme) {
+  Widget _buildDateGrid(BuildContext context, ThemeData theme) {
+    final dayStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: MediaQuery.boldTextOf(context)
+          ? FontWeight.w700
+          : FontWeight.w500,
+    );
+    final dayText = TextPainter(
+      text: TextSpan(text: '30', style: dayStyle),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final rowHeight = math.max(48.0, dayText.height + 15);
+    final minWidth = (dayText.width + 8) * 7;
+    dayText.dispose();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = SizedBox(
+          width: math.max(constraints.maxWidth, minWidth),
+          child: Column(
+            children: [
+              _buildWeekdays(theme),
+              const SizedBox(height: 4),
+              _buildDays(theme, rowHeight),
+            ],
+          ),
+        );
+        if (minWidth <= constraints.maxWidth) return content;
+        // 极大字体下保留完整日期，横向滚动承接七列所需宽度。
+        return SingleChildScrollView(
+          key: const Key('history_calendar_grid_scroll'),
+          scrollDirection: Axis.horizontal,
+          primary: false,
+          child: content,
+        );
+      },
+    );
+  }
+
+  Widget _buildDays(ThemeData theme, double rowHeight) {
     final firstDay = DateTime(displayedMonth.year, displayedMonth.month);
     final leading = firstDay.weekday - 1;
     final daysInMonth = DateTime(
@@ -125,10 +164,11 @@ class HistoryCalendar extends StatelessWidget {
 
     return GridView.builder(
       shrinkWrap: true,
+      primary: false,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
-        mainAxisExtent: 48,
+        mainAxisExtent: rowHeight,
       ),
       itemCount: cellCount,
       itemBuilder: (context, index) {
@@ -149,15 +189,17 @@ class HistoryCalendar extends StatelessWidget {
       label:
           '${date.month}月${date.day}日${hasRecord ? '，有记录' : ''}${selectable ? '' : '，不可选择'}',
       button: selectable,
-      child: InkResponse(
+      child: FloraInkWell(
         key: ValueKey('history_calendar_day_${ApiClient.formatDate(date)}'),
-        radius: 24,
+        customBorder: const CircleBorder(),
         onTap: selectable ? () => onDateSelected(date) : null,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               '${date.day}',
+              maxLines: 1,
+              softWrap: false,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: selectable
                     ? theme.colorScheme.onSurface

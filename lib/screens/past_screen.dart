@@ -1,11 +1,13 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import '../widgets/flora_dock.dart';
 import '../widgets/flora_glass.dart';
 import '../widgets/flora_page_route.dart';
 import '../widgets/flora_origin.dart';
+import '../widgets/flora_dialog.dart';
 
 import '../models/gallery_result.dart';
 import '../models/memory_entry.dart';
@@ -24,6 +26,8 @@ import 'gallery_image_viewer_screen.dart';
 import 'read_only_diary_screen.dart';
 import '../widgets/reading_cache_status.dart';
 
+typedef _CalendarSelection = ({DateTime date, FloraOrigin? origin});
+
 class PastScreen extends StatefulWidget {
   final ApiClient apiClient;
   final bool active;
@@ -40,6 +44,7 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _galleryViewportKey = GlobalKey();
   final GlobalKey _headerKey = GlobalKey();
+  final ValueNotifier<int> _calendarRevision = ValueNotifier(0);
   double _headerExtent = 0;
   final Map<String, GlobalKey> _monthKeys = {};
   final Map<String, Set<String>> _recordedDatesByMonth = {};
@@ -110,13 +115,19 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
     });
     _load();
     if (_calendarExpanded) {
-      _loadCalendarMonth(_calendarDisplayedMonth);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _calendarExpanded) {
+          _loadCalendarMonth(_calendarDisplayedMonth);
+        }
+      });
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _calendarRequestGeneration++;
+    _calendarRevision.dispose();
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
@@ -127,7 +138,7 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
         widget.active &&
-        (ModalRoute.of(context)?.isCurrent ?? true)) {
+        (_calendarExpanded || (ModalRoute.of(context)?.isCurrent ?? true))) {
       _load();
       if (_calendarExpanded) _loadCalendarMonth(_calendarDisplayedMonth);
     }
@@ -364,13 +375,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _refresh() async {
-    await Future.wait([
-      _load(),
-      if (_calendarExpanded) _loadCalendarMonth(_calendarDisplayedMonth),
-    ]);
-  }
-
   void _handleScroll() {
     if (_scrollController.hasClients &&
         _scrollController.position.extentAfter < 600 &&
@@ -435,10 +439,7 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
       a.year == b.year && a.month == b.month;
 
   Future<void> _toggleCalendar() async {
-    if (_calendarExpanded) {
-      setState(() => _calendarExpanded = false);
-      return;
-    }
+    if (_calendarExpanded) return;
     _syncDisplayedMonth();
     final fallback = DateTime(DateTime.now().year, DateTime.now().month);
     final displayedMonth = _galleryMonths.any((month) => month.days.isNotEmpty)
@@ -448,14 +449,111 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
       _calendarExpanded = true;
       _calendarDisplayedMonth = displayedMonth;
     });
-    await _loadCalendarMonth(displayedMonth);
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(_scrollController.offset);
+    }
+    _loadCalendarMonth(displayedMonth);
+    _CalendarSelection? selected;
+    try {
+      selected = await showFloraDialog<_CalendarSelection>(
+        context: context,
+        barrierColor: Colors.transparent,
+        builder: _buildCalendarDialog,
+      );
+    } finally {
+      _calendarRequestGeneration++;
+      if (mounted) setState(() => _calendarExpanded = false);
+    }
+    if (mounted && selected != null) {
+      final selection = selected;
+      await FloraOrigin.withOrigin(
+        selection.origin,
+        () => _openCalendarDate(selection.date),
+      );
+    }
   }
+
+  void _updateCalendar(VoidCallback update) {
+    setState(update);
+    _calendarRevision.value++;
+  }
+
+  Widget _buildCalendarDialog(BuildContext dialogContext) {
+    return Dialog(
+      key: const Key('history_calendar_dialog'),
+      insetPadding: const EdgeInsets.all(16),
+      constraints: const BoxConstraints(maxWidth: 400),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: ValueListenableBuilder<int>(
+        valueListenable: _calendarRevision,
+        builder: (context, _, _) => _buildCalendarPanel(dialogContext),
+      ),
+    );
+  }
+
+  Widget _buildCalendarPanel(BuildContext dialogContext) {
+    final theme = Theme.of(dialogContext);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(FloraRadius.lg),
+      child: ColoredBox(
+        color: theme.colorScheme.surface,
+        child: RefreshIndicator(
+          onRefresh: () => _loadCalendarMonth(_calendarDisplayedMonth),
+          child: SingleChildScrollView(
+            key: const Key('history_calendar_scroll'),
+            primary: false,
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HistoryCalendar(
+                  displayedMonth: _calendarDisplayedMonth,
+                  recordedDateKeys:
+                      _recordedDatesByMonth[_monthKeyForDate(
+                        _calendarDisplayedMonth,
+                      )] ??
+                      const {},
+                  loading: _calendarLoading,
+                  markerLoadFailed: _calendarLoadFailed,
+                  today: DateTime.now(),
+                  onMonthChanged: _changeCalendarMonth,
+                  onDateSelected: (date) => Navigator.of(
+                    dialogContext,
+                  ).pop((date: date, origin: FloraOrigin.current)),
+                ),
+                ..._buildCalendarMessages(theme),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildCalendarMessages(ThemeData theme) => [
+    if (_calendarCachedAt != null)
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: ReadingCacheStatus(
+          message: _calendarLoadFailed ? '暂时无法连接，请稍后重试' : null,
+        ),
+      ),
+    if (_calendarError != null)
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          _calendarError!,
+          style: TextStyle(color: theme.colorScheme.error),
+        ),
+      ),
+  ];
 
   Future<void> _loadCalendarMonth(DateTime month) async {
     final key = _monthKeyForDate(month);
     final requestGeneration = ++_calendarRequestGeneration;
     _calendarCachedAt = null;
-    setState(() {
+    _updateCalendar(() {
       _calendarLoading = true;
       _calendarError = null;
       _calendarLoadFailed = false;
@@ -469,7 +567,7 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
           if (!mounted || requestGeneration != _calendarRequestGeneration) {
             return;
           }
-          setState(() {
+          _updateCalendar(() {
             _recordedDatesByMonth[key] = cached.value.diaries
                 .where((day) => day.hasContent || day.hasImages)
                 .map((day) => day.date)
@@ -484,14 +582,14 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
           .map((day) => day.date)
           .toSet();
       if (!mounted || requestGeneration != _calendarRequestGeneration) return;
-      setState(() {
+      _updateCalendar(() {
         _recordedDatesByMonth[key] = dates;
         _calendarLoading = false;
         _calendarCachedAt = null;
       });
     } catch (error) {
       if (!mounted || requestGeneration != _calendarRequestGeneration) return;
-      setState(() {
+      _updateCalendar(() {
         if (error is ApiException && error.isAuthenticationFailure) {
           _recordedDatesByMonth.remove(key);
           _calendarCachedAt = null;
@@ -504,13 +602,12 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _changeCalendarMonth(DateTime month) async {
-    setState(() => _calendarDisplayedMonth = month);
+    _updateCalendar(() => _calendarDisplayedMonth = month);
     await _loadCalendarMonth(month);
   }
 
   Future<void> _openCalendarDate(DateTime date) async {
     final generation = widget.apiClient.readingCache.dataGeneration;
-    setState(() => _calendarExpanded = false);
     await Navigator.of(context).push(
       FloraPageRoute(
         builder: (_) =>
@@ -557,11 +654,42 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
       body: SafeArea(
         top: false,
         bottom: false,
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          edgeOffset: _headerExtent,
-          child: _buildGalleryScroll(theme),
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _load,
+              edgeOffset: _headerExtent,
+              child: _buildGalleryScroll(theme),
+            ),
+            if (_calendarExpanded) _buildCalendarBackdrop(theme),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCalendarBackdrop(ThemeData theme) {
+    final highContrast = MediaQuery.highContrastOf(context);
+    final shade = ColoredBox(
+      color: highContrast
+          ? theme.colorScheme.surface
+          : theme.colorScheme.scrim.withValues(alpha: 0.18),
+    );
+    return Positioned.fill(
+      top: _headerExtent,
+      // 阅读 clearance 还包含 FAB 留白；此处只避让实际 Dock。
+      bottom: max(0, (FloraDockScope.maybeOf(context)?.fabBottom ?? 12) - 12),
+      child: ClipRect(
+        key: const Key('history_calendar_backdrop'),
+        child: highContrast
+            ? shade
+            : BackdropFilter(
+                filter: ui.ImageFilter.blur(
+                  sigmaX: FloraGlass.blurSigma,
+                  sigmaY: FloraGlass.blurSigma,
+                ),
+                child: shade,
+              ),
       ),
     );
   }
@@ -579,41 +707,6 @@ class _PastScreenState extends State<PastScreen> with WidgetsBindingObserver {
   Widget _buildHeader(ThemeData theme) {
     final canRandom = _galleryMonths.any((month) => month.days.isNotEmpty);
     return FloraPrimaryHeader(
-      expandedChild: _calendarExpanded
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                HistoryCalendar(
-                  displayedMonth: _calendarDisplayedMonth,
-                  recordedDateKeys:
-                      _recordedDatesByMonth[_monthKeyForDate(
-                        _calendarDisplayedMonth,
-                      )] ??
-                      const {},
-                  loading: _calendarLoading,
-                  markerLoadFailed: _calendarLoadFailed,
-                  today: DateTime.now(),
-                  onMonthChanged: _changeCalendarMonth,
-                  onDateSelected: _openCalendarDate,
-                ),
-                if (_calendarCachedAt != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: ReadingCacheStatus(
-                      message: _calendarLoadFailed ? '暂时无法连接，请稍后重试' : null,
-                    ),
-                  ),
-                if (_calendarError != null)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      _calendarError!,
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                  ),
-              ],
-            )
-          : null,
       child: Row(
         children: [
           Expanded(child: Text('过往', style: theme.textTheme.headlineLarge)),

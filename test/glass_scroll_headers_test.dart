@@ -385,7 +385,7 @@ void main() {
 
   for (final dark in [false, true]) {
     for (final highContrast in [false, true]) {
-      testWidgets('过往日历自然展开和收起：深色=$dark，高对比=$highContrast', (tester) async {
+      testWidgets('过往日历居中弹出且头部保持原位：深色=$dark，高对比=$highContrast', (tester) async {
         await tester.binding.setSurfaceSize(const Size(320, 720));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await tester.pumpWidget(
@@ -411,19 +411,27 @@ void main() {
         final calendar = tester.getRect(
           find.byKey(const Key('history_calendar')),
         );
-        expect(expanded.height, greaterThan(collapsed.height + 300));
-        expect(calendar.bottom, lessThanOrEqualTo(expanded.bottom));
-        expect(expanded.bottom, lessThan(720));
+        expect(expanded, collapsed);
+        expect(calendar.center, const Offset(160, 372));
+        expect(calendar.left, greaterThanOrEqualTo(16));
+        expect(calendar.right, lessThanOrEqualTo(304));
         expect(tester.getRect(find.text('过往')), title);
         expect(controller.offset, 125);
         expect(
           tester
-              .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+              .widget<RefreshIndicator>(
+                find.ancestor(
+                  of: find.byType(CustomScrollView),
+                  matching: find.byType(RefreshIndicator),
+                ),
+              )
               .edgeOffset,
           closeTo(expanded.height, 0.5),
         );
 
-        await tester.tap(find.byKey(const Key('history_calendar_toggle')));
+        await tester.tapAt(
+          tester.getCenter(find.byKey(const Key('history_calendar_toggle'))),
+        );
         await tester.pumpAndSettle();
         expect(_headerRect(tester), collapsed);
         expect(controller.offset, 125);

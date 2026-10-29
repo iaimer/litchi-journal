@@ -126,13 +126,6 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                                                 fontWeight: FontWeight.w600,
                                               ),
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '60 分钟循环',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
                                       ],
                                     ),
                                   ),

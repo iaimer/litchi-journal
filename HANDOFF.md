@@ -10,7 +10,7 @@
 
 内部安装包为 `build/app/outputs/flutter-apk/litchi-journal-1.10.2-release.apk`，65,351,085字节，SHA-256 `5a1ffb8276266c4a8f430ce203ef7a2b3340fdf2630bc5b233da8b380b6d9ae3`。正常 `lib/main.dart` Release入口，包名 `com.example.litchi_journal_flutter`、versionName `1.10.2`、versionCode `44`，含arm64-v8a／armeabi-v7a／x86_64，APK v2签名有效，证书SHA-256 `4b15b79943c8e123ab288bfcb76e6235d59cc265b9e56e40660eb69af499c433`，与旧内部包一致；包内更新日志已逐字节核对。构建存在既有Kotlin迁移及Java8目标兼容性提示，未阻止构建。
 
-Git交付准备：发布分支 `codex/cache-status-alert`，后续执行squash合并与主线远端核对。原标签管理工作区六个改动文件的摘要未变。
+Git交付：发布源提交 `eae9b42` 已squash合并为 `98aa1e6` 并推送main；远端提交已核对一致，主线构建输入文件摘要与APK构建来源一致。原标签管理工作区六个改动文件的摘要未变。
 
 当前未安装PLG110，未部署服务端。自动测试与组件预览不能替代真机视觉、读屏、键盘、下拉与完整离线闭环验收；剩余验收见PLAN。
 

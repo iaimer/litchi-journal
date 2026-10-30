@@ -183,22 +183,25 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _saving ? null : _resetDefault,
-                  child: const Text('恢复默认'),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _saving ? null : _resetDefault,
+                    child: const Text('恢复默认'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _save,
-                  child: Text(_saving ? '保存中...' : '保存'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _saving ? null : _save,
+                    child: Text(_saving ? '保存中...' : '保存'),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

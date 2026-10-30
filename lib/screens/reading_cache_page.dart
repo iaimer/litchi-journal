@@ -52,23 +52,35 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
           '只清理手机上的阅读副本，不删除服务器日记、照片、连接配置或草稿。清理后，部分内容需要联网才能再次查看。',
         ),
         actions: [
-          TextButton(
-            style: TextButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('取消'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('清除'),
+                  ),
+                ),
+              ],
             ),
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('清除'),
           ),
         ],
       ),
@@ -104,7 +116,7 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
       children: [
         Expanded(child: Text(label)),
         const SizedBox(width: 12),
-        Text(value),
+        Expanded(child: Text(value, textAlign: TextAlign.end)),
       ],
     ),
   );
@@ -139,28 +151,59 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
             _row('图片缓存上限', '200 MB'),
 
             const SizedBox(height: 24),
-            Builder(
-              builder: (anchorContext) => OutlinedButton(
-                onPressed: _busy
-                    ? null
-                    : () => FloraOrigin.run(anchorContext, () => _clear(true)),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: Text(_busy ? '正在清理…' : '清除图片缓存'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Builder(
-              builder: (anchorContext) => OutlinedButton(
-                onPressed: _busy
-                    ? null
-                    : () => FloraOrigin.run(anchorContext, () => _clear(false)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: const Text('清除全部阅读缓存'),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Builder(
+                      builder: (anchorContext) => OutlinedButton(
+                        onPressed: _busy
+                            ? null
+                            : () => FloraOrigin.run(
+                                anchorContext,
+                                () => _clear(true),
+                              ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: Text(
+                          _busy ? '正在清理…' : '清除图片缓存',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Builder(
+                      builder: (anchorContext) => OutlinedButton(
+                        onPressed: _busy
+                            ? null
+                            : () => FloraOrigin.run(
+                                anchorContext,
+                                () => _clear(false),
+                              ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.colorScheme.error,
+                          minimumSize: const Size.fromHeight(48),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text(
+                          '清除全部阅读缓存',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),

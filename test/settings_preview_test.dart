@@ -104,6 +104,17 @@ void main() {
               expect(shape.borderRadius, BorderRadius.circular(12));
             }
           }
+          if (!tags) {
+            final left = tester.getRect(
+              find.widgetWithText(OutlinedButton, '清除图片缓存'),
+            );
+            final right = tester.getRect(
+              find.widgetWithText(OutlinedButton, '清除全部阅读缓存'),
+            );
+            expect(left.top, closeTo(right.top, .01));
+            expect(left.width, closeTo(right.width, .01));
+            expect(right.left - left.right, closeTo(12, .01));
+          }
           expect(tester.takeException(), isNull);
           if (output.isNotEmpty) {
             final boundary = tester.renderObject<RenderRepaintBoundary>(

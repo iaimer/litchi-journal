@@ -384,33 +384,45 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                 ),
               ),
               const SizedBox(height: FloraSpacing.lg),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(sheetContext).pop(true),
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(FloraRadius.md),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(true),
+                          style: FilledButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                FloraRadius.md,
+                              ),
+                            ),
+                            backgroundColor: theme.colorScheme.error,
+                            foregroundColor: theme.colorScheme.onError,
+                          ),
+                          child: const Text('永久删除'),
+                        ),
+                      ),
                     ),
-                    backgroundColor: theme.colorScheme.error,
-                    foregroundColor: theme.colorScheme.onError,
-                  ),
-                  child: const Text('永久删除'),
-                ),
-              ),
-              const SizedBox(height: FloraSpacing.sm),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () =>
+                              Navigator.of(sheetContext).pop(false),
+                          child: const Text('取消'),
+                        ),
+                      ),
                     ),
-                  ),
-                  onPressed: () => Navigator.of(sheetContext).pop(false),
-                  child: const Text('取消'),
+                  ],
                 ),
               ),
             ],
@@ -565,31 +577,42 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                   ),
                 ),
                 const SizedBox(height: FloraSpacing.lg),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () =>
+                                Navigator.of(sheetContext).pop(true),
+                            child: const Text('恢复默认'),
+                          ),
+                        ),
                       ),
-                    ),
-                    onPressed: () => Navigator.of(sheetContext).pop(true),
-                    child: const Text('恢复默认'),
-                  ),
-                ),
-                const SizedBox(height: FloraSpacing.sm),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () =>
+                                Navigator.of(sheetContext).pop(false),
+                            child: const Text('取消'),
+                          ),
+                        ),
                       ),
-                    ),
-                    onPressed: () => Navigator.of(sheetContext).pop(false),
-                    child: const Text('取消'),
+                    ],
                   ),
                 ),
               ],
@@ -1108,15 +1131,17 @@ class _TagNameSheetState extends State<_TagNameSheet> {
           const SizedBox(height: FloraSpacing.lg),
           SizedBox(
             width: double.infinity,
-            height: 48,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
+                onPressed: _submit,
+                child: const Text('确定'),
               ),
-              onPressed: _submit,
-              child: const Text('确定'),
             ),
           ),
         ],

@@ -287,42 +287,56 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
               : '将「$name」恢复为默认名称、图标、颜色、记录方式和启用状态？',
         ),
         actions: [
-          TextButton(
-            style: TextButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('取消'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _displayName = name;
+                        _icon = _defaultConfig.icon;
+                        _colorArgb = _defaultConfig.color.toARGB32();
+                        _active = true;
+                        _trackingType = _supportsDuration
+                            ? HabitSettings.defaults.trackingTypeFor(
+                                widget.habitKey,
+                              )
+                            : HabitTrackingType.checkbox;
+                        _nameController.text = name;
+                        if (_isQuantitativeHabit) {
+                          _targetController.text = HabitSettings
+                              .defaultTargets[widget.habitKey]
+                              .toString();
+                        }
+                        _durationDailyTargetController.clear();
+                        _durationLifetimeTargetController.clear();
+                      });
+                    },
+                    child: const Text('恢复默认'),
+                  ),
+                ),
+              ],
             ),
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              setState(() {
-                _displayName = name;
-                _icon = _defaultConfig.icon;
-                _colorArgb = _defaultConfig.color.toARGB32();
-                _active = true;
-                _trackingType = _supportsDuration
-                    ? HabitSettings.defaults.trackingTypeFor(widget.habitKey)
-                    : HabitTrackingType.checkbox;
-                _nameController.text = name;
-                if (_isQuantitativeHabit) {
-                  _targetController.text = HabitSettings
-                      .defaultTargets[widget.habitKey]
-                      .toString();
-                }
-                _durationDailyTargetController.clear();
-                _durationLifetimeTargetController.clear();
-              });
-            },
-            child: const Text('恢复默认'),
           ),
         ],
       ),
@@ -605,48 +619,62 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
 
             const SizedBox(height: 12),
 
-            if (!widget.isCreateMode)
-              // ── 5. 恢复默认 ──
-              SizedBox(
-                width: double.infinity,
-                child: Builder(
-                  builder: (anchorContext) => OutlinedButton.icon(
-                    onPressed: () =>
-                        FloraOrigin.run(anchorContext, _resetToDefault),
-                    icon: const FloraIcon(FloraIcons.reset, size: 20),
-                    label: const Text('恢复默认'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.colorScheme.onSurfaceVariant,
-                      side: BorderSide(color: theme.dividerColor),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              ),
-
-            const SizedBox(height: 24),
-
-            // ── 6. 保存按钮 ──
             SafeArea(
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: _saving ? null : _save,
-                  child: _saving
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: theme.colorScheme.onPrimary,
+              top: false,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!widget.isCreateMode) ...[
+                      Expanded(
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Builder(
+                            builder: (anchorContext) => OutlinedButton.icon(
+                              onPressed: () => FloraOrigin.run(
+                                anchorContext,
+                                _resetToDefault,
+                              ),
+                              icon: const FloraIcon(FloraIcons.reset, size: 20),
+                              label: const Text('恢复默认'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor:
+                                    theme.colorScheme.onSurfaceVariant,
+                                side: BorderSide(color: theme.dividerColor),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
                           ),
-                        )
-                      : const Text('保存'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: _saving ? null : _save,
+                          child: _saving
+                              ? SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: theme.colorScheme.onPrimary,
+                                  ),
+                                )
+                              : const Text('保存'),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -1,10 +1,10 @@
 # 当前进度与后续安排
 
-截至 2026-10-31，客户端清单为 `1.11.1+50`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
+截至 2026-10-31，客户端清单为 `1.11.2+51`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
 
 ## 设置控件统一
 
-设置及子页面已实现12dp圆角文字按钮、标签满宽底部操作抽屉、图片选项原位展开、紧凑提示词恢复按钮及常驻说明精简。代码验证与预览状态见HANDOFF；真机视觉与触控验收待完成。
+设置及子页面已实现12dp圆角文字按钮、成对操作按钮同行等宽两列、标签满宽底部操作抽屉、图片选项原位展开、紧凑提示词恢复按钮及常驻说明精简。代码验证与预览状态见HANDOFF；真机视觉与触控验收待完成。
 
 ## 模块标题图标与习惯着色
 

@@ -1,5 +1,9 @@
 # 当前交接
 
+## 1.11.2 内部发布准备（2026-10-31）
+
+来源分支 `fix/settings-button-layout-20261031`，版本 `1.11.2+51`。成对按钮同行等宽两列、12dp间距，保留发布版主次配色；大字体共同增高，缓存数值支持换行并保持右对齐。完整1545项Flutter测试、静态分析及差异检查通过，独立需求复核无新问题。真实Flutter预览位于 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/settings-row-restored-preview-20261031/`。Release包版本、包名、原内部签名及包内CHANGELOG均核对通过，交付文件 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/荔枝日记-1.11.2-内部发布版.apk`，65,353,375字节，SHA-256 `1df527cdc21002ed9f2dd47948f2dba736f91bdf780ba9970df0880b18121ccb`。准备squash合并及推送；无服务端改动，真机视觉和触控验收待完成。
+
 ## 1.11.1 内部发布（2026-10-31）
 
 版本 `1.11.1+50`，设置控件统一。完整1542项Flutter测试通过，最后动画修正的相关测试、静态分析及差异检查通过。内部Release包版本、包名及签名校验通过。交付包 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/荔枝日记-1.11.1-内部发布版.apk`，65,336,907字节，SHA-256 `ead41320f1bfd9a4a4af10a734819cb7f48b9aa8442dad30d9bb56facd041b64`。来源提交 `231df65` 已squash合并为 `a148862`，推送至GitHub主线且远端提交已核对。无服务端改动；真机验收待完成。

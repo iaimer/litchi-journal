@@ -90,23 +90,35 @@ class _TokenRotationDialogState extends State<TokenRotationDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          style: TextButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _saving ? null : _save,
+                  child: Text(_saving ? '正在验证…' : '验证并保存'),
+                ),
+              ),
+            ],
           ),
-          onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          onPressed: _saving ? null : _save,
-          child: Text(_saving ? '正在验证…' : '验证并保存'),
         ),
       ],
     ),

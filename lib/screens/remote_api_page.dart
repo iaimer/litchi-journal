@@ -62,20 +62,33 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
             widget.tokenConfigured ? '已配置' : '未配置',
           ),
           const SizedBox(height: 24),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: widget.apiClient == null ? null : _editBaseUrl,
+                    child: const Text('修改服务器地址'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: widget.apiClient == null ? null : _changeToken,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
+                    child: const Text('更换 Token'),
+                  ),
+                ),
+              ],
             ),
-            onPressed: widget.apiClient == null ? null : _editBaseUrl,
-            child: const Text('修改服务器地址'),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: widget.apiClient == null ? null : _changeToken,
-            style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
-            child: const Text('更换 Token'),
           ),
           const SizedBox(height: 8),
         ],
@@ -138,46 +151,60 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
                 ],
               ),
               actions: [
-                TextButton(
-                  style: TextButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('取消'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () async {
+                            final newUrl = controller.text.trim();
+                            if (newUrl.isEmpty) {
+                              setDialogState(() => error = '请输入服务器地址');
+                              return;
+                            }
+
+                            final config = _configForBaseUrl(newUrl);
+                            final client =
+                                widget.createApiClient?.call(config) ??
+                                ApiClient(config);
+                            final result = await client.testConnection(
+                              DateTime.now(),
+                            );
+                            client.dispose();
+
+                            if (!context.mounted) return;
+                            if (!result.success) {
+                              setDialogState(() => error = result.message);
+                              return;
+                            }
+
+                            await config.save();
+                            if (!context.mounted) return;
+                            Navigator.of(context).pop(true);
+                          },
+                          child: const Text('保存'),
+                        ),
+                      ),
+                    ],
                   ),
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('取消'),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () async {
-                    final newUrl = controller.text.trim();
-                    if (newUrl.isEmpty) {
-                      setDialogState(() => error = '请输入服务器地址');
-                      return;
-                    }
-
-                    final config = _configForBaseUrl(newUrl);
-                    final client =
-                        widget.createApiClient?.call(config) ??
-                        ApiClient(config);
-                    final result = await client.testConnection(DateTime.now());
-                    client.dispose();
-
-                    if (!context.mounted) return;
-                    if (!result.success) {
-                      setDialogState(() => error = result.message);
-                      return;
-                    }
-
-                    await config.save();
-                    if (!context.mounted) return;
-                    Navigator.of(context).pop(true);
-                  },
-                  child: const Text('保存'),
                 ),
               ],
             );

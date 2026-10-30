@@ -254,25 +254,56 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               enabled: _enabled,
             ),
             const SizedBox(height: 24),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      key: const ValueKey('ai_test_connection'),
+                      onPressed: (!_enabled || _saving || _testing)
+                          ? null
+                          : _testConnection,
+                      icon: _testing
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const FloraIcon(FloraIcons.wifi),
+                      label: Text(_testing ? '测试中…' : '测试连接'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: _saving ? null : _save,
+                      child: _saving
+                          ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.colorScheme.onPrimary,
+                              ),
+                            )
+                          : const Text('保存 AI 配置'),
+                    ),
+                  ),
+                ],
               ),
-              key: const ValueKey('ai_test_connection'),
-              onPressed: (!_enabled || _saving || _testing)
-                  ? null
-                  : _testConnection,
-              icon: _testing
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const FloraIcon(FloraIcons.wifi),
-              label: Text(_testing ? '测试中…' : '测试连接'),
             ),
+
             if (_testMessage != null)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
@@ -295,24 +326,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
               ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: theme.colorScheme.onPrimary,
-                      ),
-                    )
-                  : const Text('保存 AI 配置'),
-            ),
+
             const SizedBox(height: 24),
           ],
         ),

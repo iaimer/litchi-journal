@@ -14,6 +14,8 @@ class FloraIcons {
   static const String dockSettingsSelected = 'dock-settings-selected';
   static const String settings = 'settings';
   static const String coach = 'coach';
+  static const String sectionCoach = 'section-coach';
+  static const String sectionTomorrow = 'section-tomorrow';
 
   static const String fabWrite = 'fab-write';
   static const String fabInsight = 'fab-insight';
@@ -120,8 +122,9 @@ class FloraIcons {
     settings: 'settings',
     coach: 'sparkles',
     fabWrite: 'pen-line',
-    fabInsight: 'eye',
-    fabHappy: 'sparkles',
+    fabHappy: 'heart',
+    sectionCoach: 'clipboard-check',
+    sectionTomorrow: 'sprout',
     fabAnxiety: 'cloud-rain',
     fabPhoto: 'image-plus',
     settingAppearance: 'palette',
@@ -224,6 +227,8 @@ class FloraIcons {
   };
 
   static String path(String name) {
+    if (name == fabInsight) return 'assets/icons/custom/brain-side.svg';
+
     final lucideFile = _lucideFiles[name];
     if (lucideFile != null) return 'assets/icons/lucide/$lucideFile.svg';
 
@@ -244,6 +249,7 @@ class FloraIcons {
   static bool isLucide(String name) => _lucideFiles.containsKey(name);
 
   static List<String> get all => [
+    fabInsight,
     ..._lucideFiles.keys,
     ..._navigationFiles.keys,
     ..._lordiconSvgFiles.keys,

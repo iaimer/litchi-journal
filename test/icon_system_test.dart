@@ -39,8 +39,7 @@ void main() {
         'settings': 'settings',
         'coach': 'sparkles',
         'fab-write': 'pen-line',
-        'fab-insight': 'eye',
-        'fab-happy': 'sparkles',
+        'fab-happy': 'heart',
         'fab-anxiety': 'cloud-rain',
         'fab-photo': 'image-plus',
         'setting-appearance': 'palette',
@@ -151,6 +150,18 @@ void main() {
         expect(composition.getMarker('default:in-reveal'), isNotNull);
       }
     });
+  });
+
+  test('定制侧脑独立打包且能够被 SVG 渲染器解析', () async {
+    expect(
+      FloraIcons.path(FloraIcons.fabInsight),
+      'assets/icons/custom/brain-side.svg',
+    );
+    expect(FloraIcons.isLucide(FloraIcons.fabInsight), isFalse);
+    final bytes = await SvgAssetLoader(
+      FloraIcons.path(FloraIcons.fabInsight),
+    ).loadBytes(null);
+    expect(bytes.lengthInBytes, greaterThan(0));
   });
 
   group('Lordicon playback', () {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'diary_module_visual.dart';
 import 'flora_icon.dart';
 
 import '../models/diary_document.dart';
@@ -369,7 +370,9 @@ class DiaryMarkdownView extends StatelessWidget {
 
   /// 根据 section type 返回模块 accentColor（UI 表现层色值，非模型数据）。
   static Color _accentColorFor(DiarySection section) {
-    final rainbowColor = TodayRainbow.forSectionType(section.sectionType);
+    final rainbowColor =
+        DiaryModuleVisual.forType(section.sectionType)?.color ??
+        TodayRainbow.forSectionType(section.sectionType);
     if (rainbowColor != null) return rainbowColor;
 
     switch (section.sectionType) {
@@ -431,6 +434,7 @@ class DiaryMarkdownView extends StatelessWidget {
 
     return JournalSection(
       title: displayTitle,
+      icon: DiaryModuleVisual.forType(section.sectionType)?.icon,
       accentColor: accentColor,
       trailing: showButton
           ? TextButton.icon(
@@ -645,6 +649,7 @@ class DiaryMarkdownView extends StatelessWidget {
 
     return JournalSection(
       title: '明日寄语',
+      icon: DiaryModuleVisual.forType(section.sectionType)?.icon,
       accentColor: _accentColorFor(section),
       children: [
         Padding(

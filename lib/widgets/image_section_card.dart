@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'diary_module_visual.dart';
 import 'flora_origin.dart';
 import 'flora_dialog.dart';
 
@@ -40,6 +41,7 @@ class ImageSectionCard extends StatelessWidget {
       if (allPhotos.isNotEmpty) return const SizedBox.shrink();
       return JournalSection(
         title: '影像记录',
+        icon: DiaryModuleVisual.forType(section.sectionType)?.icon,
         accentColor: accentColor ?? theme.colorScheme.primary,
         children: [
           Text(
@@ -85,6 +87,7 @@ class ImageSectionCard extends StatelessWidget {
 
     return JournalSection(
       title: '影像记录',
+      icon: DiaryModuleVisual.forType(section.sectionType)?.icon,
       accentColor: accentColor ?? theme.colorScheme.primary,
       children: children,
     );

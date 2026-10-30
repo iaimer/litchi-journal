@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'flora_icon.dart';
 import 'flora_sheet.dart';
 import 'flora_origin.dart';
 
@@ -444,11 +445,23 @@ class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
             accentColor: _accentColor,
             padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
             children: [
-              Text(
-                diarySectionDisplayTitle(widget.section),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              Row(
+                children: [
+                  FloraIcon(
+                    FloraIcons.settingHabits,
+                    size: 20,
+                    color: _accentColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      diarySectionDisplayTitle(widget.section),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               ...children,
@@ -474,6 +487,9 @@ class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
           loading: _updatingField != null,
           displayName: _displayName(habit),
           icon: _icon(habit),
+          iconColor: habit.habitKey == null
+              ? null
+              : Color(_settings.colorFor(habit.habitKey!)),
           onTap: () {
             final next = _toggleCheckbox(habit, status);
             final field = _checkboxField(habit);
@@ -517,6 +533,9 @@ class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
                 loading: _updatingField != null,
                 displayName: _displayName(habit),
                 icon: _icon(habit),
+                iconColor: habit.habitKey == null
+                    ? null
+                    : Color(_settings.colorFor(habit.habitKey!)),
                 onTap: () {},
               )
             : _buildDurationRow(habit, status);
@@ -586,6 +605,9 @@ class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
           loading: false,
           displayName: _displayName(habit),
           icon: _icon(habit),
+          iconColor: habit.habitKey == null
+              ? null
+              : Color(_settings.colorFor(habit.habitKey!)),
           onTap: () {},
         );
       case HabitKind.counter:
@@ -596,6 +618,9 @@ class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
             loading: false,
             displayName: _displayName(habit),
             icon: _icon(habit),
+            iconColor: habit.habitKey == null
+                ? null
+                : Color(_settings.colorFor(habit.habitKey!)),
             onOpen: null,
           );
         }
@@ -605,6 +630,9 @@ class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
           loading: false,
           displayName: _displayName(habit),
           icon: _icon(habit),
+          iconColor: habit.habitKey == null
+              ? null
+              : Color(_settings.colorFor(habit.habitKey!)),
           onEdit: null,
         );
       case HabitKind.duration:
@@ -615,6 +643,9 @@ class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
                 loading: false,
                 displayName: _displayName(habit),
                 icon: _icon(habit),
+                iconColor: habit.habitKey == null
+                    ? null
+                    : Color(_settings.colorFor(habit.habitKey!)),
                 onTap: () {},
               )
             : _buildDurationRow(habit, status, readOnly: true);
@@ -1035,6 +1066,7 @@ class _CompactHabitRow extends StatelessWidget {
   final Key? statusKey;
   final String displayName;
   final String? icon;
+  final Color? iconColor;
   final bool checked;
   final Color checkedColor;
   final String? valueText;
@@ -1059,6 +1091,7 @@ class _CompactHabitRow extends StatelessWidget {
     this.statusKey,
     required this.displayName,
     this.icon,
+    this.iconColor,
     required this.checked,
     required this.checkedColor,
     this.valueText,
@@ -1112,7 +1145,7 @@ class _CompactHabitRow extends StatelessWidget {
                   child: HabitIcon(
                     icon!,
                     size: 18,
-                    color: theme.colorScheme.onSurface,
+                    color: iconColor ?? progressColor ?? checkedColor,
                   ),
                 ),
               ),
@@ -1329,6 +1362,7 @@ class _CheckboxRow extends StatelessWidget {
   final bool loading;
   final String displayName;
   final String? icon;
+  final Color? iconColor;
   final VoidCallback onTap;
 
   const _CheckboxRow({
@@ -1337,6 +1371,7 @@ class _CheckboxRow extends StatelessWidget {
     required this.loading,
     required this.displayName,
     this.icon,
+    this.iconColor,
     required this.onTap,
   });
 
@@ -1365,6 +1400,7 @@ class _CheckboxRow extends StatelessWidget {
       feedbackKey: habit.habitKey,
       displayName: displayName,
       icon: icon,
+      iconColor: iconColor,
       checked: _checked,
       checkedColor: checkedColor,
       onTap: loading ? null : onTap,
@@ -1380,6 +1416,7 @@ class _WaterCounterRow extends StatelessWidget {
   final bool loading;
   final String displayName;
   final String? icon;
+  final Color? iconColor;
   final int? target;
   final Color? progressColor;
   final VoidCallback? onOpen;
@@ -1390,6 +1427,7 @@ class _WaterCounterRow extends StatelessWidget {
     required this.loading,
     required this.displayName,
     this.icon,
+    this.iconColor,
     this.target,
     this.progressColor,
     this.onOpen,
@@ -1407,6 +1445,7 @@ class _WaterCounterRow extends StatelessWidget {
       feedbackKey: 'water',
       displayName: displayName,
       icon: icon,
+      iconColor: iconColor,
       checked: target != null && status.water >= target!,
       checkedColor: color,
       valueText: target == null
@@ -1436,6 +1475,7 @@ class _StepsCounterRow extends StatelessWidget {
   final bool loading;
   final String displayName;
   final String? icon;
+  final Color? iconColor;
   final int? target;
   final Color? progressColor;
   final VoidCallback? onEdit;
@@ -1446,6 +1486,7 @@ class _StepsCounterRow extends StatelessWidget {
     required this.loading,
     required this.displayName,
     this.icon,
+    this.iconColor,
     this.target,
     this.progressColor,
     required this.onEdit,
@@ -1463,6 +1504,7 @@ class _StepsCounterRow extends StatelessWidget {
       feedbackKey: 'steps',
       displayName: displayName,
       icon: icon,
+      iconColor: iconColor,
       checked: target != null && status.steps >= target!,
       checkedColor: color,
       valueText: target == null

@@ -306,7 +306,18 @@ tags:
         expect(decoratedAncestors, findsNothing);
         expect(find.text('模式识别'), findsOneWidget);
         expect(find.text('矛盾指出'), findsOneWidget);
-        expect(find.byType(FloraIcon), findsNWidgets(2));
+        for (final name in [
+          FloraIcons.sectionCoach,
+          FloraIcons.pin,
+          FloraIcons.warning,
+        ]) {
+          expect(
+            find.byWidgetPredicate(
+              (widget) => widget is FloraIcon && widget.name == name,
+            ),
+            findsOneWidget,
+          );
+        }
       },
     );
 

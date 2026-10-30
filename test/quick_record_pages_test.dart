@@ -15,6 +15,7 @@ import 'package:litchi_journal_flutter/services/api_client.dart';
 import 'package:litchi_journal_flutter/services/api_config.dart';
 import 'package:litchi_journal_flutter/theme/app_theme.dart';
 import 'package:litchi_journal_flutter/widgets/flora_dock.dart';
+import 'package:litchi_journal_flutter/widgets/flora_icon.dart';
 import 'package:litchi_journal_flutter/widgets/quick_record_backdrop.dart';
 import 'package:litchi_journal_flutter/widgets/quick_record_menu.dart';
 
@@ -113,6 +114,21 @@ void main() {
               final anchor = tester.getRect(_fab(historical));
               await tester.tap(_fab(historical));
               await tester.pumpAndSettle();
+              for (final (index, name, color) in [
+                (0, 'fab-happy', const Color(0xFFF0B36F)),
+                (1, 'fab-insight', const Color(0xFF8DB993)),
+                (2, 'fab-write', const Color(0xFFF08F8F)),
+              ]) {
+                final icon = tester.widget<FloraIcon>(
+                  find.descendant(
+                    of: _entries(historical)[index],
+                    matching: find.byType(FloraIcon),
+                  ),
+                );
+                expect(icon.name, name);
+                expect(icon.color, color);
+                expect(icon.size, 28);
+              }
               final rows = _entries(historical).map(tester.getRect).toList();
               for (final row in rows) {
                 expect(row.left, greaterThanOrEqualTo(15.99));

@@ -6,6 +6,7 @@ import '../widgets/flora_page_route.dart';
 import '../widgets/flora_app_bar.dart';
 import '../widgets/flora_origin.dart';
 
+import '../widgets/diary_module_visual.dart';
 import '../widgets/flora_icon.dart';
 import '../widgets/flora_success_snackbar.dart';
 import '../widgets/flora_skeleton.dart';
@@ -867,19 +868,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       },
       actions: [
         QuickRecordMenuAction(
-          icon: const FloraIcon(FloraIcons.fabHappy, size: 28),
+          icon: FloraIcon(
+            DiaryModuleVisual.forType('happiness')!.icon,
+            size: 28,
+            color: DiaryModuleVisual.forType('happiness')!.color,
+          ),
           title: '小确幸',
           key: const Key('quick_record_happiness'),
           onTap: () => _selectQuickEntry(EntryType.happiness),
         ),
         QuickRecordMenuAction(
-          icon: const FloraIcon(FloraIcons.fabInsight, size: 28),
+          icon: FloraIcon(
+            DiaryModuleVisual.forType('review')!.icon,
+            size: 28,
+            color: DiaryModuleVisual.forType('review')!.color,
+          ),
           title: '觉察',
           key: const Key('quick_record_reflection'),
           onTap: () => _selectQuickEntry(EntryType.reflection),
         ),
         QuickRecordMenuAction(
-          icon: const FloraIcon(FloraIcons.fabWrite, size: 28),
+          icon: FloraIcon(
+            DiaryModuleVisual.forType('quickNote')!.icon,
+            size: 28,
+            color: DiaryModuleVisual.forType('quickNote')!.color,
+          ),
           title: '随手记',
           key: const Key('quick_record_quick_note'),
           onTap: () => _selectQuickEntry(EntryType.quickNote),

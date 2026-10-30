@@ -28,7 +28,7 @@
 
 ## Flora 图标规则
 
-- 所有由 App 明确指定的静态界面图标统一从官方 Lucide SVG 资源映射，并通过 `FloraIcon` / `FloraIcons` 调用；不要在业务代码直接使用 `Icons.*`、旧 SVGrepo 或 Tabler Flora 资源。
+- 除觉察模块定制侧脑外，所有由 App 明确指定的静态界面图标统一从官方 Lucide SVG 资源映射，并通过 `FloraIcon` / `FloraIcons` 调用；不要在业务代码直接使用 `Icons.*`、旧 SVGrepo 或 Tabler Flora 资源。
 - 设置页图片设置使用 `settingImage`（Lucide `image`），本地缓存使用独立的 `settingCache`（Lucide `hard-drive`），均通过 `FloraIcon` 渲染。
 - Dock 选中态是唯一静态实心例外：四个项目派生 SVG 放在 `assets/icons/navigation/`，独立逻辑名仅供 Dock 使用；其他场景及用户习惯配置继续使用官方空心图标。派生资源保持 24×24、`currentColor` 和透明镂空，不使用固定白色模拟镂空。
 - Lordicon 仅用于过往空状态书本和正向 SnackBar 勾选反馈；必须从本地资源播放单次 `in-reveal`，系统减少动态效果或资源加载失败时使用对应静态 SVG。不得循环播放。
@@ -37,6 +37,14 @@
 - 习惯默认图标和习惯候选图标使用 `FloraIcon` 逻辑名称，而不是直接保存新的 emoji。
 - 习惯展示统一经过 `HabitIcon`：新配置渲染 SVG，旧用户配置中保存过的 emoji 继续兼容显示。
 - 不要在习惯卡、习惯设置页或习惯统计页直接 `Text(icon)`，否则会把 `habit-water` 等逻辑名称显示成文本。
+
+### 日记模块标题与添加菜单
+
+- 已知模块标题以20dp图标替换前导竖线，图文间距8dp；未知自定义章节保留原展示，正文时间轴竖线不变。标题文字继续使用同色系可读前景。
+- `DiaryModuleVisual` 按模块类型提供标题与添加菜单共用的图标和主色：随手记 `pen-line`／珊瑚粉、小确幸 `heart`／杏橙、觉察定制侧脑／叶绿、今日回顾 `clipboard-check`／晴蓝、明日寄语 `sprout`／藤紫、影像记录 `images`／藤紫。今天与历史详情一致，空今日回顾仍只显示生成入口。
+- 习惯卡标题使用 `list-checks`，沿用卡片当前强调色；每个习惯行的SVG图标使用该习惯的实际配置色，未完成、完成及只读状态均保留颜色，不改变原勾选与进度反馈。旧emoji兼容显示，不强制染色。
+- 觉察图标 `assets/icons/custom/brain-side.svg` 是项目定制的横向侧脑，不是Lucide官方资源；透明底、24×24画布、2单位圆头描边，与Lucide线条风格一致。静态图标的来源规则允许这一明确例外。
+- 添加菜单保持28dp图标、原顺序与动效，仅同步模块图形和颜色；不改变底部导航或页面布局。
 
 ## 五模块清亮配色
 

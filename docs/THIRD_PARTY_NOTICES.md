@@ -10,6 +10,12 @@
 - 2026-10-18 外观模式补充 `monitor.svg` 与 `sun.svg`，取自同一固定版本 `lucide-static@1.47.0`；`moon.svg` 复用已有资源，不改写已保存的图标逻辑名称。
 - 许可：ISC License；其中列出的 Feather 派生图标同时附带 MIT License。
 
+2026-10-30 模块标题补充 `heart.svg` 与 `clipboard-check.svg`，取自同一固定版本 `lucide-static@1.47.0`。
+
+### 项目定制侧脑
+
+`assets/icons/custom/brain-side.svg` 为荔枝日记按Lucide线条风格独立绘制的横向侧脑，非Lucide官方资源；通过稳定逻辑名 `fab-insight` 供觉察标题和添加菜单共用。
+
 ### Dock 实心派生资源
 
 `assets/icons/navigation/` 中的以下文件由项目基于已打包的 Lucide

@@ -1,6 +1,10 @@
 # 当前进度与后续安排
 
-截至 2026-10-30，客户端清单为 `1.10.5+47`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
+截至 2026-10-30，客户端清单为 `1.10.6+48`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
+
+## 模块标题图标与习惯着色
+
+已接入模块标题、今天与历史添加菜单的共用视觉定义：随手记笔、小确幸爱心、觉察定制横向侧脑、今日回顾清单、明日寄语嫩芽、影像照片；已知标题替换竖线，正文时间轴不变。习惯标题加入清单图标，内置及自定义习惯SVG按实际配置色显示，保留旧emoji及原有状态反馈。测试、审查与设备验收状态见[HANDOFF.md](HANDOFF.md)。
 
 ## 已实现能力
 

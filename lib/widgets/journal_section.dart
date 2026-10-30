@@ -41,6 +41,7 @@ double journalFabSafetyInset(BuildContext context) {
 
 class JournalSection extends StatelessWidget {
   final String title;
+  final String? icon;
   final Color accentColor;
   final List<Widget> children;
   final Widget? trailing;
@@ -48,6 +49,7 @@ class JournalSection extends StatelessWidget {
   const JournalSection({
     super.key,
     required this.title,
+    this.icon,
     required this.accentColor,
     required this.children,
     this.trailing,
@@ -66,18 +68,27 @@ class JournalSection extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: accentColor,
-                    borderRadius: BorderRadius.circular(2),
+                if (icon != null)
+                  FloraIcon(icon!, size: 20, color: accentColor)
+                else
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: const SizedBox(width: 4, height: 20),
                   ),
-                  child: const SizedBox(width: 4, height: 20),
-                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     title,
-                    style: DiaryReadingStyle.of(context).heading(theme),
+                    style: DiaryReadingStyle.of(context)
+                        .heading(theme)
+                        .copyWith(
+                          color: icon == null
+                              ? null
+                              : moduleTextColor(accentColor, theme),
+                        ),
                   ),
                 ),
                 ?trailing,

@@ -1,3 +1,4 @@
+import 'diary_module_visual.dart';
 import 'markdown_image_boundary.dart';
 import 'package:flutter/material.dart';
 import 'flora_dialog.dart';
@@ -85,6 +86,7 @@ class GenericSectionCard extends StatelessWidget {
     if (journalLayout) {
       return JournalSection(
         title: displayTitle,
+        icon: DiaryModuleVisual.forType(section.sectionType)?.icon,
         accentColor: effectiveAccent,
         children: children,
       );

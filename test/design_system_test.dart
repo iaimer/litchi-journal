@@ -194,7 +194,7 @@ void main() {
       );
       expect(
         FloraIcons.path(FloraIcons.fabInsight),
-        'assets/icons/lucide/eye.svg',
+        'assets/icons/custom/brain-side.svg',
       );
     });
 

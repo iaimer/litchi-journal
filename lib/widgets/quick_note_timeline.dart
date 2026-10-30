@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'diary_module_visual.dart';
 import 'flora_dialog.dart';
 import 'flora_page_route.dart';
 
@@ -68,6 +69,7 @@ class QuickNoteTimeline extends StatelessWidget {
 
     return JournalSection(
       title: '随手记',
+      icon: DiaryModuleVisual.forType(section.sectionType)?.icon,
       accentColor: accentColor ?? Theme.of(context).colorScheme.primary,
       children: [
         for (var index = 0; index < section.notes.length; index++)

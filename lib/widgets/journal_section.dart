@@ -39,6 +39,15 @@ double journalFabSafetyInset(BuildContext context) {
   return compactLargeText ? 72 : 0;
 }
 
+/// 分组内由容器统一安排节间距，避免每个章节重复添加底部留白。
+class JournalGroupScope extends InheritedWidget {
+  const JournalGroupScope({super.key, required super.child});
+  static bool contains(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<JournalGroupScope>() != null;
+  @override
+  bool updateShouldNotify(JournalGroupScope oldWidget) => false;
+}
+
 class JournalSection extends StatelessWidget {
   final String title;
   final String? icon;
@@ -59,7 +68,9 @@ class JournalSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: FloraSpacing.xl),
+      padding: EdgeInsets.only(
+        bottom: JournalGroupScope.contains(context) ? 0 : FloraSpacing.xl,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

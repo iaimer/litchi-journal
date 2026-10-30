@@ -10,7 +10,6 @@ import '../models/polish_result.dart';
 import '../models/tag_config.dart';
 import '../models/tag_settings.dart';
 import '../services/api_client.dart';
-import '../services/markdown_parser.dart';
 import '../theme/app_theme.dart';
 import '../theme/diary_reading_style.dart';
 import 'anxiety_card.dart';
@@ -22,11 +21,20 @@ import 'image_section_card.dart';
 import 'journal_section.dart';
 import 'quick_note_timeline.dart';
 import 'review_card.dart';
+import 'section_card.dart';
+import 'flora_expand.dart';
+import 'diary_display_state.dart';
+import 'flora_origin.dart';
 import 'tag_color_helper.dart';
 import '../screens/quick_capture_screen.dart';
 
 class DiaryMarkdownView extends StatelessWidget {
   final String markdown;
+  final DiaryDisplayState? displayState;
+  final VoidCallback? onOpenQuickRecord;
+  final Widget? initialCoachAction;
+  final String? coachError;
+  final GlobalKey? coachAnchor;
   final Future<bool> Function(HabitStatus)? onHabitUpdate;
   final Future<void> Function(String sectionKey, String rawLine)? onEntryDelete;
   final Future<void> Function(
@@ -93,6 +101,11 @@ class DiaryMarkdownView extends StatelessWidget {
   const DiaryMarkdownView({
     super.key,
     required this.markdown,
+    this.displayState,
+    this.onOpenQuickRecord,
+    this.initialCoachAction,
+    this.coachError,
+    this.coachAnchor,
     this.onHabitUpdate,
     this.onEntryDelete,
     this.onEntryEdit,
@@ -122,17 +135,17 @@ class DiaryMarkdownView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final document = const MarkdownParser().parse(markdown);
+    final state =
+        displayState ??
+        DiaryDisplayState(
+          markdown,
+          habitFallback:
+              (!readOnly || showTodayPlaceholders) && onHabitUpdate != null,
+        );
+    final document = state.document;
     final canShowHabitFallback =
         (!readOnly || showTodayPlaceholders) && onHabitUpdate != null;
-    final hasOnlyHabits =
-        (!readOnly || showTodayPlaceholders) &&
-        (canShowHabitFallback ||
-            document.sections.any((section) => section is HabitSection)) &&
-        document.preamble.every((content) => !content.hasRealContent) &&
-        document.sections.every(
-          (section) => section is HabitSection || section.isEmpty,
-        );
+    final hasOnlyHabits = state.hasOnlyHabits;
     final canGenerateCoach =
         (!readOnly || showTodayPlaceholders) &&
         onGenerateCoach != null &&
@@ -158,36 +171,89 @@ class DiaryMarkdownView extends StatelessWidget {
       );
     }
 
-    var hasCoachSection = false;
-    var hasHabitSection = false;
-    for (final section in document.sections) {
-      if (section is HabitSection) hasHabitSection = true;
-      if (_isHiddenSection(section)) continue;
-      if (section is CoachSection && hasOnlyHabits) continue;
-      if (section is CoachSection) hasCoachSection = true;
-      if (section.isEmpty &&
-          (section is! CoachSection ||
-              (readOnly && !showTodayPlaceholders) ||
-              onGenerateCoach == null)) {
+    final visible = document.sections
+        .where((s) => !_isHiddenSection(s))
+        .toList();
+    final habits = visible.whereType<HabitSection>().toList();
+    for (final habit in habits) {
+      widgets.add(_buildSection(habit, context));
+    }
+    if (canShowHabitFallback &&
+        habits.isEmpty &&
+        !_isHiddenSection(HabitSection.empty())) {
+      widgets.add(_buildSection(HabitSection.empty(), context));
+    }
+
+    final personal = <DiarySection>[
+      ...visible.whereType<QuickNoteSection>().where((s) => !s.isEmpty),
+      ...visible.whereType<HappinessSection>().where((s) => !s.isEmpty),
+      ...visible.whereType<ReviewSection>().where((s) => !s.isEmpty),
+    ];
+    if (personal.isNotEmpty || showTodayPlaceholders) {
+      widgets.add(
+        _group(
+          'personal',
+          personal.isEmpty
+              ? [_buildPersonalPlaceholder(context)]
+              : personal.map((s) => _buildSection(s, context)).toList(),
+        ),
+      );
+    }
+
+    if (canGenerateCoach && !state.hasCoach) {
+      if (initialCoachAction != null) {
+        widgets.add(initialCoachAction!);
+      } else if (!generatingCoach && coachError == null) {
+        widgets.add(
+          _buildCoachCard(
+            const CoachSection(title: '今日回顾', contents: []),
+            context,
+          ),
+        );
+      }
+    }
+
+    final ai = visible
+        .where((s) => (s is CoachSection || s is TomorrowSection) && !s.isEmpty)
+        .toList();
+    final showAi = ai.isNotEmpty || generatingCoach || coachError != null;
+    widgets.add(
+      FloraExpand(
+        key: const ValueKey('coach_reveal'),
+        expanded: showAi,
+        child: KeyedSubtree(
+          key: coachAnchor,
+          child: _group('ai', [
+            if (!state.hasCoach && (generatingCoach || coachError != null))
+              _buildCoachStatus(context),
+            ...ai.map((s) => _buildSection(s, context)),
+            if (state.hasCoach && coachError != null && !generatingCoach)
+              Text(coachError!, style: Theme.of(context).textTheme.bodyMedium),
+          ]),
+        ),
+      ),
+    );
+    final media = visible
+        .whereType<MediaSection>()
+        .where((s) => s.photos.any((photo) => photo.entryId == null))
+        .toList();
+    if (media.isNotEmpty) {
+      widgets.add(
+        _group('media', media.map((s) => _buildSection(s, context)).toList()),
+      );
+    }
+    for (final section in visible) {
+      if (section is HabitSection ||
+          section is QuickNoteSection ||
+          section is HappinessSection ||
+          section is ReviewSection ||
+          section is CoachSection ||
+          section is TomorrowSection ||
+          section is MediaSection ||
+          section.isEmpty) {
         continue;
       }
       widgets.add(_buildSection(section, context));
-    }
-
-    final fallbackHabitSection = HabitSection.empty();
-    if (canShowHabitFallback &&
-        !hasHabitSection &&
-        !_isHiddenSection(fallbackHabitSection)) {
-      widgets.add(_buildSection(fallbackHabitSection, context));
-    }
-
-    if (canGenerateCoach && !hasCoachSection) {
-      widgets.add(
-        _buildCoachCard(
-          const CoachSection(title: '今日回顾', contents: []),
-          context,
-        ),
-      );
     }
 
     if (widgets.isEmpty) return const SizedBox.shrink();
@@ -196,6 +262,68 @@ class DiaryMarkdownView extends StatelessWidget {
       children: widgets,
     );
   }
+
+  Widget _group(String name, List<Widget> children) => children.isEmpty
+      ? const SizedBox.shrink()
+      : SectionCard(
+          key: ValueKey('diary_group_$name'),
+          quiet: true,
+          children: [
+            JournalGroupScope(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 24),
+                    children[i],
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+
+  Widget _buildPersonalPlaceholder(BuildContext context) => FloraInkWell(
+    onTap: readOnly ? null : onOpenQuickRecord,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        JournalSection(
+          title: '生活记录',
+          icon: DiaryModuleVisual.forType('quickNote')!.icon,
+          accentColor: DiaryModuleVisual.forType('quickNote')!.color,
+          children: const [],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '今天发生了什么？记下一件小事、一个开心瞬间，或一点新的觉察。',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.7,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildCoachStatus(BuildContext context) => JournalSection(
+    title: '今日回顾',
+    icon: DiaryModuleVisual.forType('coach')!.icon,
+    accentColor: TodayRainbow.coach,
+    children: [
+      if (generatingCoach) ...[
+        const LinearProgressIndicator(),
+        const SizedBox(height: 12),
+        const Text('正在生成今日回顾…'),
+      ] else ...[
+        Text(coachError!, style: Theme.of(context).textTheme.bodyMedium),
+        TextButton(
+          onPressed: readOnly ? null : onGenerateCoach,
+          child: const Text('重试'),
+        ),
+      ],
+    ],
+  );
 
   bool _isHiddenSection(DiarySection section) {
     if (hiddenSections.isEmpty) return false;

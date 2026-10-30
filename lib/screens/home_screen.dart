@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import '../widgets/flora_dock.dart';
@@ -36,6 +37,8 @@ import '../services/tag_settings_helper.dart';
 import '../services/tag_settings_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/diary_markdown_view.dart';
+import '../widgets/diary_display_state.dart';
+import '../widgets/tag_color_helper.dart';
 import '../widgets/diary_date_title.dart';
 import '../widgets/entry_type.dart';
 import '../widgets/habit_card.dart';
@@ -50,6 +53,8 @@ typedef TodayImageCompressor = QuickCaptureImageCompressor;
 
 class HomeScreen extends StatefulWidget {
   final ApiClient apiClient;
+  final PolisherService? polisherService;
+  final DateTime Function()? now;
   final HabitSettingsRepository? habitSettingsRepo;
   final TodayImagePicker? imagePicker;
   final TodayImageCompressor? imageCompressor;
@@ -60,6 +65,8 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.apiClient,
+    this.polisherService,
+    this.now,
     this.habitSettingsRepo,
     this.imagePicker,
     this.imageCompressor,
@@ -84,29 +91,29 @@ String buildCoachDiaryContext(String rawDiary) {
   final document = const MarkdownParser().parse(rawDiary);
   for (final section in document.sections) {
     if (section is QuickNoteSection) {
-      addSection('随手记', _timelineRawLines(section.contents));
+      addSection('随手记', _recordCoachText(section.contents));
     } else if (section is HappinessSection) {
-      addSection('小确幸', _timelineRawLines(section.contents));
+      addSection('小确幸', _recordCoachText(section.contents));
     } else if (section is AnxietySection) {
       addSection(
         '焦虑时刻',
         section.coachAnswers.where(_isUsableContextLine).toList(),
       );
     } else if (section is ReviewSection) {
-      addSection('觉察', _timelineRawLines(section.contents));
+      addSection('觉察', _recordCoachText(section.contents));
     }
   }
 
   return sections.isEmpty ? '今天暂无日记内容' : sections.join('\n');
 }
 
-List<String> _timelineRawLines(List<DiaryContent> contents) {
-  return contents
-      .whereType<TimelineContent>()
-      .map((content) => content.rawLine)
-      .where(_isUsableContextLine)
-      .toList();
-}
+List<String> _recordCoachText(List<DiaryContent> contents) => [
+  for (final content in contents)
+    if (content is TimelineContent && content.hasRealContent)
+      '${content.time} ${content.text} ${content.tags.join(' ')}'.trim()
+    else if (content is MarkdownContent && content.hasRealContent)
+      content.text,
+];
 
 bool _isUsableContextLine(String line) {
   final trimmed = line.trim();
@@ -116,12 +123,18 @@ bool _isUsableContextLine(String line) {
       !trimmed.contains('<!--');
 }
 
+class _CoachSaveFailure implements Exception {
+  final String message;
+  const _CoachSaveFailure(this.message);
+}
+
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _diaryLoadTimeout = Duration(seconds: 12);
 
   DiaryEntry? _diary;
   DateTime? _diaryDate;
   int _diaryRefreshSerial = 0;
+  Future<void>? _latestDiaryRead;
   bool _loading = true;
   String? _error;
   bool _verified = false;
@@ -131,6 +144,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   late final FocusTimerController _focusTimerController;
   bool _generatingCoach = false;
+  String? _coachError;
+  int _coachRun = 0;
+  final _coachAnchor = GlobalKey();
   bool _quickRecordExpanded = false;
   int _menuDismissRevision = 0;
   HabitSettings? _habitSettings;
@@ -183,6 +199,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     if (!identical(oldWidget.apiClient, widget.apiClient)) {
       _diaryRefreshSerial++;
+      _coachRun++;
+      _generatingCoach = false;
+      _coachError = null;
       _diary = null;
       _verified = false;
       _loadTagConfig();
@@ -230,15 +249,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _loadDiary() async {
+  Future<void> _loadDiary() {
+    final read = _readTodayDiary();
+    _latestDiaryRead = read;
+    return read;
+  }
+
+  Future<void> _readTodayDiary() async {
     final requestId = ++_diaryRefreshSerial;
     final client = widget.apiClient;
-    final date = DateTime.now();
+    final date = _now;
     final hasVisibleContent =
         _diary != null &&
         _diaryDate != null &&
         ApiClient.formatDate(_diaryDate!) == ApiClient.formatDate(date);
     setState(() {
+      if (_diaryDate != null &&
+          ApiClient.formatDate(_diaryDate!) != ApiClient.formatDate(date)) {
+        _coachRun++;
+        _generatingCoach = false;
+        _coachError = null;
+        _diaryDate = date;
+      }
       if (!hasVisibleContent) _diary = null;
       _loading = !hasVisibleContent;
       _error = null;
@@ -300,6 +332,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }) {
     setState(() {
       _diary = diary;
+      if (_diaryDate != null &&
+          ApiClient.formatDate(_diaryDate!) != ApiClient.formatDate(date)) {
+        _coachRun++;
+        _generatingCoach = false;
+        _coachError = null;
+      }
       _diaryDate = date;
       _loading = false;
       _verified = verified && diary != null;
@@ -397,7 +435,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return {};
   }
 
-  Future<void> _loadDiarySilently() async {
+  Future<void> _loadDiarySilently() {
+    final read = _readDiarySilently();
+    _latestDiaryRead = read;
+    return read;
+  }
+
+  Future<void> _readDiarySilently() async {
     final requestId = ++_diaryRefreshSerial;
     try {
       final diary = await widget.apiClient.getDiary(_activeDate);
@@ -799,63 +843,160 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!success) throw Exception('保存失败');
   }
 
+  bool _isCoachCurrent(int run, ApiClient client, DateTime date) =>
+      mounted &&
+      run == _coachRun &&
+      identical(client, widget.apiClient) &&
+      ApiClient.formatDate(date) == ApiClient.formatDate(_activeDate);
+
   Future<void> _handleGenerateCoach() async {
-    if (_generatingCoach || _diary == null || _diary!.raw.isEmpty) return;
-
-    setState(() => _generatingCoach = true);
-
+    if (_generatingCoach || !_verified || _diary == null) return;
+    final client = widget.apiClient;
+    final date = _activeDate;
+    final raw = _diary!.raw;
+    final run = ++_coachRun;
+    setState(() {
+      _generatingCoach = true;
+      _coachError = null;
+    });
+    _revealCoachIfNeeded();
     try {
-      final aiRepo = AIConfigRepository();
-      final config = await aiRepo.loadAIConfig();
-      if (!config.isUsable) throw Exception('今日回顾尚未配置，请前往设置');
-
-      final diaryContext = buildCoachDiaryContext(_diary!.raw);
-
-      final service = PolisherService();
-      try {
-        final result = await service.generateCoach(
-          diaryContext: diaryContext,
-          config: config,
-        );
-        final parts = PolisherService.splitCoachResultLikeWeb(result);
-        final lizhiContent = parts.lizhiContent;
-        final actionContent = parts.actionContent;
-
-        if (lizhiContent.isEmpty) {
-          throw Exception('生成结果为空，请重试');
-        }
-
-        final ok = await widget.apiClient.replaceLizhiSays(
-          _activeDate,
-          lizhiContent,
-        );
-        if (!ok) throw Exception('保存今日回顾失败');
-
-        if (actionContent.isNotEmpty) {
-          final tomorrowOk = await widget.apiClient.replaceTomorrowSection(
-            _activeDate,
-            actionContent,
-          );
-          if (!tomorrowOk) throw Exception('保存明日寄语失败');
-        }
-      } finally {
-        service.dispose();
-      }
-
-      if (!mounted) return;
+      await _generateAndSaveCoach(client, date, raw, run);
+      if (!_isCoachCurrent(run, client, date)) return;
+      await _refreshCoach(client, date, run);
+      if (!mounted || !_isCoachCurrent(run, client, date)) return;
       showFloraSuccessSnackBar(context, '今日回顾已保存');
-      _loadDiarySilently();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(PolisherService.readableCoachError(e))),
-      );
+    } catch (error) {
+      if (!mounted || !_isCoachCurrent(run, client, date)) return;
+      final message = error is _CoachSaveFailure
+          ? error.message
+          : PolisherService.readableCoachError(error);
+      setState(() => _coachError = message);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
-      if (mounted) setState(() => _generatingCoach = false);
+      if (_isCoachCurrent(run, client, date)) {
+        setState(() => _generatingCoach = false);
+      }
     }
   }
 
-  DateTime get _activeDate => _diaryDate ?? DateTime.now();
+  Future<void> _generateAndSaveCoach(
+    ApiClient client,
+    DateTime date,
+    String raw,
+    int run,
+  ) async {
+    final config = await AIConfigRepository().loadAIConfig();
+    if (!_isCoachCurrent(run, client, date)) return;
+    if (!config.isUsable) throw Exception('今日回顾尚未配置，请前往设置');
+    final service = widget.polisherService ?? PolisherService();
+    try {
+      final result = await service.generateCoach(
+        diaryContext: buildCoachDiaryContext(raw),
+        config: config,
+      );
+      if (!_isCoachCurrent(run, client, date)) return;
+      final parts = PolisherService.splitCoachResultLikeWeb(result);
+      if (parts.lizhiContent.isEmpty) throw Exception('生成结果为空，请重试');
+      if (!await client.replaceLizhiSays(date, parts.lizhiContent)) {
+        throw const _CoachSaveFailure('今日回顾保存失败，请重试');
+      }
+      if (parts.actionContent.isEmpty) return;
+      try {
+        if (!await client.replaceTomorrowSection(date, parts.actionContent)) {
+          throw Exception('明日寄语保存失败');
+        }
+      } catch (_) {
+        try {
+          await _refreshCoach(client, date, run);
+        } finally {
+          throw const _CoachSaveFailure('今日回顾已保存，但明日寄语保存失败，请重试');
+        }
+      }
+    } finally {
+      if (widget.polisherService == null) service.dispose();
+    }
+  }
+
+  Future<void> _refreshCoach(ApiClient client, DateTime date, int run) async {
+    if (!_isCoachCurrent(run, client, date)) return;
+    final serial = ++_diaryRefreshSerial;
+    DiaryEntry? diary;
+    Object? failure;
+    try {
+      diary = await client.getDiary(date);
+    } catch (error) {
+      failure = error;
+    }
+    if (!_isCoachCurrent(run, client, date)) return;
+    if (serial != _diaryRefreshSerial) {
+      await _waitForCoachRead(client, date, run);
+      return;
+    }
+    if (failure != null || diary == null) {
+      setState(() {
+        _verified = false;
+        if (failure is ApiException && failure.isAuthenticationFailure) {
+          _diary = null;
+          _error = '认证失败，请检查连接设置后重试';
+        }
+      });
+      throw const _CoachSaveFailure('今日回顾已保存，但刷新失败，请下拉刷新');
+    }
+    setState(() {
+      _diary = diary;
+      _verified = true;
+      _error = null;
+    });
+  }
+
+  Future<void> _waitForCoachRead(
+    ApiClient client,
+    DateTime date,
+    int run,
+  ) async {
+    var read = _latestDiaryRead;
+    while (read != null) {
+      await read;
+      if (!_isCoachCurrent(run, client, date)) return;
+      if (identical(read, _latestDiaryRead)) break;
+      read = _latestDiaryRead;
+    }
+    if (!_verified || !DiaryDisplayState(_diary?.raw ?? '').hasCoach) {
+      throw const _CoachSaveFailure('今日回顾已保存，但刷新失败，请下拉刷新');
+    }
+  }
+
+  void _revealCoachIfNeeded() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.active || !_scrollController.hasClients) return;
+      final anchor = _coachAnchor.currentContext?.findRenderObject();
+      if (anchor is! RenderBox || !anchor.hasSize) return;
+      final top = anchor.localToGlobal(Offset.zero).dy;
+      final scope = FloraDockScope.maybeOf(context);
+      final visibleBottom =
+          MediaQuery.sizeOf(context).height - (scope?.clearance ?? 96);
+      final visibleTop = _headerInset + 16;
+      final delta = top < visibleTop
+          ? top - visibleTop
+          : math.max(0.0, top + 100 - visibleBottom);
+      if (delta == 0) return;
+      final position = _scrollController.position;
+      _scrollController.animateTo(
+        (position.pixels + delta).clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+        duration: FloraMotion.standardFor(MediaQuery.of(context)),
+        curve: Curves.easeOutQuart,
+      );
+    });
+  }
+
+  DateTime get _now => widget.now?.call() ?? DateTime.now();
+  DateTime get _activeDate => _diaryDate ?? _now;
 
   Widget _buildQuickRecordFab(ThemeData theme) {
     return QuickRecordMenu(
@@ -1003,6 +1144,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildCoachCapsule(ThemeData theme) => Padding(
+    padding: const EdgeInsets.only(right: 72, bottom: 12),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(
+        key: const ValueKey('generate_coach_capsule'),
+        onPressed: _generatingCoach || !_verified ? null : _handleGenerateCoach,
+        style: TextButton.styleFrom(
+          backgroundColor: Color.alphaBlend(
+            TodayRainbow.coach.withValues(alpha: 0.22),
+            theme.colorScheme.surface,
+          ),
+          foregroundColor: moduleTextColor(TodayRainbow.coach, theme),
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: const StadiumBorder(),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            _generatingCoach ? '生成中…' : '生成今日回顾',
+            maxLines: 1,
+            softWrap: false,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    ),
+  );
+
   Widget _buildHomeLoading() {
     return FloraSkeletonRegion(
       child: ListView(
@@ -1052,6 +1224,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final sourceRaw = _diary?.raw;
+    final display = DiaryDisplayState(sourceRaw ?? '', habitFallback: true);
     return PopScope<void>(
       canPop: !_quickRecordExpanded,
       onPopInvokedWithResult: (didPop, _) {
@@ -1120,8 +1293,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           else
                             const SizedBox.shrink(),
                           _buildFocusTimerStrip(theme),
-                          if (_diary?.raw.isNotEmpty == true) ...[
+                          if (_diary != null) ...[
                             DiaryMarkdownView(
+                              displayState: display,
+                              initialCoachAction: Visibility(
+                                visible: !_quickRecordExpanded,
+                                maintainState: true,
+                                maintainAnimation: true,
+                                maintainSize: true,
+                                child: _buildCoachCapsule(theme),
+                              ),
+                              coachError: _coachError,
+                              coachAnchor: _coachAnchor,
+                              onOpenQuickRecord: () =>
+                                  setState(() => _quickRecordExpanded = true),
                               readOnly: !_verified,
                               showTodayPlaceholders: true,
                               markdown: _diary?.raw ?? '',

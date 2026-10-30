@@ -265,10 +265,10 @@ tags:
       expect(find.text('明天完成重要任务'), findsOneWidget);
     });
 
-    testWidgets(
-      'coach content uses an open layout without a surface container',
-      (tester) async {
-        const markdown = '''
+    testWidgets('coach content uses one shared quiet surface container', (
+      tester,
+    ) async {
+      const markdown = '''
 # 今天
 
 ### 🧠 人生教练
@@ -278,48 +278,41 @@ tags:
 有一点焦虑
 ''';
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: DiaryMarkdownView(
-                markdown: markdown,
-                onGenerateCoach: () {},
-                readOnly: true,
-              ),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiaryMarkdownView(
+              markdown: markdown,
+              onGenerateCoach: () {},
+              readOnly: true,
             ),
           ),
-        );
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final decoratedAncestors = find.ancestor(
+      expect(
+        find.ancestor(
           of: find.text('你今天表现很好'),
-          matching: find.byWidgetPredicate((widget) {
-            if (widget is DecoratedBox) return true;
-            if (widget is Container) {
-              return widget.color != null ||
-                  widget.decoration != null ||
-                  widget.foregroundDecoration != null;
-            }
-            return false;
-          }),
+          matching: find.byKey(const ValueKey('diary_group_ai')),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('模式识别'), findsOneWidget);
+      expect(find.text('矛盾指出'), findsOneWidget);
+      for (final name in [
+        FloraIcons.sectionCoach,
+        FloraIcons.pin,
+        FloraIcons.warning,
+      ]) {
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is FloraIcon && widget.name == name,
+          ),
+          findsOneWidget,
         );
-        expect(decoratedAncestors, findsNothing);
-        expect(find.text('模式识别'), findsOneWidget);
-        expect(find.text('矛盾指出'), findsOneWidget);
-        for (final name in [
-          FloraIcons.sectionCoach,
-          FloraIcons.pin,
-          FloraIcons.warning,
-        ]) {
-          expect(
-            find.byWidgetPredicate(
-              (widget) => widget is FloraIcon && widget.name == name,
-            ),
-            findsOneWidget,
-          );
-        }
-      },
-    );
+      }
+    });
 
     testWidgets('restore default rendering after changes', (tester) async {
       const markdown = '''

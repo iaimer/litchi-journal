@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'flora_icon.dart';
+import '../theme/diary_reading_style.dart';
 import 'flora_sheet.dart';
 import 'flora_origin.dart';
 
@@ -456,9 +457,13 @@ class _HabitCardState extends State<HabitCard> with WidgetsBindingObserver {
                   Expanded(
                     child: Text(
                       diarySectionDisplayTitle(widget.section),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: DiaryReadingStyle.of(context)
+                          .heading(Theme.of(context))
+                          .copyWith(
+                            color: Theme.of(
+                              context,
+                            ).textTheme.titleMedium?.color,
+                          ),
                     ),
                   ),
                 ],

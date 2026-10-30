@@ -352,6 +352,6 @@ tags:
     expect(find.text('🌙 明日寄语'), findsNothing);
     expect(find.textContaining('明天当焦虑升起时'), findsOneWidget);
     expect(find.textContaining('- 明天当焦虑升起时'), findsNothing);
-    expect(find.byType(SectionCard), findsNothing);
+    expect(find.byKey(const ValueKey('diary_group_ai')), findsOneWidget);
   });
 }

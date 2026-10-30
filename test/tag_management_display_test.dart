@@ -146,6 +146,54 @@ Future<void> _cancelAction(
 }
 
 void main() {
+  testWidgets('删除已展开领域后后续领域保持收起', (tester) async {
+    final settings = TagSettings.fromTagConfig(DefaultTagConfig.value);
+    final first = settings.domainSettings[0];
+    final next = settings.domainSettings[1];
+    await _mount(tester, settings);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('展开').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(first.displayName));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('永久删除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '永久删除'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    final nextCard = find.byKey(ValueKey('tag_domain_${next.key}'));
+    expect(nextCard, findsOneWidget);
+    for (final topic in next.topics) {
+      expect(
+        find.descendant(of: nextCard, matching: find.text(topic.displayName)),
+        findsNothing,
+      );
+    }
+    await tester.pumpAndSettle();
+  });
+  testWidgets('领域展开中下方卡片连续下移，收起开始子项不可点击', (tester) async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final settings = TagSettings.fromTagConfig(DefaultTagConfig.value);
+    await _mount(tester, settings);
+    await tester.pumpAndSettle();
+    final next = find.text(settings.domainSettings[1].displayName).first;
+    final before = tester.getTopLeft(next).dy;
+    await tester.tap(find.byTooltip('展开').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    final during = tester.getTopLeft(next).dy;
+    await tester.pump(const Duration(milliseconds: 250));
+    final after = tester.getTopLeft(next).dy;
+    expect(during, greaterThan(before));
+    expect(during, lessThan(after));
+    await tester.tap(find.byTooltip('收起').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.getTopLeft(next).dy, inExclusiveRange(before, after));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(next).dy, before);
+  });
+
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
   setUpAll(() async {
     const path = String.fromEnvironment('TAG_PREVIEW_FONT');

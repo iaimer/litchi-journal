@@ -54,12 +54,14 @@ class FloraDock extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final double height;
+  final List<GlobalKey>? iconKeys;
 
   const FloraDock({
     super.key,
     required this.selectedIndex,
     required this.onSelected,
     required this.height,
+    this.iconKeys,
   });
 
   static double heightFor(BuildContext context) =>
@@ -81,24 +83,24 @@ class FloraDock extends StatelessWidget {
           animationDuration: FloraMotion.fastFor(MediaQuery.of(context)),
           selectedIndex: selectedIndex,
           onDestinationSelected: onSelected,
-          destinations: const [
+          destinations: [
             NavigationDestination(
-              icon: _DockIcon(FloraIcons.diary),
+              icon: _DockIcon(FloraIcons.diary, key: iconKeys?[0]),
               selectedIcon: _DockIcon(FloraIcons.dockDiarySelected),
               label: '今天',
             ),
             NavigationDestination(
-              icon: _DockIcon(FloraIcons.history),
+              icon: _DockIcon(FloraIcons.history, key: iconKeys?[1]),
               selectedIcon: _DockIcon(FloraIcons.dockHistorySelected),
               label: '过往',
             ),
             NavigationDestination(
-              icon: _DockIcon(FloraIcons.habits),
+              icon: _DockIcon(FloraIcons.habits, key: iconKeys?[2]),
               selectedIcon: _DockIcon(FloraIcons.dockHabitsSelected),
               label: '习惯',
             ),
             NavigationDestination(
-              icon: _DockIcon(FloraIcons.settings),
+              icon: _DockIcon(FloraIcons.settings, key: iconKeys?[3]),
               selectedIcon: _DockIcon(FloraIcons.dockSettingsSelected),
               label: '设置',
             ),
@@ -112,7 +114,7 @@ class FloraDock extends StatelessWidget {
 class _DockIcon extends StatelessWidget {
   final String name;
 
-  const _DockIcon(this.name);
+  const _DockIcon(this.name, {super.key});
 
   @override
   Widget build(BuildContext context) => DecoratedBox(

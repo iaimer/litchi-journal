@@ -1,6 +1,8 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../widgets/flora_sheet.dart';
 import '../widgets/flora_origin.dart';
+import '../widgets/flora_expand.dart';
 
 import '../widgets/flora_icon.dart';
 
@@ -692,6 +694,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     final topics = domain.topics.where((topic) => !topic.deleted).toList();
 
     return Card(
+      key: ValueKey('tag_domain_${domain.key}'),
       margin: const EdgeInsets.only(bottom: FloraSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,11 +723,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                         }
                       });
                     },
-                    icon: FloraIcon(
-                      expanded ? FloraIcons.chevronUp : FloraIcons.chevronDown,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    icon: _domainChevron(theme, expanded),
                     tooltip: expanded ? '收起' : '展开',
                   ),
                 ),
@@ -770,47 +769,74 @@ class _TagSettingsPageState extends State<TagSettingsPage>
               ],
             ),
           ),
-          if (expanded) ...[
-            Divider(
-              height: 1,
-              indent: FloraSpacing.lg,
-              endIndent: FloraSpacing.lg,
-              color: theme.dividerColor,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                FloraSpacing.lg,
-                FloraSpacing.sm,
-                FloraSpacing.md,
-                FloraSpacing.md,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (topics.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: FloraSpacing.sm),
-                      child: Text(
-                        '暂无主题标签',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  else
-                    ...topics.map((topic) => _buildTopicRow(theme, topic)),
-                  _buildAddButton(
-                    theme: theme,
-                    label: '＋ 添加主题',
-                    onTap: () => _addTopic(domain),
-                    compact: true,
+          FloraExpand(
+            expanded: expanded,
+            child: Column(
+              children: [
+                Divider(
+                  height: 1,
+                  indent: FloraSpacing.lg,
+                  endIndent: FloraSpacing.lg,
+                  color: theme.dividerColor,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    FloraSpacing.lg,
+                    FloraSpacing.sm,
+                    FloraSpacing.md,
+                    FloraSpacing.md,
                   ),
-                ],
-              ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (topics.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: FloraSpacing.sm,
+                          ),
+                          child: Text(
+                            '暂无主题标签',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      else
+                        ...topics.map((topic) => _buildTopicRow(theme, topic)),
+                      _buildAddButton(
+                        theme: theme,
+                        label: '＋ 添加主题',
+                        onTap: () => _addTopic(domain),
+                        compact: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _domainChevron(ThemeData theme, bool expanded) {
+    final icon = FloraIcon(
+      FloraIcons.chevronDown,
+      size: 20,
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    if (MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      return Transform.rotate(angle: expanded ? -math.pi : 0, child: icon);
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: expanded ? -0.5 : 0),
+      duration: expanded ? FloraMotion.standard : FloraMotion.fast,
+      curve: Curves.easeOutQuart,
+      builder: (context, turns, child) =>
+          Transform.rotate(angle: turns * 2 * math.pi, child: child),
+      child: icon,
     );
   }
 

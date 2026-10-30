@@ -58,7 +58,8 @@ void registerQuickCaptureTests() {
       await tester.pumpWidget(buildHome(httpClient: httpClient));
       await tester.pumpAndSettle();
 
-      expect(find.text('今日还没有日记内容'), findsOneWidget);
+      expect(find.text('生活记录'), findsOneWidget);
+      expect(find.textContaining('今天发生了什么'), findsOneWidget);
       expect(find.byKey(const ValueKey('habit_card')), findsOneWidget);
       expect(find.text('亲子共读'), findsOneWidget);
 

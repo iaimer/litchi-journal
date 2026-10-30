@@ -12,6 +12,8 @@ import 'screens/habit_stats_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/diary_reading_style.dart';
 import 'widgets/flora_dock.dart';
+import 'widgets/flora_dock_pages.dart';
+import 'widgets/flora_origin.dart';
 import 'widgets/flora_skeleton.dart';
 import 'widgets/flora_splash.dart';
 import 'screens/setup_screen.dart';
@@ -162,7 +164,7 @@ class _AppEntryState extends State<AppEntry> {
   }
 }
 
-/// 底部导航主页面，包含今天、过往、习惯三个 tab。
+/// 底部导航主页面，保留今天、过往、习惯与设置四个页面状态。
 class MainScreen extends StatefulWidget {
   final ApiClient apiClient;
   final ValueChanged<ApiConfig> onApiConfigChanged;
@@ -179,6 +181,8 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  Rect? _dockOrigin;
+  final _dockIconKeys = List.generate(4, (_) => GlobalKey());
   int _habitRefreshToken = 0;
   int _settingsRevision = 0;
   int _menuDismissRevision = 0;
@@ -231,13 +235,22 @@ class _MainScreenState extends State<MainScreen> {
         child: MediaQuery.removePadding(
           context: context,
           removeBottom: true,
-          child: IndexedStack(index: _currentIndex, children: screens),
+          child: FloraDockPages(
+            selectedIndex: _currentIndex,
+            origin: _dockOrigin,
+            children: screens,
+          ),
         ),
       ),
       bottomNavigationBar: FloraDock(
         selectedIndex: _currentIndex,
+        iconKeys: _dockIconKeys,
         height: dockHeight,
         onSelected: (index) {
+          final iconContext = _dockIconKeys[index].currentContext;
+          if (iconContext != null) {
+            _dockOrigin = FloraOrigin.capture(iconContext)?.rect;
+          }
           setState(() {
             _menuDismissRevision++;
             if (index == _currentIndex && index != 2) return;

@@ -40,7 +40,7 @@ void main() {
         find.widgetWithText(OutlinedButton, '清除图片缓存'),
       );
       final right = tester.getRect(
-        find.widgetWithText(OutlinedButton, '清除全部阅读缓存'),
+        find.widgetWithText(ElevatedButton, '清除全部阅读缓存'),
       );
       expect(left.top, right.top);
       expect(left.size, right.size);

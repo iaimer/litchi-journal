@@ -1,13 +1,11 @@
-import '../widgets/token_rotation_dialog.dart';
 import 'package:flutter/material.dart';
-import '../widgets/flora_dialog.dart';
 
 import '../services/api_client.dart';
 import '../services/api_config.dart';
 import '../widgets/flora_page_scaffold.dart';
 import '../widgets/flora_success_snackbar.dart';
 
-/// 远程 API 信息页。
+/// 服务器连接配置，测试不写入，保存只采用已验证的当前表单。
 class RemoteApiPage extends StatefulWidget {
   final ApiConfig apiConfig;
   final ApiClient? apiClient;
@@ -29,212 +27,209 @@ class RemoteApiPage extends StatefulWidget {
 }
 
 class _RemoteApiPageState extends State<RemoteApiPage> {
-  late String _baseUrl;
-  ApiConfig? _rotatedConfig;
-  TextEditingController? _baseUrlEditController;
+  late ApiConfig _current;
+  late final TextEditingController _url;
+  final _token = TextEditingController();
+  bool _testing = false;
+  bool _saving = false;
+  int _revision = 0;
+  int? _verifiedRevision;
+  String? _message;
+  bool _success = false;
+
+  bool get _busy => _testing || _saving;
 
   @override
   void initState() {
     super.initState();
-    _baseUrl = widget.apiConfig.baseUrl;
+    _current =
+        widget.apiClient?.configWithBaseUrl(widget.apiConfig.baseUrl) ??
+        widget.apiConfig;
+    _url = TextEditingController(text: _current.baseUrl);
+    _url.addListener(_changed);
+    _token.addListener(_changed);
+  }
+
+  void _changed() {
+    setState(() {
+      _revision++;
+      _verifiedRevision = null;
+      _message = null;
+      _success = false;
+    });
   }
 
   @override
   void dispose() {
-    _baseUrlEditController?.dispose();
+    _url.dispose();
+    _token.dispose();
     super.dispose();
+  }
+
+  ApiConfig? _candidate() {
+    final address = _url.text.trim();
+    final uri = Uri.tryParse(address);
+    String? error;
+    if (uri == null ||
+        !['http', 'https'].contains(uri.scheme) ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        RegExp(r'\s').hasMatch(address)) {
+      error = '请输入有效的 HTTP 或 HTTPS 服务器地址';
+    }
+    final entered = _token.text.trim();
+    if (error == null &&
+        entered.isNotEmpty &&
+        (entered.length < 32 || RegExp(r'\s').hasMatch(entered))) {
+      error = '请输入至少32个字符且不含空白的新 Token';
+    }
+    final token = entered.isEmpty ? _current.token : entered;
+    if (error == null && token.isEmpty) error = '请输入 Token';
+    if (error != null) {
+      setState(() {
+        _message = error;
+        _success = false;
+      });
+      return null;
+    }
+    return ApiConfig(baseUrl: address, token: token);
+  }
+
+  Future<void> _run({required bool save}) async {
+    if (_busy) return;
+    final config = _candidate();
+    if (config == null) return;
+    final revision = _revision;
+    setState(() {
+      _saving = save;
+      _testing = !save;
+      _message = null;
+    });
+    ApiClient? client;
+    try {
+      if (!save || _verifiedRevision != revision) {
+        client = widget.createApiClient?.call(config) ?? ApiClient(config);
+        final result = await client.testConnection(DateTime.now());
+        if (!mounted || revision != _revision) return;
+        if (!result.success) {
+          setState(() {
+            _message = result.message;
+            _success = false;
+            _verifiedRevision = null;
+          });
+          return;
+        }
+        _verifiedRevision = revision;
+      }
+      if (!mounted || revision != _revision) return;
+      if (!save) {
+        setState(() {
+          _message = '连接成功';
+          _success = true;
+        });
+        return;
+      }
+      await config.save();
+      if (!mounted) return;
+      _current = config;
+      _token.clear();
+      _verifiedRevision = _revision;
+      widget.onConfigChanged?.call(config);
+      showFloraSuccessSnackBar(context, '连接配置已保存并生效');
+    } catch (_) {
+      if (mounted && revision == _revision) {
+        setState(() {
+          _message = save ? '验证或保存失败，请重试' : '连接测试失败，请重试';
+          _success = false;
+          _verifiedRevision = null;
+        });
+      }
+    } finally {
+      client?.dispose();
+      if (mounted) {
+        setState(() {
+          _testing = false;
+          _saving = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return FloraPageScaffold(
-      title: '服务器连接',
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildInfoRow(theme, '服务器地址', _baseUrl),
-          const SizedBox(height: 16),
-          _buildInfoRow(
-            theme,
-            'Token 状态',
-            widget.tokenConfigured ? '已配置' : '未配置',
-          ),
-          const SizedBox(height: 24),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: widget.apiClient == null ? null : _editBaseUrl,
-                    child: const Text('修改服务器地址'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: widget.apiClient == null ? null : _changeToken,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(48, 48),
-                    ),
-                    child: const Text('更换 Token'),
-                  ),
-                ),
-              ],
+    return PopScope(
+      canPop: !_saving,
+      child: FloraPageScaffold(
+        title: '服务器连接',
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextField(
+              key: const Key('server_url'),
+              controller: _url,
+              enabled: !_busy,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: const InputDecoration(labelText: '服务器地址'),
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
-
-  ApiConfig _configForBaseUrl(String baseUrl) => _rotatedConfig == null
-      ? widget.apiClient!.configWithBaseUrl(baseUrl)
-      : ApiConfig(baseUrl: baseUrl, token: _rotatedConfig!.token);
-
-  Future<void> _changeToken() async {
-    final config = await showFloraDialog<ApiConfig>(
-      context: context,
-      builder: (_) => TokenRotationDialog(
-        baseUrl: _baseUrl,
-        createApiClient: widget.createApiClient,
-      ),
-    );
-    if (!mounted || config == null) return;
-    _rotatedConfig = config;
-    widget.onConfigChanged?.call(config);
-    showFloraSuccessSnackBar(context, 'Token 已更新并生效');
-  }
-
-  Future<void> _editBaseUrl() async {
-    _baseUrlEditController?.dispose();
-    final controller = TextEditingController(text: _baseUrl);
-    _baseUrlEditController = controller;
-    String? error;
-
-    final saved = await showFloraDialog<bool>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('修改服务器地址'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 16),
+            TextField(
+              key: const Key('server_token'),
+              controller: _token,
+              enabled: !_busy,
+              obscureText: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              enableIMEPersonalizedLearning: false,
+              decoration: InputDecoration(
+                labelText: 'Token',
+                hintText: _current.token.isNotEmpty
+                    ? '已配置，留空保持不变'
+                    : '请输入 Token',
+              ),
+            ),
+            const SizedBox(height: 24),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(
-                      labelText: '服务器地址',
-                      hintText: 'http://<TAILSCALE_IP>:4001',
-                    ),
-                    keyboardType: TextInputType.url,
-                  ),
-                  if (error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _busy ? null : () => _run(save: false),
+                      child: Text(
+                        _testing ? '测试中…' : '测试连接',
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _busy ? null : () => _run(save: true),
+                      child: Text(
+                        _saving ? '保存中…' : '保存',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              actions: [
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          style: TextButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('取消'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: () async {
-                            final newUrl = controller.text.trim();
-                            if (newUrl.isEmpty) {
-                              setDialogState(() => error = '请输入服务器地址');
-                              return;
-                            }
-
-                            final config = _configForBaseUrl(newUrl);
-                            final client =
-                                widget.createApiClient?.call(config) ??
-                                ApiClient(config);
-                            final result = await client.testConnection(
-                              DateTime.now(),
-                            );
-                            client.dispose();
-
-                            if (!context.mounted) return;
-                            if (!result.success) {
-                              setDialogState(() => error = result.message);
-                              return;
-                            }
-
-                            await config.save();
-                            if (!context.mounted) return;
-                            Navigator.of(context).pop(true);
-                          },
-                          child: const Text('保存'),
-                        ),
-                      ),
-                    ],
-                  ),
+            ),
+            if (_message != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _message!,
+                style: TextStyle(
+                  color: _success
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.error,
                 ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    final newBaseUrl = controller.text.trim();
-    if (!mounted || saved != true) return;
-
-    final config = _configForBaseUrl(newBaseUrl);
-    widget.onConfigChanged?.call(config);
-    setState(() => _baseUrl = newBaseUrl);
-    showFloraSuccessSnackBar(context, '服务器地址已保存并生效');
-  }
-
-  Widget _buildInfoRow(ThemeData theme, String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+              ),
+            ],
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(value, style: theme.textTheme.bodyMedium),
-      ],
+      ),
     );
   }
 }

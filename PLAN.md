@@ -1,6 +1,10 @@
 # 当前进度与后续安排
 
-截至 2026-10-31，客户端清单为 `1.11.2+51`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
+截至 2026-10-31，客户端清单为 `1.11.3+52`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
+
+## 服务器表单与设置布局修正
+
+服务器连接改为地址和Token内联编辑，测试与保存两列；旧凭据不回显、留空保留，验证当前组合后整体保存。标签恢复按钮与卡片等宽，底部操作菜单移除末项下多余留白；缓存左描边、右保存样式。代码验证与设备验收状态见HANDOFF。
 
 ## 设置控件统一
 

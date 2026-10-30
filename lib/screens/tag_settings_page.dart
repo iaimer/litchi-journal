@@ -280,12 +280,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
         return SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              0,
-              FloraSpacing.xs,
-              0,
-              FloraSpacing.lg,
-            ),
+            padding: const EdgeInsets.fromLTRB(0, FloraSpacing.xs, 0, 0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1007,7 +1002,8 @@ class _TagSettingsPageState extends State<TagSettingsPage>
   }
 
   Widget _buildRestoreButton(ThemeData theme) {
-    return Center(
+    return SizedBox(
+      width: double.infinity,
       child: Builder(
         builder: (anchorContext) => OutlinedButton.icon(
           onPressed: () => FloraOrigin.run(anchorContext, _restoreAll),

@@ -220,9 +220,15 @@ void registerPreferencesTests() {
         ),
       );
 
-      expect(find.text('Token 状态'), findsOneWidget);
-      expect(find.text('未配置'), findsOneWidget);
-      expect(find.text('已配置'), findsNothing);
+      expect(find.byKey(const Key('server_token')), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('server_token')))
+            .controller!
+            .text,
+        isEmpty,
+      );
+      expect(find.text('请输入 Token'), findsOneWidget);
     });
 
     testWidgets('remote api save notifies new config immediately', (
@@ -249,15 +255,16 @@ void registerPreferencesTests() {
         ),
       );
 
-      await tester.tap(find.text('修改服务器地址'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'https://new.local');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.enterText(
+        find.byKey(const Key('server_url')),
+        'https://new.local',
+      );
+      await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
       await tester.pumpAndSettle();
 
       expect(changedConfig?.baseUrl, 'https://new.local');
       expect(changedConfig?.token, 'test');
-      expect(find.text('服务器地址已保存并生效'), findsOneWidget);
+      expect(find.text('连接配置已保存并生效'), findsOneWidget);
       expect(find.text('保存后重启 App 生效。'), findsNothing);
     });
 

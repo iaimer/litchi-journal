@@ -123,7 +123,6 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final usage = _usage;
     return FloraPageScaffold(
       title: '本地缓存',
@@ -181,15 +180,14 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Builder(
-                      builder: (anchorContext) => OutlinedButton(
+                      builder: (anchorContext) => ElevatedButton(
                         onPressed: _busy
                             ? null
                             : () => FloraOrigin.run(
                                 anchorContext,
                                 () => _clear(false),
                               ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: theme.colorScheme.error,
+                        style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,

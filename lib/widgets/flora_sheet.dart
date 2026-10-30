@@ -10,6 +10,7 @@ Future<T?> showFloraSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool isScrollControlled = false,
+  bool slideFromBottom = false,
   bool useSafeArea = false,
   bool showDragHandle = false,
   Color? backgroundColor,
@@ -19,6 +20,7 @@ Future<T?> showFloraSheet<T>({
   final navigator = Navigator.of(context);
   final route = _FloraSheetRoute<T>(
     builder: builder,
+    slideFromBottom: slideFromBottom,
     origin: FloraOrigin.current,
     themes: InheritedTheme.capture(from: context, to: navigator.context),
     isScrollControlled: isScrollControlled,
@@ -35,6 +37,7 @@ Future<T?> showFloraSheet<T>({
 
 class _FloraSheetRoute<T> extends PopupRoute<T> with FloraPopupMotion<T> {
   final WidgetBuilder builder;
+  final bool slideFromBottom;
   final FloraOrigin? origin;
   final CapturedThemes themes;
   final bool isScrollControlled;
@@ -47,6 +50,7 @@ class _FloraSheetRoute<T> extends PopupRoute<T> with FloraPopupMotion<T> {
 
   _FloraSheetRoute({
     required this.builder,
+    required this.slideFromBottom,
     required this.origin,
     required this.themes,
     required this.isScrollControlled,
@@ -148,21 +152,26 @@ class _FloraSheetRoute<T> extends PopupRoute<T> with FloraPopupMotion<T> {
                   final source = animation.status == AnimationStatus.reverse
                       ? origin?.returnRect(size)
                       : origin?.scaledRect(size);
+                  final surface = FloraGlassSurface(
+                    tint: backgroundColor,
+                    borderRadius: shape is RoundedRectangleBorder
+                        ? (shape as RoundedRectangleBorder).borderRadius
+                              .resolve(Directionality.of(context))
+                        : BorderRadius.circular(FloraRadius.lg),
+                    child: sheet!,
+                  );
+                  if (slideFromBottom) {
+                    return FractionalTranslation(
+                      translation: Offset(0, 1 - progress),
+                      child: surface,
+                    );
+                  }
                   return FloraOriginTransform(
                     source: source,
                     progress: progress,
                     child: Opacity(
                       opacity: disabled ? 1 : animation.value,
-                      child: FloraGlassSurface(
-                        tint: backgroundColor,
-                        borderRadius: shape is RoundedRectangleBorder
-                            ? (shape as RoundedRectangleBorder).borderRadius
-                                  .resolve(Directionality.of(context))
-                            : const BorderRadius.all(
-                                Radius.circular(FloraRadius.lg),
-                              ),
-                        child: sheet!,
-                      ),
+                      child: surface,
                     ),
                   );
                 },

@@ -79,7 +79,7 @@ class _AppearanceSegmentLayout {
       // 增高时仍保留小圆角，避免完整胶囊变成椭圆而裁掉端点文字。
       shape: const WidgetStatePropertyAll(
         RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
+          borderRadius: BorderRadius.all(Radius.circular(FloraRadius.md)),
         ),
       ),
       side: WidgetStatePropertyAll(BorderSide(color: colors.outline)),

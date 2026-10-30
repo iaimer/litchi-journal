@@ -140,7 +140,7 @@ void main() {
       expect(
         control.style!.shape!.resolve({}),
         const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
+          borderRadius: BorderRadius.all(Radius.circular(12)),
         ),
       );
       expect(control.style!.backgroundColor!.resolve({})!.a, 1);

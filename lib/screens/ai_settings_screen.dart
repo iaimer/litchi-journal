@@ -255,6 +255,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             ),
             const SizedBox(height: 24),
             OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               key: const ValueKey('ai_test_connection'),
               onPressed: (!_enabled || _saving || _testing)
                   ? null
@@ -291,6 +296,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 ),
               ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: _saving ? null : _save,
               child: _saving
                   ? SizedBox(

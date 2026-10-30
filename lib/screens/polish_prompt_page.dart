@@ -106,11 +106,6 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
         padding: const EdgeInsets.all(16),
         children: [
           Text('润色提示词', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text(
-            '默认使用系统推荐提示词。你可以直接修改；修改后将使用你的版本。',
-            style: theme.textTheme.bodySmall,
-          ),
           const SizedBox(height: 8),
           TextField(
             controller: _promptController,
@@ -128,15 +123,28 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(48, 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                textStyle: const TextStyle(fontSize: 12),
+                tapTargetSize: MaterialTapTargetSize.padded,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: _resetPolishPrompt,
-              child: const Text('恢复默认润色提示词'),
+              child: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('恢复默认', maxLines: 1),
+              ),
             ),
           ),
           const SizedBox(height: 24),
           Text('今日回顾提示词', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text('用于生成「今日回顾」模块的每日总结和建议。', style: theme.textTheme.bodySmall),
           const SizedBox(height: 8),
           TextField(
             controller: _coachPromptController,
@@ -154,13 +162,33 @@ class _PolishPromptPageState extends State<PolishPromptPage> {
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(48, 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                textStyle: const TextStyle(fontSize: 12),
+                tapTargetSize: MaterialTapTargetSize.padded,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: _resetCoachPrompt,
-              child: const Text('恢复默认今日回顾提示词'),
+              child: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('恢复默认', maxLines: 1),
+              ),
             ),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: _saving ? null : _save,
             child: _saving
                 ? SizedBox(

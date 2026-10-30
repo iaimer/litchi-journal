@@ -267,6 +267,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
         ];
 
     return showFloraSheet<_TagEntryAction>(
+      slideFromBottom: true,
       context: context,
       showDragHandle: true,
       backgroundColor: theme.colorScheme.surface,
@@ -280,16 +281,21 @@ class _TagSettingsPageState extends State<TagSettingsPage>
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
-              FloraSpacing.lg,
+              0,
               FloraSpacing.xs,
-              FloraSpacing.lg,
+              0,
               FloraSpacing.lg,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(bottom: FloraSpacing.sm),
+                  padding: const EdgeInsets.fromLTRB(
+                    FloraSpacing.lg,
+                    0,
+                    FloraSpacing.lg,
+                    FloraSpacing.sm,
+                  ),
                   child: Text(
                     name,
                     maxLines: 1,
@@ -303,7 +309,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                     color: theme.colorScheme.surfaceContainerHighest.withAlpha(
                       80,
                     ),
-                    borderRadius: BorderRadius.circular(FloraRadius.md),
+                    borderRadius: BorderRadius.zero,
                   ),
                   child: Column(
                     children: [
@@ -384,6 +390,9 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                 child: FilledButton(
                   onPressed: () => Navigator.of(sheetContext).pop(true),
                   style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(FloraRadius.md),
+                    ),
                     backgroundColor: theme.colorScheme.error,
                     foregroundColor: theme.colorScheme.onError,
                   ),
@@ -395,6 +404,11 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                 width: double.infinity,
                 height: 48,
                 child: TextButton(
+                  style: TextButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   onPressed: () => Navigator.of(sheetContext).pop(false),
                   child: const Text('取消'),
                 ),
@@ -555,6 +569,11 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                   width: double.infinity,
                   height: 48,
                   child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     onPressed: () => Navigator.of(sheetContext).pop(true),
                     child: const Text('恢复默认'),
                   ),
@@ -564,6 +583,11 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                   width: double.infinity,
                   height: 48,
                   child: TextButton(
+                    style: TextButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     onPressed: () => Navigator.of(sheetContext).pop(false),
                     child: const Text('取消'),
                   ),
@@ -729,6 +753,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
                 ),
                 Expanded(
                   child: FloraInkWell(
+                    quiet: true,
                     onTap: () => _handleDomainAction(domain),
                     borderRadius: BorderRadius.circular(FloraRadius.sm),
                     child: Padding(
@@ -844,6 +869,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     return Padding(
       padding: const EdgeInsets.only(bottom: FloraSpacing.xs),
       child: FloraInkWell(
+        quiet: true,
         onTap: () => _handleTopicAction(topic),
         borderRadius: BorderRadius.circular(FloraRadius.sm),
         child: Padding(
@@ -921,6 +947,7 @@ class _TagSettingsPageState extends State<TagSettingsPage>
     return Card(
       margin: const EdgeInsets.only(bottom: FloraSpacing.sm),
       child: FloraInkWell(
+        quiet: true,
         onTap: () => _handleMethodAction(method),
         borderRadius: BorderRadius.circular(FloraRadius.md),
         child: Padding(
@@ -959,11 +986,13 @@ class _TagSettingsPageState extends State<TagSettingsPage>
   Widget _buildRestoreButton(ThemeData theme) {
     return Center(
       child: Builder(
-        builder: (anchorContext) => TextButton.icon(
+        builder: (anchorContext) => OutlinedButton.icon(
           onPressed: () => FloraOrigin.run(anchorContext, _restoreAll),
           icon: const FloraIcon(FloraIcons.restore, size: 20),
           label: const Text('恢复全部默认'),
-          style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.colorScheme.error,
+          ),
         ),
       ),
     );
@@ -1080,7 +1109,15 @@ class _TagNameSheetState extends State<_TagNameSheet> {
           SizedBox(
             width: double.infinity,
             height: 48,
-            child: FilledButton(onPressed: _submit, child: const Text('确定')),
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _submit,
+              child: const Text('确定'),
+            ),
           ),
         ],
       ),

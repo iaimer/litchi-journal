@@ -34,15 +34,54 @@ class FloraPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: FloraAppBar(
-        title: Text(title),
-        leading: leading,
-        actions: actions,
+    const shape = WidgetStatePropertyAll<OutlinedBorder>(
+      RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
-      body: SafeArea(top: false, bottom: true, child: body),
-      bottomNavigationBar: bottomNavigationBar,
+    );
+    final buttons = theme.copyWith(
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: (theme.outlinedButtonTheme.style ?? const ButtonStyle())
+            .copyWith(shape: shape),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: (theme.filledButtonTheme.style ?? const ButtonStyle()).copyWith(
+          shape: shape,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: (theme.elevatedButtonTheme.style ?? const ButtonStyle())
+            .copyWith(shape: shape),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: (theme.textButtonTheme.style ?? const ButtonStyle()).copyWith(
+          shape: shape,
+        ),
+      ),
+      chipTheme: theme.chipTheme.copyWith(
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: (theme.segmentedButtonTheme.style ?? const ButtonStyle())
+            .copyWith(shape: shape),
+      ),
+    );
+    return Theme(
+      data: buttons,
+      child: Builder(
+        builder: (context) => Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          appBar: FloraAppBar(
+            title: Text(title),
+            leading: leading,
+            actions: actions,
+          ),
+          body: SafeArea(top: false, bottom: true, child: body),
+          bottomNavigationBar: bottomNavigationBar,
+        ),
+      ),
     );
   }
 }

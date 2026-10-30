@@ -122,13 +122,6 @@ class _HabitDashboardSettingsScreenState
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
-                Text(
-                  '最多指定 4 项，不足时按启用习惯顺序自动补齐。',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.4,
-                  ),
-                ),
                 const SizedBox(height: 8),
                 Text(
                   '已指定 ${_selectedKeys.length}/4',
@@ -168,6 +161,11 @@ class _HabitDashboardSettingsScreenState
                   child: SizedBox(
                     width: double.infinity,
                     child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                       onPressed: _saving ? null : _save,
                       child: _saving
                           ? const SizedBox(

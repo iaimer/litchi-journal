@@ -11,8 +11,8 @@ void registerSettingsTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('今日回顾提示词'), findsOneWidget);
-      expect(find.text('用于生成「今日回顾」模块的每日总结和建议。'), findsOneWidget);
-      expect(find.text('恢复默认今日回顾提示词'), findsOneWidget);
+      expect(find.text('用于生成「今日回顾」模块的每日总结和建议。'), findsNothing);
+      expect(find.text('恢复默认'), findsNWidgets(2));
       expect(find.text('人生教练提示词'), findsNothing);
       expect(find.text('恢复默认人生教练提示词'), findsNothing);
 

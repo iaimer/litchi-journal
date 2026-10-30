@@ -89,6 +89,7 @@ class FloraInkWell extends StatelessWidget {
   final BorderRadius? borderRadius;
   final ShapeBorder? customBorder;
   final bool excludeFromSemantics;
+  final bool quiet;
 
   const FloraInkWell({
     super.key,
@@ -98,10 +99,13 @@ class FloraInkWell extends StatelessWidget {
     this.borderRadius,
     this.customBorder,
     this.excludeFromSemantics = false,
+    this.quiet = false,
   });
 
   @override
   Widget build(BuildContext context) => InkWell(
+    splashFactory: quiet ? NoSplash.splashFactory : null,
+    highlightColor: quiet ? Colors.transparent : null,
     onTap: onTap == null ? null : () => FloraOrigin.run(context, onTap!),
     onLongPress: onLongPress == null
         ? null

@@ -288,10 +288,20 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
         ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('取消'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () {
               Navigator.pop(ctx);
               setState(() {
@@ -578,15 +588,6 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '归档后，这个习惯会从今天页和习惯统计页隐藏，'
-                              '历史记录仍会保留。',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                height: 1.4,
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -630,6 +631,11 @@ class _HabitEditScreenState extends State<HabitEditScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   onPressed: _saving ? null : _save,
                   child: _saving
                       ? SizedBox(

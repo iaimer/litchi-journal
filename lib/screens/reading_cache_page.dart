@@ -53,10 +53,20 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
         ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () => Navigator.pop(context, false),
             child: const Text('取消'),
           ),
           TextButton(
+            style: TextButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('清除'),
           ),
@@ -108,7 +118,6 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
       body: ListView(
         padding: const EdgeInsets.all(FloraSpacing.lg),
         children: [
-          const Text('访问过的日记和照片会自动保存在手机，连接后检查更新。'),
           const SizedBox(height: 24),
           if (usage == null && _error == null)
             const FloraSkeletonRegion(
@@ -128,12 +137,7 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
             const SizedBox(height: 24),
             _row('日记缓存上限', '50 MB'),
             _row('图片缓存上限', '200 MB'),
-            Text(
-              '空间不足时，自动清理较少使用的内容。缓存不是备份，被清理的内容需要重新联网获取。',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+
             const SizedBox(height: 24),
             Builder(
               builder: (anchorContext) => OutlinedButton(
@@ -148,11 +152,11 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
             ),
             const SizedBox(height: 12),
             Builder(
-              builder: (anchorContext) => TextButton(
+              builder: (anchorContext) => OutlinedButton(
                 onPressed: _busy
                     ? null
                     : () => FloraOrigin.run(anchorContext, () => _clear(false)),
-                style: TextButton.styleFrom(
+                style: OutlinedButton.styleFrom(
                   foregroundColor: theme.colorScheme.error,
                   minimumSize: const Size.fromHeight(48),
                 ),
@@ -160,7 +164,6 @@ class _ReadingCachePageState extends State<ReadingCachePage> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('仅清理手机副本，不删除服务器日记和照片。', style: theme.textTheme.bodySmall),
           ],
           if (_error != null)
             FloraErrorState(message: _error!, onRetry: _busy ? () {} : _load),

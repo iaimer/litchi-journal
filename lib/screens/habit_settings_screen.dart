@@ -83,7 +83,6 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 说明文案
-                  _buildDescription(theme),
                   const SizedBox(height: 16),
                   _buildDashboardEntry(theme),
                   const SizedBox(height: 16),
@@ -97,6 +96,11 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
                     width: double.infinity,
                     child: Builder(
                       builder: (anchorContext) => OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                         onPressed: () =>
                             FloraOrigin.run(anchorContext, _addNewHabit),
                         icon: const FloraIcon(FloraIcons.add, size: 18),
@@ -144,35 +148,6 @@ class HabitSettingsScreenState extends State<HabitSettingsScreen> {
     if (result == true) await _load();
   }
 
-  Widget _buildDescription(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(FloraRadius.sm),
-        border: Border.all(color: theme.dividerColor),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 2, right: 8),
-            child: FloraIcon(FloraIcons.settingHabits, size: 16),
-          ),
-          Expanded(
-            child: Text(
-              '点击习惯编辑名称、图标、颜色和状态；饮水、步数还可设置每日目标。\n'
-              '归档后将在今天页和统计页中隐藏。',
-              style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 按 key 构建习惯行，不再显示内联「启用中/已归档」标签
-  /// （状态已由分区标题表达）。
   Widget _buildHabitRow(
     ThemeData theme, {
     required String key,

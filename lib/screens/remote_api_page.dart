@@ -63,6 +63,11 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
           ),
           const SizedBox(height: 24),
           FilledButton(
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: widget.apiClient == null ? null : _editBaseUrl,
             child: const Text('修改服务器地址'),
           ),
@@ -73,12 +78,6 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
             child: const Text('更换 Token'),
           ),
           const SizedBox(height: 8),
-          Text(
-            '保存后立即生效。',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
         ],
       ),
     );
@@ -140,10 +139,20 @@ class _RemoteApiPageState extends State<RemoteApiPage> {
               ),
               actions: [
                 TextButton(
+                  style: TextButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   onPressed: () => Navigator.of(context).pop(false),
                   child: const Text('取消'),
                 ),
                 FilledButton(
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   onPressed: () async {
                     final newUrl = controller.text.trim();
                     if (newUrl.isEmpty) {

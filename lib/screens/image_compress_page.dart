@@ -4,6 +4,8 @@ import '../models/image_settings.dart';
 import '../services/image_settings_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/flora_page_scaffold.dart';
+import '../widgets/flora_expand.dart';
+import '../widgets/flora_icon.dart';
 import '../widgets/flora_skeleton.dart';
 import '../widgets/flora_success_snackbar.dart';
 
@@ -24,6 +26,7 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
   bool _loading = true;
   bool _saving = false;
   String? _prefixError;
+  String? _expandedOption;
 
   @override
   void initState() {
@@ -219,21 +222,68 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<T>(
-        key: ValueKey('$label:$value'),
-        initialValue: value,
-        decoration: InputDecoration(labelText: label),
-        items: options
-            .map(
-              (option) => DropdownMenuItem<T>(
-                value: option,
-                child: Text('$option$suffix'),
+      child: Column(
+        children: [
+          Semantics(
+            button: true,
+            expanded: _expandedOption == label,
+            child: InkWell(
+              onTap: _saving
+                  ? null
+                  : () => setState(
+                      () => _expandedOption = _expandedOption == label
+                          ? null
+                          : label,
+                    ),
+              borderRadius: BorderRadius.circular(12),
+              child: InputDecorator(
+                decoration: InputDecoration(labelText: label),
+                child: Row(
+                  children: [
+                    Expanded(child: Text('$value$suffix')),
+                    AnimatedRotation(
+                      key: ValueKey(
+                        MediaQuery.disableAnimationsOf(context) ||
+                            !TickerMode.valuesOf(context).enabled,
+                      ),
+                      turns: _expandedOption == label ? 0.5 : 0,
+                      duration:
+                          MediaQuery.disableAnimationsOf(context) ||
+                              !TickerMode.valuesOf(context).enabled
+                          ? Duration.zero
+                          : _expandedOption == label
+                          ? FloraMotion.standard
+                          : FloraMotion.fast,
+                      child: const FloraIcon(FloraIcons.chevronDown, size: 20),
+                    ),
+                  ],
+                ),
               ),
-            )
-            .toList(),
-        onChanged: (value) {
-          if (value != null) onChanged(value);
-        },
+            ),
+          ),
+          FloraExpand(
+            expanded: _expandedOption == label,
+            child: Column(
+              children: options
+                  .map(
+                    (option) => ListTile(
+                      title: Text('$option$suffix'),
+                      selected: option == value,
+                      trailing: option == value
+                          ? const FloraIcon(FloraIcons.success, size: 20)
+                          : null,
+                      onTap: _saving
+                          ? null
+                          : () {
+                              onChanged(option);
+                              setState(() => _expandedOption = null);
+                            },
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ],
       ),
     );
   }

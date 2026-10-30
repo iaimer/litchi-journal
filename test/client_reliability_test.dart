@@ -280,11 +280,7 @@ void main() {
     storage.fail = false;
     await tester.tap(find.text('恢复默认'));
     await tester.pumpAndSettle();
-    final field = find.byType(DropdownButtonFormField<int>).first;
-    expect(
-      tester.state<FormFieldState<int>>(field).value,
-      ImageSettings.defaultMaxLongSidePx,
-    );
+    expect(find.text('${ImageSettings.defaultMaxLongSidePx} px'), findsOneWidget);
   });
 
   test(

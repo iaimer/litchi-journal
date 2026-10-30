@@ -94,10 +94,6 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
         const SizedBox(height: 16),
         _buildReadingSettings(theme, reading, controls),
         const SizedBox(height: 16),
-        Text(
-          '字号仍会跟随手机系统字体设置',
-          style: reading.metadata(theme).copyWith(height: 1.6),
-        ),
       ],
     );
   }
@@ -109,10 +105,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   ) => _buildPanel(theme, [
     Text('阅读字号', style: reading.heading(theme)),
     const SizedBox(height: 8),
-    Text(
-      '仅调整日记阅读内容，不改变菜单大小。',
-      style: reading.metadata(theme).copyWith(height: 1.6),
-    ),
+
     const SizedBox(height: 16),
     _buildSizeControl(controls),
     const SizedBox(height: 20),

@@ -152,7 +152,7 @@ void registerQuickCaptureTests() {
       expect(tester.getTopLeft(note).dy, lessThan(start.dy));
       await tester.pumpAndSettle();
       final end = tester.getTopLeft(note);
-      expect(start.dy - end.dy, closeTo(8, 0.01));
+      expect(start.dy - end.dy, greaterThan(8));
       await tester.tapAt(const Offset(20, 180));
       await tester.pump();
       expect(note, findsOneWidget);

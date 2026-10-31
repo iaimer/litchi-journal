@@ -33,6 +33,8 @@ class DiaryMarkdownView extends StatelessWidget {
   final DiaryDisplayState? displayState;
   final VoidCallback? onOpenQuickRecord;
   final Widget? initialCoachAction;
+  final bool showInitialCoachAction;
+  final bool hideCoachDuringTransition;
   final String? coachError;
   final GlobalKey? coachAnchor;
   final Future<bool> Function(HabitStatus)? onHabitUpdate;
@@ -104,6 +106,8 @@ class DiaryMarkdownView extends StatelessWidget {
     this.displayState,
     this.onOpenQuickRecord,
     this.initialCoachAction,
+    this.showInitialCoachAction = true,
+    this.hideCoachDuringTransition = false,
     this.coachError,
     this.coachAnchor,
     this.onHabitUpdate,
@@ -200,7 +204,7 @@ class DiaryMarkdownView extends StatelessWidget {
       );
     }
 
-    if (canGenerateCoach && !state.hasCoach) {
+    if (canGenerateCoach && !state.hasCoach && showInitialCoachAction) {
       if (initialCoachAction != null) {
         widgets.add(initialCoachAction!);
       } else if (!generatingCoach && coachError == null) {
@@ -221,15 +225,28 @@ class DiaryMarkdownView extends StatelessWidget {
       FloraExpand(
         key: const ValueKey('coach_reveal'),
         expanded: showAi,
-        child: KeyedSubtree(
-          key: coachAnchor,
-          child: _group('ai', [
-            if (!state.hasCoach && (generatingCoach || coachError != null))
-              _buildCoachStatus(context),
-            ...ai.map((s) => _buildSection(s, context)),
-            if (state.hasCoach && coachError != null && !generatingCoach)
-              Text(coachError!, style: Theme.of(context).textTheme.bodyMedium),
-          ]),
+        child: IgnorePointer(
+          ignoring: hideCoachDuringTransition,
+          child: ExcludeSemantics(
+            excluding: hideCoachDuringTransition,
+            child: Opacity(
+              opacity: hideCoachDuringTransition ? 0 : 1,
+              child: KeyedSubtree(
+                key: coachAnchor,
+                child: _group('ai', [
+                  if (!state.hasCoach &&
+                      (generatingCoach || coachError != null))
+                    _buildCoachStatus(context),
+                  ...ai.map((s) => _buildSection(s, context)),
+                  if (state.hasCoach && coachError != null && !generatingCoach)
+                    Text(
+                      coachError!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                ]),
+              ),
+            ),
+          ),
         ),
       ),
     );

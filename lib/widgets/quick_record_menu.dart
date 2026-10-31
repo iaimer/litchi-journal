@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'flora_origin.dart';
 import 'flora_glass.dart';
 import 'flora_dock.dart';
+import 'flora_origin_transform.dart';
 
 import '../theme/app_theme.dart';
 import 'flora_icon.dart';
@@ -30,6 +31,9 @@ class QuickRecordMenu extends StatefulWidget {
   final String tooltip;
   final List<QuickRecordMenuAction> actions;
   final double topInset;
+  final double mainButtonSize;
+  final ShapeBorder mainButtonShape;
+  final bool expandFromButton;
 
   const QuickRecordMenu({
     super.key,
@@ -39,6 +43,9 @@ class QuickRecordMenu extends StatefulWidget {
     required this.tooltip,
     required this.actions,
     this.topInset = 0,
+    this.mainButtonSize = 56,
+    this.mainButtonShape = const CircleBorder(),
+    this.expandFromButton = false,
   });
 
   @override
@@ -125,7 +132,7 @@ class _QuickRecordMenuState extends State<QuickRecordMenu>
         FloraDockScope.maybeOf(context)?.fabBottom ?? media.padding.bottom + 16;
     final width = math.min(176.0, media.size.width - 32);
     final height = math.max(
-      56.0,
+      widget.mainButtonSize,
       media.size.height -
           bottom -
           math.max(widget.topInset, media.padding.top) -
@@ -159,16 +166,19 @@ class _QuickRecordMenuState extends State<QuickRecordMenu>
             ignoring: widget.expanded,
             child: Opacity(
               opacity: widget.expanded ? 0 : 1,
-              child: FloatingActionButton(
-                key: widget.mainButtonKey,
-                tooltip: widget.tooltip,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                shape: const CircleBorder(),
-                onPressed: widget.expanded
-                    ? null
-                    : () => widget.onExpandedChanged(true),
-                child: const FloraIcon(FloraIcons.add, size: 24),
+              child: SizedBox.square(
+                dimension: widget.mainButtonSize,
+                child: FloatingActionButton(
+                  key: widget.mainButtonKey,
+                  tooltip: widget.tooltip,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  shape: widget.mainButtonShape,
+                  onPressed: widget.expanded
+                      ? null
+                      : () => widget.onExpandedChanged(true),
+                  child: const FloraIcon(FloraIcons.add, size: 24),
+                ),
               ),
             ),
           ),
@@ -180,14 +190,14 @@ class _QuickRecordMenuState extends State<QuickRecordMenu>
   Widget _buildMenu(double maxHeight) {
     final progress = _controller.value;
     if (!widget.expanded && progress == 0) return const SizedBox.shrink();
-    return IgnorePointer(
+    final menu = IgnorePointer(
       ignoring: !widget.expanded,
       child: ExcludeFocus(
         excluding: !widget.expanded,
         child: ExcludeSemantics(
           excluding: !widget.expanded,
           child: Transform.translate(
-            offset: Offset(0, 8 * (1 - progress)),
+            offset: Offset(0, widget.expandFromButton ? 0 : 8 * (1 - progress)),
             child: Opacity(
               opacity: progress,
               child: TapRegion(
@@ -198,6 +208,7 @@ class _QuickRecordMenuState extends State<QuickRecordMenu>
                   behavior: HitTestBehavior.opaque,
                   onTap: () {},
                   child: FloraGlassSurface(
+                    key: const Key('quick_record_menu_panel'),
                     borderRadius: BorderRadius.circular(16),
                     child: ConstrainedBox(
                       constraints: BoxConstraints(maxHeight: maxHeight),
@@ -217,6 +228,16 @@ class _QuickRecordMenuState extends State<QuickRecordMenu>
           ),
         ),
       ),
+    );
+    if (!widget.expandFromButton) return menu;
+    final origin = _mainButtonContext == null
+        ? null
+        : FloraOrigin.capture(_mainButtonContext!);
+    return FloraOriginTransform(
+      source: origin?.rect,
+      hitTestDuringTransition: true,
+      progress: progress,
+      child: menu,
     );
   }
 

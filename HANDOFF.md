@@ -1,5 +1,12 @@
 # 当前交接
 
+## 1.11.4 内部发布准备（2026-11-01）
+
+分支 `feat/home-review-footer-20261101`。今天页底部固定72dp回顾提示卡和方形加号，正文实际裁切避让；两行文字完整单行并按文字组缩放。首次回顾与菜单从真实入口展开，历史入口保持默认。完整1567项Flutter测试、最终38项真实字体布局和来源动效测试、静态分析及差异检查通过；独立规范与需求复核发现的减少动画零时长滚动问题已修复。三处旧测试月初日期已稳定，不改产品逻辑。
+
+真实预览：`/Users/yezi/Documents/ChatGPT/荔枝日记/output/home-review-footer-20261101/`。示例记录已核对。版本 `1.11.4+53`。Release包版本、包名、原内部签名及包内CHANGELOG均已核对，交付文件 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/荔枝日记-1.11.4-内部发布版.apk`，65,353,675字节，SHA-256 `58c4f7f33767f49d57acfe7bba1b47d8106e2fdafbfcffb7fa9de4bda0911b21`。准备squash合并推送，无服务端改动；真机验收待完成。
+
+
 ## 1.11.3 内部发布（2026-10-31）
 
 分支 `fix/settings-connection-form-20261031`，服务器地址及Token改为内联输入，底部测试与保存同行；旧Token不回显、留空沿用，测试不写配置，当前组合验证成功后保存并立即生效。连接配置改为安全存储单记录，兼容旧格式读取，避免地址和Token写入一半。标签菜单移除末项下额外16dp留白，恢复全部默认按钮与列表同宽，缓存右侧采用保存样式实底。独立审查发现的分步保存风险已修复并通过失败回归；完整1555项Flutter测试、静态分析及差异检查通过，真实预览已目视核对。真实浅深色服务器、缓存、标签菜单及恢复按钮预览位于 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/settings-connection-preview-20261031/`。版本 `1.11.3+52`，Release包版本、包名、原内部签名及包内CHANGELOG核对通过。交付文件 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/荔枝日记-1.11.3-内部发布版.apk`，65,337,147字节，SHA-256 `2e42af3d32e7a6f8a2e72d306dcbc7184e85e6ad69f807c9e0742a37e5dbb0ad`。来源提交 `d94e426` 已squash合并为 `e63f2e5` 并推送GitHub主线，远端提交已核对；无服务端改动，真机验收待完成。

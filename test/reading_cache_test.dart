@@ -1154,7 +1154,9 @@ void main() {
       (_) async => throw const SocketException('offline'),
     );
     final now = DateTime.now();
-    final date = DateTime(now.year, now.month, 1);
+    final date = now.day == 1
+        ? DateTime(now.year, now.month, 0)
+        : DateTime(now.year, now.month, 1);
     final dateKey = ApiClient.formatDate(date);
     await cache.write(
       cache.begin(
@@ -1189,6 +1191,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('history_calendar_toggle')));
     await tester.pumpAndSettle();
+    if (date.month != now.month) {
+      await tester.tap(
+        find.byKey(const Key('history_calendar_previous_month')),
+      );
+      await tester.pumpAndSettle();
+    }
     expect(
       find.byKey(ValueKey('history_calendar_marker_$dateKey')),
       findsOneWidget,

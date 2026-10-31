@@ -58,15 +58,189 @@ void main() {
       'LayoutPreview',
     )..addFont(File(font).readAsBytes().then(ByteData.sublistView))).load();
   });
+  for (final stopMotion in [false, true]) {
+    testWidgets('回顾过渡从真实入口展开，结束或减少动画后清理 stop=$stopMotion', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      await AIConfigRepository().saveAIConfig(
+        const AIConfig(
+          enabled: true,
+          baseUrl: 'https://ai.invalid',
+          apiKey: 'fixture',
+          model: 'fixture',
+        ),
+      );
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://example.invalid', token: 'fixture'),
+        httpClient: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'date': '2026-11-01',
+              'raw': '## 随手记\n- **12:00** 今天散步\n',
+              'sections': {},
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+      );
+      final reduced = ValueNotifier(false);
+      addTearDown(reduced.dispose);
+      final coach = DelayedCoach();
+      addTearDown(client.dispose);
+      addTearDown(coach.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          builder: (context, child) => ValueListenableBuilder<bool>(
+            valueListenable: reduced,
+            builder: (context, value, _) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: value),
+              child: child!,
+            ),
+          ),
+          home: HomeScreen(apiClient: client, polisherService: coach),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final source = tester.getRect(
+        find.byKey(const ValueKey('generate_coach_capsule')),
+      );
+      await tester.tap(find.text('回顾今天'));
+      await tester.pump();
+      final overlay = find.byKey(const Key('coach_origin_overlay'));
+      expect(tester.getRect(overlay), source);
+      Rect? moving;
+      for (var i = 0; i < 25; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (overlay.evaluate().isEmpty) break;
+        final rect = tester.getRect(overlay);
+        if (rect.width > source.width + 1) {
+          moving = rect;
+          break;
+        }
+      }
+      expect(moving, isNotNull);
+      expect(moving!.top, lessThan(source.top));
+      if (stopMotion) {
+        reduced.value = true;
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(overlay, findsNothing);
+      expect(coach.calls, 1);
+      coach.response.completeError(Exception('fixture'));
+      await tester.pumpAndSettle();
+      expect(find.text('回顾今天'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+  testWidgets('首页记录菜单从72dp方形加号展开并收回', (tester) async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final client = ApiClient(
+      ApiConfig(baseUrl: 'https://example.invalid', token: 'fixture'),
+      httpClient: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'date': '2026-11-01',
+            'raw': '## 随手记\n- **12:00** 今天散步\n',
+            'sections': {},
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ),
+      ),
+    );
+    addTearDown(client.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: HomeScreen(apiClient: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final fab = find.byKey(const Key('quick_record_fab'));
+    final source = tester.getRect(fab);
+    await tester.tap(fab);
+    await tester.pump();
+    final panel = find.byKey(const Key('quick_record_menu_panel'));
+    final beginning = tester.getRect(panel);
+    expect(beginning.left, closeTo(source.left, .01));
+    expect(beginning.top, closeTo(source.top, .01));
+    expect(beginning.size, source.size);
+    await tester.pump(const Duration(milliseconds: 60));
+    final moving = tester.getRect(panel);
+    expect(moving.width, greaterThan(source.width));
+    expect(moving.width, lessThan(176));
+    expect(moving.bottom, closeTo(source.bottom, .01));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(20, 200));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.getRect(panel).width, lessThan(176));
+    await tester.pumpAndSettle();
+    expect(panel, findsNothing);
+    expect(tester.getRect(fab), source);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final mode in ['normal', 'reduced', 'ticker']) {
+    testWidgets('未配置回顾立即失败也无残留，滚动支持$mode', (tester) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final notes = List.generate(
+        16,
+        (i) => '- **12:${i.toString().padLeft(2, '0')}** 用于回顾过渡的示例记录$i。',
+      ).join('\n');
+      final client = ApiClient(
+        ApiConfig(baseUrl: 'https://example.invalid', token: 'fixture'),
+        httpClient: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'date': '2026-11-01',
+              'raw': '## 随手记\n$notes\n',
+              'sections': {},
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+      );
+      addTearDown(client.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(disableAnimations: mode == 'reduced'),
+            child: TickerMode(enabled: mode != 'ticker', child: child!),
+          ),
+          home: HomeScreen(apiClient: client),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final fab = tester.getRect(find.byKey(const Key('quick_record_fab')));
+      await tester.tap(find.text('回顾今天'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('coach_origin_overlay')), findsNothing);
+      expect(find.textContaining('今日回顾尚未配置'), findsWidgets);
+      expect(find.text('回顾今天'), findsOneWidget);
+      expect(tester.getRect(find.byKey(const Key('quick_record_fab'))), fab);
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final width in [320.0, 360.0, 390.0]) {
-    for (final scale in [1.0, 1.3, 2.0]) {
+    for (final scale in [1.0, 1.3, 2.0, 4.0]) {
       for (final dark in [false, true]) {
-        testWidgets('胶囊与固定加号适配 width=$width scale=$scale dark=$dark', (
+        testWidgets('提示卡与方形加号适配 width=$width scale=$scale dark=$dark', (
           tester,
         ) async {
           FlutterSecureStorage.setMockInitialValues({});
-          await tester.binding.setSurfaceSize(Size(width, 844));
-          addTearDown(() => tester.binding.setSurfaceSize(null));
+          tester.view.physicalSize = Size(width, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
           final client = ApiClient(
             ApiConfig(baseUrl: 'http://example.invalid', token: 'test'),
             httpClient: MockClient(
@@ -124,23 +298,26 @@ void main() {
           final capsule = tester.getRect(
             find.byKey(const ValueKey('generate_coach_capsule')),
           );
-          expect(fab.width, closeTo(56, 0.01));
-          expect(fab.height, closeTo(56, 0.01));
-          expect(capsule.right, lessThanOrEqualTo(fab.left - 16));
-          final personal = tester.getRect(
-            find.byKey(const ValueKey('diary_group_personal')),
-          );
-          expect(capsule.top, greaterThanOrEqualTo(personal.bottom));
-          expect(capsule.top - personal.bottom, lessThanOrEqualTo(16));
+          expect(fab.width, closeTo(72, 0.01));
+          expect(fab.height, closeTo(72, 0.01));
+          expect(fab.left - capsule.right, closeTo(12, .01));
+          expect(capsule.top, fab.top);
+          expect(capsule.height, 72);
           expect(
             find.ancestor(
               of: find.byKey(const ValueKey('generate_coach_capsule')),
               matching: find.byType(Scrollable),
             ),
-            findsOneWidget,
+            findsNothing,
           );
-          expect(capsule.height, greaterThanOrEqualTo(48));
-          final label = tester.widget<Text>(find.text('生成今日回顾'));
+          final viewport = tester.getRect(
+            find.byKey(const Key('home_reading_viewport')),
+          );
+          expect(viewport.bottom, lessThanOrEqualTo(capsule.top - 16));
+          final subtitle = tester.widget<Text>(find.text('让小荔枝帮你整理这一天的点滴'));
+          expect(subtitle.maxLines, 1);
+          expect(subtitle.softWrap, isFalse);
+          final label = tester.widget<Text>(find.text('回顾今天'));
           expect(label.maxLines, 1);
           expect(label.softWrap, isFalse);
           if ((width == 390 && scale == 1) || (width == 320 && scale == 2)) {
@@ -155,7 +332,7 @@ void main() {
     }
   }
 
-  testWidgets('首次生成胶囊紧随生活记录并随正文滚动，加号不动', (tester) async {
+  testWidgets('回顾提示卡固定且正文滚动区域不进入操作区', (tester) async {
     FlutterSecureStorage.setMockInitialValues({});
     final paragraphs = List.generate(
       16,
@@ -189,7 +366,27 @@ void main() {
     final fixedFab = tester.getRect(fab);
     await tester.drag(find.byType(ListView).first, const Offset(0, -180));
     await tester.pumpAndSettle();
-    expect(tester.getRect(capsule).top, lessThan(original.top - 100));
+    expect(tester.getRect(capsule), original);
+    final viewport = tester.getRect(
+      find.byKey(const Key('home_reading_viewport')),
+    );
+    expect(viewport.bottom, lessThanOrEqualTo(original.top - 16));
+    final last = find.textContaining('旧日记正文15');
+    await tester.scrollUntilVisible(
+      last,
+      300,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('home_reading_viewport')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    final lastRect = tester.getRect(last);
+    expect(lastRect.bottom, lessThanOrEqualTo(viewport.bottom));
+    expect(lastRect.top, greaterThanOrEqualTo(viewport.top));
+    expect(tester.getRect(capsule), original);
     expect(tester.getRect(fab), fixedFab);
   });
   for (final nextDay in [false, true]) {
@@ -258,7 +455,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('生成今日回顾'));
+      await tester.tap(find.text('回顾今天'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
       if (!nextDay) {
@@ -344,7 +541,7 @@ void main() {
       await tester.pumpAndSettle();
       final fab = find.byKey(const Key('quick_record_fab'));
       final before = tester.getRect(fab);
-      await tester.tap(find.text('生成今日回顾'));
+      await tester.tap(find.text('回顾今天'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80));
       expect(find.text('正在生成今日回顾…'), findsOneWidget);
@@ -385,7 +582,7 @@ void main() {
       }
       expect(find.text('散步让你放松'), findsOneWidget);
       expect(find.text('正在生成今日回顾…'), findsNothing);
-      expect(find.text('生成今日回顾'), findsNothing);
+      expect(find.text('回顾今天'), findsNothing);
       expect(tester.getRect(fab), before);
       if (failTomorrow) expect(find.textContaining('明日寄语保存失败'), findsWidgets);
     });

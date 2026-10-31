@@ -538,7 +538,7 @@ void main() {
 
   group('HabitTrendService', () {
     test('aggregates duration, streak, and legacy checkbox semantics', () {
-      final today = _today;
+      final today = DateTime(2026, 10, 15);
       final period = HabitTrendPeriod.forAnchor(HabitTrendRange.month, today);
       final service = HabitTrendService(_unusedApiClient());
       final settings = HabitSettings.defaults;

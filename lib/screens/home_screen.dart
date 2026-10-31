@@ -6,6 +6,7 @@ import '../widgets/flora_dock.dart';
 import '../widgets/flora_page_route.dart';
 import '../widgets/flora_app_bar.dart';
 import '../widgets/flora_origin.dart';
+import '../widgets/flora_glass.dart';
 
 import '../widgets/diary_module_visual.dart';
 import '../widgets/flora_icon.dart';
@@ -147,6 +148,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _coachError;
   int _coachRun = 0;
   final _coachAnchor = GlobalKey();
+  final _readingViewportKey = GlobalKey();
+  final _homeBodyKey = GlobalKey();
+  FloraOrigin? _coachOrigin;
+  Rect? _coachTarget;
+  int? _coachRevealRun;
+  double? _coachScrollTarget;
+
+  bool get _revealingCoach =>
+      _coachOrigin != null && _coachRevealRun == _coachRun && widget.active;
+
+  void _resetCoachReveal() {
+    _coachOrigin = null;
+    _coachTarget = null;
+    _coachRevealRun = null;
+    _coachScrollTarget = null;
+  }
+
+  void _onReadingScroll() {
+    if (_coachTarget != null) setState(_resetCoachReveal);
+  }
+
   bool _quickRecordExpanded = false;
   int _menuDismissRevision = 0;
   HabitSettings? _habitSettings;
@@ -174,6 +196,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_onReadingScroll);
     _focusTimerController = FocusTimerController();
     unawaited(_focusTimerController.load());
     _loadDiary();
@@ -183,6 +206,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_coachOrigin != null &&
+        (MediaQuery.disableAnimationsOf(context) ||
+            !TickerMode.valuesOf(context).enabled ||
+            _coachOrigin!.viewport != MediaQuery.sizeOf(context))) {
+      final scrollTarget = _coachScrollTarget;
+      final run = _coachRun;
+      _resetCoachReveal();
+      if (scrollTarget != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              widget.active &&
+              run == _coachRun &&
+              _scrollController.hasClients) {
+            final position = _scrollController.position;
+            position.jumpTo(
+              scrollTarget.clamp(
+                position.minScrollExtent,
+                position.maxScrollExtent,
+              ),
+            );
+          }
+        });
+      }
+    }
     final revision = FloraDockScope.maybeOf(context)?.menuDismissRevision ?? 0;
     if (revision == _menuDismissRevision) return;
     _menuDismissRevision = revision;
@@ -193,6 +240,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!widget.active) _resetCoachReveal();
     if (widget.settingsRevision != oldWidget.settingsRevision) {
       _loadTagConfig();
       _reloadHabitSettings();
@@ -200,6 +248,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!identical(oldWidget.apiClient, widget.apiClient)) {
       _diaryRefreshSerial++;
       _coachRun++;
+      _resetCoachReveal();
       _generatingCoach = false;
       _coachError = null;
       _diary = null;
@@ -267,6 +316,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (_diaryDate != null &&
           ApiClient.formatDate(_diaryDate!) != ApiClient.formatDate(date)) {
         _coachRun++;
+        _resetCoachReveal();
         _generatingCoach = false;
         _coachError = null;
         _diaryDate = date;
@@ -335,6 +385,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (_diaryDate != null &&
           ApiClient.formatDate(_diaryDate!) != ApiClient.formatDate(date)) {
         _coachRun++;
+        _resetCoachReveal();
         _generatingCoach = false;
         _coachError = null;
       }
@@ -855,11 +906,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final date = _activeDate;
     final raw = _diary!.raw;
     final run = ++_coachRun;
+    final initial = !DiaryDisplayState(raw, habitFallback: true).hasCoach;
+    final origin =
+        initial &&
+            !MediaQuery.disableAnimationsOf(context) &&
+            TickerMode.valuesOf(context).enabled
+        ? FloraOrigin.current
+        : null;
     setState(() {
+      _coachOrigin = origin;
+      _coachTarget = null;
+      _coachRevealRun = run;
       _generatingCoach = true;
       _coachError = null;
     });
-    _revealCoachIfNeeded();
+    if (initial) unawaited(_revealCoachFromOrigin(run));
     try {
       await _generateAndSaveCoach(client, date, raw, run);
       if (!_isCoachCurrent(run, client, date)) return;
@@ -969,76 +1030,188 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _revealCoachIfNeeded() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !widget.active || !_scrollController.hasClients) return;
-      final anchor = _coachAnchor.currentContext?.findRenderObject();
-      if (anchor is! RenderBox || !anchor.hasSize) return;
-      final top = anchor.localToGlobal(Offset.zero).dy;
-      final scope = FloraDockScope.maybeOf(context);
-      final visibleBottom =
-          MediaQuery.sizeOf(context).height - (scope?.clearance ?? 96);
-      final visibleTop = _headerInset + 16;
-      final delta = top < visibleTop
-          ? top - visibleTop
-          : math.max(0.0, top + 100 - visibleBottom);
-      if (delta == 0) return;
+  Future<void> _revealCoachFromOrigin(int run) async {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted ||
+        run != _coachRun ||
+        !widget.active ||
+        !_scrollController.hasClients) {
+      return;
+    }
+    final anchor = _coachAnchor.currentContext?.findRenderObject();
+    final viewport = _readingViewportKey.currentContext?.findRenderObject();
+    if (anchor is! RenderBox ||
+        viewport is! RenderBox ||
+        !anchor.hasSize ||
+        !viewport.hasSize) {
+      if (_revealingCoach) setState(_resetCoachReveal);
+      return;
+    }
+    final top = anchor.localToGlobal(Offset.zero).dy;
+    final bottom =
+        viewport.localToGlobal(Offset.zero).dy + viewport.size.height - 16;
+    final visibleTop = _headerInset + 16;
+    final delta = top < visibleTop || anchor.size.height > bottom - visibleTop
+        ? top - visibleTop
+        : math.max(0.0, top + anchor.size.height - bottom);
+    if (delta != 0) {
       final position = _scrollController.position;
-      _scrollController.animateTo(
-        (position.pixels + delta).clamp(
-          position.minScrollExtent,
-          position.maxScrollExtent,
-        ),
-        duration: FloraMotion.standardFor(MediaQuery.of(context)),
-        curve: Curves.easeOutQuart,
+      final targetOffset = (position.pixels + delta).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
       );
-    });
+      if (MediaQuery.disableAnimationsOf(context) ||
+          !TickerMode.valuesOf(context).enabled) {
+        _scrollController.jumpTo(targetOffset);
+      } else {
+        _coachScrollTarget = targetOffset;
+        try {
+          await _scrollController.animateTo(
+            targetOffset,
+            duration: FloraMotion.standard,
+            curve: Curves.easeOutQuart,
+          );
+        } finally {
+          if (run == _coachRun) _coachScrollTarget = null;
+        }
+      }
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || run != _coachRun || !_revealingCoach) return;
+    final target = _coachAnchor.currentContext?.findRenderObject();
+    final body = _homeBodyKey.currentContext?.findRenderObject();
+    if (target is! RenderBox ||
+        body is! RenderBox ||
+        !target.attached ||
+        !target.hasSize ||
+        !body.hasSize) {
+      setState(_resetCoachReveal);
+      return;
+    }
+    final visible = Rect.fromLTRB(16, visibleTop, body.size.width - 16, bottom);
+    final rect =
+        target.localToGlobal(Offset.zero, ancestor: body) & target.size;
+    final destination = rect.intersect(visible);
+    if (destination.isEmpty) {
+      setState(_resetCoachReveal);
+      return;
+    }
+    setState(() => _coachTarget = destination);
+  }
+
+  Widget _buildCoachOriginOverlay(ThemeData theme) {
+    final body = _homeBodyKey.currentContext?.findRenderObject();
+    if (!_revealingCoach || body is! RenderBox || !body.hasSize) {
+      return const SizedBox.shrink();
+    }
+    final source = _coachOrigin!
+        .scaledRect(MediaQuery.sizeOf(context))
+        .shift(-body.localToGlobal(Offset.zero));
+    final run = _coachRevealRun;
+    Widget frame(Rect rect) => Positioned.fromRect(
+      rect: rect,
+      child: IgnorePointer(
+        child: ExcludeSemantics(
+          child: FloraGlassSurface(
+            key: const Key('coach_origin_overlay'),
+            borderRadius: BorderRadius.circular(12),
+            tint: Color.alphaBlend(
+              TodayRainbow.coach.withValues(alpha: .22),
+              theme.colorScheme.surface,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: IconTheme.merge(
+                data: IconThemeData(
+                  color: moduleTextColor(TodayRainbow.coach, theme),
+                ),
+                child: DefaultTextStyle.merge(
+                  style: TextStyle(
+                    color: moduleTextColor(TodayRainbow.coach, theme),
+                  ),
+                  child: _buildCoachContents(theme, generating: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (_coachTarget == null) return frame(source);
+    return TweenAnimationBuilder<Rect?>(
+      key: ValueKey('coach-origin-$run'),
+      tween: RectTween(begin: source, end: _coachTarget),
+      duration: FloraMotion.standard,
+      curve: Curves.easeOutQuart,
+      builder: (context, rect, _) => frame(rect ?? source),
+      onEnd: () {
+        if (mounted && run == _coachRevealRun) setState(_resetCoachReveal);
+      },
+    );
   }
 
   DateTime get _now => widget.now?.call() ?? DateTime.now();
   DateTime get _activeDate => _diaryDate ?? _now;
 
   Widget _buildQuickRecordFab(ThemeData theme) {
-    return QuickRecordMenu(
-      expanded: _quickRecordExpanded,
-      topInset: _headerInset,
-      mainButtonKey: const Key('quick_record_fab'),
-      tooltip: '快速记录',
-      onExpandedChanged: (expanded) {
-        setState(() => _quickRecordExpanded = expanded);
-      },
-      actions: [
-        QuickRecordMenuAction(
-          icon: FloraIcon(
-            DiaryModuleVisual.forType('happiness')!.icon,
-            size: 28,
-            color: DiaryModuleVisual.forType('happiness')!.color,
-          ),
-          title: '小确幸',
-          key: const Key('quick_record_happiness'),
-          onTap: () => _selectQuickEntry(EntryType.happiness),
+    return Theme(
+      data: theme.copyWith(
+        floatingActionButtonTheme: theme.floatingActionButtonTheme.copyWith(
+          elevation: 0,
+          focusElevation: 0,
+          hoverElevation: 0,
+          highlightElevation: 0,
         ),
-        QuickRecordMenuAction(
-          icon: FloraIcon(
-            DiaryModuleVisual.forType('review')!.icon,
-            size: 28,
-            color: DiaryModuleVisual.forType('review')!.color,
-          ),
-          title: '觉察',
-          key: const Key('quick_record_reflection'),
-          onTap: () => _selectQuickEntry(EntryType.reflection),
+      ),
+      child: QuickRecordMenu(
+        expanded: _quickRecordExpanded,
+        mainButtonSize: 72,
+        mainButtonShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        QuickRecordMenuAction(
-          icon: FloraIcon(
-            DiaryModuleVisual.forType('quickNote')!.icon,
-            size: 28,
-            color: DiaryModuleVisual.forType('quickNote')!.color,
+        expandFromButton: true,
+        topInset: _headerInset,
+        mainButtonKey: const Key('quick_record_fab'),
+        tooltip: '快速记录',
+        onExpandedChanged: (expanded) {
+          setState(() {
+            _quickRecordExpanded = expanded;
+            if (expanded) _resetCoachReveal();
+          });
+        },
+        actions: [
+          QuickRecordMenuAction(
+            icon: FloraIcon(
+              DiaryModuleVisual.forType('happiness')!.icon,
+              size: 28,
+              color: DiaryModuleVisual.forType('happiness')!.color,
+            ),
+            title: '小确幸',
+            key: const Key('quick_record_happiness'),
+            onTap: () => _selectQuickEntry(EntryType.happiness),
           ),
-          title: '随手记',
-          key: const Key('quick_record_quick_note'),
-          onTap: () => _selectQuickEntry(EntryType.quickNote),
-        ),
-      ],
+          QuickRecordMenuAction(
+            icon: FloraIcon(
+              DiaryModuleVisual.forType('review')!.icon,
+              size: 28,
+              color: DiaryModuleVisual.forType('review')!.color,
+            ),
+            title: '觉察',
+            key: const Key('quick_record_reflection'),
+            onTap: () => _selectQuickEntry(EntryType.reflection),
+          ),
+          QuickRecordMenuAction(
+            icon: FloraIcon(
+              DiaryModuleVisual.forType('quickNote')!.icon,
+              size: 28,
+              color: DiaryModuleVisual.forType('quickNote')!.color,
+            ),
+            title: '随手记',
+            key: const Key('quick_record_quick_note'),
+            onTap: () => _selectQuickEntry(EntryType.quickNote),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1144,35 +1317,72 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildCoachCapsule(ThemeData theme) => Padding(
-    padding: const EdgeInsets.only(right: 72, bottom: 12),
-    child: Align(
-      alignment: Alignment.centerLeft,
-      child: TextButton(
+  Widget _buildCoachCapsule(ThemeData theme) => FloraGlassSurface(
+    borderRadius: BorderRadius.circular(12),
+    tint: Color.alphaBlend(
+      TodayRainbow.coach.withValues(alpha: .22),
+      theme.colorScheme.surface,
+    ),
+    child: Builder(
+      builder: (anchorContext) => TextButton(
         key: const ValueKey('generate_coach_capsule'),
-        onPressed: _generatingCoach || !_verified ? null : _handleGenerateCoach,
+        onPressed: _generatingCoach || _revealingCoach || !_verified
+            ? null
+            : () => FloraOrigin.run(anchorContext, _handleGenerateCoach),
         style: TextButton.styleFrom(
-          backgroundColor: Color.alphaBlend(
-            TodayRainbow.coach.withValues(alpha: 0.22),
-            theme.colorScheme.surface,
-          ),
           foregroundColor: moduleTextColor(TodayRainbow.coach, theme),
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          minimumSize: const Size(48, 72),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          shape: const StadiumBorder(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
+        child: _buildCoachContents(theme),
+      ),
+    ),
+  );
+
+  Widget _buildCoachContents(ThemeData theme, {bool? generating}) => Row(
+    children: [
+      const FloraIcon(FloraIcons.coach, size: 24),
+      const SizedBox(width: 8),
+      Expanded(
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text(
-            _generatingCoach ? '生成中…' : '生成今日回顾',
-            maxLines: 1,
-            softWrap: false,
-            textAlign: TextAlign.center,
+          alignment: Alignment.centerLeft,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                (generating ?? _generatingCoach) ? '正在回顾…' : '回顾今天',
+                maxLines: 1,
+                softWrap: false,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '让小荔枝帮你整理这一天的点滴',
+                maxLines: 1,
+                softWrap: false,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  height: 1.4,
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    ),
+      const SizedBox(width: 8),
+      const FloraIcon(FloraIcons.chevronRight, size: 16),
+    ],
   );
 
   Widget _buildHomeLoading() {
@@ -1225,6 +1435,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     final sourceRaw = _diary?.raw;
     final display = DiaryDisplayState(sourceRaw ?? '', habitFallback: true);
+    final footerBottom =
+        FloraDockScope.maybeOf(context)?.fabBottom ??
+        MediaQuery.paddingOf(context).bottom + 16;
+    final showCoach =
+        !_loading &&
+        _diary != null &&
+        !display.hasOnlyHabits &&
+        !display.hasCoach &&
+        !_quickRecordExpanded;
     return PopScope<void>(
       canPop: !_quickRecordExpanded,
       onPopInvokedWithResult: (didPop, _) {
@@ -1260,153 +1479,190 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         floatingActionButtonLocation: FloraDockScope.maybeOf(context) == null
             ? FloraDockFabLocation(MediaQuery.paddingOf(context).bottom + 16)
             : FloraDockFabLocation(FloraDockScope.maybeOf(context)!.fabBottom),
-        body: SafeArea(
-          top: false,
-          bottom: false,
-          child: QuickRecordBackdrop(
-            expanded: _quickRecordExpanded,
-            bannerBottom: _headerInset,
-            onDismiss: () => setState(() => _quickRecordExpanded = false),
-            child: _loading
-                ? _buildHomeLoading()
-                : Theme(
-                    data: theme.copyWith(
-                      canvasColor: theme.scaffoldBackgroundColor,
-                    ),
-                    child: RefreshIndicator(
-                      onRefresh: _loadDiary,
-                      edgeOffset: _headerInset,
-                      child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        controller: _scrollController,
-                        padding: EdgeInsets.fromLTRB(
-                          16,
-                          _headerInset,
-                          16,
-                          FloraDockScope.maybeOf(context)?.clearance ?? 0,
-                        ),
-                        children: [
-                          const SizedBox(height: 16),
-                          // 固定缓存提示的子项位置，避免刷新时重新估算正文滚动偏移。
-                          if (!_verified && _diary != null)
-                            ReadingCacheStatus(message: _error)
-                          else
-                            const SizedBox.shrink(),
-                          _buildFocusTimerStrip(theme),
-                          if (_diary != null) ...[
-                            DiaryMarkdownView(
-                              displayState: display,
-                              initialCoachAction: Visibility(
-                                visible: !_quickRecordExpanded,
-                                maintainState: true,
-                                maintainAnimation: true,
-                                maintainSize: true,
-                                child: _buildCoachCapsule(theme),
-                              ),
-                              coachError: _coachError,
-                              coachAnchor: _coachAnchor,
-                              onOpenQuickRecord: () =>
-                                  setState(() => _quickRecordExpanded = true),
-                              readOnly: !_verified,
-                              showTodayPlaceholders: true,
-                              markdown: _diary?.raw ?? '',
-                              onHabitUpdate: _handleHabitUpdate,
-                              onEntryDelete: _verified
-                                  ? (section, line) => _handleEntryDelete(
-                                      section,
-                                      line,
-                                      expectedRaw: sourceRaw,
-                                    )
-                                  : null,
-                              onEntryEdit: !_verified
-                                  ? null
-                                  : (section, line, content, tags, time) =>
-                                        _handleEntryEdit(
-                                          section,
-                                          line,
-                                          content,
-                                          tags,
-                                          time,
-                                          expectedRaw: sourceRaw,
-                                        ),
-                              onEntryEditWithEntryId: !_verified
-                                  ? null
-                                  : (
-                                      section,
-                                      rawLine,
-                                      content,
-                                      tags,
-                                      time,
-                                      id,
-                                    ) => _handleEntryEdit(
-                                      section,
-                                      rawLine,
-                                      content,
-                                      tags,
-                                      time,
-                                      entryId: id,
-                                      expectedRaw: sourceRaw,
+        body: Stack(
+          key: _homeBodyKey,
+          children: [
+            Positioned.fill(
+              bottom: footerBottom + 72 + 16,
+              child: ClipRect(
+                key: const Key('home_reading_viewport'),
+                child: SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: QuickRecordBackdrop(
+                    key: _readingViewportKey,
+                    expanded: _quickRecordExpanded,
+                    bannerBottom: _headerInset,
+                    onDismiss: () =>
+                        setState(() => _quickRecordExpanded = false),
+                    child: _loading
+                        ? _buildHomeLoading()
+                        : Theme(
+                            data: theme.copyWith(
+                              canvasColor: theme.scaffoldBackgroundColor,
+                            ),
+                            child: RefreshIndicator(
+                              onRefresh: _loadDiary,
+                              edgeOffset: _headerInset,
+                              child: ListView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                controller: _scrollController,
+                                padding: EdgeInsets.fromLTRB(
+                                  16,
+                                  _headerInset,
+                                  16,
+                                  16,
+                                ),
+                                children: [
+                                  const SizedBox(height: 16),
+                                  // 固定缓存提示的子项位置，避免刷新时重新估算正文滚动偏移。
+                                  if (!_verified && _diary != null)
+                                    ReadingCacheStatus(message: _error)
+                                  else
+                                    const SizedBox.shrink(),
+                                  _buildFocusTimerStrip(theme),
+                                  if (_diary != null) ...[
+                                    DiaryMarkdownView(
+                                      displayState: display,
+                                      showInitialCoachAction: false,
+                                      hideCoachDuringTransition:
+                                          _revealingCoach,
+                                      coachError: _coachError,
+                                      coachAnchor: _coachAnchor,
+                                      onOpenQuickRecord: () => setState(
+                                        () => _quickRecordExpanded = true,
+                                      ),
+                                      readOnly: !_verified,
+                                      showTodayPlaceholders: true,
+                                      markdown: _diary?.raw ?? '',
+                                      onHabitUpdate: _handleHabitUpdate,
+                                      onEntryDelete: _verified
+                                          ? (section, line) =>
+                                                _handleEntryDelete(
+                                                  section,
+                                                  line,
+                                                  expectedRaw: sourceRaw,
+                                                )
+                                          : null,
+                                      onEntryEdit: !_verified
+                                          ? null
+                                          : (
+                                              section,
+                                              line,
+                                              content,
+                                              tags,
+                                              time,
+                                            ) => _handleEntryEdit(
+                                              section,
+                                              line,
+                                              content,
+                                              tags,
+                                              time,
+                                              expectedRaw: sourceRaw,
+                                            ),
+                                      onEntryEditWithEntryId: !_verified
+                                          ? null
+                                          : (
+                                              section,
+                                              rawLine,
+                                              content,
+                                              tags,
+                                              time,
+                                              id,
+                                            ) => _handleEntryEdit(
+                                              section,
+                                              rawLine,
+                                              content,
+                                              tags,
+                                              time,
+                                              entryId: id,
+                                              expectedRaw: sourceRaw,
+                                            ),
+                                      onEntryEditCompleted: _loadDiarySilently,
+                                      onEntryPolish: _verified
+                                          ? _handlePolish
+                                          : null,
+                                      tagConfig: _tagConfig,
+                                      tagSettings: _tagSettings,
+                                      apiClient: widget.apiClient,
+                                      date: _activeDate,
+                                      onGenerateCoach: _handleGenerateCoach,
+                                      generatingCoach: _generatingCoach,
+                                      activeHabitKeys: _activeHabitKeys,
+                                      habitSettings:
+                                          _habitSettings ??
+                                          HabitSettings.defaults,
+                                      onCustomCheckboxToggle:
+                                          _handleCustomCheckboxToggle,
+                                      onWaterQuickAmountsChanged:
+                                          _handleWaterQuickAmountsChanged,
+                                      onStartDuration: _handleStartDuration,
+                                      onDurationUpdate: _handleDurationUpdate,
+                                      onCustomDurationUpdate:
+                                          _handleCustomDurationUpdate,
+                                      imagePicker: widget.imagePicker,
+                                      imageCompressor: widget.imageCompressor,
                                     ),
-                              onEntryEditCompleted: _loadDiarySilently,
-                              onEntryPolish: _verified ? _handlePolish : null,
-                              tagConfig: _tagConfig,
-                              tagSettings: _tagSettings,
-                              apiClient: widget.apiClient,
-                              date: _activeDate,
-                              onGenerateCoach: _handleGenerateCoach,
-                              generatingCoach: _generatingCoach,
-                              activeHabitKeys: _activeHabitKeys,
-                              habitSettings:
-                                  _habitSettings ?? HabitSettings.defaults,
-                              onCustomCheckboxToggle:
-                                  _handleCustomCheckboxToggle,
-                              onWaterQuickAmountsChanged:
-                                  _handleWaterQuickAmountsChanged,
-                              onStartDuration: _handleStartDuration,
-                              onDurationUpdate: _handleDurationUpdate,
-                              onCustomDurationUpdate:
-                                  _handleCustomDurationUpdate,
-                              imagePicker: widget.imagePicker,
-                              imageCompressor: widget.imageCompressor,
-                            ),
-                          ] else if (_error != null) ...[
-                            FloraErrorState(
-                              message: _error!,
-                              onRetry: _loadDiary,
-                            ),
-                          ] else ...[
-                            Text(
-                              '今日还没有日记内容',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurfaceVariant,
+                                  ] else if (_error != null) ...[
+                                    FloraErrorState(
+                                      message: _error!,
+                                      onRetry: _loadDiary,
+                                    ),
+                                  ] else ...[
+                                    Text(
+                                      '今日还没有日记内容',
+                                      style: TextStyle(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    HabitCard(
+                                      readOnly: !_verified,
+                                      key: const ValueKey('habit_card'),
+                                      section: HabitSection.empty(),
+                                      onUpdate: _handleHabitUpdate,
+                                      activeHabitKeys: _activeHabitKeys,
+                                      habitSettings:
+                                          _habitSettings ??
+                                          HabitSettings.defaults,
+                                      onCustomCheckboxToggle:
+                                          _handleCustomCheckboxToggle,
+                                      onWaterQuickAmountsChanged:
+                                          _handleWaterQuickAmountsChanged,
+                                      onStartDuration: _handleStartDuration,
+                                      onDurationUpdate: _handleDurationUpdate,
+                                      onCustomDurationUpdate:
+                                          _handleCustomDurationUpdate,
+                                      diaryDate: _activeDate,
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            HabitCard(
-                              readOnly: !_verified,
-                              key: const ValueKey('habit_card'),
-                              section: HabitSection.empty(),
-                              onUpdate: _handleHabitUpdate,
-                              activeHabitKeys: _activeHabitKeys,
-                              habitSettings:
-                                  _habitSettings ?? HabitSettings.defaults,
-                              onCustomCheckboxToggle:
-                                  _handleCustomCheckboxToggle,
-                              onWaterQuickAmountsChanged:
-                                  _handleWaterQuickAmountsChanged,
-                              onStartDuration: _handleStartDuration,
-                              onDurationUpdate: _handleDurationUpdate,
-                              onCustomDurationUpdate:
-                                  _handleCustomDurationUpdate,
-                              diaryDate: _activeDate,
-                            ),
-                          ],
-                          const SizedBox(height: 96),
-                        ],
-                      ),
-                    ),
+                          ),
                   ),
-          ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 100,
+              bottom: footerBottom,
+              height: 72,
+              child: Visibility(
+                visible: showCoach,
+                child: ExcludeSemantics(
+                  excluding: _revealingCoach,
+                  child: Opacity(
+                    opacity: _revealingCoach ? 0 : 1,
+                    child: _buildCoachCapsule(theme),
+                  ),
+                ),
+              ),
+            ),
+            if (_revealingCoach) _buildCoachOriginOverlay(theme),
+          ],
         ),
       ),
     );

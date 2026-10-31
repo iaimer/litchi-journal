@@ -235,8 +235,8 @@ void registerHistoryTests() {
             galleryBody: '{"months":[],"nextCursor":null}',
             imageBytes: Uint8List.fromList([1, 2, 3]),
             historyBody: jsonEncode({
-              'year': now.year,
-              'month': now.month,
+              'year': yesterday.year,
+              'month': yesterday.month,
               'diaries': [
                 {
                   'date': yesterdayKey,
@@ -270,6 +270,12 @@ void registerHistoryTests() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('history_calendar_toggle')));
         await tester.pumpAndSettle();
+        if (yesterday.month != now.month) {
+          await tester.tap(
+            find.byKey(const Key('history_calendar_previous_month')),
+          );
+          await tester.pumpAndSettle();
+        }
         expect(
           find.byKey(ValueKey('history_calendar_marker_$yesterdayKey')),
           findsOneWidget,

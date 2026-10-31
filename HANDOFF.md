@@ -1,10 +1,10 @@
 # 当前交接
 
-## 1.11.4 内部发布准备（2026-11-01）
+## 1.11.4 内部发布（2026-11-01）
 
 分支 `feat/home-review-footer-20261101`。今天页底部固定72dp回顾提示卡和方形加号，正文实际裁切避让；两行文字完整单行并按文字组缩放。首次回顾与菜单从真实入口展开，历史入口保持默认。完整1567项Flutter测试、最终38项真实字体布局和来源动效测试、静态分析及差异检查通过；独立规范与需求复核发现的减少动画零时长滚动问题已修复。三处旧测试月初日期已稳定，不改产品逻辑。
 
-真实预览：`/Users/yezi/Documents/ChatGPT/荔枝日记/output/home-review-footer-20261101/`。示例记录已核对。版本 `1.11.4+53`。Release包版本、包名、原内部签名及包内CHANGELOG均已核对，交付文件 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/荔枝日记-1.11.4-内部发布版.apk`，65,353,675字节，SHA-256 `58c4f7f33767f49d57acfe7bba1b47d8106e2fdafbfcffb7fa9de4bda0911b21`。准备squash合并推送，无服务端改动；真机验收待完成。
+真实预览：`/Users/yezi/Documents/ChatGPT/荔枝日记/output/home-review-footer-20261101/`。示例记录已核对。版本 `1.11.4+53`。Release包版本、包名、原内部签名及包内CHANGELOG均已核对，交付文件 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/荔枝日记-1.11.4-内部发布版.apk`，65,353,675字节，SHA-256 `58c4f7f33767f49d57acfe7bba1b47d8106e2fdafbfcffb7fa9de4bda0911b21`。来源提交 `ed56490` 已squash合并为 `8a5bcff` 并推送GitHub主线，远端提交已核对，无服务端改动；真机验收待完成。
 
 
 ## 1.11.3 内部发布（2026-10-31）

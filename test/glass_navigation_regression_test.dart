@@ -76,8 +76,8 @@ Future<void> _mount(
 }
 
 void _expectSameRect(Rect actual, Rect expected) {
-  expect(actual.width, closeTo(72, 0.5));
-  expect(actual.height, closeTo(72, 0.5));
+  expect(actual.width, closeTo(48, 0.5));
+  expect(actual.height, closeTo(48, 0.5));
   expect(actual.left, closeTo(expected.left, 0.5));
   expect(actual.top, closeTo(expected.top, 0.5));
 }

@@ -131,6 +131,15 @@ class _CoachSaveFailure implements Exception {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _diaryLoadTimeout = Duration(seconds: 12);
+  static const _actionButtonSize = 48.0;
+
+  /// 提示卡与加号之间、加号与 Dock 之间统一 12dp。
+  static const _actionSpacing = 12.0;
+  static const _viewportGap = 16.0;
+
+  /// 提示卡显示时，操作区从 Dock 上沿到正文视口的总高度。
+  static const _actionClearance =
+      _actionSpacing + _actionButtonSize + _viewportGap;
 
   DiaryEntry? _diary;
   DateTime? _diaryDate;
@@ -396,7 +405,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _activeHabitKeys = settings.activeKeys.toSet();
       _customCheckboxStates = _readCustomCheckboxStates(diary, settings);
       _customDurationStates = _readCustomDurationStates(diary, settings);
+      _endCoachRevealIfActionsHidden();
     });
+  }
+
+  bool _showsCoachActions(DiaryDisplayState display) =>
+      !_loading &&
+      _diary != null &&
+      !display.hasOnlyHabits &&
+      !display.hasCoach &&
+      !_quickRecordExpanded;
+
+  /// 提示卡隐藏会改变操作区占位与视口尺寸，
+  /// 此时结束仍在播放的来源副本，由正文直接接管。
+  void _endCoachRevealIfActionsHidden() {
+    if (_coachOrigin == null) return;
+    final display = DiaryDisplayState(_diary?.raw ?? '', habitFallback: true);
+    if (!_showsCoachActions(display)) _resetCoachReveal();
   }
 
   void _showDiaryLoadFailure(Object error) {
@@ -408,6 +433,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _error = _diaryLoadFailureMessage(error);
       }
       _loading = false;
+      _endCoachRevealIfActionsHidden();
     });
   }
 
@@ -501,6 +527,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _diary = diary;
         _verified = diary != null;
         _error = null;
+        _endCoachRevealIfActionsHidden();
       });
     } catch (error) {
       if (!mounted || requestId != _diaryRefreshSerial) return;
@@ -510,6 +537,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _diary = null;
           _error = '认证失败，请检查连接设置后重试';
         }
+        _endCoachRevealIfActionsHidden();
       });
       ScaffoldMessenger.of(
         context,
@@ -1010,6 +1038,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _diary = diary;
       _verified = true;
       _error = null;
+      _endCoachRevealIfActionsHidden();
     });
   }
 
@@ -1120,7 +1149,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               theme.colorScheme.surface,
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: IconTheme.merge(
                 data: IconThemeData(
                   color: moduleTextColor(TodayRainbow.coach, theme),
@@ -1165,7 +1194,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       child: QuickRecordMenu(
         expanded: _quickRecordExpanded,
-        mainButtonSize: 72,
+        mainButtonSize: _actionButtonSize,
         mainButtonShape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -1331,8 +1360,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             : () => FloraOrigin.run(anchorContext, _handleGenerateCoach),
         style: TextButton.styleFrom(
           foregroundColor: moduleTextColor(TodayRainbow.coach, theme),
-          minimumSize: const Size(48, 72),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          minimumSize: const Size(_actionButtonSize, _actionButtonSize),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -1362,10 +1391,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  height: 1.3,
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               const Text(
                 '让小荔枝帮你整理这一天的点滴',
                 maxLines: 1,
@@ -1373,7 +1402,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  height: 1.4,
+                  height: 1.3,
                 ),
               ),
             ],
@@ -1438,12 +1467,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final footerBottom =
         FloraDockScope.maybeOf(context)?.fabBottom ??
         MediaQuery.paddingOf(context).bottom + 16;
-    final showCoach =
-        !_loading &&
-        _diary != null &&
-        !display.hasOnlyHabits &&
-        !display.hasCoach &&
-        !_quickRecordExpanded;
+    final showCoach = _showsCoachActions(display);
     return PopScope<void>(
       canPop: !_quickRecordExpanded,
       onPopInvokedWithResult: (didPop, _) {
@@ -1483,175 +1507,199 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           key: _homeBodyKey,
           children: [
             Positioned.fill(
-              bottom: footerBottom + 72 + 16,
-              child: ClipRect(
-                key: const Key('home_reading_viewport'),
-                child: SafeArea(
-                  top: false,
-                  bottom: false,
-                  child: QuickRecordBackdrop(
-                    key: _readingViewportKey,
-                    expanded: _quickRecordExpanded,
-                    bannerBottom: _headerInset,
-                    onDismiss: () =>
-                        setState(() => _quickRecordExpanded = false),
-                    child: _loading
-                        ? _buildHomeLoading()
-                        : Theme(
-                            data: theme.copyWith(
-                              canvasColor: theme.scaffoldBackgroundColor,
-                            ),
-                            child: RefreshIndicator(
-                              onRefresh: _loadDiary,
-                              edgeOffset: _headerInset,
-                              child: ListView(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                controller: _scrollController,
-                                padding: EdgeInsets.fromLTRB(
-                                  16,
-                                  _headerInset,
-                                  16,
-                                  16,
-                                ),
-                                children: [
-                                  const SizedBox(height: 16),
-                                  // 固定缓存提示的子项位置，避免刷新时重新估算正文滚动偏移。
-                                  if (!_verified && _diary != null)
-                                    ReadingCacheStatus(message: _error)
-                                  else
-                                    const SizedBox.shrink(),
-                                  _buildFocusTimerStrip(theme),
-                                  if (_diary != null) ...[
-                                    DiaryMarkdownView(
-                                      displayState: display,
-                                      showInitialCoachAction: false,
-                                      hideCoachDuringTransition:
-                                          _revealingCoach,
-                                      coachError: _coachError,
-                                      coachAnchor: _coachAnchor,
-                                      onOpenQuickRecord: () => setState(
-                                        () => _quickRecordExpanded = true,
-                                      ),
-                                      readOnly: !_verified,
-                                      showTodayPlaceholders: true,
-                                      markdown: _diary?.raw ?? '',
-                                      onHabitUpdate: _handleHabitUpdate,
-                                      onEntryDelete: _verified
-                                          ? (section, line) =>
-                                                _handleEntryDelete(
-                                                  section,
-                                                  line,
-                                                  expectedRaw: sourceRaw,
-                                                )
-                                          : null,
-                                      onEntryEdit: !_verified
-                                          ? null
-                                          : (
-                                              section,
-                                              line,
-                                              content,
-                                              tags,
-                                              time,
-                                            ) => _handleEntryEdit(
-                                              section,
-                                              line,
-                                              content,
-                                              tags,
-                                              time,
-                                              expectedRaw: sourceRaw,
+              bottom: footerBottom - _actionSpacing,
+              child: QuickRecordBackdrop(
+                expanded: _quickRecordExpanded,
+                bannerBottom: _headerInset,
+                onDismiss: () => setState(() => _quickRecordExpanded = false),
+                child: Stack(
+                  children: [
+                    // 模糊层覆盖到 Dock 上沿；阅读视口单独裁切。
+                    Positioned.fill(
+                      bottom: showCoach ? _actionClearance : 0,
+                      child: ClipRect(
+                        key: const Key('home_reading_viewport'),
+                        child: KeyedSubtree(
+                          key: _readingViewportKey,
+                          child: SafeArea(
+                            top: false,
+                            bottom: false,
+                            child: _loading
+                                ? _buildHomeLoading()
+                                : Theme(
+                                    data: theme.copyWith(
+                                      canvasColor:
+                                          theme.scaffoldBackgroundColor,
+                                    ),
+                                    child: RefreshIndicator(
+                                      onRefresh: _loadDiary,
+                                      edgeOffset: _headerInset,
+                                      child: ListView(
+                                        physics:
+                                            const AlwaysScrollableScrollPhysics(),
+                                        controller: _scrollController,
+                                        // 提示卡隐藏时视口多出 _actionClearance，
+                                        // 尾部同步增加等量留白以保持滚动位置。
+                                        padding: EdgeInsets.fromLTRB(
+                                          16,
+                                          _headerInset,
+                                          16,
+                                          showCoach
+                                              ? 16
+                                              : 16 + _actionClearance,
+                                        ),
+                                        children: [
+                                          const SizedBox(height: 16),
+                                          // 固定缓存提示的子项位置，避免刷新时重新估算正文滚动偏移。
+                                          if (!_verified && _diary != null)
+                                            ReadingCacheStatus(message: _error)
+                                          else
+                                            const SizedBox.shrink(),
+                                          _buildFocusTimerStrip(theme),
+                                          if (_diary != null) ...[
+                                            DiaryMarkdownView(
+                                              displayState: display,
+                                              showInitialCoachAction: false,
+                                              hideCoachDuringTransition:
+                                                  _revealingCoach,
+                                              coachError: _coachError,
+                                              coachAnchor: _coachAnchor,
+                                              onOpenQuickRecord: () => setState(
+                                                () =>
+                                                    _quickRecordExpanded = true,
+                                              ),
+                                              readOnly: !_verified,
+                                              showTodayPlaceholders: true,
+                                              markdown: _diary?.raw ?? '',
+                                              onHabitUpdate: _handleHabitUpdate,
+                                              onEntryDelete: _verified
+                                                  ? (section, line) =>
+                                                        _handleEntryDelete(
+                                                          section,
+                                                          line,
+                                                          expectedRaw:
+                                                              sourceRaw,
+                                                        )
+                                                  : null,
+                                              onEntryEdit: !_verified
+                                                  ? null
+                                                  : (
+                                                      section,
+                                                      line,
+                                                      content,
+                                                      tags,
+                                                      time,
+                                                    ) => _handleEntryEdit(
+                                                      section,
+                                                      line,
+                                                      content,
+                                                      tags,
+                                                      time,
+                                                      expectedRaw: sourceRaw,
+                                                    ),
+                                              onEntryEditWithEntryId: !_verified
+                                                  ? null
+                                                  : (
+                                                      section,
+                                                      rawLine,
+                                                      content,
+                                                      tags,
+                                                      time,
+                                                      id,
+                                                    ) => _handleEntryEdit(
+                                                      section,
+                                                      rawLine,
+                                                      content,
+                                                      tags,
+                                                      time,
+                                                      entryId: id,
+                                                      expectedRaw: sourceRaw,
+                                                    ),
+                                              onEntryEditCompleted:
+                                                  _loadDiarySilently,
+                                              onEntryPolish: _verified
+                                                  ? _handlePolish
+                                                  : null,
+                                              tagConfig: _tagConfig,
+                                              tagSettings: _tagSettings,
+                                              apiClient: widget.apiClient,
+                                              date: _activeDate,
+                                              onGenerateCoach:
+                                                  _handleGenerateCoach,
+                                              generatingCoach: _generatingCoach,
+                                              activeHabitKeys: _activeHabitKeys,
+                                              habitSettings:
+                                                  _habitSettings ??
+                                                  HabitSettings.defaults,
+                                              onCustomCheckboxToggle:
+                                                  _handleCustomCheckboxToggle,
+                                              onWaterQuickAmountsChanged:
+                                                  _handleWaterQuickAmountsChanged,
+                                              onStartDuration:
+                                                  _handleStartDuration,
+                                              onDurationUpdate:
+                                                  _handleDurationUpdate,
+                                              onCustomDurationUpdate:
+                                                  _handleCustomDurationUpdate,
+                                              imagePicker: widget.imagePicker,
+                                              imageCompressor:
+                                                  widget.imageCompressor,
                                             ),
-                                      onEntryEditWithEntryId: !_verified
-                                          ? null
-                                          : (
-                                              section,
-                                              rawLine,
-                                              content,
-                                              tags,
-                                              time,
-                                              id,
-                                            ) => _handleEntryEdit(
-                                              section,
-                                              rawLine,
-                                              content,
-                                              tags,
-                                              time,
-                                              entryId: id,
-                                              expectedRaw: sourceRaw,
+                                          ] else if (_error != null) ...[
+                                            FloraErrorState(
+                                              message: _error!,
+                                              onRetry: _loadDiary,
                                             ),
-                                      onEntryEditCompleted: _loadDiarySilently,
-                                      onEntryPolish: _verified
-                                          ? _handlePolish
-                                          : null,
-                                      tagConfig: _tagConfig,
-                                      tagSettings: _tagSettings,
-                                      apiClient: widget.apiClient,
-                                      date: _activeDate,
-                                      onGenerateCoach: _handleGenerateCoach,
-                                      generatingCoach: _generatingCoach,
-                                      activeHabitKeys: _activeHabitKeys,
-                                      habitSettings:
-                                          _habitSettings ??
-                                          HabitSettings.defaults,
-                                      onCustomCheckboxToggle:
-                                          _handleCustomCheckboxToggle,
-                                      onWaterQuickAmountsChanged:
-                                          _handleWaterQuickAmountsChanged,
-                                      onStartDuration: _handleStartDuration,
-                                      onDurationUpdate: _handleDurationUpdate,
-                                      onCustomDurationUpdate:
-                                          _handleCustomDurationUpdate,
-                                      imagePicker: widget.imagePicker,
-                                      imageCompressor: widget.imageCompressor,
-                                    ),
-                                  ] else if (_error != null) ...[
-                                    FloraErrorState(
-                                      message: _error!,
-                                      onRetry: _loadDiary,
-                                    ),
-                                  ] else ...[
-                                    Text(
-                                      '今日还没有日记内容',
-                                      style: TextStyle(
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant,
+                                          ] else ...[
+                                            Text(
+                                              '今日还没有日记内容',
+                                              style: TextStyle(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            HabitCard(
+                                              readOnly: !_verified,
+                                              key: const ValueKey('habit_card'),
+                                              section: HabitSection.empty(),
+                                              onUpdate: _handleHabitUpdate,
+                                              activeHabitKeys: _activeHabitKeys,
+                                              habitSettings:
+                                                  _habitSettings ??
+                                                  HabitSettings.defaults,
+                                              onCustomCheckboxToggle:
+                                                  _handleCustomCheckboxToggle,
+                                              onWaterQuickAmountsChanged:
+                                                  _handleWaterQuickAmountsChanged,
+                                              onStartDuration:
+                                                  _handleStartDuration,
+                                              onDurationUpdate:
+                                                  _handleDurationUpdate,
+                                              onCustomDurationUpdate:
+                                                  _handleCustomDurationUpdate,
+                                              diaryDate: _activeDate,
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(height: 16),
-                                    HabitCard(
-                                      readOnly: !_verified,
-                                      key: const ValueKey('habit_card'),
-                                      section: HabitSection.empty(),
-                                      onUpdate: _handleHabitUpdate,
-                                      activeHabitKeys: _activeHabitKeys,
-                                      habitSettings:
-                                          _habitSettings ??
-                                          HabitSettings.defaults,
-                                      onCustomCheckboxToggle:
-                                          _handleCustomCheckboxToggle,
-                                      onWaterQuickAmountsChanged:
-                                          _handleWaterQuickAmountsChanged,
-                                      onStartDuration: _handleStartDuration,
-                                      onDurationUpdate: _handleDurationUpdate,
-                                      onCustomDurationUpdate:
-                                          _handleCustomDurationUpdate,
-                                      diaryDate: _activeDate,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
+                                  ),
                           ),
-                  ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            Positioned(
-              left: 16,
-              right: 100,
-              bottom: footerBottom,
-              height: 72,
-              child: Visibility(
-                visible: showCoach,
+            if (showCoach)
+              Positioned(
+                left: 16,
+                right: 16 + _actionButtonSize + _actionSpacing,
+                bottom: footerBottom,
+                height: _actionButtonSize,
                 child: ExcludeSemantics(
                   excluding: _revealingCoach,
                   child: Opacity(
@@ -1660,7 +1708,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            ),
             if (_revealingCoach) _buildCoachOriginOverlay(theme),
           ],
         ),

@@ -137,7 +137,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
-  testWidgets('首页记录菜单从72dp方形加号展开并收回', (tester) async {
+  testWidgets('首页记录菜单从48dp方形加号展开并收回', (tester) async {
     FlutterSecureStorage.setMockInitialValues({});
     final client = ApiClient(
       ApiConfig(baseUrl: 'https://example.invalid', token: 'fixture'),
@@ -298,11 +298,11 @@ void main() {
           final capsule = tester.getRect(
             find.byKey(const ValueKey('generate_coach_capsule')),
           );
-          expect(fab.width, closeTo(72, 0.01));
-          expect(fab.height, closeTo(72, 0.01));
+          expect(fab.width, closeTo(48, 0.01));
+          expect(fab.height, closeTo(48, 0.01));
           expect(fab.left - capsule.right, closeTo(12, .01));
           expect(capsule.top, fab.top);
-          expect(capsule.height, 72);
+          expect(capsule.height, 48);
           expect(
             find.ancestor(
               of: find.byKey(const ValueKey('generate_coach_capsule')),
@@ -313,7 +313,7 @@ void main() {
           final viewport = tester.getRect(
             find.byKey(const Key('home_reading_viewport')),
           );
-          expect(viewport.bottom, lessThanOrEqualTo(capsule.top - 16));
+          expect(viewport.bottom, closeTo(capsule.top - 16, .01));
           final subtitle = tester.widget<Text>(find.text('让小荔枝帮你整理这一天的点滴'));
           expect(subtitle.maxLines, 1);
           expect(subtitle.softWrap, isFalse);

@@ -6,7 +6,7 @@
 
 先补失败回归再实现：新增13项测试覆盖48dp几何与视口、菜单／已生成回顾／空模板三种隐藏状态、尾部留白与末条滚入、模糊到Dock上沿、外部按压不穿透、滚动到底开关与连续点击、生成成功结束副本及失败恢复，并同步更新旧72dp断言；移除副本重置后“生成成功”用例确认失败，恢复后通过。真实字体预览（浅深色提示卡、菜单展开、已生成回顾，含320dp两倍字）位于 `build/home-action-preview-20261101/`，已目视核对。`flutter analyze --no-pub` 无问题，完整1580项Flutter测试通过，`git diff --check` 通过。独立规范／需求双轴审查无阻塞项；规范轴指出的隐藏判定与空日记路径已合并为单一谓词，并在静默刷新／认证失败时同步结束来源副本；需求轴要求的生成后滚动留白断言已补。真机视觉与触控验收待完成。
 
-版本 `1.11.5+54`。Release包版本、包名、原内部签名及包内CHANGELOG均已核对，交付文件 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/荔枝日记-1.11.5-内部发布版.apk`，65,353,859字节，SHA-256 `884af8082f074446f8171e13564c10a336cd05d3c7e110b46bd75f3ae51d362b`；包名 `com.example.litchi_journal_flutter`、versionCode 54，V2签名证书SHA-256 `4b15b79943c8e123ab288bfcb76e6235d59cc265b9e56e40660eb69af499c433`，与既有内部包一致。来源提交待squash合并并推送GitHub主线；未安装，真机验收待完成。
+版本 `1.11.5+54`。Release包版本、包名、原内部签名及包内CHANGELOG均已核对，交付文件 `/Users/yezi/Documents/ChatGPT/荔枝日记/output/荔枝日记-1.11.5-内部发布版.apk`，65,353,859字节，SHA-256 `884af8082f074446f8171e13564c10a336cd05d3c7e110b46bd75f3ae51d362b`；包名 `com.example.litchi_journal_flutter`、versionCode 54，V2签名证书SHA-256 `4b15b79943c8e123ab288bfcb76e6235d59cc265b9e56e40660eb69af499c433`，与既有内部包一致。来源提交 `319c313` 已squash合并为 `a13e8ac` 并推送GitHub主线，远端提交已核对，无服务端改动；未安装，真机视觉、触控与读屏验收待完成。
 
 ## 1.11.4 内部发布（2026-11-01）
 

@@ -1,6 +1,6 @@
 # 当前进度与后续安排
 
-截至 2026-11-01，客户端清单为 `1.11.4+53`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
+截至 2026-11-06，客户端清单为 `1.11.6+55`。仅维护 Android 客户端与 `server/` API；Web、iOS、Linux、macOS、Windows 客户端工程已移除。实现和交付证据见 [HANDOFF.md](HANDOFF.md)，长期约束见 [AGENTS.md](AGENTS.md)，产品定位见 [PRODUCT.md](PRODUCT.md)。
 
 ## 服务器表单与设置布局修正
 

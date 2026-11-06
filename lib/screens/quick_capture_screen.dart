@@ -407,7 +407,7 @@ class _QuickCaptureScreenState extends State<QuickCaptureScreen> {
       ];
       setState(() {
         _controller.text = result.content;
-        _selectedTags = tags;
+        if (result.tags.isNotEmpty) _selectedTags = tags;
         _controller.selection = TextSelection.collapsed(
           offset: result.content.length,
         );

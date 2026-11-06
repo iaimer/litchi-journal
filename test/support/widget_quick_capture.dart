@@ -660,6 +660,45 @@ void registerQuickCaptureTests() {
       expect(find.text('工作'), findsWidgets);
     });
 
+    for (final entryType in EntryType.values) {
+      testWidgets('${entryType.label}润色未返回标签时保留已选标签并保存', (tester) async {
+        List<String>? savedTags;
+        await tester.pumpWidget(
+          buildCapture(
+            entryType: entryType,
+            tagConfig: _testTagConfig(),
+            onPolish: (_, _) async =>
+                const PolishResult(content: '润色后的内容', tags: []),
+            onSave: (submission) async => savedTags = submission.tags,
+          ),
+        );
+
+        await tester.enterText(find.byType(TextField), '原始内容');
+        await tester.tap(find.byKey(const Key('quick_capture_tag_toggle')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(ChoiceChip, '工作'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(ChoiceChip, '任务执行'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('quick_capture_tag_toggle')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('quick_capture_polish')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('润色后的内容'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(TagSelectionSummary),
+            matching: find.text('任务执行'),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.widgetWithText(ElevatedButton, '保存'));
+        await tester.pumpAndSettle();
+        expect(savedTags, ['工作', '任务执行']);
+      });
+    }
+
     testWidgets('save and tags stay disabled while polish is pending', (
       tester,
     ) async {
